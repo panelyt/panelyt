@@ -12,3 +12,9 @@ router = APIRouter()
 async def healthcheck(session: SessionDep) -> dict[str, str]:
     await session.execute(text("SELECT 1"))
     return {"status": "ok"}
+
+
+@router.get("/health", summary="Health check for Docker")
+async def health(session: SessionDep) -> dict[str, str]:
+    await session.execute(text("SELECT 1"))
+    return {"status": "ok"}

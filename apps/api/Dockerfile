@@ -18,6 +18,7 @@ COPY src ./src
 COPY alembic.ini ./alembic.ini
 COPY alembic ./alembic
 COPY scripts ./scripts
+COPY data ./data
 
 RUN uv sync --no-dev
 
