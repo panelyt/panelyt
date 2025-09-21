@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -33,7 +33,7 @@ class IngestionRepository:
 
     async def finalize_run_log(self, log_id: int, status: str, note: str | None = None) -> None:
         values = {
-            'finished_at': datetime.now(timezone.utc),
+            'finished_at': datetime.now(UTC),
             'status': status,
         }
         if note is not None:
