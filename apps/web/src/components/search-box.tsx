@@ -4,8 +4,13 @@ import { useState } from "react";
 import { useDebounce } from "../hooks/useDebounce";
 import { useBiomarkerSearch } from "../hooks/useBiomarkerSearch";
 
+interface SelectedBiomarker {
+  code: string;
+  name: string;
+}
+
 interface Props {
-  onSelect: (biomarker: string) => void;
+  onSelect: (biomarker: SelectedBiomarker) => void;
 }
 
 export function SearchBox({ onSelect }: Props) {
@@ -14,11 +19,11 @@ export function SearchBox({ onSelect }: Props) {
   const { data, isFetching } = useBiomarkerSearch(debounced);
   const suggestions = data?.results ?? [];
 
-  const handleSubmit = (value: string) => {
+  const handleSubmit = (value: string, name?: string) => {
     const trimmed = value.trim();
     if (!trimmed) return;
     const normalized = /[^a-z0-9-]/i.test(trimmed) ? trimmed : trimmed.toUpperCase();
-    onSelect(normalized);
+    onSelect({ code: normalized, name: name || normalized });
     setQuery("");
   };
 
@@ -56,7 +61,7 @@ export function SearchBox({ onSelect }: Props) {
               <li key={`${item.name}-${display}`}>
                 <button
                   type="button"
-                  onClick={() => handleSubmit(selection)}
+                  onClick={() => handleSubmit(selection, item.name)}
                   className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-100"
                 >
                   <span className="font-medium text-slate-800">{item.name}</span>

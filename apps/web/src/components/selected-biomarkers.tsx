@@ -1,8 +1,13 @@
 "use client";
 
+interface SelectedBiomarker {
+  code: string;
+  name: string;
+}
+
 interface Props {
-  biomarkers: string[];
-  onRemove: (biomarker: string) => void;
+  biomarkers: SelectedBiomarker[];
+  onRemove: (code: string) => void;
 }
 
 export function SelectedBiomarkers({ biomarkers, onRemove }: Props) {
@@ -16,17 +21,15 @@ export function SelectedBiomarkers({ biomarkers, onRemove }: Props) {
 
   return (
     <div className="flex flex-wrap gap-2">
-      {biomarkers.map((token) => (
+      {biomarkers.map((biomarker) => (
         <button
-          key={token}
+          key={biomarker.code}
           type="button"
-          onClick={() => onRemove(token)}
-          className="group flex items-center gap-2 rounded-full border border-brand bg-brand/5 px-3 py-1 text-xs font-semibold uppercase text-brand transition hover:bg-brand hover:text-white"
+          onClick={() => onRemove(biomarker.code)}
+          className="flex items-center rounded-full border border-brand bg-brand/5 px-3 py-1 text-xs font-semibold text-brand transition-colors hover:border-red-500 hover:bg-red-500 hover:text-white"
+          title={`Remove ${biomarker.name}`}
         >
-          {token}
-          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-normal uppercase text-brand group-hover:bg-white/20 group-hover:text-white">
-            Remove
-          </span>
+          {biomarker.name}
         </button>
       ))}
     </div>
