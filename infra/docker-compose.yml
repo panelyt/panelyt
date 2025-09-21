@@ -4,7 +4,7 @@ services:
     env_file:
       - ../apps/api/.env
     ports:
-      - "8001:8000"
+      - "8002:8000"
     networks:
       - shared-db
     restart: unless-stopped
@@ -19,9 +19,9 @@ services:
       context: ..
       dockerfile: apps/web/Dockerfile
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8001}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8002}
     ports:
-      - "3001:3000"
+      - "3002:3000"
     depends_on:
       - api
     restart: unless-stopped
