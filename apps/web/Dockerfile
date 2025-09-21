@@ -8,6 +8,8 @@ RUN corepack enable && pnpm install --filter @panelyt/types --filter @panelyt/we
 FROM node:20-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_API_URL=http://homeserver.tailb4f5f1.ts.net:8002
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY --from=deps /app ./
 COPY . .
 RUN corepack enable \
