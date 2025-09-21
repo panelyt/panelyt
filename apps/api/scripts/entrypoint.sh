@@ -32,4 +32,4 @@ echo "✅ Migrations completed"
 
 # Start the API server
 echo "🌟 Starting API server..."
-exec uv run uvicorn panelyt_api.app:app --host 0.0.0.0 --port 8000
+exec uv run uvicorn panelyt_api.main:app --host 0.0.0.0 --port 8000
