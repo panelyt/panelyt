@@ -7,6 +7,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    Enum,
     ForeignKey,
     Integer,
     String,
@@ -28,6 +29,26 @@ class Biomarker(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     items: Mapped[list[ItemBiomarker]] = relationship("ItemBiomarker", back_populates="biomarker")
+    aliases: Mapped[list[BiomarkerAlias]] = relationship(
+        "BiomarkerAlias", back_populates="biomarker", cascade="all, delete-orphan"
+    )
+
+
+class BiomarkerAlias(Base):
+    __tablename__ = "biomarker_alias"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    biomarker_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("biomarker.id", ondelete="CASCADE"), nullable=False
+    )
+    alias: Mapped[str] = mapped_column(String(255), nullable=False)
+    alias_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    biomarker: Mapped[Biomarker] = relationship("Biomarker", back_populates="aliases")
 
 
 class Item(Base):
@@ -118,6 +139,7 @@ class AppActivity(Base):
 __all__ = [
     "AppActivity",
     "Biomarker",
+    "BiomarkerAlias",
     "IngestionLog",
     "Item",
     "ItemBiomarker",

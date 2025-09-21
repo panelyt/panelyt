@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from panelyt_api.core.settings import get_settings
 from panelyt_api.db import models
@@ -60,16 +61,38 @@ async def search_biomarkers(
         return BiomarkerSearchResponse(results=[])
 
     like_pattern = f"%{normalized}%"
-    statement = (
+
+    # First try exact matches for elab_code (most important for lookups)
+    exact_elab_statement = (
         select(models.Biomarker)
-        .where(
-            func.lower(models.Biomarker.name).like(like_pattern)
-            | func.lower(func.coalesce(models.Biomarker.elab_code, "")).like(like_pattern)
-        )
+        .where(func.lower(func.coalesce(models.Biomarker.elab_code, "")) == normalized)
         .order_by(models.Biomarker.name.asc())
         .limit(limit)
     )
-    results = (await session.execute(statement)).scalars().all()
+    exact_results = (await session.execute(exact_elab_statement)).scalars().all()
+
+    if exact_results:
+        # If we found exact elab_code matches, return them
+        results = exact_results
+    else:
+        # Otherwise, do fuzzy search in biomarkers and their aliases
+        statement = (
+            select(models.Biomarker)
+            .distinct()
+            .outerjoin(models.BiomarkerAlias)
+            .where(
+                or_(
+                    # Search in biomarker name and elab_code
+                    func.lower(models.Biomarker.name).like(like_pattern),
+                    func.lower(func.coalesce(models.Biomarker.elab_code, "")).like(like_pattern),
+                    # Search in aliases
+                    func.lower(models.BiomarkerAlias.alias).like(like_pattern)
+                )
+            )
+            .order_by(models.Biomarker.name.asc())
+            .limit(limit)
+        )
+        results = (await session.execute(statement)).scalars().all()
     payload = [
         BiomarkerOut(id=row.id, name=row.name, elab_code=row.elab_code, slug=row.slug)
         for row in results
