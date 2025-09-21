@@ -1,0 +1,30 @@
+# Node
+node_modules/
+pm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.env
+.venv/
+.uv-cache/
+
+# Build outputs
+.next/
+out/
+dist/
+coverage/
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Docker
+*.local
+packages/types/dist/

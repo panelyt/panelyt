@@ -38,9 +38,9 @@ panelyt/
 
 ## Data Sources (diag.pl)
 
-* Packages: `...products?filter[type]=package,shop-package&filter[institution]=1135&limit=200&page=1&include=prices`
-* Single tests: `...products?filter[type]=bloodtest&filter[institution]=1135&limit=200&page=1&include=prices`
-* Combined: `...products?filter[type]=package,shop-package,bloodtest&filter[institution]=1135&limit=200&page=1&include=prices`
+* Packages: `https://api-eshop.diag.pl/api/front/v1/products?filter[type]=package,shop-package&filter[institution]=1135&limit=200&page=1&include=prices`
+* Single tests: `https://api-eshop.diag.pl/api/front/v1/products?filter[type]=bloodtest&filter[institution]=1135&limit=200&page=1&include=prices`
+* Combined: `https://api-eshop.diag.pl/api/front/v1/products?filter[type]=package,shop-package,bloodtest&filter[institution]=1135&limit=200&page=1&include=prices`
 
 Rules:
 

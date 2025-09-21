@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+from functools import lru_cache
+
+from pydantic import AnyHttpUrl, Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    database_url: str = Field(..., alias="DATABASE_URL")
+    db_schema: str = Field(default="panelyt", alias="DB_SCHEMA")
+    cors_origins_raw: str | list[str] = Field(default_factory=list, alias="CORS_ORIGINS")
+    timezone: str = Field(default="Europe/Oslo", alias="TIMEZONE")
+    ingestion_staleness_threshold_hours: int = Field(
+        default=3, alias="INGESTION_STALENESS_THRESHOLD_HOURS"
+    )
+    ingestion_user_activity_window_hours: int = Field(
+        default=24, alias="INGESTION_USER_ACTIVITY_WINDOW_HOURS"
+    )
+
+    @field_validator("cors_origins_raw", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: str | list[str]) -> list[str]:
+        if isinstance(value, list):
+            parsed = [str(item).rstrip('/') for item in value]
+        elif isinstance(value, str):
+            parsed = [origin.strip().rstrip('/') for origin in value.split(",") if origin.strip()]
+        else:
+            parsed = []
+
+        expanded: set[str] = set(parsed)
+        for origin in parsed:
+            if origin.startswith("http://localhost"):
+                expanded.add(origin.replace("localhost", "127.0.0.1", 1))
+        return sorted(expanded)
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return self.cors_origins_raw  # type: ignore[return-value]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()  # type: ignore[call-arg]
+
+
+__all__ = ["Settings", "get_settings"]
