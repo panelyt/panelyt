@@ -3,6 +3,7 @@
 import type { OptimizeResponse } from "@panelyt/types";
 
 import { formatCurrency, formatGroszToPln } from "../lib/format";
+import { useBiomarkerLookup } from "../hooks/useBiomarkerLookup";
 
 interface Props {
   selected: string[];
@@ -12,6 +13,11 @@ interface Props {
 }
 
 export function OptimizationResults({ selected, result, isLoading, error }: Props) {
+  // Collect all unique biomarker codes from the result for name lookup
+  const allBiomarkerCodes = result?.items.flatMap(item => item.biomarkers) ?? [];
+  const uniqueCodes = Array.from(new Set(allBiomarkerCodes));
+  const { data: biomarkerNames } = useBiomarkerLookup(uniqueCodes);
+
   if (selected.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
@@ -101,9 +107,25 @@ export function OptimizationResults({ selected, result, isLoading, error }: Prop
                         >
                           {item.name}
                         </a>
-                        <p className="mt-1 text-xs uppercase text-slate-400">
-                          Covers: {item.biomarkers.join(", ")}
-                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {item.biomarkers.map((biomarker) => {
+                            const isBonus = !selected.includes(biomarker);
+                            const displayName = biomarkerNames?.[biomarker] || biomarker;
+                            return (
+                              <span
+                                key={biomarker}
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                  isBonus
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-slate-100 text-slate-600"
+                                }`}
+                                title={`${displayName} (${biomarker})${isBonus ? ' - Bonus biomarker' : ''}`}
+                              >
+                                {displayName}
+                              </span>
+                            );
+                          })}
+                        </div>
                       </div>
                       <div className="text-right text-xs text-slate-500">
                         <p>Current</p>
@@ -131,14 +153,32 @@ export function OptimizationResults({ selected, result, isLoading, error }: Prop
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold uppercase text-slate-500">Coverage matrix</h3>
-        <dl className="mt-3 grid gap-2 md:grid-cols-2">
-          {Object.entries(result.explain).map(([token, items]) => (
-            <div key={token} className="rounded-md border border-slate-100 bg-slate-50 p-3">
-              <dt className="text-xs font-semibold uppercase text-slate-500">{token}</dt>
-              <dd className="text-sm text-slate-700">{items.join(", ")}</dd>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {result.items.map((item) => (
+            <div key={item.id} className="rounded-md border border-slate-100 bg-slate-50 p-3">
+              <div className="mb-2 text-xs font-semibold text-slate-500">{item.name}</div>
+              <div className="flex flex-wrap gap-1">
+                {item.biomarkers.map((biomarker) => {
+                  const isBonus = !selected.includes(biomarker);
+                  const displayName = biomarkerNames?.[biomarker] || biomarker;
+                  return (
+                    <span
+                      key={biomarker}
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        isBonus
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                      title={`${displayName} (${biomarker})${isBonus ? ' - Bonus biomarker' : ''}`}
+                    >
+                      {displayName}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           ))}
-        </dl>
+        </div>
       </section>
     </div>
   );
