@@ -7,24 +7,32 @@ import { OptimizationResults } from "../components/optimization-results";
 import { SearchBox } from "../components/search-box";
 import { SelectedBiomarkers } from "../components/selected-biomarkers";
 
+interface SelectedBiomarker {
+  code: string;
+  name: string;
+}
+
 export default function Home() {
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<SelectedBiomarker[]>([]);
   const { data: meta } = useCatalogMeta();
 
-  const optimizerInput = useMemo(() => Array.from(new Set(selected)), [selected]);
+  const optimizerInput = useMemo(() =>
+    Array.from(new Set(selected.map(b => b.code))),
+    [selected]
+  );
   const optimization = useOptimization(optimizerInput);
 
-  const handleSelect = (token: string) => {
+  const handleSelect = (biomarker: SelectedBiomarker) => {
     setSelected((current) => {
-      const normalized = token.trim();
+      const normalized = biomarker.code.trim();
       if (!normalized) return current;
-      if (current.includes(normalized)) return current;
-      return [...current, normalized];
+      if (current.some(b => b.code === normalized)) return current;
+      return [...current, { code: normalized, name: biomarker.name }];
     });
   };
 
-  const handleRemove = (token: string) => {
-    setSelected((current) => current.filter((item) => item !== token));
+  const handleRemove = (code: string) => {
+    setSelected((current) => current.filter((item) => item.code !== code));
   };
 
   return (
@@ -51,7 +59,7 @@ export default function Home() {
         <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4">
             <SearchBox onSelect={handleSelect} />
-            <SelectedBiomarkers biomarkers={optimizerInput} onRemove={handleRemove} />
+            <SelectedBiomarkers biomarkers={selected} onRemove={handleRemove} />
           </div>
         </section>
 
