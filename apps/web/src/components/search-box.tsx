@@ -19,11 +19,31 @@ export function SearchBox({ onSelect }: Props) {
   const { data, isFetching } = useBiomarkerSearch(debounced);
   const suggestions = data?.results ?? [];
 
-  const handleSubmit = (value: string, name?: string) => {
-    const trimmed = value.trim();
+  const handleSubmit = (value?: string, name?: string) => {
+    // If value and name are provided, use them directly (clicked suggestion)
+    if (value && name) {
+      const normalized = /[^a-z0-9-]/i.test(value) ? value : value.toUpperCase();
+      onSelect({ code: normalized, name });
+      setQuery("");
+      return;
+    }
+
+    // If no specific value provided, try to use first search result
+    if (suggestions.length > 0) {
+      const firstResult = suggestions[0];
+      const selection = firstResult.elab_code
+        ? firstResult.elab_code.toUpperCase()
+        : (firstResult.slug ?? firstResult.name);
+      onSelect({ code: selection, name: firstResult.name });
+      setQuery("");
+      return;
+    }
+
+    // Fallback: use the current query as before
+    const trimmed = query.trim();
     if (!trimmed) return;
     const normalized = /[^a-z0-9-]/i.test(trimmed) ? trimmed : trimmed.toUpperCase();
-    onSelect({ code: normalized, name: name || normalized });
+    onSelect({ code: normalized, name: normalized });
     setQuery("");
   };
 
@@ -36,7 +56,7 @@ export function SearchBox({ onSelect }: Props) {
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              handleSubmit(query);
+              handleSubmit();
             }
           }}
           className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
@@ -44,7 +64,7 @@ export function SearchBox({ onSelect }: Props) {
         />
         <button
           type="button"
-          onClick={() => handleSubmit(query)}
+          onClick={() => handleSubmit()}
           className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-600"
         >
           Add
