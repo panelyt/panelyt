@@ -141,7 +141,6 @@ TIMEZONE=Europe/Oslo
 **infra/docker-compose.yml (api+web only):**
 
 ```yaml
-version: "3.9"
 services:
   api:
     build: ../apps/api
