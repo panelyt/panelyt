@@ -1,0 +1,58 @@
+Metadata-Version: 2.4
+Name: panelyt-api
+Version: 0.1.0
+Summary: Panelyt FastAPI service
+Author: Panelyt
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.110
+Requires-Dist: uvicorn[standard]>=0.23
+Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: greenlet>=3.0
+Requires-Dist: psycopg2-binary>=2.9
+Requires-Dist: asyncpg>=0.29
+Requires-Dist: alembic>=1.12
+Requires-Dist: pydantic>=2.6
+Requires-Dist: pydantic-settings>=2.2
+Requires-Dist: httpx>=0.27
+Requires-Dist: apscheduler>=3.10
+Requires-Dist: orjson>=3.9
+Requires-Dist: ortools>=9.10
+Requires-Dist: python-dateutil>=2.8
+Requires-Dist: tenacity>=8.2
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
+Requires-Dist: pytest-cov>=4.1; extra == "dev"
+Requires-Dist: ruff>=0.5; extra == "dev"
+Requires-Dist: mypy>=1.10; extra == "dev"
+Requires-Dist: types-python-dateutil; extra == "dev"
+
+# Panelyt API
+
+FastAPI service that ingests the diag.pl catalog, stores a 30-day price history, and exposes
+optimization endpoints for the frontend. See `SPEC.md` for architecture details.
+
+## Setup
+
+Install [uv](https://github.com/astral-sh/uv) and run:
+
+```bash
+cd apps/api
+UV_PROJECT_ENVIRONMENT=.venv uv sync --extra dev
+```
+
+This creates `.venv/` managed by uv and installs dev tooling (pytest, ruff, etc.).
+
+## Common commands
+
+Run all tooling via `uv run` so the managed environment is used:
+
+```bash
+UV_PROJECT_ENVIRONMENT=.venv uv run uvicorn panelyt_api.main:app --reload
+UV_PROJECT_ENVIRONMENT=.venv uv run alembic upgrade head
+UV_PROJECT_ENVIRONMENT=.venv uv run pytest
+UV_PROJECT_ENVIRONMENT=.venv uv run ruff check src
+```
+
+The repository Makefile wraps these commands (e.g. `make dev-api`, `make test-api`).

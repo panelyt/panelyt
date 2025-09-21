@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Panelyt Web
 
-## Getting Started
+Next.js App Router client for Panelyt. Provides biomarker search, selection chips, and an
+optimization dashboard that consumes the FastAPI backend.
 
-First, run the development server:
+## Local development
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Install dependencies (from repository root):
+   ```bash
+   make install-web
+   ```
+2. Copy `.env.local.example` to `.env.local` if you need to override `NEXT_PUBLIC_API_URL`.
+3. Start the dev server:
+   ```bash
+   make dev-web
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app expects the API on `http://localhost:8000`. Update `NEXT_PUBLIC_API_URL` if you run the API
+elsewhere.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Key scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `pnpm dev` – Next.js dev server (Turbo).
+- `pnpm build` – production build (`.next/standalone`).
+- `pnpm lint` – ESLint.
+- `pnpm typecheck` – TypeScript project validation.
 
-## Learn More
+## Structure
 
-To learn more about Next.js, take a look at the following resources:
+- `src/app` – App Router pages and layout.
+- `src/components` – UI components (search box, selected chips, optimization results).
+- `src/hooks` – React Query hooks and helpers.
+- `src/lib` – HTTP helper + currency formatting.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Shared schemas live in `packages/types` and are imported via `@panelyt/types`.

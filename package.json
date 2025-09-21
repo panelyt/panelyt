@@ -1,0 +1,6 @@
+{
+  "name": "panelyt-workspace",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "packageManager": "pnpm@9.12.0"
+}
