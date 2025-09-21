@@ -1,8 +1,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY packages/types ./packages/types
-COPY apps/web/package.json apps/web/pnpm-lock.yaml ./apps/web/
+COPY apps/web/package.json ./apps/web/
 RUN corepack enable && pnpm install --filter @panelyt/types --filter @panelyt/web...
 
 FROM node:20-alpine AS builder
