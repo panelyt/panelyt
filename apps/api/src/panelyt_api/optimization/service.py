@@ -63,7 +63,7 @@ class OptimizationService:
 
         candidates = await self._collect_candidates(resolved)
         pruned = self._prune_candidates(candidates)
-        solution = self._run_solver(pruned, resolved)
+        solution = await self._run_solver(pruned, resolved)
 
         uncovered_tokens = set(solution.uncovered) | self._uncovered_tokens(resolved, pruned)
         combined_uncovered = list(dict.fromkeys(unresolved_inputs + sorted(uncovered_tokens)))
@@ -194,7 +194,7 @@ class OptimizationService:
                 dominant.append(item)
         return dominant
 
-    def _run_solver(
+    async def _run_solver(
         self, candidates: Sequence[CandidateItem], biomarkers: Sequence[ResolvedBiomarker]
     ) -> OptimizeResponse:
         model = cp_model.CpModel()
@@ -258,6 +258,10 @@ class OptimizationService:
             for token in item.coverage:
                 explain.setdefault(token, []).append(item.name)
 
+        # Fetch all biomarkers for chosen items to show bonus biomarkers
+        chosen_item_ids = [item.id for item in chosen]
+        all_biomarkers = await self._get_all_biomarkers_for_items(chosen_item_ids)
+
         items_payload = [
             {
                 "id": item.id,
@@ -267,7 +271,7 @@ class OptimizationService:
                 "price_now_grosz": item.price_now,
                 "price_min30_grosz": item.price_min30,
                 "currency": "PLN",
-                "biomarkers": sorted(item.coverage),
+                "biomarkers": sorted(all_biomarkers.get(item.id, [])),
                 "url": _item_url(item),
                 "on_sale": item.on_sale,
             }
@@ -291,6 +295,30 @@ class OptimizationService:
             available.update(item.coverage)
         tokens = {b.token for b in biomarkers}
         return tokens - available
+
+    async def _get_all_biomarkers_for_items(self, item_ids: list[int]) -> dict[int, list[str]]:
+        """Fetch all biomarkers for the given items to show bonus biomarkers."""
+        if not item_ids:
+            return {}
+
+        statement = (
+            select(
+                models.ItemBiomarker.item_id,
+                models.Biomarker.elab_code,
+            )
+            .join(models.Biomarker, models.Biomarker.id == models.ItemBiomarker.biomarker_id)
+            .where(models.ItemBiomarker.item_id.in_(item_ids))
+            .where(models.Biomarker.elab_code.is_not(None))
+        )
+
+        rows = (await self.session.execute(statement)).all()
+        result: dict[int, list[str]] = {}
+        for item_id, elab_code in rows:
+            if item_id not in result:
+                result[item_id] = []
+            result[item_id].append(elab_code)
+
+        return result
 
 
 def _item_url(item: CandidateItem) -> str:
