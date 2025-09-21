@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from panelyt_api.core.settings import Settings
@@ -19,7 +19,7 @@ class IngestionService:
         self._settings = settings
 
     async def ensure_fresh_data(self) -> None:
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         async with get_session() as session:
             repo = IngestionRepository(session)
             latest_fetch = await repo.latest_fetched_at()
@@ -47,7 +47,7 @@ class IngestionService:
             logger.info("Skipping scheduled ingestion; already fresh for active users")
             return
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
 
         async with self._ingestion_session() as repo:
             log_id = await repo.create_run_log(started_at=now_utc, reason=reason or "manual")
@@ -87,8 +87,8 @@ class IngestionService:
         inactivity = True
         if last_activity is not None:
             inactivity = (
-                now_local.astimezone(timezone.utc)
-                - last_activity.astimezone(timezone.utc)
+                now_local.astimezone(UTC)
+                - last_activity.astimezone(UTC)
             ) > window
 
         has_today_snapshot = latest_snapshot == now_local.date()
