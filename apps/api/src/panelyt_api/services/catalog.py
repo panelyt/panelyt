@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from panelyt_api.core.settings import get_settings
@@ -59,39 +59,52 @@ async def search_biomarkers(
     if not normalized:
         return BiomarkerSearchResponse(results=[])
 
-    like_pattern = f"%{normalized}%"
+    contains_pattern = f"%{normalized}%"
+    prefix_pattern = f"{normalized}%"
 
-    # First try exact matches for elab_code (most important for lookups)
-    exact_elab_statement = (
-        select(models.Biomarker)
-        .where(func.lower(func.coalesce(models.Biomarker.elab_code, "")) == normalized)
-        .order_by(models.Biomarker.name.asc())
+    elab_lower = func.lower(func.coalesce(models.Biomarker.elab_code, ""))
+    slug_lower = func.lower(func.coalesce(models.Biomarker.slug, ""))
+    name_lower = func.lower(models.Biomarker.name)
+    alias_lower = func.lower(func.coalesce(models.BiomarkerAlias.alias, ""))
+
+    match_rank = case(
+        (elab_lower == normalized, 0),
+        (slug_lower == normalized, 1),
+        (name_lower == normalized, 2),
+        (alias_lower == normalized, 3),
+        (elab_lower.like(prefix_pattern), 4),
+        (slug_lower.like(prefix_pattern), 5),
+        (alias_lower.like(prefix_pattern), 6),
+        (name_lower.like(prefix_pattern), 7),
+        (elab_lower.like(contains_pattern), 8),
+        (slug_lower.like(contains_pattern), 9),
+        (alias_lower.like(contains_pattern), 10),
+        (name_lower.like(contains_pattern), 11),
+        else_=100,
+    ).label("match_rank")
+
+    statement = (
+        select(models.Biomarker, func.min(match_rank).label("best_rank"))
+        .outerjoin(models.BiomarkerAlias)
+        .where(
+            or_(
+                name_lower.like(contains_pattern),
+                elab_lower.like(contains_pattern),
+                alias_lower.like(contains_pattern),
+            )
+        )
+        .group_by(models.Biomarker.id)
+        .having(func.min(match_rank) < 100)
+        .order_by(
+            func.min(match_rank),
+            models.Biomarker.id.asc(),
+            models.Biomarker.name.asc(),
+        )
         .limit(limit)
     )
-    exact_results = (await session.execute(exact_elab_statement)).scalars().all()
 
-    if exact_results:
-        # If we found exact elab_code matches, return them
-        results = exact_results
-    else:
-        # Otherwise, do fuzzy search in biomarkers and their aliases
-        statement = (
-            select(models.Biomarker)
-            .distinct()
-            .outerjoin(models.BiomarkerAlias)
-            .where(
-                or_(
-                    # Search in biomarker name and elab_code
-                    func.lower(models.Biomarker.name).like(like_pattern),
-                    func.lower(func.coalesce(models.Biomarker.elab_code, "")).like(like_pattern),
-                    # Search in aliases
-                    func.lower(models.BiomarkerAlias.alias).like(like_pattern)
-                )
-            )
-            .order_by(models.Biomarker.name.asc())
-            .limit(limit)
-        )
-        results = (await session.execute(statement)).scalars().all()
+    rows = (await session.execute(statement)).all()
+    results = [row[0] for row in rows]
     payload = [
         BiomarkerOut(id=row.id, name=row.name, elab_code=row.elab_code, slug=row.slug)
         for row in results
