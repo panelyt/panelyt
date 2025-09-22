@@ -27,7 +27,7 @@ fmt-api: ## Format and fix API code style
 	cd apps/api && $(UV_ENV) $(UV) run ruff check src --fix
 
 test-api: ## Run API test suite
-	cd apps/api && $(UV_ENV) $(UV) run pytest
+	cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" $(UV_ENV) $(UV) run pytest
 
 migrate-api: ## Run database migrations
 	cd apps/api && $(UV_ENV) $(UV) run alembic upgrade head

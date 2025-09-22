@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import insert
@@ -31,7 +31,7 @@ class TestCatalogService:
         )
 
         # Add test items
-        fetched_time = datetime.utcnow()
+        fetched_time = datetime.now(timezone.utc)
         await db_session.execute(
             insert(models.Item).values([
                 {
@@ -40,6 +40,7 @@ class TestCatalogService:
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
+                    "price_min30_grosz": 950,
                     "fetched_at": fetched_time,
                 },
                 {
@@ -48,13 +49,14 @@ class TestCatalogService:
                     "name": "AST Test",
                     "slug": "ast-test",
                     "price_now_grosz": 1200,
+                    "price_min30_grosz": 1100,
                     "fetched_at": fetched_time,
                 },
             ])
         )
 
         # Add price snapshots
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         yesterday = today - timedelta(days=1)
 
         await db_session.execute(
@@ -83,7 +85,7 @@ class TestCatalogService:
 
         assert result.item_count == 2
         assert result.biomarker_count == 2
-        assert result.latest_fetched_at == fetched_time
+        assert result.latest_fetched_at == fetched_time.replace(tzinfo=None)
         assert result.snapshot_days_covered == 2  # today and yesterday
         assert result.percent_with_today_snapshot == 100.0  # 2/2 items
 

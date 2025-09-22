@@ -93,7 +93,7 @@ class IngestionService:
             ) > window
 
         has_today_snapshot = latest_snapshot == now_local.date()
-        return not inactivity and has_today_snapshot
+        return inactivity and has_today_snapshot
 
     @asynccontextmanager
     async def _ingestion_session(self) -> AsyncGenerator[IngestionRepository, None]:

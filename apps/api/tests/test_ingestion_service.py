@@ -155,7 +155,7 @@ class TestIngestionService:
         # Mock session and repository
         mock_session = AsyncMock()
         mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_get_session.return_value.__aexit__ = AsyncMock()
+        mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
         mock_repo = AsyncMock()
         mock_repo.create_run_log.return_value = 1
@@ -164,16 +164,16 @@ class TestIngestionService:
         # Mock client to raise exception
         mock_client = AsyncMock()
         mock_client.fetch_all.side_effect = Exception("Network error")
+        mock_client.close = AsyncMock()
         mock_client_class.return_value = mock_client
 
+        # Run and expect exception to be raised
         with pytest.raises(Exception, match="Network error"):
             await ingestion_service.run(reason="test")
 
-        # Verify error handling
+        # Verify error handling was called
         mock_repo.create_run_log.assert_called_once()
-        mock_repo.finalize_run_log.assert_called_with(
-            1, status="failed", note="Network error"
-        )
+        mock_repo.finalize_run_log.assert_called_with(1, status="failed", note="Network error")
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.IngestionRepository")

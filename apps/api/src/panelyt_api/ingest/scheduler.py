@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -42,5 +42,5 @@ class IngestionScheduler:
             logger.info("Ingestion already running; skipping new trigger")
             return
         async with self._lock:
-            logger.info("Running scheduled ingestion at %s", datetime.utcnow().isoformat())
+            logger.info("Running scheduled ingestion at %s", datetime.now(UTC).isoformat())
             await self._ingestion_service.run(scheduled=True, reason="scheduled")
