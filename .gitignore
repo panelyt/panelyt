@@ -10,6 +10,8 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.egg-info/
+build/
 .env
 .venv/
 .uv-cache/

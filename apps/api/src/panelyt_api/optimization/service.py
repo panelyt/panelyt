@@ -10,6 +10,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from panelyt_api.db import models
+from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import OptimizeRequest, OptimizeResponse
 
 logger = logging.getLogger(__name__)
@@ -263,18 +264,18 @@ class OptimizationService:
         all_biomarkers = await self._get_all_biomarkers_for_items(chosen_item_ids)
 
         items_payload = [
-            {
-                "id": item.id,
-                "kind": item.kind,
-                "name": item.name,
-                "slug": item.slug,
-                "price_now_grosz": item.price_now,
-                "price_min30_grosz": item.price_min30,
-                "currency": "PLN",
-                "biomarkers": sorted(all_biomarkers.get(item.id, [])),
-                "url": _item_url(item),
-                "on_sale": item.on_sale,
-            }
+            ItemOut(
+                id=item.id,
+                kind=item.kind,
+                name=item.name,
+                slug=item.slug,
+                price_now_grosz=item.price_now,
+                price_min30_grosz=item.price_min30,
+                currency="PLN",
+                biomarkers=sorted(all_biomarkers.get(item.id, [])),
+                url=_item_url(item),
+                on_sale=item.on_sale,
+            )
             for item in chosen
         ]
 

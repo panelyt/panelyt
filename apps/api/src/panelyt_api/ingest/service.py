@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -95,7 +96,7 @@ class IngestionService:
         return not inactivity and has_today_snapshot
 
     @asynccontextmanager
-    async def _ingestion_session(self) -> IngestionRepository:
+    async def _ingestion_session(self) -> AsyncGenerator[IngestionRepository, None]:
         async with get_session() as session:
             repo = IngestionRepository(session)
             yield repo

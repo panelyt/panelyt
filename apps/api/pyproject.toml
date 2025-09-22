@@ -63,6 +63,10 @@ warn_return_any = true
 strict_optional = true
 plugins = []
 
+[[tool.mypy.overrides]]
+module = ["apscheduler.*"]
+ignore_missing_imports = true
+
 [tool.coverage.run]
 source = ["panelyt_api"]
 branch = true

@@ -66,9 +66,10 @@ class IngestionRepository:
         await self.session.execute(stmt)
 
     async def last_user_activity(self) -> datetime | None:
-        return await self.session.scalar(
+        result = await self.session.scalar(
             select(models.AppActivity.occurred_at).where(models.AppActivity.name == "user_touch")
         )
+        return result if isinstance(result, datetime) else None
 
     async def record_user_activity(self, timestamp: datetime) -> None:
         stmt = insert(models.AppActivity).values(name="user_touch", occurred_at=timestamp)
