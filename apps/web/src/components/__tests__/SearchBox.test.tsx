@@ -5,8 +5,9 @@ import { vi } from 'vitest'
 import { SearchBox } from '../search-box'
 
 // Mock the hooks
+const useDebounceMock = vi.fn<(value: string, delay?: number) => string>((value) => value)
 vi.mock('../../hooks/useDebounce', () => ({
-  useDebounce: vi.fn((value) => value), // Return value immediately for testing
+  useDebounce: useDebounceMock,
 }))
 
 vi.mock('../../hooks/useBiomarkerSearch', () => ({
@@ -46,7 +47,8 @@ describe('SearchBox', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockUseBiomarkerSearch.mockReturnValue(createSearchResult())
+    useDebounceMock.mockImplementation((value: string) => value)
+    mockUseBiomarkerSearch.mockImplementation(() => createSearchResult())
   })
 
   it('renders search input and add button', () => {
@@ -72,7 +74,7 @@ describe('SearchBox', () => {
       { id: 2, name: 'Aspartate aminotransferase', elab_code: 'AST', slug: 'ast' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue(
+    mockUseBiomarkerSearch.mockImplementation(() =>
       createSearchResult({ data: { results: mockResults } }),
     )
 
@@ -94,7 +96,7 @@ describe('SearchBox', () => {
       { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue(
+    mockUseBiomarkerSearch.mockImplementation(() =>
       createSearchResult({ data: { results: mockResults } }),
     )
 
@@ -120,7 +122,7 @@ describe('SearchBox', () => {
       { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue(
+    mockUseBiomarkerSearch.mockImplementation(() =>
       createSearchResult({ data: { results: mockResults } }),
     )
 
@@ -146,7 +148,7 @@ describe('SearchBox', () => {
       { id: 2, name: 'Aspartate aminotransferase', elab_code: 'AST', slug: 'ast' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue(
+    mockUseBiomarkerSearch.mockImplementation(() =>
       createSearchResult({ data: { results: mockResults } }),
     )
 
@@ -206,7 +208,7 @@ describe('SearchBox', () => {
   })
 
   it('shows loading indicator when fetching', () => {
-    mockUseBiomarkerSearch.mockReturnValue(createSearchResult({ isFetching: true }))
+    mockUseBiomarkerSearch.mockImplementation(() => createSearchResult({ isFetching: true }))
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
@@ -219,7 +221,7 @@ describe('SearchBox', () => {
       { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue(
+    mockUseBiomarkerSearch.mockImplementation(() =>
       createSearchResult({ data: { results: mockResults } }),
     )
 
@@ -242,7 +244,7 @@ describe('SearchBox', () => {
       { id: 1, name: 'Custom Test', elab_code: null, slug: 'custom-test' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue(
+    mockUseBiomarkerSearch.mockImplementation(() =>
       createSearchResult({ data: { results: mockResults } }),
     )
 
@@ -258,5 +260,36 @@ describe('SearchBox', () => {
       code: 'custom-test', // Falls back to slug
       name: 'Custom Test',
     })
+  })
+
+  it('defers selection until results arrive when Enter is pressed early', async () => {
+    const user = userEvent.setup()
+    const mockResults = [
+      { id: 10, name: 'Glukoza', elab_code: 'GLUC', slug: 'glukoza' },
+      { id: 3349, name: 'Glukagon', elab_code: null, slug: 'glukagon' },
+    ]
+
+    let debouncedValue = ''
+    useDebounceMock.mockImplementation(() => debouncedValue)
+
+    let currentResult = createSearchResult()
+    mockUseBiomarkerSearch.mockImplementation(() => currentResult)
+
+    const { rerender } = renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
+
+    const input = screen.getByPlaceholderText('Search biomarkers')
+
+    currentResult = createSearchResult({ isFetching: false })
+    fireEvent.change(input, { target: { value: 'glu' } })
+
+    await user.keyboard('{Enter}')
+    expect(mockOnSelect).not.toHaveBeenCalled()
+
+    debouncedValue = 'glu'
+    currentResult = createSearchResult({ data: { results: mockResults } })
+    rerender(<SearchBox onSelect={mockOnSelect} />)
+
+    expect(mockOnSelect).toHaveBeenCalledWith({ code: 'GLUC', name: 'Glukoza' })
+    expect(input).toHaveValue('')
   })
 })

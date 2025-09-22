@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Loader2, Search as SearchIcon } from "lucide-react";
 
 import { useDebounce } from "../hooks/useDebounce";
@@ -21,54 +21,94 @@ export function SearchBox({ onSelect }: Props) {
   const debounced = useDebounce(query, 200);
   const { data, isFetching } = useBiomarkerSearch(debounced);
   const suggestions = useMemo(() => data?.results ?? [], [data?.results]);
+  const [pendingQuery, setPendingQuery] = useState<string | null>(null);
 
   // Reset highlighted index when suggestions change
   useEffect(() => {
     setHighlightedIndex(-1);
   }, [suggestions]);
 
-  const handleSubmit = (value?: string, name?: string) => {
-    // If value and name are provided, use them directly (clicked suggestion)
-    if (value && name) {
-      const normalized = /[^a-z0-9-]/i.test(value) ? value : value.toUpperCase();
-      onSelect({ code: normalized, name });
-      setQuery("");
-      setHighlightedIndex(-1);
+  useEffect(() => {
+    if (!pendingQuery) {
       return;
     }
-
-    // If a suggestion is highlighted, use it
-    if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
-      const selectedResult = suggestions[highlightedIndex];
-      const selection = selectedResult.elab_code
-        ? selectedResult.elab_code.toUpperCase()
-        : (selectedResult.slug ?? selectedResult.name);
-      onSelect({ code: selection, name: selectedResult.name });
-      setQuery("");
-      setHighlightedIndex(-1);
-      return;
+    const normalized = query.trim().toLowerCase();
+    if (normalized !== pendingQuery) {
+      setPendingQuery(null);
     }
+  }, [query, pendingQuery]);
 
-    // If no specific value provided and no highlight, try to use first search result
-    if (suggestions.length > 0) {
-      const firstResult = suggestions[0];
-      const selection = firstResult.elab_code
-        ? firstResult.elab_code.toUpperCase()
-        : (firstResult.slug ?? firstResult.name);
-      onSelect({ code: selection, name: firstResult.name });
-      setQuery("");
-      setHighlightedIndex(-1);
-      return;
+  const resolveSuggestion = useCallback((item: { elab_code: string | null; slug: string | null; name: string }) => {
+    if (item.elab_code) {
+      return { code: item.elab_code, normalize: true };
     }
+    if (item.slug) {
+      return { code: item.slug, normalize: false };
+    }
+    return { code: item.name, normalize: false };
+  }, []);
 
-    // Fallback: use the current query as before
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    const normalized = /[^a-z0-9-]/i.test(trimmed) ? trimmed : trimmed.toUpperCase();
-    onSelect({ code: normalized, name: normalized });
+  const commitSelection = useCallback((code: string, name: string, normalize: boolean) => {
+    const normalized = normalize && !/[^a-z0-9-]/i.test(code) ? code.toUpperCase() : code;
+    onSelect({ code: normalized, name });
     setQuery("");
     setHighlightedIndex(-1);
+    setPendingQuery(null);
+  }, [onSelect]);
+
+  const handleSubmit = () => {
+    if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+      const selectedResult = suggestions[highlightedIndex];
+      const resolved = resolveSuggestion(selectedResult);
+      commitSelection(resolved.code, selectedResult.name, resolved.normalize);
+      return;
+    }
+
+    if (suggestions.length > 0) {
+      const firstResult = suggestions[0];
+      const resolved = resolveSuggestion(firstResult);
+      commitSelection(resolved.code, firstResult.name, resolved.normalize);
+      return;
+    }
+
+    const trimmed = query.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const trimmedLower = trimmed.toLowerCase();
+    const debouncedLower = debounced.trim().toLowerCase();
+
+    if (trimmed.length >= 2 && (isFetching || debouncedLower !== trimmedLower)) {
+      setPendingQuery(trimmedLower);
+      return;
+    }
+
+    commitSelection(trimmed, trimmed, true);
   };
+
+  useEffect(() => {
+    if (!pendingQuery) {
+      return;
+    }
+
+    const normalizedDebounced = debounced.trim().toLowerCase();
+
+    if (normalizedDebounced !== pendingQuery) {
+      return;
+    }
+
+    if (suggestions.length === 0) {
+      if (!isFetching) {
+        setPendingQuery(null);
+      }
+      return;
+    }
+
+    const firstResult = suggestions[0];
+    const resolved = resolveSuggestion(firstResult);
+    commitSelection(resolved.code, firstResult.name, resolved.normalize);
+  }, [pendingQuery, suggestions, debounced, isFetching, resolveSuggestion, commitSelection]);
 
   return (
     <div className="relative">
@@ -105,7 +145,8 @@ export function SearchBox({ onSelect }: Props) {
         <button
           type="button"
           onClick={() => handleSubmit()}
-          className="rounded-xl bg-gradient-to-r from-emerald-400 via-sky-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-md shadow-emerald-500/30 transition focus:outline-none focus:ring-2 focus:ring-emerald-300"
+          className="rounded-xl bg-gradient-to-r from-emerald-400 via-sky-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-md shadow-emerald-500/30 transition focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={(isFetching && suggestions.length === 0) || pendingQuery !== null}
         >
           Add to panel
         </button>
@@ -116,15 +157,14 @@ export function SearchBox({ onSelect }: Props) {
             <ul className="max-h-64 overflow-y-auto">
               {suggestions.map((item, index) => {
                 const display = item.elab_code ?? item.slug ?? item.name;
-                const selection = item.elab_code
-                  ? item.elab_code.toUpperCase()
-                  : (item.slug ?? item.name);
+                const resolved = resolveSuggestion(item);
+                const badge = item.elab_code ? resolved.code.toUpperCase() : resolved.code;
                 const isHighlighted = index === highlightedIndex;
                 return (
                   <li key={`${item.name}-${display}`}>
                     <button
                       type="button"
-                      onClick={() => handleSubmit(selection, item.name)}
+                      onClick={() => commitSelection(resolved.code, item.name, resolved.normalize)}
                       className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition ${
                         isHighlighted
                           ? "bg-emerald-400/20 text-white"
@@ -140,7 +180,7 @@ export function SearchBox({ onSelect }: Props) {
                         <span className={`text-xs uppercase tracking-wide ${
                           isHighlighted ? "text-white/90" : "text-emerald-300"
                         }`}>
-                          {selection}
+                          {badge}
                         </span>
                       )}
                     </button>
