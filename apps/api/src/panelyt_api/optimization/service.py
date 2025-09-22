@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
@@ -36,14 +36,17 @@ class CandidateItem:
     regular_price: int | None
     coverage: set[str] = field(default_factory=set)
 
-    def hist_min(self) -> int:
-        return self.price_min30
-
     @property
     def on_sale(self) -> bool:
         if self.sale_price is None or self.regular_price is None:
             return False
         return self.sale_price < self.regular_price
+
+
+@dataclass(slots=True)
+class NormalizedBiomarkerInput:
+    raw: str
+    normalized: str
 
 
 class OptimizationService:
@@ -74,37 +77,86 @@ class OptimizationService:
     async def _resolve_biomarkers(
         self, inputs: Sequence[str]
     ) -> tuple[list[ResolvedBiomarker], list[str]]:
+        normalized_inputs = self._normalize_biomarker_inputs(inputs)
+        if not normalized_inputs:
+            return [], []
+
+        search_tokens = {entry.normalized for entry in normalized_inputs}
+        match_index = await self._fetch_biomarker_matches(search_tokens)
+
         resolved: list[ResolvedBiomarker] = []
         unresolved: list[str] = []
-        for raw in inputs:
-            normalized = raw.strip().lower()
-            if not normalized:
+        for entry in normalized_inputs:
+            biomarker = self._pick_biomarker(match_index, entry.normalized)
+            if biomarker is None:
+                unresolved.append(entry.raw)
                 continue
-            statement = (
-                select(models.Biomarker)
-                .where(
-                    or_(
-                        func.lower(models.Biomarker.elab_code) == normalized,
-                        func.lower(models.Biomarker.slug) == normalized,
-                        func.lower(models.Biomarker.name) == normalized,
-                    )
-                )
-                .limit(1)
-            )
-            row = (await self.session.execute(statement)).scalar_one_or_none()
-            if row is None:
-                unresolved.append(raw)
-                continue
-            token = row.elab_code or row.slug or row.name
-            resolved.append(
-                ResolvedBiomarker(
-                    id=row.id,
-                    token=token,
-                    display_name=row.name,
-                    original=raw,
-                )
-            )
+            resolved.append(self._build_resolved_biomarker(biomarker, entry.raw))
         return resolved, unresolved
+
+    def _normalize_biomarker_inputs(
+        self, inputs: Sequence[str]
+    ) -> list[NormalizedBiomarkerInput]:
+        normalized: list[NormalizedBiomarkerInput] = []
+        for raw in inputs:
+            token = _normalize_token(raw)
+            if token:
+                normalized.append(NormalizedBiomarkerInput(raw=raw, normalized=token))
+        return normalized
+
+    async def _fetch_biomarker_matches(
+        self, search_tokens: set[str]
+    ) -> dict[str, list[tuple[int, models.Biomarker]]]:
+        if not search_tokens:
+            return {}
+
+        statement = select(models.Biomarker).where(
+            or_(
+                func.lower(models.Biomarker.elab_code).in_(search_tokens),
+                func.lower(models.Biomarker.slug).in_(search_tokens),
+                func.lower(models.Biomarker.name).in_(search_tokens),
+            )
+        )
+        rows = (await self.session.execute(statement)).scalars().all()
+        return self._build_biomarker_match_index(rows, search_tokens)
+
+    def _build_biomarker_match_index(
+        self,
+        rows: Sequence[models.Biomarker],
+        search_tokens: set[str],
+    ) -> dict[str, list[tuple[int, models.Biomarker]]]:
+        match_index: dict[str, list[tuple[int, models.Biomarker]]] = {}
+        for row in rows:
+            for priority, candidate in enumerate((row.elab_code, row.slug, row.name)):
+                normalized = _normalize_token(candidate)
+                if normalized and normalized in search_tokens:
+                    match_index.setdefault(normalized, []).append((priority, row))
+
+        for candidates in match_index.values():
+            candidates.sort(key=lambda item: (item[0], item[1].id))
+        return match_index
+
+    @staticmethod
+    def _pick_biomarker(
+        match_index: dict[str, list[tuple[int, models.Biomarker]]],
+        token: str,
+    ) -> models.Biomarker | None:
+        candidates = match_index.get(token)
+        if not candidates:
+            return None
+        return candidates[0][1]
+
+    @staticmethod
+    def _build_resolved_biomarker(
+        biomarker: models.Biomarker, original: str
+    ) -> ResolvedBiomarker:
+        token = biomarker.elab_code or biomarker.slug or biomarker.name
+        return ResolvedBiomarker(
+            id=biomarker.id,
+            token=token,
+            display_name=biomarker.name,
+            original=original,
+        )
 
     async def _collect_candidates(
         self, biomarkers: Sequence[ResolvedBiomarker]
@@ -163,36 +215,53 @@ class OptimizationService:
 
     def _prune_candidates(self, candidates: Iterable[CandidateItem]) -> list[CandidateItem]:
         items = list(candidates)
-        # Cheapest single per biomarker
-        best_single: dict[str, int] = {}
+        if not items:
+            return []
+
+        cheapest_per_token = self._cheapest_single_prices(items)
+        filtered = [
+            item
+            for item in items
+            if not self._should_skip_single_candidate(item, cheapest_per_token)
+        ]
+        return self._remove_dominated_candidates(filtered)
+
+    @staticmethod
+    def _cheapest_single_prices(items: Sequence[CandidateItem]) -> dict[str, int]:
+        cheapest: dict[str, int] = {}
         for item in items:
             if item.kind != "single" or len(item.coverage) != 1:
                 continue
+            # coverage has exactly one token here
             token = next(iter(item.coverage))
-            current_price = best_single.get(token)
+            current_price = cheapest.get(token)
             if current_price is None or item.price_now < current_price:
-                best_single[token] = item.price_now
+                cheapest[token] = item.price_now
+        return cheapest
 
-        pruned: list[CandidateItem] = []
-        for item in items:
-            if item.kind == "single" and len(item.coverage) == 1:
-                token = next(iter(item.coverage))
-                if best_single.get(token) != item.price_now:
-                    continue
-            pruned.append(item)
+    @staticmethod
+    def _should_skip_single_candidate(
+        item: CandidateItem, cheapest_per_token: Mapping[str, int]
+    ) -> bool:
+        if item.kind != "single" or len(item.coverage) != 1:
+            return False
+        token = next(iter(item.coverage), None)
+        if token is None:
+            return False
+        return cheapest_per_token.get(token, item.price_now) != item.price_now
 
-        # Dominance removal
+    @staticmethod
+    def _remove_dominated_candidates(items: Sequence[CandidateItem]) -> list[CandidateItem]:
         dominant: list[CandidateItem] = []
-        for item in pruned:
-            dominated = False
-            for other in pruned:
-                if other is item:
-                    continue
-                if other.coverage.issuperset(item.coverage) and other.price_now <= item.price_now:
-                    dominated = True
-                    break
+        for candidate in items:
+            dominated = any(
+                other is not candidate
+                and other.coverage.issuperset(candidate.coverage)
+                and other.price_now <= candidate.price_now
+                for other in items
+            )
             if not dominated:
-                dominant.append(item)
+                dominant.append(candidate)
         return dominant
 
     async def _run_solver(
@@ -325,3 +394,10 @@ class OptimizationService:
 def _item_url(item: CandidateItem) -> str:
     prefix = "pakiety" if item.kind == "package" else "badania"
     return f"https://diag.pl/sklep/{prefix}/{item.slug}"
+
+
+def _normalize_token(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    return normalized or None
