@@ -92,10 +92,6 @@ export default function Home() {
           <div className="grid gap-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-900/30">
               <h2 className="text-lg font-semibold text-white">Build your biomarker set</h2>
-              <p className="mt-1 text-sm text-slate-300">
-                Search for biomarkers by name or ELAB code. We highlight exact matches and apply
-                keyboard shortcuts so you can curate panels in seconds.
-              </p>
               <div className="mt-6 flex flex-col gap-4">
                 <SearchBox onSelect={handleSelect} />
                 <SelectedBiomarkers biomarkers={selected} onRemove={handleRemove} />
