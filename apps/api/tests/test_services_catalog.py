@@ -194,19 +194,39 @@ class TestCatalogService:
         result = await catalog.search_biomarkers(db_session, "Biomarker", limit=5)
         assert len(result.results) == 5
 
-    async def test_search_biomarkers_ordered_by_name(self, db_session):
-        """Test biomarker search results are ordered by name."""
+    async def test_search_biomarkers_ranking_prefers_prefix_and_id(self, db_session):
+        """Search should prefer close name matches and smaller IDs."""
         await db_session.execute(
             insert(models.Biomarker).values([
-                {"id": 1, "name": "Zinc", "elab_code": "ZN", "slug": "zinc"},
-                {"id": 2, "name": "Albumin", "elab_code": "ALB", "slug": "albumin"},
-                {"id": 3, "name": "Magnesium", "elab_code": "MG", "slug": "magnesium"},
+                {"id": 10, "name": "Glukoza", "elab_code": "GLUC", "slug": "glukoza"},
+                {"id": 3349, "name": "Glukagon", "elab_code": None, "slug": "glukagon"},
+                {
+                    "id": 4000,
+                    "name": "IgE sp. I73 - Chironomus plumosus",
+                    "elab_code": None,
+                    "slug": "ige-sp-i73",
+                },
             ])
         )
         await db_session.commit()
 
-        result = await catalog.search_biomarkers(db_session, "i")  # matches all three
-
-        # Should be ordered alphabetically by name
+        result = await catalog.search_biomarkers(db_session, "glu")
         names = [r.name for r in result.results]
-        assert names == ["Albumin", "Magnesium", "Zinc"]
+
+        assert names[0] == "Glukoza"
+        assert names[1] == "Glukagon"
+        assert result.results[0].id == 10  # smaller id wins tie
+
+    async def test_search_biomarkers_prioritises_exact_code(self, db_session):
+        """Exact ELAB code should surface before longer substring matches."""
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"id": 1, "name": "Aspartate aminotransferase", "elab_code": "AST", "slug": "ast"},
+                {"id": 2, "name": "Atopowe zapalenie skóry", "elab_code": None, "slug": "atopowe"},
+                {"id": 3, "name": "Dystrofia plamki", "elab_code": None, "slug": "dystrofia"},
+            ])
+        )
+        await db_session.commit()
+
+        result = await catalog.search_biomarkers(db_session, "ast")
+        assert result.results[0].elab_code == "AST"

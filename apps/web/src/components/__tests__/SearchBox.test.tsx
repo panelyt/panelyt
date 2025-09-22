@@ -52,15 +52,15 @@ describe('SearchBox', () => {
   it('renders search input and add button', () => {
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
-    expect(screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search biomarkers')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add to panel' })).toBeInTheDocument()
   })
 
   it('updates input value when user types', async () => {
     const user = userEvent.setup()
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
-    const input = screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')
+    const input = screen.getByPlaceholderText('Search biomarkers')
     await user.type(input, 'ALT')
 
     expect(input).toHaveValue('ALT')
@@ -79,7 +79,7 @@ describe('SearchBox', () => {
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
     // Type to trigger suggestions
-    const input = screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')
+    const input = screen.getByPlaceholderText('Search biomarkers')
     fireEvent.change(input, { target: { value: 'AL' } })
 
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
@@ -101,7 +101,7 @@ describe('SearchBox', () => {
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
     // Type to show suggestions
-    const input = screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')
+    const input = screen.getByPlaceholderText('Search biomarkers')
     fireEvent.change(input, { target: { value: 'AL' } })
 
     // Click on suggestion
@@ -126,7 +126,7 @@ describe('SearchBox', () => {
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
-    const input = screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')
+    const input = screen.getByPlaceholderText('Search biomarkers')
     fireEvent.change(input, { target: { value: 'AL' } })
 
     // Navigate to first suggestion with arrow down
@@ -152,7 +152,7 @@ describe('SearchBox', () => {
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
-    const input = screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')
+    const input = screen.getByPlaceholderText('Search biomarkers')
     fireEvent.change(input, { target: { value: 'A' } })
 
     // First suggestion should be highlighted after arrow down
@@ -180,10 +180,10 @@ describe('SearchBox', () => {
     const user = userEvent.setup()
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
-    const input = screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')
+    const input = screen.getByPlaceholderText('Search biomarkers')
     await user.type(input, 'CUSTOM')
 
-    const addButton = screen.getByRole('button', { name: 'Add' })
+    const addButton = screen.getByRole('button', { name: 'Add to panel' })
     await user.click(addButton)
 
     expect(mockOnSelect).toHaveBeenCalledWith({
@@ -197,7 +197,7 @@ describe('SearchBox', () => {
     const user = userEvent.setup()
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
-    const input = screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')
+    const input = screen.getByPlaceholderText('Search biomarkers')
     await user.type(input, 'TEST')
     expect(input).toHaveValue('TEST')
 
@@ -225,7 +225,7 @@ describe('SearchBox', () => {
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
-    const input = screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')
+    const input = screen.getByPlaceholderText('Search biomarkers')
     fireEvent.change(input, { target: { value: 'AL' } })
 
     await user.keyboard('{Enter}')
@@ -248,7 +248,7 @@ describe('SearchBox', () => {
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
-    const input = screen.getByPlaceholderText('Search biomarkers (name or ELAB code)')
+    const input = screen.getByPlaceholderText('Search biomarkers')
     fireEvent.change(input, { target: { value: 'custom' } })
 
     const suggestion = screen.getByText('Custom Test')
