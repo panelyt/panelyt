@@ -1,4 +1,4 @@
-.PHONY: help install-web install-api dev-web dev-api lint-api test-api migrate-api docker-up docker-down fmt-api
+.PHONY: help install-web install-api dev-web dev-api lint-api test-api migrate-api docker-up docker-down fmt-api check typecheck-api lint-web typecheck-web test-web
 
 UV ?= uv
 UV_ENV ?= UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache
@@ -37,3 +37,38 @@ docker-up: ## Start all services with Docker Compose
 
 docker-down: ## Stop all Docker Compose services
 	cd infra && docker compose down
+
+typecheck-api: ## Run type checking on API code
+	cd apps/api && $(UV_ENV) $(UV) run mypy src
+
+lint-web: ## Run linting checks on web frontend
+	cd apps/web && pnpm lint
+
+typecheck-web: ## Run type checking on web frontend
+	cd apps/web && pnpm typecheck
+
+test-web: ## Run web frontend test suite (placeholder - not implemented yet)
+	@echo "Web tests not implemented yet"
+
+check: ## Run comprehensive code quality checks, tests, and linting for the entire project
+	@echo "🔍 Running comprehensive code quality checks..."
+	@echo ""
+	@echo "📦 Building shared types..."
+	cd apps/web && pnpm --filter @panelyt/types build
+	@echo ""
+	@echo "🔧 API: Type checking..."
+	$(MAKE) typecheck-api
+	@echo ""
+	@echo "🔧 API: Linting..."
+	$(MAKE) lint-api
+	@echo ""
+	@echo "🧪 API: Running tests..."
+	$(MAKE) test-api
+	@echo ""
+	@echo "🌐 Web: Type checking..."
+	$(MAKE) typecheck-web
+	@echo ""
+	@echo "🌐 Web: Linting..."
+	$(MAKE) lint-web
+	@echo ""
+	@echo "✅ All checks completed successfully!"
