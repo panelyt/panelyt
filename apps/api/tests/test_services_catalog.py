@@ -1,0 +1,210 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+
+import pytest
+from sqlalchemy import insert
+
+from panelyt_api.db import models
+from panelyt_api.services import catalog
+
+
+class TestCatalogService:
+    async def test_get_catalog_meta_empty_db(self, db_session):
+        """Test catalog meta with empty database."""
+        result = await catalog.get_catalog_meta(db_session)
+
+        assert result.item_count == 0
+        assert result.biomarker_count == 0
+        assert result.latest_fetched_at is None
+        assert result.snapshot_days_covered == 0
+        assert result.percent_with_today_snapshot == 0.0
+
+    async def test_get_catalog_meta_with_data(self, db_session):
+        """Test catalog meta with populated database."""
+        # Add test biomarkers
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"name": "ALT", "elab_code": "ALT", "slug": "alt"},
+                {"name": "AST", "elab_code": "AST", "slug": "ast"},
+            ])
+        )
+
+        # Add test items
+        fetched_time = datetime.utcnow()
+        await db_session.execute(
+            insert(models.Item).values([
+                {
+                    "id": 1,
+                    "kind": "single",
+                    "name": "ALT Test",
+                    "slug": "alt-test",
+                    "price_now_grosz": 1000,
+                    "fetched_at": fetched_time,
+                },
+                {
+                    "id": 2,
+                    "kind": "single",
+                    "name": "AST Test",
+                    "slug": "ast-test",
+                    "price_now_grosz": 1200,
+                    "fetched_at": fetched_time,
+                },
+            ])
+        )
+
+        # Add price snapshots
+        today = datetime.utcnow().date()
+        yesterday = today - timedelta(days=1)
+
+        await db_session.execute(
+            insert(models.PriceSnapshot).values([
+                {
+                    "item_id": 1,
+                    "snap_date": today,
+                    "price_now_grosz": 1000,
+                },
+                {
+                    "item_id": 1,
+                    "snap_date": yesterday,
+                    "price_now_grosz": 1100,
+                },
+                {
+                    "item_id": 2,
+                    "snap_date": today,
+                    "price_now_grosz": 1200,
+                },
+            ])
+        )
+
+        await db_session.commit()
+
+        result = await catalog.get_catalog_meta(db_session)
+
+        assert result.item_count == 2
+        assert result.biomarker_count == 2
+        assert result.latest_fetched_at == fetched_time
+        assert result.snapshot_days_covered == 2  # today and yesterday
+        assert result.percent_with_today_snapshot == 100.0  # 2/2 items
+
+    async def test_search_biomarkers_empty_query(self, db_session):
+        """Test biomarker search with empty query."""
+        result = await catalog.search_biomarkers(db_session, "")
+        assert result.results == []
+
+        result = await catalog.search_biomarkers(db_session, "   ")
+        assert result.results == []
+
+    async def test_search_biomarkers_exact_elab_code_match(self, db_session):
+        """Test biomarker search with exact ELAB code match."""
+        # Add test biomarkers
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"id": 1, "name": "Alanine aminotransferase", "elab_code": "ALT", "slug": "alt"},
+                {"id": 2, "name": "Aspartate aminotransferase", "elab_code": "AST", "slug": "ast"},
+            ])
+        )
+        await db_session.commit()
+
+        result = await catalog.search_biomarkers(db_session, "ALT")
+
+        assert len(result.results) == 1
+        assert result.results[0].id == 1
+        assert result.results[0].name == "Alanine aminotransferase"
+        assert result.results[0].elab_code == "ALT"
+
+    async def test_search_biomarkers_case_insensitive(self, db_session):
+        """Test biomarker search is case insensitive."""
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"id": 1, "name": "Alanine aminotransferase", "elab_code": "ALT", "slug": "alt"},
+            ])
+        )
+        await db_session.commit()
+
+        result = await catalog.search_biomarkers(db_session, "alt")
+        assert len(result.results) == 1
+        assert result.results[0].elab_code == "ALT"
+
+    async def test_search_biomarkers_fuzzy_search(self, db_session):
+        """Test biomarker fuzzy search functionality."""
+        # Add test biomarkers
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"id": 1, "name": "Total cholesterol", "elab_code": "CHOL", "slug": "cholesterol"},
+                {"id": 2, "name": "LDL cholesterol", "elab_code": "LDL", "slug": "ldl-cholesterol"},
+                {"id": 3, "name": "HDL cholesterol", "elab_code": "HDL", "slug": "hdl-cholesterol"},
+            ])
+        )
+        await db_session.commit()
+
+        # Search by partial name
+        result = await catalog.search_biomarkers(db_session, "cholesterol")
+        assert len(result.results) == 3
+
+        # Search by partial elab code
+        result = await catalog.search_biomarkers(db_session, "LDL")
+        assert len(result.results) == 1
+        assert result.results[0].elab_code == "LDL"
+
+    async def test_search_biomarkers_with_aliases(self, db_session):
+        """Test biomarker search includes aliases."""
+        # Add test biomarker
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"id": 1, "name": "Alanine aminotransferase", "elab_code": "ALT", "slug": "alt"},
+            ])
+        )
+
+        # Add aliases
+        await db_session.execute(
+            insert(models.BiomarkerAlias).values([
+                {"biomarker_id": 1, "alias": "ALAT"},
+                {"biomarker_id": 1, "alias": "GPT"},
+            ])
+        )
+        await db_session.commit()
+
+        # Search by alias
+        result = await catalog.search_biomarkers(db_session, "ALAT")
+        assert len(result.results) == 1
+        assert result.results[0].elab_code == "ALT"
+
+        result = await catalog.search_biomarkers(db_session, "GPT")
+        assert len(result.results) == 1
+        assert result.results[0].elab_code == "ALT"
+
+    async def test_search_biomarkers_limit(self, db_session):
+        """Test biomarker search respects limit parameter."""
+        # Add many biomarkers
+        biomarkers = [
+            {"id": i, "name": f"Biomarker {i}", "elab_code": f"BM{i}", "slug": f"biomarker-{i}"}
+            for i in range(1, 16)  # 15 biomarkers
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+        await db_session.commit()
+
+        # Search with default limit (10)
+        result = await catalog.search_biomarkers(db_session, "Biomarker")
+        assert len(result.results) == 10
+
+        # Search with custom limit
+        result = await catalog.search_biomarkers(db_session, "Biomarker", limit=5)
+        assert len(result.results) == 5
+
+    async def test_search_biomarkers_ordered_by_name(self, db_session):
+        """Test biomarker search results are ordered by name."""
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"id": 1, "name": "Zinc", "elab_code": "ZN", "slug": "zinc"},
+                {"id": 2, "name": "Albumin", "elab_code": "ALB", "slug": "albumin"},
+                {"id": 3, "name": "Magnesium", "elab_code": "MG", "slug": "magnesium"},
+            ])
+        )
+        await db_session.commit()
+
+        result = await catalog.search_biomarkers(db_session, "i")  # matches all three
+
+        # Should be ordered alphabetically by name
+        names = [r.name for r in result.results]
+        assert names == ["Albumin", "Magnesium", "Zinc"]
