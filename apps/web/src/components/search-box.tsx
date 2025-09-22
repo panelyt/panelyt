@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useDebounce } from "../hooks/useDebounce";
 import { useBiomarkerSearch } from "../hooks/useBiomarkerSearch";
 
@@ -18,7 +18,7 @@ export function SearchBox({ onSelect }: Props) {
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const debounced = useDebounce(query, 200);
   const { data, isFetching } = useBiomarkerSearch(debounced);
-  const suggestions = data?.results ?? [];
+  const suggestions = useMemo(() => data?.results ?? [], [data?.results]);
 
   // Reset highlighted index when suggestions change
   useEffect(() => {

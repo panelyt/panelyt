@@ -144,7 +144,7 @@ def _extract_biomarkers_from_item(entry: dict[str, Any]) -> list[RawBiomarker]:
                 RawBiomarker(
                     elab_code=elab_code,
                     slug=_clean_str(entry.get("slug")),
-                    name=_clean_str(entry.get("name") or ""),
+                    name=_clean_str(entry.get("name")) or "",
                 )
             )
 
@@ -158,7 +158,7 @@ def _extract_biomarkers_from_item(entry: dict[str, Any]) -> list[RawBiomarker]:
                     RawBiomarker(
                         elab_code=elab_code,
                         slug=_clean_str(product.get("slug")),
-                        name=_clean_str(product.get("name") or ""),
+                        name=_clean_str(product.get("name")) or "",
                     )
                 )
 
@@ -186,7 +186,7 @@ def _extract_biomarkers(
             RawBiomarker(
                 elab_code=_clean_str(attributes.get("elab_code") or attributes.get("code")),
                 slug=_clean_str(attributes.get("slug")),
-                name=_clean_str(attributes.get("name") or attributes.get("title") or ""),
+                name=_clean_str(attributes.get("name") or attributes.get("title")) or "",
             )
         )
     return biomarkers
