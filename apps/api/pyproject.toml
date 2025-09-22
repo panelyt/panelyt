@@ -36,7 +36,8 @@ dev = [
   "pytest-cov>=4.1",
   "ruff>=0.5",
   "mypy>=1.10",
-  "types-python-dateutil"
+  "types-python-dateutil",
+  "aiosqlite>=0.19"
 ]
 
 [tool.setuptools.packages.find]

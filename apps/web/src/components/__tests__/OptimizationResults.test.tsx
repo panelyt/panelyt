@@ -18,6 +18,16 @@ import { useBiomarkerLookup } from '../../hooks/useBiomarkerLookup'
 
 const mockUseBiomarkerLookup = vi.mocked(useBiomarkerLookup)
 
+const createLookupResult = (
+  overrides: Partial<ReturnType<typeof useBiomarkerLookup>>,
+) =>
+  ({
+    data: undefined,
+    isFetching: false,
+    error: null,
+    ...overrides,
+  } as unknown as ReturnType<typeof useBiomarkerLookup>)
+
 function renderWithQueryClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -35,13 +45,15 @@ function renderWithQueryClient(ui: React.ReactElement) {
 describe('OptimizationResults', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockUseBiomarkerLookup.mockReturnValue({
-      data: {
-        'ALT': 'Alanine aminotransferase',
-        'AST': 'Aspartate aminotransferase',
-        'CHOL': 'Total cholesterol',
-      },
-    } as any)
+    mockUseBiomarkerLookup.mockReturnValue(
+      createLookupResult({
+        data: {
+          ALT: 'Alanine aminotransferase',
+          AST: 'Aspartate aminotransferase',
+          CHOL: 'Total cholesterol',
+        },
+      }),
+    )
   })
 
   it('shows empty state when no biomarkers are selected', () => {

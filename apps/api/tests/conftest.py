@@ -29,6 +29,7 @@ def test_settings() -> Settings:
     """Test settings with SQLite database."""
     return Settings(
         database_url="sqlite+aiosqlite:///test.db",
+        db_schema=None,
         testing=True,
         cors_origins=["http://localhost:3000"],
         log_level="DEBUG",

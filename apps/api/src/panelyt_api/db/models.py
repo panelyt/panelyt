@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Date,
@@ -12,11 +13,21 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from panelyt_api.core.settings import get_settings
 from panelyt_api.db.base import Base
+
+
+def _get_json_type():
+    """Get appropriate JSON type based on database."""
+    settings = get_settings()
+    if settings.database_url.startswith("sqlite"):
+        return JSON
+    return JSONB
 
 
 class Biomarker(Base):
@@ -41,7 +52,12 @@ class BiomarkerAlias(Base):
         Integer, ForeignKey("biomarker.id", ondelete="CASCADE"), nullable=False
     )
     alias: Mapped[str] = mapped_column(String(255), nullable=False)
-    alias_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    alias_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="common_name",
+        server_default=text("'common_name'"),
+    )
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -63,7 +79,11 @@ class Item(Base):
     price_min30_grosz: Mapped[int] = mapped_column(Integer, nullable=False)
     sale_price_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
     regular_price_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
 
     biomarkers: Mapped[list[ItemBiomarker]] = relationship(
         "ItemBiomarker", back_populates="item", cascade="all, delete-orphan"
@@ -115,7 +135,7 @@ class RawSnapshot(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[dict] = mapped_column(_get_json_type(), nullable=False)
 
 
 class IngestionLog(Base):

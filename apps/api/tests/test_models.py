@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import insert, select
@@ -17,7 +17,6 @@ class TestDatabaseModels:
                 "name": "Alanine aminotransferase",
                 "elab_code": "ALT",
                 "slug": "alt",
-                "description": "Liver enzyme test",
             })
         )
         await db_session.commit()
@@ -31,7 +30,6 @@ class TestDatabaseModels:
         assert biomarker.name == "Alanine aminotransferase"
         assert biomarker.elab_code == "ALT"
         assert biomarker.slug == "alt"
-        assert biomarker.description == "Liver enzyme test"
         assert biomarker.id is not None
 
     async def test_biomarker_aliases(self, db_session):
@@ -49,17 +47,15 @@ class TestDatabaseModels:
         # Add aliases
         await db_session.execute(
             insert(models.BiomarkerAlias).values([
-                {"biomarker_id": biomarker_id, "alias": "ALAT"},
-                {"biomarker_id": biomarker_id, "alias": "GPT"},
+                {"biomarker_id": biomarker_id, "alias": "ALAT", "alias_type": "abbreviation"},
+                {"biomarker_id": biomarker_id, "alias": "GPT", "alias_type": "abbreviation"},
             ])
         )
         await db_session.commit()
 
-        # Query biomarker with aliases
+        # Query biomarker
         result = await db_session.execute(
-            select(models.Biomarker)
-            .outerjoin(models.BiomarkerAlias)
-            .where(models.Biomarker.id == biomarker_id)
+            select(models.Biomarker).where(models.Biomarker.id == biomarker_id)
         )
         biomarker = result.scalar_one()
 
@@ -75,7 +71,7 @@ class TestDatabaseModels:
 
     async def test_item_model(self, db_session):
         """Test Item model creation."""
-        fetched_time = datetime.utcnow()
+        fetched_time = datetime.now(timezone.utc)
 
         await db_session.execute(
             insert(models.Item).values({
@@ -107,7 +103,7 @@ class TestDatabaseModels:
         assert item.price_min30_grosz == 900
         assert item.currency == "PLN"
         assert item.is_available is True
-        assert item.fetched_at == fetched_time
+        assert item.fetched_at == fetched_time.replace(tzinfo=None)
         assert item.sale_price_grosz == 800
         assert item.regular_price_grosz == 1000
 
@@ -130,7 +126,8 @@ class TestDatabaseModels:
                 "name": "Liver Panel",
                 "slug": "liver-panel",
                 "price_now_grosz": 2000,
-                "fetched_at": datetime.utcnow(),
+                "price_min30_grosz": 1900,
+                "fetched_at": datetime.now(timezone.utc),
             })
         )
 
@@ -169,19 +166,19 @@ class TestDatabaseModels:
                 "name": "Test Item",
                 "slug": "test-item",
                 "price_now_grosz": 1500,
-                "fetched_at": datetime.utcnow(),
+                "price_min30_grosz": 1400,
+                "fetched_at": datetime.now(timezone.utc),
             })
         )
 
         # Create price snapshot
-        snap_date = datetime.utcnow().date()
+        snap_date = datetime.now(timezone.utc).date()
         await db_session.execute(
             insert(models.PriceSnapshot).values({
                 "item_id": 789,
                 "snap_date": snap_date,
                 "price_now_grosz": 1500,
-                "sale_price_grosz": None,
-                "regular_price_grosz": 1500,
+                "is_available": True,
             })
         )
         await db_session.commit()
@@ -198,17 +195,17 @@ class TestDatabaseModels:
         assert snapshot.item_id == 789
         assert snapshot.snap_date == snap_date
         assert snapshot.price_now_grosz == 1500
-        assert snapshot.sale_price_grosz is None
-        assert snapshot.regular_price_grosz == 1500
+        assert snapshot.is_available is True
+        assert snapshot.seen_at is not None
 
     async def test_ingestion_log_model(self, db_session):
         """Test IngestionLog model."""
-        started_time = datetime.utcnow()
+        started_time = datetime.now(timezone.utc)
 
         result = await db_session.execute(
             insert(models.IngestionLog).values({
                 "started_at": started_time,
-                "reason": "test",
+                "note": "test",
             }).returning(models.IngestionLog.id)
         )
         log_id = result.scalar_one()
@@ -221,43 +218,42 @@ class TestDatabaseModels:
         log = log_result.scalar_one()
 
         assert log.id == log_id
-        assert log.started_at == started_time
-        assert log.reason == "test"
-        assert log.status is None  # Default
-        assert log.completed_at is None
-        assert log.note is None
+        assert log.started_at == started_time.replace(tzinfo=None)
+        assert log.note == "test"
+        assert log.status == "started"  # Default
+        assert log.finished_at is None
 
-    async def test_user_activity_model(self, db_session):
-        """Test UserActivity model."""
-        activity_time = datetime.utcnow()
+    async def test_app_activity_model(self, db_session):
+        """Test AppActivity model."""
+        activity_time = datetime.now(timezone.utc)
 
         await db_session.execute(
-            insert(models.UserActivity).values({
-                "user_id": "test-user",
-                "last_seen_at": activity_time,
+            insert(models.AppActivity).values({
+                "name": "test-activity",
+                "occurred_at": activity_time,
             })
         )
         await db_session.commit()
 
         # Query activity
         result = await db_session.execute(
-            select(models.UserActivity).where(models.UserActivity.user_id == "test-user")
+            select(models.AppActivity).where(models.AppActivity.name == "test-activity")
         )
         activity = result.scalar_one()
 
-        assert activity.user_id == "test-user"
-        assert activity.last_seen_at == activity_time
+        assert activity.name == "test-activity"
+        assert activity.occurred_at == activity_time.replace(tzinfo=None)
 
     async def test_raw_snapshot_model(self, db_session):
         """Test RawSnapshot model."""
-        snapshot_time = datetime.utcnow()
+        snapshot_time = datetime.now(timezone.utc)
         raw_data = {"test": "data", "items": [1, 2, 3]}
 
         await db_session.execute(
             insert(models.RawSnapshot).values({
                 "source": "test-source",
                 "fetched_at": snapshot_time,
-                "raw_payload": raw_data,
+                "payload": raw_data,
             })
         )
         await db_session.commit()
@@ -269,8 +265,8 @@ class TestDatabaseModels:
         snapshot = result.scalar_one()
 
         assert snapshot.source == "test-source"
-        assert snapshot.fetched_at == snapshot_time
-        assert snapshot.raw_payload == raw_data
+        assert snapshot.fetched_at == snapshot_time.replace(tzinfo=None)
+        assert snapshot.payload == raw_data
 
     async def test_model_constraints(self, db_session):
         """Test model constraints and validations."""
@@ -303,7 +299,8 @@ class TestDatabaseModels:
                     "name": "Item 1",
                     "slug": "same-slug",
                     "price_now_grosz": 1000,
-                    "fetched_at": datetime.utcnow(),
+                    "price_min30_grosz": 950,
+                    "fetched_at": datetime.now(timezone.utc),
                 },
                 {
                     "id": 2,
@@ -311,7 +308,8 @@ class TestDatabaseModels:
                     "name": "Item 2",
                     "slug": "same-slug",  # Same slug should be allowed
                     "price_now_grosz": 1500,
-                    "fetched_at": datetime.utcnow(),
+                    "price_min30_grosz": 1400,
+                    "fetched_at": datetime.now(timezone.utc),
                 },
             ])
         )

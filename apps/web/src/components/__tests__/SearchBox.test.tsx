@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { vi } from 'vitest'
@@ -16,6 +16,16 @@ vi.mock('../../hooks/useBiomarkerSearch', () => ({
 import { useBiomarkerSearch } from '../../hooks/useBiomarkerSearch'
 
 const mockUseBiomarkerSearch = vi.mocked(useBiomarkerSearch)
+
+const createSearchResult = (
+  overrides: Partial<ReturnType<typeof useBiomarkerSearch>> = {},
+) =>
+  ({
+    data: undefined,
+    isFetching: false,
+    error: null,
+    ...overrides,
+  } as unknown as ReturnType<typeof useBiomarkerSearch>)
 
 function renderWithQueryClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -36,11 +46,7 @@ describe('SearchBox', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockUseBiomarkerSearch.mockReturnValue({
-      data: undefined,
-      isFetching: false,
-      error: null,
-    } as any)
+    mockUseBiomarkerSearch.mockReturnValue(createSearchResult())
   })
 
   it('renders search input and add button', () => {
@@ -66,11 +72,9 @@ describe('SearchBox', () => {
       { id: 2, name: 'Aspartate aminotransferase', elab_code: 'AST', slug: 'ast' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue({
-      data: { results: mockResults },
-      isFetching: false,
-      error: null,
-    } as any)
+    mockUseBiomarkerSearch.mockReturnValue(
+      createSearchResult({ data: { results: mockResults } }),
+    )
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
@@ -90,11 +94,9 @@ describe('SearchBox', () => {
       { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue({
-      data: { results: mockResults },
-      isFetching: false,
-      error: null,
-    } as any)
+    mockUseBiomarkerSearch.mockReturnValue(
+      createSearchResult({ data: { results: mockResults } }),
+    )
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
@@ -118,11 +120,9 @@ describe('SearchBox', () => {
       { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue({
-      data: { results: mockResults },
-      isFetching: false,
-      error: null,
-    } as any)
+    mockUseBiomarkerSearch.mockReturnValue(
+      createSearchResult({ data: { results: mockResults } }),
+    )
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
@@ -146,11 +146,9 @@ describe('SearchBox', () => {
       { id: 2, name: 'Aspartate aminotransferase', elab_code: 'AST', slug: 'ast' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue({
-      data: { results: mockResults },
-      isFetching: false,
-      error: null,
-    } as any)
+    mockUseBiomarkerSearch.mockReturnValue(
+      createSearchResult({ data: { results: mockResults } }),
+    )
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
@@ -208,11 +206,7 @@ describe('SearchBox', () => {
   })
 
   it('shows loading indicator when fetching', () => {
-    mockUseBiomarkerSearch.mockReturnValue({
-      data: undefined,
-      isFetching: true,
-      error: null,
-    } as any)
+    mockUseBiomarkerSearch.mockReturnValue(createSearchResult({ isFetching: true }))
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
@@ -225,11 +219,9 @@ describe('SearchBox', () => {
       { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue({
-      data: { results: mockResults },
-      isFetching: false,
-      error: null,
-    } as any)
+    mockUseBiomarkerSearch.mockReturnValue(
+      createSearchResult({ data: { results: mockResults } }),
+    )
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 
@@ -250,11 +242,9 @@ describe('SearchBox', () => {
       { id: 1, name: 'Custom Test', elab_code: null, slug: 'custom-test' },
     ]
 
-    mockUseBiomarkerSearch.mockReturnValue({
-      data: { results: mockResults },
-      isFetching: false,
-      error: null,
-    } as any)
+    mockUseBiomarkerSearch.mockReturnValue(
+      createSearchResult({ data: { results: mockResults } }),
+    )
 
     renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
 

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from panelyt_api.schemas.common import APIModel, ItemOut
 
 
 class OptimizeRequest(BaseModel):
-    biomarkers: list[str] = Field(min_length=1)
+    biomarkers: list[str]
 
 
 class OptimizeResponse(APIModel):

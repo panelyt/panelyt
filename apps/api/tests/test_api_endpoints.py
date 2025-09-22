@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -61,7 +61,8 @@ class TestCatalogEndpoints:
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
-                    "fetched_at": datetime.utcnow(),
+                    "price_min30_grosz": 900,
+                    "fetched_at": datetime.now(timezone.utc),
                 },
             ])
         )

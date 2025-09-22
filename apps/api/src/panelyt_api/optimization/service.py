@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from ortools.sat.python import cp_model
 from sqlalchemy import func, or_, select
@@ -113,7 +113,7 @@ class OptimizationService:
         if not biomarker_ids:
             return []
 
-        window_start = datetime.utcnow().date() - timedelta(days=30)
+        window_start = datetime.now(UTC).date() - timedelta(days=30)
         history = (
             select(
                 models.PriceSnapshot.item_id.label("item_id"),
