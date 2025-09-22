@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -44,9 +45,9 @@ class TestIngestionService:
         mock_repo.latest_snapshot_date.return_value = datetime.now().date()
         mock_repo_class.return_value = mock_repo
 
-        with patch.object(ingestion_service, 'run') as mock_run:
+        with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
             await ingestion_service.ensure_fresh_data()
-            mock_run.assert_not_called()
+            mock_run.assert_not_awaited()
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.IngestionRepository")
@@ -65,9 +66,9 @@ class TestIngestionService:
         mock_repo.latest_snapshot_date.return_value = None
         mock_repo_class.return_value = mock_repo
 
-        with patch.object(ingestion_service, 'run') as mock_run:
+        with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
             await ingestion_service.ensure_fresh_data()
-            mock_run.assert_called_once_with(reason="staleness_check")
+            mock_run.assert_awaited_once_with(reason="staleness_check")
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.IngestionRepository")
@@ -86,9 +87,9 @@ class TestIngestionService:
         mock_repo.latest_snapshot_date.return_value = yesterday
         mock_repo_class.return_value = mock_repo
 
-        with patch.object(ingestion_service, 'run') as mock_run:
+        with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
             await ingestion_service.ensure_fresh_data()
-            mock_run.assert_called_once_with(reason="staleness_check")
+            mock_run.assert_awaited_once_with(reason="staleness_check")
 
     @patch("panelyt_api.ingest.service.DiagClient")
     @patch("panelyt_api.ingest.service.get_session")
@@ -214,6 +215,59 @@ class TestIngestionService:
 
         result = await ingestion_service._should_skip_scheduled_run()
         assert result is False
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.IngestionRepository")
+    async def test_background_run_schedules_task(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        stale_time = datetime.now(UTC) - timedelta(hours=25)
+        mock_repo.latest_fetched_at.return_value = stale_time
+        mock_repo.latest_snapshot_date.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        ingestion_service.__class__._scheduled_task = None
+
+        try:
+            with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
+                await ingestion_service.ensure_fresh_data(background=True)
+                await asyncio.sleep(0)
+                mock_run.assert_awaited_once_with(reason="staleness_check")
+        finally:
+            ingestion_service.__class__._scheduled_task = None
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.IngestionRepository")
+    async def test_background_run_ignores_duplicate_requests(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        stale_time = datetime.now(UTC) - timedelta(hours=25)
+        mock_repo.latest_fetched_at.return_value = stale_time
+        mock_repo.latest_snapshot_date.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        ingestion_service.__class__._scheduled_task = None
+
+        try:
+            with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
+                await ingestion_service.ensure_fresh_data(background=True)
+                await ingestion_service.ensure_fresh_data(background=True)
+                assert mock_run.await_count == 0
+
+                await asyncio.sleep(0)
+                assert mock_run.await_count == 1
+        finally:
+            ingestion_service.__class__._scheduled_task = None
 
 
 class TestDiagClient:

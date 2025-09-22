@@ -17,7 +17,7 @@ router = APIRouter()
 async def get_meta(session: SessionDep) -> CatalogMeta:
     await activity.touch_user_activity(session)
     ingestion_service = IngestionService(get_settings())
-    await ingestion_service.ensure_fresh_data()
+    await ingestion_service.ensure_fresh_data(background=True)
     return await catalog.get_catalog_meta(session)
 
 

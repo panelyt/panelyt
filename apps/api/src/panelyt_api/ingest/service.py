@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -16,10 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class IngestionService:
+    _run_lock: asyncio.Lock = asyncio.Lock()
+    _scheduled_task: asyncio.Task | None = None
+
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def ensure_fresh_data(self) -> None:
+    async def ensure_fresh_data(self, background: bool = False) -> None:
         now_utc = datetime.now(UTC)
         async with get_session() as session:
             repo = IngestionRepository(session)
@@ -39,7 +43,10 @@ class IngestionService:
             logger.info(
                 "Ingestion required: needs_snapshot=%s is_stale=%s", needs_snapshot, is_stale
             )
-            await self.run(reason="staleness_check")
+            if background:
+                self._schedule_background_run(reason="staleness_check")
+            else:
+                await self._run_with_lock(reason="staleness_check")
 
     async def run(self, scheduled: bool = False, reason: str | None = None) -> None:
         logger.info("Starting ingestion run (scheduled=%s reason=%s)", scheduled, reason)
@@ -100,3 +107,32 @@ class IngestionService:
         async with get_session() as session:
             repo = IngestionRepository(session)
             yield repo
+
+    async def _run_with_lock(self, scheduled: bool = False, reason: str | None = None) -> None:
+        async with self._run_lock:
+            await self.run(scheduled=scheduled, reason=reason)
+
+    def _schedule_background_run(self, *, reason: str | None = None) -> None:
+        if self._scheduled_task and not self._scheduled_task.done():
+            logger.debug("Skipping background ingestion; task already running")
+            return
+
+        async def runner() -> None:
+            try:
+                await self._run_with_lock(reason=reason)
+            except Exception as exc:  # pragma: no cover - logged and propagated to callback
+                logger.exception("Background ingestion failed: %s", exc)
+                raise
+
+        task = asyncio.create_task(runner())
+
+        def _cleanup(completed: asyncio.Task) -> None:
+            try:
+                completed.result()
+            except Exception:  # pragma: no cover - already logged in runner
+                pass
+            finally:
+                self.__class__._scheduled_task = None
+
+        task.add_done_callback(_cleanup)
+        self.__class__._scheduled_task = task
