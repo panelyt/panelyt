@@ -14,6 +14,11 @@ Install [uv](https://github.com/astral-sh/uv) (for example `curl -LsSf https://a
    make install-api   # uv sync --extra dev in apps/api (.venv managed by uv)
    make install-web   # pnpm install in apps/web
    ```
+   After syncing backend dependencies, activate the virtual environment before
+   running direct `uv` commands:
+   ```bash
+   source apps/api/.venv/bin/activate
+   ```
 2. **Run services locally**
    ```bash
    # Start FastAPI (requires Postgres configured via apps/api/.env)

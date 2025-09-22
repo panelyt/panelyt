@@ -5,24 +5,27 @@ optimization endpoints for the frontend. See `SPEC.md` for architecture details.
 
 ## Setup
 
-Install [uv](https://github.com/astral-sh/uv) and run:
+Install [uv](https://github.com/astral-sh/uv), create a virtual environment, and activate it:
 
 ```bash
 cd apps/api
-UV_PROJECT_ENVIRONMENT=.venv uv sync --extra dev
+python -m venv .venv
+source .venv/bin/activate
+uv sync --extra dev
 ```
 
 This creates `.venv/` managed by uv and installs dev tooling (pytest, ruff, etc.).
 
 ## Common commands
 
-Run all tooling via `uv run` so the managed environment is used:
+Run all tooling via `uv run` **after** activating the virtual environment:
 
 ```bash
-UV_PROJECT_ENVIRONMENT=.venv uv run uvicorn panelyt_api.main:app --reload
-UV_PROJECT_ENVIRONMENT=.venv uv run alembic upgrade head
-UV_PROJECT_ENVIRONMENT=.venv uv run pytest
-UV_PROJECT_ENVIRONMENT=.venv uv run ruff check src
+source .venv/bin/activate  # if not already active
+uv run uvicorn panelyt_api.main:app --reload
+uv run alembic upgrade head
+uv run pytest
+uv run ruff check src
 ```
 
 The repository Makefile wraps these commands (e.g. `make dev-api`, `make test-api`).
@@ -65,7 +68,8 @@ docker compose up -d --build
 ```bash
 # Access the API container
 docker exec -it infra-api-1 bash
-# Import aliases
+# Import aliases (ensure the virtualenv is active inside the container)
+source .venv/bin/activate
 uv run scripts/import_aliases.py data/core_aliases.json
 ```
 
@@ -99,7 +103,7 @@ Supported alias types:
 - `common_name` - Colloquial terms (e.g., "cukier", "tarczyca")
 - `scientific_name` - Scientific/medical terms (e.g., "ferritin", "cortisol")
 
-Then import with:
+Then import with (after activating `.venv`):
 ```bash
 uv run scripts/import_aliases.py your_aliases.json
 ```
