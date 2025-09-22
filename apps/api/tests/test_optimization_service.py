@@ -68,6 +68,32 @@ class TestOptimizationService:
         for r in resolved:
             assert r.token == "ALT"
 
+    async def test_resolve_biomarkers_batches_queries(self, service, db_session, monkeypatch):
+        """Ensure biomarker resolution performs a single batched query."""
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"id": 1, "name": "Alanine aminotransferase", "elab_code": "ALT", "slug": "alt"},
+                {"id": 2, "name": "Aspartate aminotransferase", "elab_code": "AST", "slug": "ast"},
+            ])
+        )
+        await db_session.commit()
+
+        call_count = 0
+        original_execute = service.session.execute
+
+        async def counting_execute(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return await original_execute(*args, **kwargs)
+
+        monkeypatch.setattr(service.session, "execute", counting_execute)
+
+        resolved, unresolved = await service._resolve_biomarkers(["ALT", "AST", "alt"])
+
+        assert len(resolved) == 3
+        assert unresolved == []
+        assert call_count == 1
+
     async def test_resolve_biomarkers_by_slug_and_name(self, service, db_session):
         """Test biomarker resolution by slug and name."""
         await db_session.execute(
