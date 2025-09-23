@@ -1,0 +1,52 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - deploy/vps
+
+jobs:
+  check:
+    name: Run quality checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Run make check
+        run: make check
+
+  deploy:
+    name: Deploy to VPS
+    needs: check
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            cd /srv/panelyt
+            git fetch origin deploy/vps
+            git checkout deploy/vps
+            git reset --hard origin/deploy/vps
+            docker compose -f infra/docker-compose.yml pull
+            docker compose -f infra/docker-compose.yml up -d --build --remove-orphans
+            docker compose -f infra/docker-compose.yml exec api curl -fs http://localhost:8000/health
