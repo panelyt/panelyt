@@ -30,6 +30,9 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v2
 
+      - name: Sync API dependencies
+        run: make install-api
+
       - name: Run make check
         run: make check
 
