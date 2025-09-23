@@ -5,6 +5,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool, text
+from sqlalchemy.schema import CreateSchema
 
 from panelyt_api.db.metadata import metadata  # type: ignore[attr-defined]
 from panelyt_api.core.settings import get_settings
@@ -48,6 +49,7 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             if settings.db_schema:
+                connection.execute(CreateSchema(settings.db_schema, if_not_exists=True))
                 connection.execute(
                     text("SET search_path TO :schema").bindparams(schema=settings.db_schema)
                 )
