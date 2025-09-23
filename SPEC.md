@@ -18,7 +18,7 @@ With **30-day price history** (max one datapoint per item per day).
 
 * **Frontend:** Next.js (App Router, TS), TanStack Query, Zod, Tailwind.
 * **Backend:** FastAPI (Python) + SQLAlchemy + Alembic + OR-Tools (CP-SAT) + APScheduler (in-process) for daily fetch.
-* **DB:** Existing `shared-db` (Postgres 16) via bridge network `shared-db`.
+* **DB:** Postgres 16 container managed by Docker Compose with a persisted volume.
 
 ---
 
@@ -30,7 +30,7 @@ panelyt/
     web/                 # Next.js client
     api/                 # FastAPI (ingest + optimize + scheduler)
   infra/
-    docker-compose.yml   # api + web (DB is external)
+    docker-compose.yml   # postgres + api + web stack for VPS
   README.md
 ```
 
@@ -127,41 +127,47 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA panelyt
 
 ## Networking / Config
 
-* API container joins `shared-db` network; connect via host `shared-db`.
+* API container reaches Postgres via the Compose service hostname `db`.
 
-**apps/api `.env`:**
+**apps/api `.env`:** (local development baseline)
 
 ```
-DATABASE_URL=postgresql+psycopg2://panelyt_app:REPLACE_ME@shared-db:5432/postgres
+DATABASE_URL=postgresql+psycopg2://panelyt_app:panelyt@localhost:5432/panelyt
 DB_SCHEMA=panelyt
 CORS_ORIGINS=http://localhost:3000
-TIMEZONE=Europe/Oslo
+TIMEZONE=Europe/Warsaw
 ```
 
-**infra/docker-compose.yml (api+web only):**
+**infra/docker-compose.yml (postgres + api + web):**
 
 ```yaml
 services:
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - panelyt_db_data:/var/lib/postgresql/data
+
   api:
     build: ../apps/api
-    env_file:
-      - ../apps/api/.env
-    ports: ["8000:8000"]
-    networks: [shared-db]
-    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://panelyt_app:***@db:5432/panelyt
+    depends_on:
+      db:
+        condition: service_healthy
 
   web:
-    build: ../apps/web
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
-    ports: ["3000:3000"]
-    depends_on: [api]
-    restart: unless-stopped
+      NEXT_PUBLIC_API_URL: https://your-domain.example.com/api
+      INTERNAL_API_URL: http://api:8000
 
-networks:
-  shared-db:
-    external: true
+volumes:
+  panelyt_db_data:
 ```
+
+Compose uses `infra/.env` (see `.env.example`) to provide credentials, exposed ports, CORS origins, and the public API URL for the frontend bundle.
 
 ---
 
@@ -292,7 +298,7 @@ networks:
 
 ## Deployment
 
-* API + Web on same host; API attached to `shared-db` network.
+* API, Web, and Postgres run on the same host via the Compose stack in `infra/`.
 * Health probe hits `/healthz`.
 * Rely on scheduler for daily data if no user activity; otherwise user activity’s staleness checks will refresh as needed.
 * No PHI stored.

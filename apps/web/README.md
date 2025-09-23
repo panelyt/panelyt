@@ -9,14 +9,15 @@ optimization dashboard that consumes the FastAPI backend.
    ```bash
    make install-web
    ```
-2. Copy `.env.local.example` to `.env.local` if you need to override `NEXT_PUBLIC_API_URL`.
+2. Copy `.env.local.example` to `.env.local` if you need to override `NEXT_PUBLIC_API_URL` or
+   provide an `INTERNAL_API_URL` for containerized runs.
 3. Start the dev server:
    ```bash
    make dev-web
    ```
 
 The app expects the API on `http://localhost:8000`. Update `NEXT_PUBLIC_API_URL` if you run the API
-elsewhere.
+elsewhere for the browser, and optionally `INTERNAL_API_URL` for server-side access inside Docker.
 
 ## Key scripts
 
