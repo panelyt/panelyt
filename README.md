@@ -32,8 +32,9 @@ Install [uv](https://github.com/astral-sh/uv) (for example `curl -LsSf https://a
    make migrate-api
    ```
 
-For a containerized setup, `make docker-up` builds both services using the compose file in
-`infra/` (expects an external `shared-db` network and Postgres instance).
+For a containerized setup, copy `infra/.env.example` to `infra/.env`, adjust credentials, and run
+`make docker-up`. The compose stack now provisions Postgres, the API, and the Next.js frontend for a
+self-contained VPS deployment.
 
 ## Project layout
 

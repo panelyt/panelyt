@@ -33,45 +33,26 @@ The repository Makefile wraps these commands (e.g. `make dev-api`, `make test-ap
 ## Production Deployment
 
 ### Prerequisites
-- External PostgreSQL database running (your shared-db)
 - Docker and Docker Compose installed
 
-### Database Setup
+### Configure environment
 
-1. **Create database and user in your PostgreSQL:**
-```sql
-CREATE DATABASE panelyt;
-CREATE USER panelyt_app WITH PASSWORD 'your_password';
-CREATE SCHEMA panelyt;
-GRANT ALL PRIVILEGES ON DATABASE panelyt TO panelyt_app;
-GRANT ALL PRIVILEGES ON SCHEMA panelyt TO panelyt_app;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA panelyt TO panelyt_app;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA panelyt TO panelyt_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA panelyt GRANT ALL ON TABLES TO panelyt_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA panelyt GRANT ALL ON SEQUENCES TO panelyt_app;
-```
+1. **Prepare compose settings:**
+   ```bash
+   cd infra
+   cp .env.example .env
+   # edit .env and change passwords, allowed origins, ports, etc.
+   ```
 
-2. **Configure environment:**
-```bash
-# Copy and edit the environment file
-cp apps/api/.env.example apps/api/.env
-# Update DATABASE_URL with your credentials
-```
+2. **Deploy with Docker:**
+   ```bash
+   docker compose up -d --build
+   ```
 
-3. **Deploy with Docker:**
-```bash
-cd infra
-docker compose up -d --build
-```
-
-4. **Import biomarker aliases:**
-```bash
-# Access the API container
-docker exec -it infra-api-1 bash
-# Import aliases (ensure the virtualenv is active inside the container)
-source .venv/bin/activate
-uv run scripts/import_aliases.py data/core_aliases.json
-```
+3. **Import biomarker aliases (optional):**
+   ```bash
+   docker compose exec api uv run scripts/import_aliases.py data/core_aliases.json
+   ```
 
 ### Biomarker Aliases
 

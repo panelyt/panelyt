@@ -1,13 +1,36 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${PANELYT_DB_NAME:-panelyt}
+      POSTGRES_USER: ${PANELYT_DB_USER:-panelyt_app}
+      POSTGRES_PASSWORD: ${PANELYT_DB_PASSWORD:-panelyt}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - panelyt_db_data:/var/lib/postgresql/data
+    ports:
+      - "${PANELYT_DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PANELYT_DB_USER:-panelyt_app} -d ${PANELYT_DB_NAME:-panelyt}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   api:
     build: ../apps/api
-    env_file:
-      - ../apps/api/.env
+    environment:
+      DATABASE_URL: ${PANELYT_DATABASE_URL:-postgresql+psycopg2://${PANELYT_DB_USER:-panelyt_app}:${PANELYT_DB_PASSWORD:-panelyt}@db:5432/${PANELYT_DB_NAME:-panelyt}}
+      DB_SCHEMA: ${PANELYT_DB_SCHEMA:-panelyt}
+      CORS_ORIGINS: ${PANELYT_CORS_ORIGINS:-http://localhost:3002,http://127.0.0.1:3002}
+      TIMEZONE: ${PANELYT_TIMEZONE:-Europe/Warsaw}
+      INGESTION_STALENESS_THRESHOLD_HOURS: ${PANELYT_INGESTION_STALENESS_THRESHOLD_HOURS:-3}
+      INGESTION_USER_ACTIVITY_WINDOW_HOURS: ${PANELYT_INGESTION_USER_ACTIVITY_WINDOW_HOURS:-24}
     ports:
-      - "8002:8000"
-    networks:
-      - shared-db
-      - default
+      - "${PANELYT_API_PORT:-8002}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -19,14 +42,16 @@ services:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${PANELYT_PUBLIC_API_URL:-http://localhost:${PANELYT_API_PORT:-8002}}
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://homeserver.tailb4f5f1.ts.net:8002}
+      NEXT_PUBLIC_API_URL: ${PANELYT_PUBLIC_API_URL:-http://localhost:${PANELYT_API_PORT:-8002}}
+      INTERNAL_API_URL: ${PANELYT_INTERNAL_API_URL:-http://api:8000}
     ports:
-      - "3002:3000"
+      - "${PANELYT_WEB_PORT:-3002}:3000"
     depends_on:
       - api
     restart: unless-stopped
 
-networks:
-  shared-db:
-    external: true
+volumes:
+  panelyt_db_data:
