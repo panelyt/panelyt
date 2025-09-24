@@ -3,7 +3,7 @@ name: deploy
 on:
   push:
     branches:
-      - deploy/vps
+      - master
 
 jobs:
   check:
@@ -52,9 +52,9 @@ jobs:
           script: |
             set -euo pipefail
             cd /srv/panelyt
-            git fetch origin deploy/vps
-            git checkout deploy/vps
-            git reset --hard origin/deploy/vps
+            git fetch origin master
+            git checkout master
+            git reset --hard origin/master
             docker compose -f infra/docker-compose.yml pull
             docker compose -f infra/docker-compose.yml up -d --build --remove-orphans
             docker compose -f infra/docker-compose.yml exec api curl -fs http://localhost:8000/health
