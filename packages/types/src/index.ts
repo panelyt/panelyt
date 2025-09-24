@@ -52,6 +52,7 @@ export const SessionResponseSchema = z.object({
   user_id: z.string(),
   username: z.string().nullable(),
   registered: z.boolean(),
+  is_admin: z.boolean(),
 });
 
 export type SessionResponse = z.infer<typeof SessionResponseSchema>;
@@ -72,6 +73,8 @@ export const SavedListSchema = z.object({
   name: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
+  share_token: z.string().nullable(),
+  shared_at: z.string().nullable(),
   biomarkers: z.array(SavedListEntrySchema),
 });
 
@@ -82,6 +85,20 @@ export const SavedListCollectionSchema = z.object({
 });
 
 export type SavedListCollection = z.infer<typeof SavedListCollectionSchema>;
+
+export const SavedListShareRequestSchema = z.object({
+  regenerate: z.boolean().optional().default(false),
+});
+
+export type SavedListShareRequest = z.infer<typeof SavedListShareRequestSchema>;
+
+export const SavedListShareResponseSchema = z.object({
+  list_id: z.string(),
+  share_token: z.string(),
+  shared_at: z.string(),
+});
+
+export type SavedListShareResponse = z.infer<typeof SavedListShareResponseSchema>;
 
 export const SavedListUpsertSchema = z.object({
   name: z.string().min(1).max(128),
@@ -96,6 +113,72 @@ export const SavedListUpsertSchema = z.object({
 });
 
 export type SavedListUpsert = z.infer<typeof SavedListUpsertSchema>;
+
+export const BiomarkerReferenceSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  elab_code: z.string().nullable(),
+  slug: z.string().nullable(),
+});
+
+export type BiomarkerReference = z.infer<typeof BiomarkerReferenceSchema>;
+
+export const BiomarkerListEntrySchema = z.object({
+  id: z.number().int().positive(),
+  code: z.string(),
+  display_name: z.string(),
+  sort_order: z.number().int(),
+  biomarker: BiomarkerReferenceSchema.nullable(),
+  notes: z.string().nullable(),
+});
+
+export type BiomarkerListEntry = z.infer<typeof BiomarkerListEntrySchema>;
+
+export const BiomarkerListTemplateSchema = z.object({
+  id: z.number().int().positive(),
+  slug: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  is_active: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  biomarkers: z.array(BiomarkerListEntrySchema),
+});
+
+export type BiomarkerListTemplate = z.infer<typeof BiomarkerListTemplateSchema>;
+
+export const BiomarkerListTemplateCollectionSchema = z.object({
+  templates: z.array(BiomarkerListTemplateSchema),
+});
+
+export type BiomarkerListTemplateCollection = z.infer<
+  typeof BiomarkerListTemplateCollectionSchema
+>;
+
+export const BiomarkerTemplateEntryPayloadSchema = z.object({
+  code: z.string().min(1).max(128),
+  display_name: z.string().min(1).max(255),
+  notes: z.string().max(1024).nullable().optional(),
+});
+
+export type BiomarkerTemplateEntryPayload = z.infer<
+  typeof BiomarkerTemplateEntryPayloadSchema
+>;
+
+export const BiomarkerListTemplateUpsertSchema = z.object({
+  slug: z.string().min(1).max(128),
+  name: z.string().min(1).max(128),
+  description: z.string().max(512).nullable(),
+  is_active: z.boolean(),
+  biomarkers: z
+    .array(BiomarkerTemplateEntryPayloadSchema)
+    .max(200)
+    .default([]),
+});
+
+export type BiomarkerListTemplateUpsert = z.infer<
+  typeof BiomarkerListTemplateUpsertSchema
+>;
 
 export const CatalogMetaSchema = z.object({
   item_count: z.number().int().nonnegative(),

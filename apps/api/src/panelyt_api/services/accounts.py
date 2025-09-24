@@ -40,6 +40,7 @@ class AccountService:
         self.cookie_name = self._settings.session_cookie_name
         self.cookie_max_age = int(self._session_ttl.total_seconds())
         self._password_hasher = PasswordHasher()
+        self._admin_usernames = {name.lower() for name in self._settings.admin_usernames}
 
     async def ensure_session(self, token: str | None) -> SessionState:
         now = datetime.now(UTC)
@@ -50,6 +51,7 @@ class AccountService:
                 if expires_at >= now:
                     existing.last_seen_at = now
                     existing.expires_at = now + self._session_ttl
+                    self._sync_admin_flag(existing.user)
                     await self._db.flush()
                     return SessionState(user=existing.user, session=existing, token=token)
 
@@ -57,6 +59,7 @@ class AccountService:
                 existing.token_hash = self._hash_token(new_token)
                 existing.expires_at = now + self._session_ttl
                 existing.last_seen_at = now
+                self._sync_admin_flag(existing.user)
                 await self._db.flush()
                 return SessionState(user=existing.user, session=existing, token=new_token)
 
@@ -90,6 +93,7 @@ class AccountService:
 
         user.username = normalized
         user.password_hash = self._hash_password(password)
+        self._sync_admin_flag(user)
         await self._db.flush()
 
         return SessionState(user=user, session=session_state.session, token=session_state.token)
@@ -106,6 +110,7 @@ class AccountService:
         if not user.password_hash or not self._verify_password(user.password_hash, password):
             raise ValueError("Invalid credentials")
 
+        self._sync_admin_flag(user)
         session_state = await self._create_session(user)
         return session_state
 
@@ -129,6 +134,7 @@ class AccountService:
 
         existing.last_seen_at = now
         existing.expires_at = now + self._session_ttl
+        self._sync_admin_flag(existing.user)
         await self._db.flush()
 
         return SessionState(
@@ -209,6 +215,13 @@ class AccountService:
     def _validate_password(self, password: str) -> None:
         if len(password) < self._PASSWORD_MIN_LENGTH:
             raise ValueError("Password must be at least 8 characters long")
+
+    def _sync_admin_flag(self, user: UserAccount) -> None:
+        desired = False
+        if user.username is not None:
+            desired = user.username.lower() in self._admin_usernames
+        if user.is_admin != desired:
+            user.is_admin = desired
 
 
 __all__ = [

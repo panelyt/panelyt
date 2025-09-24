@@ -4,19 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BarChart3, Clock, Layers, Loader2, Sparkles } from "lucide-react";
-import type { SavedList } from "@panelyt/types";
+import { BiomarkerListTemplateSchema, SavedListSchema, type SavedList } from "@panelyt/types";
 
 import { useCatalogMeta } from "../hooks/useCatalogMeta";
 import { useOptimization } from "../hooks/useOptimization";
 import { useSavedLists } from "../hooks/useSavedLists";
 import { useUserSession } from "../hooks/useUserSession";
 import { useAuth } from "../hooks/useAuth";
+import { useTemplateAdmin } from "../hooks/useTemplateAdmin";
 import { OptimizationResults } from "../components/optimization-results";
 import { SearchBox } from "../components/search-box";
 import { SelectedBiomarkers } from "../components/selected-biomarkers";
 import { AuthModal } from "../components/auth-modal";
 import { SaveListModal } from "../components/save-list-modal";
-import { HttpError } from "../lib/http";
+import { TemplateModal } from "../components/template-modal";
+import { HttpError, getJson } from "../lib/http";
+import { slugify } from "../lib/slug";
 
 interface SelectedBiomarker {
   code: string;
@@ -34,6 +37,14 @@ export default function Home() {
   const [saveName, setSaveName] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isLoadMenuOpen, setIsLoadMenuOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateSlug, setTemplateSlug] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [templateIsActive, setTemplateIsActive] = useState(true);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [templateSlugTouched, setTemplateSlugTouched] = useState(false);
 
   const { data: meta } = useCatalogMeta();
   const sessionQuery = useUserSession();
@@ -41,6 +52,8 @@ export default function Home() {
   const userSession = sessionQuery.data;
   const savedLists = useSavedLists(Boolean(userSession));
   const savedListsData = useMemo(() => savedLists.listsQuery.data ?? [], [savedLists.listsQuery.data]);
+  const templateAdmin = useTemplateAdmin();
+  const isAdmin = Boolean(userSession?.is_admin);
 
   const optimizerInput = useMemo(
     () => Array.from(new Set(selected.map((b) => b.code))),
@@ -83,7 +96,7 @@ export default function Home() {
     setSelected((current) => current.filter((item) => item.code !== code));
   };
 
-  const extractErrorMessage = (error: unknown) => {
+  const extractErrorMessage = useCallback((error: unknown) => {
     if (error instanceof HttpError) {
       if (error.body) {
         try {
@@ -101,7 +114,99 @@ export default function Home() {
       return error.message;
     }
     return "Something went wrong";
-  };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const templateSlug = params.get("template");
+    if (!templateSlug) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadTemplate = async () => {
+      try {
+        const payload = await getJson(`/biomarker-lists/templates/${templateSlug}`);
+        const template = BiomarkerListTemplateSchema.parse(payload);
+        if (cancelled) {
+          return;
+        }
+        setSelected(
+          template.biomarkers.map((entry) => ({
+            code: entry.code,
+            name: entry.display_name,
+          })),
+        );
+        setListError(null);
+      } catch (error) {
+        if (!cancelled) {
+          setListError(extractErrorMessage(error));
+        }
+      } finally {
+        if (!cancelled) {
+          params.delete("template");
+          const query = params.toString();
+          router.replace(query ? `/?${query}` : "/", { scroll: false });
+        }
+      }
+    };
+
+    void loadTemplate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, extractErrorMessage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const sharedToken = params.get("shared");
+    if (!sharedToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadShared = async () => {
+      try {
+        const payload = await getJson(`/biomarker-lists/shared/${sharedToken}`);
+        const sharedList = SavedListSchema.parse(payload);
+        if (cancelled) {
+          return;
+        }
+        setSelected(
+          sharedList.biomarkers.map((entry) => ({
+            code: entry.code,
+            name: entry.display_name,
+          })),
+        );
+        setListError(null);
+      } catch (error) {
+        if (!cancelled) {
+          setListError(extractErrorMessage(error));
+        }
+      } finally {
+        if (!cancelled) {
+          params.delete("shared");
+          const query = params.toString();
+          router.replace(query ? `/?${query}` : "/", { scroll: false });
+        }
+      }
+    };
+
+    void loadShared();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, extractErrorMessage]);
 
   const closeAuthModal = () => {
     setIsAuthOpen(false);
@@ -199,6 +304,73 @@ export default function Home() {
     }
   };
 
+  const openTemplateModal = () => {
+    const defaultName = selected.length
+      ? `Template ${new Date().toLocaleDateString()}`
+      : "";
+    const initialSlug = defaultName ? slugify(defaultName) : "";
+    setTemplateName(defaultName);
+    setTemplateSlug(initialSlug);
+    setTemplateDescription("");
+    setTemplateIsActive(true);
+    setTemplateError(null);
+    setTemplateSlugTouched(Boolean(initialSlug));
+    setIsTemplateModalOpen(true);
+  };
+
+  const handleTemplateNameChange = (value: string) => {
+    setTemplateName(value);
+    if (!templateSlugTouched) {
+      setTemplateSlug(slugify(value));
+    }
+  };
+
+  const handleTemplateSlugChange = (value: string) => {
+    setTemplateSlug(value);
+    setTemplateSlugTouched(true);
+  };
+
+  const handleTemplateConfirm = async () => {
+    if (selected.length === 0) {
+      const message = "Add biomarkers before saving a template.";
+      setTemplateError(message);
+      return;
+    }
+
+    const trimmedName = templateName.trim();
+    const normalizedSlug = slugify(templateSlug || templateName);
+    if (!trimmedName) {
+      setTemplateError("Template name cannot be empty");
+      return;
+    }
+    if (!normalizedSlug) {
+      setTemplateError("Template slug cannot be empty");
+      return;
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      await templateAdmin.createMutation.mutateAsync({
+        slug: normalizedSlug,
+        name: trimmedName,
+        description: templateDescription.trim() || null,
+        is_active: templateIsActive,
+        biomarkers: selected.map((entry) => ({
+          code: entry.code,
+          display_name: entry.name,
+          notes: null,
+        })),
+      });
+      setTemplateError(null);
+      setIsTemplateModalOpen(false);
+      setTemplateSlugTouched(false);
+    } catch (error) {
+      setTemplateError(extractErrorMessage(error));
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -252,6 +424,12 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <Link
+          href="/collections"
+          className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
+        >
+          Templates
+        </Link>
         <Link
           href="/lists"
           className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
@@ -315,6 +493,28 @@ export default function Home() {
           setSaveError(null);
         }}
         onConfirm={handleSaveConfirm}
+      />
+
+      <TemplateModal
+        open={isTemplateModalOpen}
+        title="Publish curated template"
+        submitLabel={isSavingTemplate ? "Saving…" : "Save template"}
+        name={templateName}
+        slug={templateSlug}
+        description={templateDescription}
+        isActive={templateIsActive}
+        error={templateError}
+        isSubmitting={isSavingTemplate}
+        onNameChange={handleTemplateNameChange}
+        onSlugChange={handleTemplateSlugChange}
+        onDescriptionChange={setTemplateDescription}
+        onIsActiveChange={setTemplateIsActive}
+        onClose={() => {
+          setIsTemplateModalOpen(false);
+          setTemplateError(null);
+          setTemplateSlugTouched(false);
+        }}
+        onConfirm={handleTemplateConfirm}
       />
 
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-blue-900 via-slate-900 to-slate-950">
@@ -399,6 +599,15 @@ export default function Home() {
                   >
                     Save
                   </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={openTemplateModal}
+                      className="rounded-full border border-sky-500/60 px-3 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20"
+                    >
+                      Save as template
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

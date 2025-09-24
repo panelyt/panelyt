@@ -21,26 +21,32 @@ def test_register_and_login_flow(client: TestClient) -> None:
     assert response.status_code == 201
     register_body = response.json()
     assert register_body["username"] == username
+    assert register_body["is_admin"] is False
 
     response = client.post("/users/session")
     assert response.status_code == 200
     session_body = response.json()
     assert session_body["username"] == username
     assert session_body["registered"] is True
+    assert session_body["is_admin"] is False
 
     response = client.post("/users/logout")
     assert response.status_code == 204
 
     response = client.post("/users/session")
     assert response.status_code == 200
-    assert response.json()["registered"] is False
+    session_after_logout = response.json()
+    assert session_after_logout["registered"] is False
+    assert session_after_logout["is_admin"] is False
 
     response = client.post(
         "/users/login",
         json={"username": username, "password": password},
     )
     assert response.status_code == 200
-    assert response.json()["username"] == username
+    login_body = response.json()
+    assert login_body["username"] == username
+    assert login_body["is_admin"] is False
 
 
 def test_duplicate_username_rejected(client: TestClient) -> None:

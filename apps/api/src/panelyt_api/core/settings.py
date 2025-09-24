@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     session_cookie_ttl_days: int = Field(default=180, alias="SESSION_COOKIE_TTL_DAYS")
     session_cookie_secure: bool = Field(default=False, alias="SESSION_COOKIE_SECURE")
     session_cookie_domain: str | None = Field(default=None, alias="SESSION_COOKIE_DOMAIN")
+    admin_usernames_raw: str | list[str] = Field(
+        default_factory=list,
+        alias="ADMIN_USERNAMES",
+    )
 
     @field_validator("cors_origins_raw", mode="before")
     @classmethod
@@ -40,6 +44,17 @@ class Settings(BaseSettings):
                 expanded.add(origin.replace("localhost", "127.0.0.1", 1))
         return sorted(expanded)
 
+    @field_validator("admin_usernames_raw", mode="before")
+    @classmethod
+    def parse_admin_usernames(cls, value: str | list[str]) -> list[str]:
+        if isinstance(value, list):
+            usernames = value
+        elif isinstance(value, str):
+            usernames = [item.strip() for item in value.split(",") if item.strip()]
+        else:
+            usernames = []
+        return sorted({name.lower() for name in usernames})
+
     @property
     def cors_origins(self) -> list[str]:
         return self.cors_origins_raw  # type: ignore[return-value]
@@ -47,6 +62,10 @@ class Settings(BaseSettings):
     @property
     def session_cookie_ttl_seconds(self) -> int:
         return max(self.session_cookie_ttl_days, 1) * 24 * 60 * 60
+
+    @property
+    def admin_usernames(self) -> list[str]:
+        return self.admin_usernames_raw  # type: ignore[return-value]
 
 
 @lru_cache

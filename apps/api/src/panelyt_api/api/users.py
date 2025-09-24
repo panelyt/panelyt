@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from panelyt_api.api.deps import SessionDep
-from panelyt_api.core.settings import get_settings
+from panelyt_api.core.settings import Settings, get_settings
 from panelyt_api.schemas.accounts import Credentials, SessionResponse
 from panelyt_api.services.accounts import AccountService
 
@@ -15,8 +17,8 @@ async def ensure_user_session(
     request: Request,
     response: Response,
     db: SessionDep,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> SessionResponse:
-    settings = get_settings()
     account_service = AccountService(db, settings=settings)
     token = request.cookies.get(settings.session_cookie_name)
     session_state = await account_service.ensure_session(token)
@@ -26,6 +28,7 @@ async def ensure_user_session(
         user_id=user.id,
         username=user.username,
         registered=user.username is not None,
+        is_admin=user.is_admin,
     )
 
 
@@ -35,8 +38,8 @@ async def register_user(
     request: Request,
     response: Response,
     db: SessionDep,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> SessionResponse:
-    settings = get_settings()
     account_service = AccountService(db, settings=settings)
     token = request.cookies.get(settings.session_cookie_name)
     session_state = await account_service.ensure_session(token)
@@ -51,7 +54,12 @@ async def register_user(
 
     account_service.apply_cookie(response, session_state.token)
     user = session_state.user
-    return SessionResponse(user_id=user.id, username=user.username, registered=True)
+    return SessionResponse(
+        user_id=user.id,
+        username=user.username,
+        registered=True,
+        is_admin=user.is_admin,
+    )
 
 
 @router.post("/login", response_model=SessionResponse)
@@ -59,8 +67,8 @@ async def login_user(
     credentials: Credentials,
     response: Response,
     db: SessionDep,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> SessionResponse:
-    settings = get_settings()
     account_service = AccountService(db, settings=settings)
     try:
         session_state = await account_service.login(
@@ -76,6 +84,7 @@ async def login_user(
         user_id=user.id,
         username=user.username,
         registered=user.username is not None,
+        is_admin=user.is_admin,
     )
 
 
@@ -84,8 +93,8 @@ async def logout_user(
     request: Request,
     response: Response,
     db: SessionDep,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
-    settings = get_settings()
     account_service = AccountService(db, settings=settings)
     token = request.cookies.get(settings.session_cookie_name)
     if not token:

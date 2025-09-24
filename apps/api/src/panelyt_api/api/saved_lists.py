@@ -7,6 +7,8 @@ from panelyt_api.schemas.saved_lists import (
     SavedListCollectionResponse,
     SavedListEntryPayload,
     SavedListResponse,
+    SavedListShareRequest,
+    SavedListShareResponse,
     SavedListUpsert,
 )
 from panelyt_api.services.saved_lists import SavedListEntryData, SavedListService
@@ -82,3 +84,36 @@ async def delete_saved_list(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="list not found")
 
     await service.delete_list(saved_list)
+
+
+@router.post("/{list_id}/share", response_model=SavedListShareResponse)
+async def share_saved_list(
+    list_id: str,
+    payload: SavedListShareRequest,
+    session_state: SessionStateDep,
+    db: SessionDep,
+) -> SavedListShareResponse:
+    service = SavedListService(db)
+    saved_list = await service.get_for_user(list_id, session_state.user.id)
+    if saved_list is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="list not found")
+
+    published = await service.publish_list(saved_list, regenerate=payload.regenerate)
+    try:
+        return SavedListShareResponse.from_model(published)
+    except ValueError as exc:  # pragma: no cover - defensive guard
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.delete("/{list_id}/share", status_code=status.HTTP_204_NO_CONTENT)
+async def unshare_saved_list(
+    list_id: str,
+    session_state: SessionStateDep,
+    db: SessionDep,
+) -> None:
+    service = SavedListService(db)
+    saved_list = await service.get_for_user(list_id, session_state.user.id)
+    if saved_list is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="list not found")
+
+    await service.revoke_share(saved_list)

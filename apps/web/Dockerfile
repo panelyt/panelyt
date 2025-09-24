@@ -3,7 +3,9 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY packages/types ./packages/types
 COPY apps/web/package.json ./apps/web/
-RUN corepack enable && pnpm install --filter @panelyt/types --filter @panelyt/web...
+RUN corepack enable \
+  && corepack prepare pnpm@10.17.1 --activate \
+  && pnpm install --filter @panelyt/types --filter @panelyt/web...
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -15,6 +17,7 @@ ENV INTERNAL_API_URL=$INTERNAL_API_URL
 COPY --from=deps /app ./
 COPY . .
 RUN corepack enable \
+  && corepack prepare pnpm@10.17.1 --activate \
   && pnpm --filter @panelyt/types build \
   && pnpm --filter @panelyt/web... build
 
@@ -38,3 +41,4 @@ USER nextjs
 
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
+RUN corepack prepare pnpm@10.17.1 --activate

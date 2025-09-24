@@ -164,6 +164,12 @@ class UserAccount(Base):
     username: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -203,6 +209,8 @@ class SavedList(Base):
         String(36), ForeignKey("user_account.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(128), nullable=False)
+    share_token: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
+    shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -242,10 +250,69 @@ class SavedListEntry(Base):
     biomarker: Mapped[Biomarker | None] = relationship("Biomarker")
 
 
+class BiomarkerListTemplate(Base):
+    __tablename__ = "biomarker_list_template"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    entries: Mapped[list[BiomarkerListTemplateEntry]] = relationship(
+        "BiomarkerListTemplateEntry",
+        back_populates="template",
+        cascade="all, delete-orphan",
+        order_by="BiomarkerListTemplateEntry.sort_order",
+    )
+
+
+class BiomarkerListTemplateEntry(Base):
+    __tablename__ = "biomarker_list_template_entry"
+    __table_args__ = (
+        UniqueConstraint(
+            "template_id",
+            "code",
+            name="uq_biomarker_list_template_entry_code",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    template_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("biomarker_list_template.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    biomarker_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("biomarker.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    code: Mapped[str] = mapped_column(String(128), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    sort_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    template: Mapped[BiomarkerListTemplate] = relationship(
+        "BiomarkerListTemplate", back_populates="entries"
+    )
+    biomarker: Mapped[Biomarker | None] = relationship("Biomarker")
+
+
 __all__ = [
     "AppActivity",
     "Biomarker",
     "BiomarkerAlias",
+    "BiomarkerListTemplate",
+    "BiomarkerListTemplateEntry",
     "IngestionLog",
     "Item",
     "ItemBiomarker",
