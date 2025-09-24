@@ -68,5 +68,3 @@ Key specifications and data model details live in `SPEC.md`.
 
 - Backend: `make lint-api`, `make fmt-api`, `make test-api` (all via `uv run`).
 - Frontend: `pnpm --filter @panelyt/web lint` and `pnpm --filter @panelyt/web typecheck`.
-
-Refer to `AGENTS.md` for contributor conventions.
