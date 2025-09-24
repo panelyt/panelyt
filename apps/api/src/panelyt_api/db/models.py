@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -155,6 +157,91 @@ class AppActivity(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class UserAccount(Base):
+    __tablename__ = "user_account"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    username: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    sessions: Mapped[list[UserSession]] = relationship(
+        "UserSession", back_populates="user", cascade="all, delete-orphan"
+    )
+    lists: Mapped[list[SavedList]] = relationship(
+        "SavedList", back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class UserSession(Base):
+    __tablename__ = "user_session"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_account.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    user: Mapped[UserAccount] = relationship("UserAccount", back_populates="sessions")
+
+
+class SavedList(Base):
+    __tablename__ = "saved_list"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_account.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    user: Mapped[UserAccount] = relationship("UserAccount", back_populates="lists")
+    entries: Mapped[list[SavedListEntry]] = relationship(
+        "SavedListEntry", back_populates="saved_list", cascade="all, delete-orphan"
+    )
+
+
+class SavedListEntry(Base):
+    __tablename__ = "saved_list_entry"
+    __table_args__ = (
+        UniqueConstraint("list_id", "code", name="uq_saved_list_entry_code"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    list_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("saved_list.id", ondelete="CASCADE"), nullable=False
+    )
+    biomarker_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("biomarker.id", ondelete="SET NULL"), nullable=True
+    )
+    code: Mapped[str] = mapped_column(String(128), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    sort_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    saved_list: Mapped[SavedList] = relationship("SavedList", back_populates="entries")
+    biomarker: Mapped[Biomarker | None] = relationship("Biomarker")
+
+
 __all__ = [
     "AppActivity",
     "Biomarker",
@@ -164,4 +251,8 @@ __all__ = [
     "ItemBiomarker",
     "PriceSnapshot",
     "RawSnapshot",
+    "SavedList",
+    "SavedListEntry",
+    "UserAccount",
+    "UserSession",
 ]

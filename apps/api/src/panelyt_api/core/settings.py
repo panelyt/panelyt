@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     ingestion_user_activity_window_hours: int = Field(
         default=24, alias="INGESTION_USER_ACTIVITY_WINDOW_HOURS"
     )
+    session_cookie_name: str = Field(default="panelyt_session", alias="SESSION_COOKIE_NAME")
+    session_cookie_ttl_days: int = Field(default=180, alias="SESSION_COOKIE_TTL_DAYS")
+    session_cookie_secure: bool = Field(default=False, alias="SESSION_COOKIE_SECURE")
+    session_cookie_domain: str | None = Field(default=None, alias="SESSION_COOKIE_DOMAIN")
 
     @field_validator("cors_origins_raw", mode="before")
     @classmethod
@@ -39,6 +43,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return self.cors_origins_raw  # type: ignore[return-value]
+
+    @property
+    def session_cookie_ttl_seconds(self) -> int:
+        return max(self.session_cookie_ttl_days, 1) * 24 * 60 * 60
 
 
 @lru_cache
