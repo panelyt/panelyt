@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { BarChart3, Clock, Layers, Loader2, Sparkles } from "lucide-react";
 import type { SavedList } from "@panelyt/types";
 
@@ -69,7 +69,6 @@ export default function Home() {
   }, [isLoadMenuOpen]);
 
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const handleSelect = (biomarker: SelectedBiomarker) => {
     setSelected((current) => {
@@ -201,7 +200,11 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const listId = searchParams.get("list");
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const listId = params.get("list");
     if (!listId) {
       return;
     }
@@ -212,8 +215,10 @@ export default function Home() {
     if (match) {
       handleLoadList(match);
     }
-    router.replace("/", { scroll: false });
-  }, [searchParams, savedListsData, savedLists.listsQuery.isFetching, handleLoadList, router]);
+    params.delete("list");
+    const query = params.toString();
+    router.replace(query ? `/?${query}` : "/", { scroll: false });
+  }, [savedListsData, savedLists.listsQuery.isFetching, handleLoadList, router]);
 
   const heroStats = [
     {
