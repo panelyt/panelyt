@@ -41,6 +41,62 @@ export const OptimizeResponseSchema = z.object({
 
 export type OptimizeResponse = z.infer<typeof OptimizeResponseSchema>;
 
+export const CredentialsSchema = z.object({
+  username: z.string().min(3).max(64),
+  password: z.string().min(8).max(128),
+});
+
+export type Credentials = z.infer<typeof CredentialsSchema>;
+
+export const SessionResponseSchema = z.object({
+  user_id: z.string(),
+  username: z.string().nullable(),
+  registered: z.boolean(),
+});
+
+export type SessionResponse = z.infer<typeof SessionResponseSchema>;
+
+export const SavedListEntrySchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  display_name: z.string(),
+  sort_order: z.number().int(),
+  biomarker_id: z.number().int().nullable(),
+  created_at: z.string(),
+});
+
+export type SavedListEntry = z.infer<typeof SavedListEntrySchema>;
+
+export const SavedListSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  biomarkers: z.array(SavedListEntrySchema),
+});
+
+export type SavedList = z.infer<typeof SavedListSchema>;
+
+export const SavedListCollectionSchema = z.object({
+  lists: z.array(SavedListSchema),
+});
+
+export type SavedListCollection = z.infer<typeof SavedListCollectionSchema>;
+
+export const SavedListUpsertSchema = z.object({
+  name: z.string().min(1).max(128),
+  biomarkers: z
+    .array(
+      z.object({
+        code: z.string().min(1).max(128),
+        name: z.string().min(1).max(255),
+      }),
+    )
+    .max(100),
+});
+
+export type SavedListUpsert = z.infer<typeof SavedListUpsertSchema>;
+
 export const CatalogMetaSchema = z.object({
   item_count: z.number().int().nonnegative(),
   biomarker_count: z.number().int().nonnegative(),
