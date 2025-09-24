@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2 } from "lucide-react";
+import { Copy, Loader2, RefreshCcw, Trash2, Link as LinkIcon } from "lucide-react";
 import type { SavedList } from "@panelyt/types";
 
 import { useSavedLists } from "../../hooks/useSavedLists";
@@ -20,11 +20,28 @@ interface ListWithTotals {
 export default function ListsPage() {
   const session = useUserSession();
   const savedLists = useSavedLists(Boolean(session.data));
+  const { shareMutation, unshareMutation } = savedLists;
   const rawLists = savedLists.listsQuery.data;
   const router = useRouter();
   const [listsWithTotals, setListsWithTotals] = useState<Record<string, ListWithTotals>>({});
   const [loadingTotals, setLoadingTotals] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareActionId, setShareActionId] = useState<string | null>(null);
+  const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const shareOrigin = useMemo(
+    () => (typeof window === "undefined" ? "" : window.location.origin),
+    [],
+  );
+
+  useEffect(() => {
+    if (!copiedId) {
+      return;
+    }
+    const timer = setTimeout(() => setCopiedId(null), 2000);
+    return () => clearTimeout(timer);
+  }, [copiedId]);
 
   useEffect(() => {
     const lists = rawLists ?? [];
@@ -92,6 +109,75 @@ export default function ListsPage() {
     await savedLists.deleteMutation.mutateAsync(id);
   };
 
+  const sharePath = useCallback((token: string) => `/collections/shared/${token}`, []);
+
+  const buildShareUrl = useCallback(
+    (token: string) => (shareOrigin ? `${shareOrigin}${sharePath(token)}` : sharePath(token)),
+    [shareOrigin, sharePath],
+  );
+
+  const handleCopyShare = useCallback(
+    async (token: string, listId: string) => {
+      try {
+        const url = buildShareUrl(token);
+        if (
+          typeof navigator !== "undefined" &&
+          navigator.clipboard &&
+          typeof navigator.clipboard.writeText === "function"
+        ) {
+          await navigator.clipboard.writeText(url);
+        } else if (typeof document !== "undefined") {
+          const textarea = document.createElement("textarea");
+          textarea.value = url;
+          textarea.setAttribute("readonly", "");
+          textarea.style.position = "absolute";
+          textarea.style.left = "-9999px";
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+          document.body.removeChild(textarea);
+        } else {
+          throw new Error("clipboard unavailable");
+        }
+        setCopiedId(listId);
+        setError(null);
+      } catch {
+        setError("Failed to copy share link.");
+      }
+    },
+    [buildShareUrl],
+  );
+
+  const handleShare = useCallback(
+    async (id: string, regenerate = false) => {
+      try {
+        setShareActionId(id);
+        await shareMutation.mutateAsync({ id, regenerate });
+        setError(null);
+      } catch {
+        setError(regenerate ? "Failed to regenerate share link." : "Failed to enable sharing.");
+      } finally {
+        setShareActionId(null);
+      }
+    },
+    [shareMutation],
+  );
+
+  const handleUnshare = useCallback(
+    async (id: string) => {
+      try {
+        setUnshareActionId(id);
+        await unshareMutation.mutateAsync(id);
+        setError(null);
+      } catch {
+        setError("Failed to disable sharing.");
+      } finally {
+        setUnshareActionId(null);
+      }
+    },
+    [unshareMutation],
+  );
+
   const formatTotal = (item: ListWithTotals) => {
     if (item.total === null || item.currency === null) {
       return "—";
@@ -138,41 +224,113 @@ export default function ListsPage() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {formattedLists.map((item) => (
-              <div
-                key={item.list.id}
-                className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/80 px-6 py-4 shadow-lg shadow-slate-900/40 md:flex-row md:items-center md:justify-between"
-              >
-                <div>
-                  <p className="text-lg font-semibold text-white">{item.list.name}</p>
-                  <p className="text-xs text-slate-400">
-                    {item.list.biomarkers.length} biomarker{item.list.biomarkers.length === 1 ? "" : "s"}
-                  </p>
-                </div>
-                <div className="flex flex-col items-start gap-2 text-sm text-slate-300 md:flex-row md:items-center md:gap-6">
-                  <div>
-                    <span className="text-xs uppercase tracking-wide text-slate-500">Current total</span>
-                    <p className="font-semibold text-white">{formatTotal(item)}</p>
+            {formattedLists.map((item) => {
+              const shareToken = item.list.share_token;
+              const shareLink = shareToken ? buildShareUrl(shareToken) : null;
+              const isSharePending = shareMutation.isPending && shareActionId === item.list.id;
+              const isUnsharePending =
+                unshareMutation.isPending && unshareActionId === item.list.id;
+              const sharedTimestamp = item.list.shared_at ?? item.list.updated_at;
+
+              return (
+                <div
+                  key={item.list.id}
+                  className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/80 px-6 py-4 shadow-lg shadow-slate-900/40"
+                >
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-lg font-semibold text-white">{item.list.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {item.list.biomarkers.length} biomarker
+                        {item.list.biomarkers.length === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-start gap-2 text-sm text-slate-300 md:flex-row md:items-center md:gap-6">
+                      <div>
+                        <span className="text-xs uppercase tracking-wide text-slate-500">Current total</span>
+                        <p className="font-semibold text-white">{formatTotal(item)}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/?list=${item.list.id}`)}
+                          className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                        >
+                          Load in optimizer
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(item.list.id)}
+                          className="flex items-center gap-1 rounded-lg border border-red-500/60 px-4 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/20"
+                        >
+                          <Trash2 className="h-4 w-4" /> Delete
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/?list=${item.list.id}`)}
-                      className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-                    >
-                      Load in optimizer
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(item.list.id)}
-                      className="flex items-center gap-1 rounded-lg border border-red-500/60 px-4 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/20"
-                    >
-                      <Trash2 className="h-4 w-4" /> Delete
-                    </button>
+
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs text-slate-300">
+                    {shareToken && shareLink ? (
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col gap-1">
+                          <span className="flex items-center gap-2 text-slate-400">
+                            <LinkIcon className="h-4 w-4" />
+                            <span className="font-semibold text-slate-200">Share link</span>
+                          </span>
+                          <span className="truncate font-mono text-sm text-slate-200">{shareLink}</span>
+                          {sharedTimestamp && (
+                            <span className="text-[11px] text-slate-500">
+                              Updated {new Date(sharedTimestamp).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleCopyShare(shareToken, item.list.id)}
+                            className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            {copiedId === item.list.id ? "Copied!" : "Copy link"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleShare(item.list.id, true)}
+                            className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={isSharePending}
+                          >
+                            <RefreshCcw className="h-3.5 w-3.5" />
+                            {isSharePending ? "Regenerating…" : "Regenerate"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleUnshare(item.list.id)}
+                            className="flex items-center gap-1 rounded-lg border border-red-500/60 px-3 py-1.5 font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={isUnsharePending}
+                          >
+                            {isUnsharePending ? "Disabling…" : "Disable share"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                        <p className="text-slate-400">
+                          Generate a shareable link to let others view this list without editing rights.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => void handleShare(item.list.id)}
+                          className="flex items-center gap-1 rounded-lg border border-emerald-500/60 px-3 py-1.5 font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={isSharePending}
+                        >
+                          {isSharePending ? "Generating…" : "Enable share"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

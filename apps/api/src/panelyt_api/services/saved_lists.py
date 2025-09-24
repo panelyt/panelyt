@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from secrets import token_urlsafe
 
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,6 +49,20 @@ class SavedListService:
             saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
+    async def get_shared(self, share_token: str) -> SavedList | None:
+        if not share_token:
+            return None
+        stmt = (
+            select(SavedList)
+            .options(selectinload(SavedList.entries))
+            .where(SavedList.share_token == share_token)
+        )
+        result = await self._db.execute(stmt)
+        saved_list = result.scalar_one_or_none()
+        if saved_list is not None:
+            saved_list.entries.sort(key=lambda entry: entry.sort_order)
+        return saved_list
+
     async def create_list(
         self,
         user_id: str,
@@ -73,6 +88,8 @@ class SavedListService:
             )
 
         saved_list.updated_at = datetime.now(UTC)
+        if saved_list.share_token:
+            saved_list.shared_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
         saved_list.entries.sort(key=lambda entry: entry.sort_order)
@@ -114,6 +131,30 @@ class SavedListService:
         await self._db.delete(saved_list)
         await self._db.flush()
 
+    async def publish_list(
+        self,
+        saved_list: SavedList,
+        *,
+        regenerate: bool = False,
+    ) -> SavedList:
+        if regenerate or not saved_list.share_token:
+            saved_list.share_token = await self._generate_unique_share_token()
+        saved_list.shared_at = datetime.now(UTC)
+        saved_list.updated_at = datetime.now(UTC)
+        await self._db.flush()
+        await self._db.refresh(saved_list, attribute_names=["entries"])
+        saved_list.entries.sort(key=lambda entry: entry.sort_order)
+        return saved_list
+
+    async def revoke_share(self, saved_list: SavedList) -> SavedList:
+        saved_list.share_token = None
+        saved_list.shared_at = None
+        saved_list.updated_at = datetime.now(UTC)
+        await self._db.flush()
+        await self._db.refresh(saved_list, attribute_names=["entries"])
+        saved_list.entries.sort(key=lambda entry: entry.sort_order)
+        return saved_list
+
     def _prepare_entries(
         self,
         entries: Sequence[SavedListEntryData],
@@ -154,6 +195,16 @@ class SavedListService:
             if biomarker.slug:
                 biomarker_map.setdefault(biomarker.slug.lower(), biomarker.id)
         return biomarker_map
+
+    async def _generate_unique_share_token(self) -> str:
+        while True:
+            candidate = token_urlsafe(9)[:32]
+            exists_stmt = select(func.count()).select_from(SavedList).where(
+                SavedList.share_token == candidate
+            )
+            exists = await self._db.scalar(exists_stmt)
+            if not exists:
+                return candidate
 
 
 __all__ = ["SavedListEntryData", "SavedListService"]

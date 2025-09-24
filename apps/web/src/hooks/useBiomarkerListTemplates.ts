@@ -1,0 +1,36 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import {
+  BiomarkerListTemplateCollectionSchema,
+  BiomarkerListTemplateSchema,
+  type BiomarkerListTemplate,
+} from "@panelyt/types";
+
+import { getJson } from "../lib/http";
+
+export function useTemplateCatalog(options: { includeAll?: boolean } = {}) {
+  const includeAll = Boolean(options.includeAll);
+  return useQuery<BiomarkerListTemplate[], Error>({
+    queryKey: ["biomarker-list", "templates", includeAll],
+    queryFn: async () => {
+      const endpoint = includeAll
+        ? "/biomarker-lists/admin/templates"
+        : "/biomarker-lists/templates";
+      const payload = await getJson(endpoint);
+      const parsed = BiomarkerListTemplateCollectionSchema.parse(payload);
+      return parsed.templates;
+    },
+  });
+}
+
+export function useTemplateDetail(slug: string, enabled = true) {
+  return useQuery<BiomarkerListTemplate, Error>({
+    queryKey: ["biomarker-list", "template", slug],
+    enabled,
+    queryFn: async () => {
+      const payload = await getJson(`/biomarker-lists/templates/${slug}`);
+      return BiomarkerListTemplateSchema.parse(payload);
+    },
+  });
+}

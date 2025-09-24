@@ -4,8 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SavedListCollectionSchema,
   SavedListSchema,
+  SavedListShareRequestSchema,
+  SavedListShareResponseSchema,
   SavedListUpsertSchema,
   type SavedList,
+  type SavedListShareResponse,
   type SavedListUpsert,
 } from "@panelyt/types";
 
@@ -55,10 +58,37 @@ export function useSavedLists(enabled: boolean) {
     },
   });
 
+  const shareMutation = useMutation<
+    SavedListShareResponse,
+    Error,
+    { id: string; regenerate?: boolean }
+  >({
+    mutationFn: async ({ id, regenerate }) => {
+      const payload = SavedListShareRequestSchema.parse({ regenerate });
+      const response = await postJson(`/lists/${id}/share`, payload);
+      const parsed = SavedListShareResponseSchema.parse(response);
+      return parsed;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-lists"] });
+    },
+  });
+
+  const unshareMutation = useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      await deleteRequest(`/lists/${id}/share`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-lists"] });
+    },
+  });
+
   return {
     listsQuery,
     createMutation,
     updateMutation,
     deleteMutation,
+    shareMutation,
+    unshareMutation,
   };
 }

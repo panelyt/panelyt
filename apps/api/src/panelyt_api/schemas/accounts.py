@@ -18,6 +18,7 @@ class SessionResponse(BaseModel):
         default=False,
         description="Whether the current user has credentials set",
     )
+    is_admin: bool = Field(default=False, description="True when the user has admin privileges")
 
 
 __all__ = ["Credentials", "SessionResponse"]

@@ -27,13 +27,16 @@ def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
 @pytest.fixture
 def test_settings() -> Settings:
     """Test settings with SQLite database."""
-    return Settings(
+    settings = Settings(
         database_url="sqlite+aiosqlite:///test.db",
         db_schema=None,
         testing=True,
         cors_origins=["http://localhost:3000"],
         log_level="DEBUG",
+        ADMIN_USERNAMES=["admin"],
     )
+    assert settings.admin_usernames == ["admin"]
+    return settings
 
 
 @pytest.fixture
@@ -59,9 +62,24 @@ async def db_session(test_settings: Settings) -> AsyncIterator[AsyncSession]:
 @pytest.fixture
 def override_get_settings(test_settings: Settings):
     """Override settings dependency for testing."""
+    from functools import lru_cache
+    from panelyt_api.core import settings as settings_module
+
+    original_get_settings = settings_module.get_settings
+
+    @lru_cache
+    def _patched_get_settings() -> Settings:  # type: ignore[override]
+        return test_settings
+
+    settings_module.get_settings = _patched_get_settings  # type: ignore[assignment]
+
     def _override_get_settings():
         return test_settings
-    return _override_get_settings
+
+    yield _override_get_settings
+
+    settings_module.get_settings = original_get_settings
+    settings_module.get_settings.cache_clear()
 
 
 @pytest.fixture

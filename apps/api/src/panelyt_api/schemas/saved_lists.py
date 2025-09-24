@@ -59,6 +59,8 @@ class SavedListResponse(BaseModel):
     name: str
     created_at: datetime
     updated_at: datetime
+    share_token: str | None
+    shared_at: datetime | None
     biomarkers: list[SavedListEntryResponse]
 
     @classmethod
@@ -69,6 +71,8 @@ class SavedListResponse(BaseModel):
             name=model.name,
             created_at=model.created_at,
             updated_at=model.updated_at,
+            share_token=model.share_token,
+            shared_at=model.shared_at,
             biomarkers=[SavedListEntryResponse.model_validate(entry) for entry in sorted_entries],
         )
 
@@ -81,10 +85,29 @@ class SavedListCollectionResponse(BaseModel):
         return cls(lists=[SavedListResponse.from_model(item) for item in lists])
 
 
+class SavedListShareResponse(BaseModel):
+    list_id: str
+    share_token: str
+    shared_at: datetime
+
+    @classmethod
+    def from_model(cls, model: SavedList) -> Self:
+        if model.share_token is None or model.shared_at is None:
+            msg = "saved list is not currently shared"
+            raise ValueError(msg)
+        return cls(list_id=model.id, share_token=model.share_token, shared_at=model.shared_at)
+
+
+class SavedListShareRequest(BaseModel):
+    regenerate: bool = Field(default=False)
+
+
 __all__ = [
     "SavedListCollectionResponse",
     "SavedListEntryPayload",
     "SavedListEntryResponse",
     "SavedListResponse",
+    "SavedListShareRequest",
+    "SavedListShareResponse",
     "SavedListUpsert",
 ]
