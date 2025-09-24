@@ -3509,7 +3509,7 @@
   "Fosfataza zasadowa (ALP)": {
     "aliases": [
       {
-        "alias": "fosfataza alkaliczna",
+        "alias": "ALP",
         "type": "alternative_name",
         "priority": 1
       },
