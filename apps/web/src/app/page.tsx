@@ -1,13 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BarChart3, Clock, Layers, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { BarChart3, Clock, Layers, Loader2, Sparkles } from "lucide-react";
+import type { SavedList } from "@panelyt/types";
 
 import { useCatalogMeta } from "../hooks/useCatalogMeta";
 import { useOptimization } from "../hooks/useOptimization";
+import { useSavedLists } from "../hooks/useSavedLists";
+import { useUserSession } from "../hooks/useUserSession";
+import { useAuth } from "../hooks/useAuth";
 import { OptimizationResults } from "../components/optimization-results";
 import { SearchBox } from "../components/search-box";
 import { SelectedBiomarkers } from "../components/selected-biomarkers";
+import { AuthModal } from "../components/auth-modal";
+import { SaveListModal } from "../components/save-list-modal";
+import { HttpError } from "../lib/http";
 
 interface SelectedBiomarker {
   code: string;
@@ -16,13 +25,195 @@ interface SelectedBiomarker {
 
 export default function Home() {
   const [selected, setSelected] = useState<SelectedBiomarker[]>([]);
-  const { data: meta } = useCatalogMeta();
+  const [listError, setListError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [isSavingList, setIsSavingList] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isLoadMenuOpen, setIsLoadMenuOpen] = useState(false);
 
-  const optimizerInput = useMemo(() =>
-    Array.from(new Set(selected.map(b => b.code))),
-    [selected]
+  const { data: meta } = useCatalogMeta();
+  const sessionQuery = useUserSession();
+  const auth = useAuth();
+  const userSession = sessionQuery.data;
+  const savedLists = useSavedLists(Boolean(userSession));
+  const savedListsData = useMemo(() => savedLists.listsQuery.data ?? [], [savedLists.listsQuery.data]);
+
+  const optimizerInput = useMemo(
+    () => Array.from(new Set(selected.map((b) => b.code))),
+    [selected],
+  );
+  const currentSelectionPayload = useMemo(
+    () => selected.map((item) => ({ code: item.code, name: item.name })),
+    [selected],
   );
   const optimization = useOptimization(optimizerInput);
+
+  const loadMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!isLoadMenuOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (loadMenuRef.current && !loadMenuRef.current.contains(event.target as Node)) {
+        setIsLoadMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isLoadMenuOpen]);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const handleSelect = (biomarker: SelectedBiomarker) => {
+    setSelected((current) => {
+      const normalized = biomarker.code.trim();
+      if (!normalized) return current;
+      if (current.some((b) => b.code === normalized)) return current;
+      return [...current, { code: normalized, name: biomarker.name }];
+    });
+  };
+
+  const handleRemove = (code: string) => {
+    setSelected((current) => current.filter((item) => item.code !== code));
+  };
+
+  const extractErrorMessage = (error: unknown) => {
+    if (error instanceof HttpError) {
+      if (error.body) {
+        try {
+          const parsed = JSON.parse(error.body);
+          if (typeof parsed.detail === "string") {
+            return parsed.detail;
+          }
+        } catch {
+          // ignore parse failures
+        }
+      }
+      return error.message;
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return "Something went wrong";
+  };
+
+  const closeAuthModal = () => {
+    setIsAuthOpen(false);
+    setAuthError(null);
+  };
+
+  const openAuthModal = (mode: "login" | "register") => {
+    setAuthMode(mode);
+    setIsAuthOpen(true);
+    setAuthError(null);
+  };
+
+  const handleLogin = async (credentials: { username: string; password: string }) => {
+    try {
+      setAuthError(null);
+      await auth.loginMutation.mutateAsync(credentials);
+      setSelected([]);
+      await sessionQuery.refetch();
+      closeAuthModal();
+    } catch (error) {
+      setAuthError(extractErrorMessage(error));
+    }
+  };
+
+  const handleRegister = async (credentials: { username: string; password: string }) => {
+    try {
+      setAuthError(null);
+      await auth.registerMutation.mutateAsync(credentials);
+      setSelected([]);
+      await sessionQuery.refetch();
+      closeAuthModal();
+    } catch (error) {
+      setAuthError(extractErrorMessage(error));
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await auth.logoutMutation.mutateAsync();
+      setSelected([]);
+      setListError(null);
+      await sessionQuery.refetch();
+      setAuthError(null);
+    } catch (error) {
+      setListError(extractErrorMessage(error));
+    }
+  };
+
+  const handleLoadList = useCallback((list: SavedList) => {
+    setSelected(list.biomarkers.map((entry) => ({ code: entry.code, name: entry.display_name })));
+  }, []);
+
+  const handleLoadFromMenu = (list: SavedList) => {
+    handleLoadList(list);
+    setIsLoadMenuOpen(false);
+  };
+
+  const saveList = async (name: string) => {
+    if (selected.length === 0) {
+      const message = "Add biomarkers before saving a list.";
+      setListError(message);
+      setSaveError(message);
+      return;
+    }
+    setIsSavingList(true);
+    try {
+      await savedLists.createMutation.mutateAsync({
+        name,
+        biomarkers: currentSelectionPayload,
+      });
+      setListError(null);
+      setSaveError(null);
+    } catch (error) {
+      const message = extractErrorMessage(error);
+      setListError(message);
+      setSaveError(message);
+      throw error;
+    } finally {
+      setIsSavingList(false);
+    }
+  };
+
+  const handleSaveConfirm = async () => {
+    const trimmed = saveName.trim();
+    if (!trimmed) {
+      setSaveError("Name cannot be empty");
+      return;
+    }
+    try {
+      await saveList(trimmed);
+      setIsSaveModalOpen(false);
+      setSaveName("");
+    } catch {
+      // error state already set
+    }
+  };
+
+  useEffect(() => {
+    const listId = searchParams.get("list");
+    if (!listId) {
+      return;
+    }
+    if (savedLists.listsQuery.isFetching) {
+      return;
+    }
+    const match = savedListsData.find((item) => item.id === listId);
+    if (match) {
+      handleLoadList(match);
+    }
+    router.replace("/", { scroll: false });
+  }, [searchParams, savedListsData, savedLists.listsQuery.isFetching, handleLoadList, router]);
 
   const heroStats = [
     {
@@ -53,21 +244,74 @@ export default function Home() {
     },
   ];
 
-  const handleSelect = (biomarker: SelectedBiomarker) => {
-    setSelected((current) => {
-      const normalized = biomarker.code.trim();
-      if (!normalized) return current;
-      if (current.some(b => b.code === normalized)) return current;
-      return [...current, { code: normalized, name: biomarker.name }];
-    });
-  };
-
-  const handleRemove = (code: string) => {
-    setSelected((current) => current.filter((item) => item.code !== code));
-  };
-
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <Link
+          href="/lists"
+          className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
+        >
+          My Lists
+        </Link>
+        {userSession?.registered ? (
+          <>
+            <span className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200">
+              {userSession.username}
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-red-500 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={auth.logoutMutation.isPending}
+            >
+              {auth.logoutMutation.isPending ? "Signing out…" : "Sign out"}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => openAuthModal("login")}
+              className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => openAuthModal("register")}
+              className="rounded-full border border-emerald-500/60 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+            >
+              Register
+            </button>
+          </>
+        )}
+      </div>
+
+      <AuthModal
+        open={isAuthOpen}
+        mode={authMode}
+        onModeChange={(mode) => setAuthMode(mode)}
+        onClose={closeAuthModal}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        isLoggingIn={auth.loginMutation.isPending}
+        isRegistering={auth.registerMutation.isPending}
+        error={authError}
+      />
+
+      <SaveListModal
+        open={isSaveModalOpen}
+        name={saveName}
+        error={saveError}
+        isSaving={isSavingList}
+        onNameChange={setSaveName}
+        onClose={() => {
+          setIsSaveModalOpen(false);
+          setSaveError(null);
+        }}
+        onConfirm={handleSaveConfirm}
+      />
+
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-blue-900 via-slate-900 to-slate-950">
         <div
           className="pointer-events-none absolute inset-0 opacity-40"
@@ -95,6 +339,62 @@ export default function Home() {
               <div className="mt-6 flex flex-col gap-4">
                 <SearchBox onSelect={handleSelect} />
                 <SelectedBiomarkers biomarkers={selected} onRemove={handleRemove} />
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                {listError && <p className="text-sm text-red-300">{listError}</p>}
+                <div className="ml-auto flex items-center gap-2">
+                  <div className="relative" ref={loadMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsLoadMenuOpen((open) => !open)}
+                      className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
+                    >
+                      Load
+                    </button>
+                    {isLoadMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-800 bg-slate-900/95 p-3 shadow-xl shadow-slate-900/50">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Saved lists</p>
+                        {savedLists.listsQuery.isFetching && (
+                          <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-300">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Loading…
+                          </div>
+                        )}
+                        {!savedLists.listsQuery.isFetching && savedListsData.length === 0 && (
+                          <p className="mt-3 text-xs text-slate-400">No saved lists yet.</p>
+                        )}
+                        <div className="mt-3 space-y-2">
+                          {savedListsData.map((list) => (
+                            <button
+                              key={list.id}
+                              type="button"
+                              onClick={() => handleLoadFromMenu(list)}
+                              className="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-left text-xs text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
+                            >
+                              <span className="font-semibold">{list.name}</span>
+                              <span className="text-[11px] text-slate-400">
+                                {list.biomarkers.length} biomarker{list.biomarkers.length === 1 ? "" : "s"}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSaveName(selected.length ? `List ${new Date().toLocaleDateString()}` : "");
+                      setSaveError(null);
+                      setIsSaveModalOpen(true);
+                    }}
+                    className="rounded-full border border-emerald-500/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
             </div>
           </div>
