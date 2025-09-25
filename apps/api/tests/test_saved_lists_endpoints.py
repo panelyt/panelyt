@@ -134,6 +134,43 @@ def test_saved_list_flow(client: TestClient) -> None:
     assert response.json() == {"lists": []}
 
 
+def test_create_overwrites_existing_with_same_name(client: TestClient) -> None:
+    ensure_session(client)
+
+    payload = {
+        "name": "Morning panel",
+        "biomarkers": [
+            {"code": "ALT", "name": "Alanine"},
+        ],
+    }
+    response = client.post("/lists", json=payload)
+    assert response.status_code == 201
+    created = response.json()
+    list_id = created["id"]
+    assert [entry["code"] for entry in created["biomarkers"]] == ["ALT"]
+
+    overwrite_payload = {
+        "name": "Morning panel",
+        "biomarkers": [
+            {"code": "CRP", "name": "C-reactive protein"},
+            {"code": "TSH", "name": "Thyroid stimulating hormone"},
+        ],
+    }
+    response = client.post("/lists", json=overwrite_payload)
+    assert response.status_code == 201
+    overwritten = response.json()
+    assert overwritten["id"] == list_id
+    assert [entry["code"] for entry in overwritten["biomarkers"]] == ["CRP", "TSH"]
+    assert overwritten["name"] == "Morning panel"
+
+    response = client.get("/lists")
+    assert response.status_code == 200
+    lists_payload = response.json()["lists"]
+    assert len(lists_payload) == 1
+    assert lists_payload[0]["id"] == list_id
+    assert [entry["code"] for entry in lists_payload[0]["biomarkers"]] == ["CRP", "TSH"]
+
+
 def test_missing_session_rejected(client: TestClient) -> None:
     response = client.get("/lists")
     assert response.status_code == 200
