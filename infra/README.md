@@ -31,6 +31,9 @@ volume so Postgres data survives restarts. To reset the database remove that vol
 - **db** – PostgreSQL 16 with a persistent named volume.
 - **api** – FastAPI + Alembic migrations + initial ingestion start-up script.
 - **web** – Next.js standalone server, built with the public API URL baked in and an internal URL for server-side fetches.
+- **bot** – Telegram worker that processes `/start`, `/link`, and `/unlink` commands and relays chat IDs to the API. Requires `PANELYT_TELEGRAM_BOT_TOKEN` and `PANELYT_TELEGRAM_API_SECRET`.
 
 All services share the default Compose network. The API exposes port `PANELYT_API_PORT` (default
-`8002`) and the frontend exposes `PANELYT_WEB_PORT` (default `3002`).
+`8002`) and the frontend exposes `PANELYT_WEB_PORT` (default `3002`). The Telegram bot runs
+headless on the internal network and does not expose ports; ensure the bot token and secret are set
+before deploying.
