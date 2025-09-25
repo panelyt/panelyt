@@ -57,12 +57,5 @@ jobs:
             git reset --hard origin/master
             docker compose -f infra/docker-compose.yml pull
             docker compose -f infra/docker-compose.yml up -d --build --remove-orphans
-            docker compose -f infra/docker-compose.yml exec api sh -c '
-              for i in $(seq 1 10); do
-                if curl -fs http://localhost:8000/health; then
-                  exit 0
-                fi
-                sleep 3
-              done
-              curl -v http://localhost:8000/health
-            '
+            docker compose -f infra/docker-compose.yml up --wait
+            docker compose -f infra/docker-compose.yml exec -T api curl -fs http://localhost:8000/health
