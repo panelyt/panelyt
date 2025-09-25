@@ -61,6 +61,11 @@ class SavedListResponse(BaseModel):
     updated_at: datetime
     share_token: str | None
     shared_at: datetime | None
+    notify_on_price_drop: bool
+    last_known_total_grosz: int | None
+    last_total_updated_at: datetime | None
+    last_notified_total_grosz: int | None
+    last_notified_at: datetime | None
     biomarkers: list[SavedListEntryResponse]
 
     @classmethod
@@ -73,6 +78,11 @@ class SavedListResponse(BaseModel):
             updated_at=model.updated_at,
             share_token=model.share_token,
             shared_at=model.shared_at,
+            notify_on_price_drop=model.notify_on_price_drop,
+            last_known_total_grosz=model.last_known_total_grosz,
+            last_total_updated_at=model.last_total_updated_at,
+            last_notified_total_grosz=model.last_notified_total_grosz,
+            last_notified_at=model.last_notified_at,
             biomarkers=[SavedListEntryResponse.model_validate(entry) for entry in sorted_entries],
         )
 
@@ -102,10 +112,32 @@ class SavedListShareRequest(BaseModel):
     regenerate: bool = Field(default=False)
 
 
+class SavedListNotificationRequest(BaseModel):
+    notify_on_price_drop: bool
+
+
+class SavedListNotificationResponse(BaseModel):
+    list_id: str
+    notify_on_price_drop: bool
+    last_known_total_grosz: int | None
+    last_total_updated_at: datetime | None
+
+    @classmethod
+    def from_model(cls, model: SavedList) -> Self:
+        return cls(
+            list_id=model.id,
+            notify_on_price_drop=model.notify_on_price_drop,
+            last_known_total_grosz=model.last_known_total_grosz,
+            last_total_updated_at=model.last_total_updated_at,
+        )
+
+
 __all__ = [
     "SavedListCollectionResponse",
     "SavedListEntryPayload",
     "SavedListEntryResponse",
+    "SavedListNotificationRequest",
+    "SavedListNotificationResponse",
     "SavedListResponse",
     "SavedListShareRequest",
     "SavedListShareResponse",

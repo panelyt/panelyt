@@ -170,6 +170,15 @@ class UserAccount(Base):
         default=False,
         server_default=text("false"),
     )
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    telegram_link_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    telegram_link_token_created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    telegram_linked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -211,6 +220,22 @@ class SavedList(Base):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     share_token: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
     shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notify_on_price_drop: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+    last_known_total_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_total_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_notified_total_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_notified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -27,6 +27,14 @@ class Settings(BaseSettings):
         default_factory=list,
         alias="ADMIN_USERNAMES",
     )
+    telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
+    telegram_bot_username: str | None = Field(default=None, alias="TELEGRAM_BOT_USERNAME")
+    telegram_bot_link_url: str | None = Field(default=None, alias="TELEGRAM_BOT_LINK_URL")
+    telegram_api_secret: str | None = Field(default=None, alias="TELEGRAM_API_SECRET")
+    telegram_link_token_ttl_minutes: int = Field(
+        default=30,
+        alias="TELEGRAM_LINK_TOKEN_TTL_MINUTES",
+    )
 
     @field_validator("cors_origins_raw", mode="before")
     @classmethod
