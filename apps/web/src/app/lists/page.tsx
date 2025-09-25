@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, Loader2, RefreshCcw, Trash2, Link as LinkIcon } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  Copy,
+  Loader2,
+  RefreshCcw,
+  Trash2,
+  Link as LinkIcon,
+} from "lucide-react";
 import type { SavedList } from "@panelyt/types";
 
 import { useSavedLists } from "../../hooks/useSavedLists";
@@ -20,7 +28,7 @@ interface ListWithTotals {
 export default function ListsPage() {
   const session = useUserSession();
   const savedLists = useSavedLists(Boolean(session.data));
-  const { shareMutation, unshareMutation } = savedLists;
+  const { shareMutation, unshareMutation, notificationsMutation } = savedLists;
   const rawLists = savedLists.listsQuery.data;
   const router = useRouter();
   const [listsWithTotals, setListsWithTotals] = useState<Record<string, ListWithTotals>>({});
@@ -202,12 +210,20 @@ export default function ListsPage() {
                 Manage every saved biomarker set, load it into the optimizer, or clean up old entries.
               </p>
             </div>
-            <Link
-              href="/"
-              className="rounded-full border border-emerald-500/60 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-            >
-              Back to optimizer
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/account"
+                className="rounded-full border border-sky-500/60 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20"
+              >
+                Account settings
+              </Link>
+              <Link
+                href="/"
+                className="rounded-full border border-emerald-500/60 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+              >
+                Back to optimizer
+              </Link>
+            </div>
           </div>
           {error && <p className="text-sm text-red-300">{error}</p>}
         </div>
@@ -231,6 +247,10 @@ export default function ListsPage() {
               const isUnsharePending =
                 unshareMutation.isPending && unshareActionId === item.list.id;
               const sharedTimestamp = item.list.shared_at ?? item.list.updated_at;
+              const notifyPending =
+                notificationsMutation.isPending &&
+                notificationsMutation.variables?.id === item.list.id;
+              const notificationsEnabled = item.list.notify_on_price_drop;
 
               return (
                 <div
@@ -251,6 +271,36 @@ export default function ListsPage() {
                         <p className="font-semibold text-white">{formatTotal(item)}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            notificationsMutation.mutate(
+                              {
+                                id: item.list.id,
+                                notify: !notificationsEnabled,
+                              },
+                              {
+                                onError: () => setError("Failed to update Telegram alerts."),
+                                onSuccess: () => setError(null),
+                              },
+                            )
+                          }
+                          className="flex items-center gap-1 rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={notifyPending}
+                        >
+                          {notifyPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : notificationsEnabled ? (
+                            <Bell className="h-4 w-4" />
+                          ) : (
+                            <BellOff className="h-4 w-4" />
+                          )}
+                          {notifyPending
+                            ? "Saving…"
+                            : notificationsEnabled
+                              ? "Disable alerts"
+                              : "Enable alerts"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => router.push(`/?list=${item.list.id}`)}

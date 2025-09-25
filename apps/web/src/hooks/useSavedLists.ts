@@ -7,9 +7,12 @@ import {
   SavedListShareRequestSchema,
   SavedListShareResponseSchema,
   SavedListUpsertSchema,
+  SavedListNotificationRequestSchema,
+  SavedListNotificationResponseSchema,
   type SavedList,
   type SavedListShareResponse,
   type SavedListUpsert,
+  type SavedListNotificationResponse,
 } from "@panelyt/types";
 
 import { deleteRequest, getJson, postJson, putJson } from "../lib/http";
@@ -74,6 +77,37 @@ export function useSavedLists(enabled: boolean) {
     },
   });
 
+  const notificationsMutation = useMutation<
+    SavedListNotificationResponse,
+    Error,
+    { id: string; notify: boolean }
+  >({
+    mutationFn: async ({ id, notify }) => {
+      const payload = SavedListNotificationRequestSchema.parse({
+        notify_on_price_drop: notify,
+      });
+      const response = await postJson(`/lists/${id}/notifications`, payload);
+      return SavedListNotificationResponseSchema.parse(response);
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData<SavedList[] | undefined>(["saved-lists"], (current) => {
+        if (!current) {
+          return current;
+        }
+        return current.map((saved) =>
+          saved.id === result.list_id
+            ? {
+                ...saved,
+                notify_on_price_drop: result.notify_on_price_drop,
+                last_known_total_grosz: result.last_known_total_grosz,
+                last_total_updated_at: result.last_total_updated_at,
+              }
+            : saved,
+        );
+      });
+    },
+  });
+
   const unshareMutation = useMutation<void, Error, string>({
     mutationFn: async (id) => {
       await deleteRequest(`/lists/${id}/share`);
@@ -90,5 +124,6 @@ export function useSavedLists(enabled: boolean) {
     deleteMutation,
     shareMutation,
     unshareMutation,
+    notificationsMutation,
   };
 }
