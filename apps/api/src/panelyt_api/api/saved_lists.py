@@ -40,6 +40,17 @@ async def create_saved_list(
     db: SessionDep,
 ) -> SavedListResponse:
     service = SavedListService(db)
+    existing = await service.get_by_name_for_user(session_state.user.id, payload.name)
+    if existing is not None:
+        try:
+            updated = await service.update_list(
+                saved_list=existing,
+                name=payload.name,
+                entries=[_to_entry_data(entry) for entry in payload.biomarkers],
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        return SavedListResponse.from_model(updated)
     try:
         saved = await service.create_list(
             user_id=session_state.user.id,
