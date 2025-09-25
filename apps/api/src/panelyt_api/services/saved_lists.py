@@ -164,6 +164,25 @@ class SavedListService:
         await self._db.refresh(saved_list)
         return saved_list
 
+    async def set_notifications_for_user(
+        self,
+        user_id: str,
+        *,
+        notify: bool,
+    ) -> list[SavedList]:
+        lists = await self.list_for_user(user_id)
+        if not lists:
+            return []
+
+        for saved_list in lists:
+            saved_list.notify_on_price_drop = notify
+            if not notify:
+                saved_list.last_notified_total_grosz = None
+                saved_list.last_notified_at = None
+
+        await self._db.flush()
+        return lists
+
     def _prepare_entries(
         self,
         entries: Sequence[SavedListEntryData],

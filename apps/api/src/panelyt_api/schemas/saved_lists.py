@@ -132,12 +132,23 @@ class SavedListNotificationResponse(BaseModel):
         )
 
 
+class SavedListNotificationsBulkResponse(BaseModel):
+    lists: list[SavedListNotificationResponse]
+
+    @classmethod
+    def from_iterable(cls, lists: Iterable[SavedList]) -> Self:
+        return cls(
+            lists=[SavedListNotificationResponse.from_model(item) for item in lists],
+        )
+
+
 __all__ = [
     "SavedListCollectionResponse",
     "SavedListEntryPayload",
     "SavedListEntryResponse",
     "SavedListNotificationRequest",
     "SavedListNotificationResponse",
+    "SavedListNotificationsBulkResponse",
     "SavedListResponse",
     "SavedListShareRequest",
     "SavedListShareResponse",
