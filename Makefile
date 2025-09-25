@@ -51,12 +51,14 @@ lint-web: ## Run linting checks on web frontend
 	cd apps/web && pnpm lint
 
 lint-bot: ## Run linting checks on Telegram bot code
+	cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev
 	cd apps/telegram-bot && $(UV_ENV) $(UV) run ruff check src
 
 typecheck-web: ## Run type checking on web frontend
 	cd apps/web && pnpm typecheck
 
 typecheck-bot: ## Run type checking on Telegram bot code
+	cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev
 	cd apps/telegram-bot && $(UV_ENV) $(UV) run mypy src
 
 test-web: ## Run web frontend test suite (placeholder - not implemented yet)
