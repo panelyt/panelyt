@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 
-RUN uv sync --no-dev
+RUN uv sync --no-dev --frozen
 
 CMD [".venv/bin/panelyt-telegram-bot"]
