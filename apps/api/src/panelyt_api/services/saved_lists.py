@@ -63,6 +63,22 @@ class SavedListService:
             saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
+    async def get_by_name_for_user(self, user_id: str, name: str) -> SavedList | None:
+        stmt = (
+            select(SavedList)
+            .options(selectinload(SavedList.entries))
+            .where(
+                SavedList.user_id == user_id,
+                func.lower(SavedList.name) == name.lower(),
+            )
+            .order_by(SavedList.created_at.asc())
+        )
+        result = await self._db.execute(stmt)
+        saved_list = result.scalars().first()
+        if saved_list is not None:
+            saved_list.entries.sort(key=lambda entry: entry.sort_order)
+        return saved_list
+
     async def create_list(
         self,
         user_id: str,
