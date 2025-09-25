@@ -9,10 +9,12 @@ import {
   SavedListUpsertSchema,
   SavedListNotificationRequestSchema,
   SavedListNotificationResponseSchema,
+  SavedListNotificationsBulkResponseSchema,
   type SavedList,
   type SavedListShareResponse,
   type SavedListUpsert,
   type SavedListNotificationResponse,
+  type SavedListNotificationsBulkResponse,
 } from "@panelyt/types";
 
 import { deleteRequest, getJson, postJson, putJson } from "../lib/http";
@@ -108,6 +110,46 @@ export function useSavedLists(enabled: boolean) {
     },
   });
 
+  const notificationsBulkMutation = useMutation<
+    SavedListNotificationsBulkResponse,
+    Error,
+    { notify: boolean }
+  >({
+    mutationFn: async ({ notify }) => {
+      const payload = SavedListNotificationRequestSchema.parse({
+        notify_on_price_drop: notify,
+      });
+      const response = await postJson(`/lists/notifications`, payload);
+      return SavedListNotificationsBulkResponseSchema.parse(response);
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData<SavedList[] | undefined>(["saved-lists"], (current) => {
+        if (!current) {
+          return current;
+        }
+        if (result.lists.length === 0) {
+          return current;
+        }
+        const updates = new Map(result.lists.map((item) => [item.list_id, item]));
+        return current.map((saved) => {
+          const update = updates.get(saved.id);
+          if (!update) {
+            return saved;
+          }
+          const notify = update.notify_on_price_drop;
+          return {
+            ...saved,
+            notify_on_price_drop: notify,
+            last_known_total_grosz: update.last_known_total_grosz,
+            last_total_updated_at: update.last_total_updated_at,
+            last_notified_total_grosz: notify ? saved.last_notified_total_grosz : null,
+            last_notified_at: notify ? saved.last_notified_at : null,
+          };
+        });
+      });
+    },
+  });
+
   const unshareMutation = useMutation<void, Error, string>({
     mutationFn: async (id) => {
       await deleteRequest(`/lists/${id}/share`);
@@ -125,5 +167,6 @@ export function useSavedLists(enabled: boolean) {
     shareMutation,
     unshareMutation,
     notificationsMutation,
+    notificationsBulkMutation,
   };
 }

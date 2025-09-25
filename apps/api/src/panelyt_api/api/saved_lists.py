@@ -8,6 +8,7 @@ from panelyt_api.schemas.saved_lists import (
     SavedListEntryPayload,
     SavedListNotificationRequest,
     SavedListNotificationResponse,
+    SavedListNotificationsBulkResponse,
     SavedListResponse,
     SavedListShareRequest,
     SavedListShareResponse,
@@ -119,6 +120,20 @@ async def unshare_saved_list(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="list not found")
 
     await service.revoke_share(saved_list)
+
+
+@router.post("/notifications", response_model=SavedListNotificationsBulkResponse)
+async def update_saved_lists_notifications_bulk(
+    payload: SavedListNotificationRequest,
+    session_state: SessionStateDep,
+    db: SessionDep,
+) -> SavedListNotificationsBulkResponse:
+    service = SavedListService(db)
+    updated = await service.set_notifications_for_user(
+        session_state.user.id,
+        notify=payload.notify_on_price_drop,
+    )
+    return SavedListNotificationsBulkResponse.from_iterable(updated)
 
 
 @router.post("/{list_id}/notifications", response_model=SavedListNotificationResponse)
