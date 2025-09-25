@@ -47,7 +47,9 @@ class IngestionService:
             if background:
                 self._schedule_background_run(reason="staleness_check")
             else:
-                await self._run_with_lock(reason="staleness_check")
+                ran = await self._run_with_lock(reason="staleness_check", blocking=False)
+                if not ran:
+                    logger.info("Ingestion already running; serving existing data")
 
     async def run(self, scheduled: bool = False, reason: str | None = None) -> None:
         logger.info("Starting ingestion run (scheduled=%s reason=%s)", scheduled, reason)
@@ -110,9 +112,28 @@ class IngestionService:
             repo = IngestionRepository(session)
             yield repo
 
-    async def _run_with_lock(self, scheduled: bool = False, reason: str | None = None) -> None:
-        async with self._run_lock:
+    async def _run_with_lock(
+        self,
+        scheduled: bool = False,
+        reason: str | None = None,
+        *,
+        blocking: bool = True,
+    ) -> bool:
+        if blocking:
+            async with self._run_lock:
+                await self.run(scheduled=scheduled, reason=reason)
+            return True
+
+        try:
+            await asyncio.wait_for(self._run_lock.acquire(), timeout=0)
+        except TimeoutError:
+            return False
+
+        try:
             await self.run(scheduled=scheduled, reason=reason)
+        finally:
+            self._run_lock.release()
+        return True
 
     def _schedule_background_run(self, *, reason: str | None = None) -> None:
         if self._scheduled_task and not self._scheduled_task.done():
