@@ -57,6 +57,30 @@ export const SessionResponseSchema = z.object({
 
 export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 
+export const TelegramLinkStatusSchema = z.object({
+  enabled: z.boolean(),
+  chat_id: z.string().nullable(),
+  linked_at: z.string().nullable(),
+  link_token: z.string().nullable(),
+  link_token_expires_at: z.string().nullable(),
+  bot_username: z.string().nullable(),
+  link_url: z.string().nullable(),
+});
+
+export type TelegramLinkStatus = z.infer<typeof TelegramLinkStatusSchema>;
+
+export const AccountSettingsSchema = z.object({
+  telegram: TelegramLinkStatusSchema,
+});
+
+export type AccountSettings = z.infer<typeof AccountSettingsSchema>;
+
+export const TelegramLinkTokenResponseSchema = z.object({
+  telegram: TelegramLinkStatusSchema,
+});
+
+export type TelegramLinkTokenResponse = z.infer<typeof TelegramLinkTokenResponseSchema>;
+
 export const SavedListEntrySchema = z.object({
   id: z.string(),
   code: z.string(),
@@ -75,6 +99,11 @@ export const SavedListSchema = z.object({
   updated_at: z.string(),
   share_token: z.string().nullable(),
   shared_at: z.string().nullable(),
+  notify_on_price_drop: z.boolean(),
+  last_known_total_grosz: z.number().int().nullable(),
+  last_total_updated_at: z.string().nullable(),
+  last_notified_total_grosz: z.number().int().nullable(),
+  last_notified_at: z.string().nullable(),
   biomarkers: z.array(SavedListEntrySchema),
 });
 
@@ -85,6 +114,25 @@ export const SavedListCollectionSchema = z.object({
 });
 
 export type SavedListCollection = z.infer<typeof SavedListCollectionSchema>;
+
+export const SavedListNotificationRequestSchema = z.object({
+  notify_on_price_drop: z.boolean(),
+});
+
+export type SavedListNotificationRequest = z.infer<
+  typeof SavedListNotificationRequestSchema
+>;
+
+export const SavedListNotificationResponseSchema = z.object({
+  list_id: z.string(),
+  notify_on_price_drop: z.boolean(),
+  last_known_total_grosz: z.number().int().nullable(),
+  last_total_updated_at: z.string().nullable(),
+});
+
+export type SavedListNotificationResponse = z.infer<
+  typeof SavedListNotificationResponseSchema
+>;
 
 export const SavedListShareRequestSchema = z.object({
   regenerate: z.boolean().optional().default(false),
