@@ -68,7 +68,7 @@ class TestIngestionService:
 
         with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
             await ingestion_service.ensure_fresh_data()
-            mock_run.assert_awaited_once_with(reason="staleness_check")
+            mock_run.assert_awaited_once_with(reason="staleness_check", blocking=False)
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.IngestionRepository")
@@ -89,7 +89,34 @@ class TestIngestionService:
 
         with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
             await ingestion_service.ensure_fresh_data()
-            mock_run.assert_awaited_once_with(reason="staleness_check")
+            mock_run.assert_awaited_once_with(reason="staleness_check", blocking=False)
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.IngestionRepository")
+    async def test_ensure_fresh_data_does_not_block_when_running(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        """Ensure concurrent ensure_fresh_data calls avoid waiting for ongoing ingestion."""
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        stale_time = datetime.now(UTC) - timedelta(hours=25)
+        mock_repo.latest_fetched_at.return_value = stale_time
+        mock_repo.latest_snapshot_date.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        with patch.object(
+            ingestion_service,
+            '_run_with_lock',
+            new_callable=AsyncMock,
+        ) as mock_run:
+            mock_run.return_value = False
+            with patch.object(ingestion_service, '_schedule_background_run') as mock_schedule:
+                await ingestion_service.ensure_fresh_data()
+                mock_run.assert_awaited_once_with(reason="staleness_check", blocking=False)
+                mock_schedule.assert_not_called()
 
     @patch("panelyt_api.ingest.service.DiagClient")
     @patch("panelyt_api.ingest.service.get_session")
