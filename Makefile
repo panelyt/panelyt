@@ -1,4 +1,4 @@
-.PHONY: help install-web install-api dev-web dev-api lint-api test-api migrate-api docker-up docker-down fmt-api check typecheck-api lint-web typecheck-web test-web
+.PHONY: help install-web install-api install-bot dev-web dev-api dev-bot lint-api test-api migrate-api docker-up docker-down fmt-api check typecheck-api lint-web typecheck-web test-web lint-bot typecheck-bot
 
 UV ?= uv
 UV_ENV ?= UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache
@@ -14,11 +14,17 @@ install-web: ## Install web frontend dependencies
 install-api: ## Install API backend dependencies
 	cd apps/api && $(UV_ENV) $(UV) sync --extra dev
 
+install-bot: ## Install Telegram bot dependencies
+	cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev
+
 dev-web: ## Start web frontend development server
 	cd apps/web && corepack enable && pnpm --filter @panelyt/types build && pnpm dev
 
 dev-api: ## Start API backend development server
 	cd apps/api && $(UV_ENV) $(UV) run uvicorn panelyt_api.main:app --reload --host 0.0.0.0 --port 8000
+
+dev-bot: ## Run Telegram bot locally with long polling
+	cd apps/telegram-bot && $(UV_ENV) $(UV) run panelyt-telegram-bot
 
 lint-api: ## Run linting checks on API code
 	cd apps/api && $(UV_ENV) $(UV) run ruff check src
@@ -44,8 +50,14 @@ typecheck-api: ## Run type checking on API code
 lint-web: ## Run linting checks on web frontend
 	cd apps/web && pnpm lint
 
+lint-bot: ## Run linting checks on Telegram bot code
+	cd apps/telegram-bot && $(UV_ENV) $(UV) run ruff check src
+
 typecheck-web: ## Run type checking on web frontend
 	cd apps/web && pnpm typecheck
+
+typecheck-bot: ## Run type checking on Telegram bot code
+	cd apps/telegram-bot && $(UV_ENV) $(UV) run mypy src
 
 test-web: ## Run web frontend test suite (placeholder - not implemented yet)
 	@echo "Web tests not implemented yet"
@@ -64,6 +76,12 @@ check: ## Run comprehensive code quality checks, tests, and linting for the enti
 	@echo ""
 	@echo "🧪 API: Running tests..."
 	$(MAKE) test-api
+	@echo ""
+	@echo "🤖 Bot: Type checking..."
+	$(MAKE) typecheck-bot
+	@echo ""
+	@echo "🤖 Bot: Linting..."
+	$(MAKE) lint-bot
 	@echo ""
 	@echo "🌐 Web: Type checking..."
 	$(MAKE) typecheck-web

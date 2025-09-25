@@ -36,6 +36,10 @@ def test_settings() -> Settings:
         ADMIN_USERNAMES=["admin"],
     )
     assert settings.admin_usernames == ["admin"]
+    settings.telegram_bot_token = None
+    settings.telegram_api_secret = None
+    settings.telegram_bot_username = None
+    settings.telegram_bot_link_url = None
     return settings
 
 
