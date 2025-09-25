@@ -155,6 +155,15 @@ class SavedListService:
         saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
+    async def set_notifications(self, saved_list: SavedList, *, notify: bool) -> SavedList:
+        saved_list.notify_on_price_drop = notify
+        if not notify:
+            saved_list.last_notified_total_grosz = None
+            saved_list.last_notified_at = None
+        await self._db.flush()
+        await self._db.refresh(saved_list)
+        return saved_list
+
     def _prepare_entries(
         self,
         entries: Sequence[SavedListEntryData],

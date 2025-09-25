@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import AbstractAsyncContextManager
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi import Depends, Header, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from panelyt_api.core.settings import Settings, get_settings
@@ -66,6 +67,20 @@ async def get_admin_session_state(session_state: SessionStateDep) -> SessionStat
 AdminSessionDep = Annotated[SessionState, Depends(get_admin_session_state)]
 
 
+async def require_telegram_secret(
+    settings: Annotated[Settings, Depends(get_settings)],
+    provided: str | None = Header(default=None, alias="X-Telegram-Bot-Secret"),
+) -> None:
+    expected = settings.telegram_api_secret
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="telegram disabled",
+        )
+    if provided is None or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="invalid telegram secret")
+
+
 __all__ = [
     "AdminSessionDep",
     "SessionDep",
@@ -73,4 +88,5 @@ __all__ = [
     "get_admin_session_state",
     "get_db_session",
     "get_session_state",
+    "require_telegram_secret",
 ]

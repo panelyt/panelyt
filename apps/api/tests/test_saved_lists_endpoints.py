@@ -152,3 +152,37 @@ def test_duplicate_codes_rejected(client: TestClient) -> None:
     response = client.post("/lists", json=payload)
     assert response.status_code == 400
     assert "Duplicate biomarker code" in response.json()["detail"]
+
+
+def test_notifications_toggle(client: TestClient) -> None:
+    ensure_session(client)
+    payload = {
+        "name": "Night Panel",
+        "biomarkers": [
+            {"code": "ALT", "name": "Alanine"},
+        ],
+    }
+    response = client.post("/lists", json=payload)
+    assert response.status_code == 201
+    list_id = response.json()["id"]
+
+    response = client.post(
+        f"/lists/{list_id}/notifications",
+        json={"notify_on_price_drop": True},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["list_id"] == list_id
+    assert body["notify_on_price_drop"] is True
+
+    response = client.get("/lists")
+    assert response.status_code == 200
+    lists_payload = response.json()["lists"]
+    assert lists_payload[0]["notify_on_price_drop"] is True
+
+    response = client.post(
+        f"/lists/{list_id}/notifications",
+        json={"notify_on_price_drop": False},
+    )
+    assert response.status_code == 200
+    assert response.json()["notify_on_price_drop"] is False
