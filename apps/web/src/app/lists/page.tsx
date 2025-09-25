@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import type { SavedList } from "@panelyt/types";
 
 import { useSavedLists } from "../../hooks/useSavedLists";
 import { useUserSession } from "../../hooks/useUserSession";
+import { useAccountSettings } from "../../hooks/useAccountSettings";
 import { postJson } from "../../lib/http";
 import { OptimizeResponseSchema } from "@panelyt/types";
 
@@ -28,12 +29,13 @@ interface ListWithTotals {
 export default function ListsPage() {
   const session = useUserSession();
   const savedLists = useSavedLists(Boolean(session.data));
+  const account = useAccountSettings(Boolean(session.data));
   const { shareMutation, unshareMutation, notificationsMutation } = savedLists;
   const rawLists = savedLists.listsQuery.data;
   const router = useRouter();
   const [listsWithTotals, setListsWithTotals] = useState<Record<string, ListWithTotals>>({});
   const [loadingTotals, setLoadingTotals] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ReactNode | null>(null);
   const [shareActionId, setShareActionId] = useState<string | null>(null);
   const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -112,6 +114,34 @@ export default function ListsPage() {
     const lists = rawLists ?? [];
     return lists.map((list) => listsWithTotals[list.id] ?? { list, total: null, currency: null });
   }, [rawLists, listsWithTotals]);
+
+  const telegramLinked = Boolean(account.settingsQuery.data?.telegram.chat_id);
+
+  const handleToggleAlerts = useCallback(
+    (id: string, currentlyEnabled: boolean) => {
+      if (!currentlyEnabled && !telegramLinked) {
+        setError(
+          <>
+            Link your Telegram chat in {" "}
+            <Link href="/account" className="underline text-sky-300">
+              Account settings
+            </Link>{" "}
+            before enabling alerts.
+          </>,
+        );
+        return;
+      }
+
+      notificationsMutation.mutate(
+        { id, notify: !currentlyEnabled },
+        {
+          onError: () => setError("Failed to update Telegram alerts."),
+          onSuccess: () => setError(null),
+        },
+      );
+    },
+    [notificationsMutation, telegramLinked],
+  );
 
   const handleDelete = async (id: string) => {
     await savedLists.deleteMutation.mutateAsync(id);
@@ -273,18 +303,7 @@ export default function ListsPage() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() =>
-                            notificationsMutation.mutate(
-                              {
-                                id: item.list.id,
-                                notify: !notificationsEnabled,
-                              },
-                              {
-                                onError: () => setError("Failed to update Telegram alerts."),
-                                onSuccess: () => setError(null),
-                              },
-                            )
-                          }
+                          onClick={() => handleToggleAlerts(item.list.id, notificationsEnabled)}
                           className="flex items-center gap-1 rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
                           disabled={notifyPending}
                         >
