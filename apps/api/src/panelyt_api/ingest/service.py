@@ -12,6 +12,7 @@ from panelyt_api.db.session import get_session
 from panelyt_api.ingest.client import DiagClient
 from panelyt_api.ingest.repository import IngestionRepository
 from panelyt_api.ingest.types import RawProduct
+from panelyt_api.services.alerts import TelegramPriceAlertService
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ class IngestionService:
 
                 await repo.upsert_catalog(combined, fetched_at=now_utc)
                 await repo.prune_snapshots(now_utc.date())
+                await self._dispatch_price_alerts(repo)
                 await repo.finalize_run_log(log_id, status="completed")
             except Exception as exc:
                 await repo.finalize_run_log(log_id, status="failed", note=str(exc)[:500])
@@ -136,3 +138,10 @@ class IngestionService:
 
         task.add_done_callback(_cleanup)
         self.__class__._scheduled_task = task
+
+    async def _dispatch_price_alerts(self, repo: IngestionRepository) -> None:
+        try:
+            service = TelegramPriceAlertService(repo.session, settings=self._settings)
+            await service.run()
+        except Exception as exc:  # pragma: no cover - failures logged but ingestion continues
+            logger.exception("Failed to deliver Telegram price alerts: %s", exc)
