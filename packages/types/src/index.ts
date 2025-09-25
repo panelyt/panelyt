@@ -134,6 +134,14 @@ export type SavedListNotificationResponse = z.infer<
   typeof SavedListNotificationResponseSchema
 >;
 
+export const SavedListNotificationsBulkResponseSchema = z.object({
+  lists: z.array(SavedListNotificationResponseSchema),
+});
+
+export type SavedListNotificationsBulkResponse = z.infer<
+  typeof SavedListNotificationsBulkResponseSchema
+>;
+
 export const SavedListShareRequestSchema = z.object({
   regenerate: z.boolean().optional().default(false),
 });

@@ -30,7 +30,8 @@ export default function ListsPage() {
   const session = useUserSession();
   const savedLists = useSavedLists(Boolean(session.data));
   const account = useAccountSettings(Boolean(session.data));
-  const { shareMutation, unshareMutation, notificationsMutation } = savedLists;
+  const { shareMutation, unshareMutation, notificationsMutation, notificationsBulkMutation } =
+    savedLists;
   const rawLists = savedLists.listsQuery.data;
   const router = useRouter();
   const [listsWithTotals, setListsWithTotals] = useState<Record<string, ListWithTotals>>({});
@@ -116,6 +117,12 @@ export default function ListsPage() {
   }, [rawLists, listsWithTotals]);
 
   const telegramLinked = Boolean(account.settingsQuery.data?.telegram.chat_id);
+  const allNotificationsEnabled = useMemo(
+    () => formattedLists.length > 0 && formattedLists.every((item) => item.list.notify_on_price_drop),
+    [formattedLists],
+  );
+  const bulkNotifyPending = notificationsBulkMutation.isPending;
+  const hasLists = formattedLists.length > 0;
 
   const handleToggleAlerts = useCallback(
     (id: string, currentlyEnabled: boolean) => {
@@ -141,6 +148,32 @@ export default function ListsPage() {
       );
     },
     [notificationsMutation, telegramLinked],
+  );
+
+  const handleToggleAllAlerts = useCallback(
+    (targetState: boolean) => {
+      if (targetState && !telegramLinked) {
+        setError(
+          <>
+            Link your Telegram chat in {" "}
+            <Link href="/account" className="underline text-sky-300">
+              Account settings
+            </Link>{" "}
+            before enabling alerts.
+          </>,
+        );
+        return;
+      }
+
+      notificationsBulkMutation.mutate(
+        { notify: targetState },
+        {
+          onError: () => setError("Failed to update Telegram alerts."),
+          onSuccess: () => setError(null),
+        },
+      );
+    },
+    [notificationsBulkMutation, telegramLinked],
   );
 
   const handleDelete = async (id: string) => {
@@ -241,6 +274,25 @@ export default function ListsPage() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => handleToggleAllAlerts(!allNotificationsEnabled)}
+                className="flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!hasLists || bulkNotifyPending}
+              >
+                {bulkNotifyPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : allNotificationsEnabled ? (
+                  <BellOff className="h-4 w-4" />
+                ) : (
+                  <Bell className="h-4 w-4" />
+                )}
+                {bulkNotifyPending
+                  ? "Saving…"
+                  : allNotificationsEnabled
+                    ? "Disable all alerts"
+                    : "Enable all alerts"}
+              </button>
               <Link
                 href="/account"
                 className="rounded-full border border-sky-500/60 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20"

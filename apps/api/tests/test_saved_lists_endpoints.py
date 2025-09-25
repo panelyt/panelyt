@@ -186,3 +186,65 @@ def test_notifications_toggle(client: TestClient) -> None:
     )
     assert response.status_code == 200
     assert response.json()["notify_on_price_drop"] is False
+
+
+def test_notifications_toggle_bulk(client: TestClient) -> None:
+    ensure_session(client)
+
+    payload_one = {
+        "name": "Panel One",
+        "biomarkers": [
+            {"code": "ALT", "name": "Alanine"},
+        ],
+    }
+    payload_two = {
+        "name": "Panel Two",
+        "biomarkers": [
+            {"code": "CRP", "name": "C-reactive protein"},
+        ],
+    }
+
+    response = client.post("/lists", json=payload_one)
+    assert response.status_code == 201
+    first_id = response.json()["id"]
+
+    response = client.post("/lists", json=payload_two)
+    assert response.status_code == 201
+    second_id = response.json()["id"]
+
+    # Enable notifications for a single list to ensure mixed initial state.
+    response = client.post(
+        f"/lists/{first_id}/notifications",
+        json={"notify_on_price_drop": True},
+    )
+    assert response.status_code == 200
+
+    response = client.post(
+        "/lists/notifications",
+        json={"notify_on_price_drop": True},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert {item["list_id"] for item in body["lists"]} == {first_id, second_id}
+    assert all(item["notify_on_price_drop"] is True for item in body["lists"])
+
+    response = client.get("/lists")
+    assert response.status_code == 200
+    lists = response.json()["lists"]
+    assert len(lists) == 2
+    assert all(item["notify_on_price_drop"] is True for item in lists)
+
+    response = client.post(
+        "/lists/notifications",
+        json={"notify_on_price_drop": False},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert {item["list_id"] for item in body["lists"]} == {first_id, second_id}
+    assert all(item["notify_on_price_drop"] is False for item in body["lists"])
+
+    response = client.get("/lists")
+    assert response.status_code == 200
+    lists = response.json()["lists"]
+    assert len(lists) == 2
+    assert all(item["notify_on_price_drop"] is False for item in lists)
