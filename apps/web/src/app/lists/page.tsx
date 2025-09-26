@@ -26,6 +26,11 @@ interface ListWithTotals {
   currency: string | null;
 }
 
+interface ListTotalsValue {
+  total: number | null;
+  currency: string | null;
+}
+
 export default function ListsPage() {
   const session = useUserSession();
   const savedLists = useSavedLists(Boolean(session.data));
@@ -34,7 +39,7 @@ export default function ListsPage() {
     savedLists;
   const rawLists = savedLists.listsQuery.data;
   const router = useRouter();
-  const [listsWithTotals, setListsWithTotals] = useState<Record<string, ListWithTotals>>({});
+  const [listTotals, setListTotals] = useState<Record<string, ListTotalsValue>>({});
   const [loadingTotals, setLoadingTotals] = useState(false);
   const [error, setError] = useState<ReactNode | null>(null);
   const [shareActionId, setShareActionId] = useState<string | null>(null);
@@ -59,7 +64,7 @@ export default function ListsPage() {
     const lists = rawLists ?? [];
     if (!lists.length) {
       totalsSignatureRef.current = "";
-      setListsWithTotals({});
+      setListTotals({});
       setLoadingTotals(false);
       return;
     }
@@ -69,6 +74,7 @@ export default function ListsPage() {
       .join("|");
 
     if (totalsSignatureRef.current === signature) {
+      setLoadingTotals(false);
       return;
     }
 
@@ -83,29 +89,26 @@ export default function ListsPage() {
         const results = await Promise.all(
           lists.map(async (list) => {
             if (list.biomarkers.length === 0) {
-              return [list.id, { list, total: 0, currency: "PLN" }] as const;
+              return [list.id, { total: 0, currency: "PLN" }] as const;
             }
             try {
               const payload = await postJson("/optimize", {
                 biomarkers: list.biomarkers.map((entry) => entry.code),
               });
               const parsed = OptimizeResponseSchema.parse(payload);
-              return [
-                list.id,
-                { list, total: parsed.total_now, currency: parsed.currency },
-              ] as const;
+              return [list.id, { total: parsed.total_now, currency: parsed.currency }] as const;
             } catch {
-              return [list.id, { list, total: null, currency: null }] as const;
+              return [list.id, { total: null, currency: null }] as const;
             }
           }),
         );
 
         if (!cancelled) {
-          const map: Record<string, ListWithTotals> = {};
+          const totals: Record<string, ListTotalsValue> = {};
           for (const [id, value] of results) {
-            map[id] = value;
+            totals[id] = value;
           }
-          setListsWithTotals(map);
+          setListTotals(totals);
         }
       } catch {
         if (!cancelled) {
@@ -126,8 +129,15 @@ export default function ListsPage() {
 
   const formattedLists = useMemo(() => {
     const lists = rawLists ?? [];
-    return lists.map((list) => listsWithTotals[list.id] ?? { list, total: null, currency: null });
-  }, [rawLists, listsWithTotals]);
+    return lists.map((list) => {
+      const totals = listTotals[list.id];
+      return {
+        list,
+        total: totals?.total ?? null,
+        currency: totals?.currency ?? null,
+      } satisfies ListWithTotals;
+    });
+  }, [rawLists, listTotals]);
 
   const telegramLinked = Boolean(account.settingsQuery.data?.telegram.chat_id);
   const allNotificationsEnabled = useMemo(
