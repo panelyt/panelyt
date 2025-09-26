@@ -145,6 +145,7 @@ async def search_catalog(
             id=match.id,
             slug=match.slug,
             name=match.name,
+            description=match.description,
             biomarker_count=match.biomarker_count,
         )
         for match in template_matches
