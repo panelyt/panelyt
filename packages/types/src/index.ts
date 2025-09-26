@@ -253,3 +253,36 @@ export const BiomarkerSearchResponseSchema = z.object({
 export type BiomarkerSearchResponse = z.infer<
   typeof BiomarkerSearchResponseSchema
 >;
+
+export const CatalogBiomarkerResultSchema = z.object({
+  type: z.literal('biomarker'),
+  id: z.number().int().positive(),
+  name: z.string(),
+  elab_code: z.string().nullable(),
+  slug: z.string().nullable(),
+});
+
+export type CatalogBiomarkerResult = z.infer<typeof CatalogBiomarkerResultSchema>;
+
+export const CatalogTemplateResultSchema = z.object({
+  type: z.literal('template'),
+  id: z.number().int().positive(),
+  slug: z.string(),
+  name: z.string(),
+  biomarker_count: z.number().int().nonnegative(),
+});
+
+export type CatalogTemplateResult = z.infer<typeof CatalogTemplateResultSchema>;
+
+export const CatalogSearchResultSchema = z.discriminatedUnion('type', [
+  CatalogBiomarkerResultSchema,
+  CatalogTemplateResultSchema,
+]);
+
+export type CatalogSearchResult = z.infer<typeof CatalogSearchResultSchema>;
+
+export const CatalogSearchResponseSchema = z.object({
+  results: z.array(CatalogSearchResultSchema),
+});
+
+export type CatalogSearchResponse = z.infer<typeof CatalogSearchResponseSchema>;

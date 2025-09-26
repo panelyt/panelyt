@@ -8,7 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from panelyt_api.core.settings import get_settings
 from panelyt_api.db import models
-from panelyt_api.schemas.common import BiomarkerOut, BiomarkerSearchResponse, CatalogMeta
+from panelyt_api.schemas.common import (
+    BiomarkerOut,
+    BiomarkerSearchResponse,
+    CatalogBiomarkerResult,
+    CatalogMeta,
+    CatalogSearchResponse,
+    CatalogTemplateResult,
+)
+from panelyt_api.services.list_templates import BiomarkerListTemplateService
 
 
 async def get_catalog_meta(session: AsyncSession) -> CatalogMeta:
@@ -110,3 +118,36 @@ async def search_biomarkers(
         for row in results
     ]
     return BiomarkerSearchResponse(results=payload)
+
+
+async def search_catalog(
+    session: AsyncSession, query: str, *, biomarker_limit: int = 10, template_limit: int = 5
+) -> CatalogSearchResponse:
+    """Search biomarkers and curated templates for a given query."""
+
+    biomarker_response = await search_biomarkers(session, query, limit=biomarker_limit)
+
+    template_service = BiomarkerListTemplateService(session)
+    template_matches = await template_service.search_active_matches(query, limit=template_limit)
+
+    biomarker_results = [
+        CatalogBiomarkerResult(
+            id=item.id,
+            name=item.name,
+            elab_code=item.elab_code,
+            slug=item.slug,
+        )
+        for item in biomarker_response.results
+    ]
+
+    template_results = [
+        CatalogTemplateResult(
+            id=match.id,
+            slug=match.slug,
+            name=match.name,
+            biomarker_count=match.biomarker_count,
+        )
+        for match in template_matches
+    ]
+
+    return CatalogSearchResponse(results=[*biomarker_results, *template_results])

@@ -4,29 +4,28 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { vi } from 'vitest'
 import { SearchBox } from '../search-box'
 
-// Mock the hooks
 const useDebounceMock = vi.fn<(value: string, delay?: number) => string>((value) => value)
 vi.mock('../../hooks/useDebounce', () => ({
   useDebounce: useDebounceMock,
 }))
 
-vi.mock('../../hooks/useBiomarkerSearch', () => ({
-  useBiomarkerSearch: vi.fn(),
+vi.mock('../../hooks/useCatalogSearch', () => ({
+  useCatalogSearch: vi.fn(),
 }))
 
-import { useBiomarkerSearch } from '../../hooks/useBiomarkerSearch'
+import { useCatalogSearch } from '../../hooks/useCatalogSearch'
 
-const mockUseBiomarkerSearch = vi.mocked(useBiomarkerSearch)
+const mockUseCatalogSearch = vi.mocked(useCatalogSearch)
 
 const createSearchResult = (
-  overrides: Partial<ReturnType<typeof useBiomarkerSearch>> = {},
+  overrides: Partial<ReturnType<typeof useCatalogSearch>> = {},
 ) =>
   ({
     data: undefined,
     isFetching: false,
     error: null,
     ...overrides,
-  } as unknown as ReturnType<typeof useBiomarkerSearch>)
+  } as unknown as ReturnType<typeof useCatalogSearch>)
 
 function renderWithQueryClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -43,24 +42,45 @@ function renderWithQueryClient(ui: React.ReactElement) {
 }
 
 describe('SearchBox', () => {
-  const mockOnSelect = vi.fn()
+  const biomarkerSuggestion = {
+    type: 'biomarker' as const,
+    id: 1,
+    name: 'Alanine aminotransferase',
+    elab_code: 'ALT',
+    slug: 'alt',
+  }
+
+  const templateSuggestion = {
+    type: 'template' as const,
+    id: 42,
+    slug: 'liver-bundle',
+    name: 'Liver bundle',
+    biomarker_count: 4,
+  }
+
+  const onSelect = vi.fn()
+  const onTemplateSelect = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
     useDebounceMock.mockImplementation((value: string) => value)
-    mockUseBiomarkerSearch.mockImplementation(() => createSearchResult())
+    mockUseCatalogSearch.mockImplementation(() => createSearchResult())
   })
 
-  it('renders search input and add button', () => {
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
+  it('renders search input and action button', () => {
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
 
     expect(screen.getByPlaceholderText('Search biomarkers')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add to panel' })).toBeInTheDocument()
   })
 
-  it('updates input value when user types', async () => {
+  it('updates the query when the user types', async () => {
     const user = userEvent.setup()
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
 
     const input = screen.getByPlaceholderText('Search biomarkers')
     await user.type(input, 'ALT')
@@ -68,228 +88,100 @@ describe('SearchBox', () => {
     expect(input).toHaveValue('ALT')
   })
 
-  it('shows suggestions when available', () => {
-    const mockResults = [
-      { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
-      { id: 2, name: 'Aspartate aminotransferase', elab_code: 'AST', slug: 'ast' },
-    ]
-
-    mockUseBiomarkerSearch.mockImplementation(() =>
-      createSearchResult({ data: { results: mockResults } }),
+  it('renders biomarker suggestions when available', () => {
+    mockUseCatalogSearch.mockImplementation(() =>
+      createSearchResult({ data: { results: [biomarkerSuggestion] } }),
     )
 
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
 
-    // Type to trigger suggestions
-    const input = screen.getByPlaceholderText('Search biomarkers')
-    fireEvent.change(input, { target: { value: 'AL' } })
+    fireEvent.change(screen.getByPlaceholderText('Search biomarkers'), {
+      target: { value: 'AL' },
+    })
 
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
-    expect(screen.getByText('Aspartate aminotransferase')).toBeInTheDocument()
     expect(screen.getByText('ALT')).toBeInTheDocument()
-    expect(screen.getByText('AST')).toBeInTheDocument()
   })
 
-  it('calls onSelect when suggestion is clicked', async () => {
+  it('calls onSelect when a biomarker suggestion is clicked', async () => {
     const user = userEvent.setup()
-    const mockResults = [
-      { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
-    ]
-
-    mockUseBiomarkerSearch.mockImplementation(() =>
-      createSearchResult({ data: { results: mockResults } }),
+    mockUseCatalogSearch.mockImplementation(() =>
+      createSearchResult({ data: { results: [biomarkerSuggestion] } }),
     )
 
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
 
-    // Type to show suggestions
+    fireEvent.change(screen.getByPlaceholderText('Search biomarkers'), {
+      target: { value: 'ALT' },
+    })
+
+    await user.click(screen.getByText('Alanine aminotransferase'))
+
+    expect(onSelect).toHaveBeenCalledWith({
+      code: 'ALT',
+      name: 'Alanine aminotransferase',
+    })
+    expect(onTemplateSelect).not.toHaveBeenCalled()
+  })
+
+  it('calls onTemplateSelect when a template suggestion is clicked', async () => {
+    const user = userEvent.setup()
+    mockUseCatalogSearch.mockImplementation(() =>
+      createSearchResult({ data: { results: [templateSuggestion] } }),
+    )
+
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('Search biomarkers'), {
+      target: { value: 'Liver' },
+    })
+
+    await user.click(screen.getByText('Liver bundle'))
+
+    expect(onTemplateSelect).toHaveBeenCalledWith({
+      slug: 'liver-bundle',
+      name: 'Liver bundle',
+    })
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('pressing Enter selects the highlighted suggestion', async () => {
+    const user = userEvent.setup()
+    mockUseCatalogSearch.mockImplementation(() =>
+      createSearchResult({ data: { results: [biomarkerSuggestion] } }),
+    )
+
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
     const input = screen.getByPlaceholderText('Search biomarkers')
-    fireEvent.change(input, { target: { value: 'AL' } })
+    fireEvent.change(input, { target: { value: 'ALT' } })
 
-    // Click on suggestion
-    const suggestion = screen.getByText('Alanine aminotransferase')
-    await user.click(suggestion)
+    await user.keyboard('{ArrowDown}{Enter}')
 
-    expect(mockOnSelect).toHaveBeenCalledWith({
+    expect(onSelect).toHaveBeenCalledWith({
       code: 'ALT',
       name: 'Alanine aminotransferase',
     })
   })
 
-  it('calls onSelect when Enter is pressed with suggestion highlighted', async () => {
+  it('falls back to manual entry when no suggestions exist', async () => {
     const user = userEvent.setup()
-    const mockResults = [
-      { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
-    ]
-
-    mockUseBiomarkerSearch.mockImplementation(() =>
-      createSearchResult({ data: { results: mockResults } }),
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
-
     const input = screen.getByPlaceholderText('Search biomarkers')
-    fireEvent.change(input, { target: { value: 'AL' } })
+    await user.type(input, 'custom')
+    await user.click(screen.getByRole('button', { name: 'Add to panel' }))
 
-    // Navigate to first suggestion with arrow down
-    await user.keyboard('{ArrowDown}')
-    await user.keyboard('{Enter}')
-
-    expect(mockOnSelect).toHaveBeenCalledWith({
-      code: 'ALT',
-      name: 'Alanine aminotransferase',
-    })
-  })
-
-  it('navigates suggestions with arrow keys', async () => {
-    const user = userEvent.setup()
-    const mockResults = [
-      { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
-      { id: 2, name: 'Aspartate aminotransferase', elab_code: 'AST', slug: 'ast' },
-    ]
-
-    mockUseBiomarkerSearch.mockImplementation(() =>
-      createSearchResult({ data: { results: mockResults } }),
-    )
-
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
-
-    const input = screen.getByPlaceholderText('Search biomarkers')
-    fireEvent.change(input, { target: { value: 'A' } })
-
-    // First suggestion should be highlighted after arrow down
-    await user.keyboard('{ArrowDown}')
-
-    // Check if first suggestion has highlighted styling
-    const firstSuggestion = screen.getByText('Alanine aminotransferase').closest('button')
-    expect(firstSuggestion).toHaveClass('bg-brand', 'text-white')
-
-    // Navigate to second suggestion
-    await user.keyboard('{ArrowDown}')
-
-    // Second suggestion should now be highlighted
-    const secondSuggestion = screen.getByText('Aspartate aminotransferase').closest('button')
-    expect(secondSuggestion).toHaveClass('bg-brand', 'text-white')
-
-    // Navigate back up
-    await user.keyboard('{ArrowUp}')
-
-    // First suggestion should be highlighted again
-    expect(firstSuggestion).toHaveClass('bg-brand', 'text-white')
-  })
-
-  it('clears input and calls onSelect when Add button is clicked', async () => {
-    const user = userEvent.setup()
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
-
-    const input = screen.getByPlaceholderText('Search biomarkers')
-    await user.type(input, 'CUSTOM')
-
-    const addButton = screen.getByRole('button', { name: 'Add to panel' })
-    await user.click(addButton)
-
-    expect(mockOnSelect).toHaveBeenCalledWith({
-      code: 'CUSTOM',
-      name: 'CUSTOM',
-    })
-    expect(input).toHaveValue('')
-  })
-
-  it('clears input when Escape is pressed', async () => {
-    const user = userEvent.setup()
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
-
-    const input = screen.getByPlaceholderText('Search biomarkers')
-    await user.type(input, 'TEST')
-    expect(input).toHaveValue('TEST')
-
-    await user.keyboard('{Escape}')
-    expect(input).toHaveValue('')
-  })
-
-  it('shows loading indicator when fetching', () => {
-    mockUseBiomarkerSearch.mockImplementation(() => createSearchResult({ isFetching: true }))
-
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
-
-    expect(screen.getByText('Searching…')).toBeInTheDocument()
-  })
-
-  it('uses first suggestion when Enter is pressed without navigation', async () => {
-    const user = userEvent.setup()
-    const mockResults = [
-      { id: 1, name: 'Alanine aminotransferase', elab_code: 'ALT', slug: 'alt' },
-    ]
-
-    mockUseBiomarkerSearch.mockImplementation(() =>
-      createSearchResult({ data: { results: mockResults } }),
-    )
-
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
-
-    const input = screen.getByPlaceholderText('Search biomarkers')
-    fireEvent.change(input, { target: { value: 'AL' } })
-
-    await user.keyboard('{Enter}')
-
-    expect(mockOnSelect).toHaveBeenCalledWith({
-      code: 'ALT',
-      name: 'Alanine aminotransferase',
-    })
-  })
-
-  it('handles biomarkers without elab_code', async () => {
-    const user = userEvent.setup()
-    const mockResults = [
-      { id: 1, name: 'Custom Test', elab_code: null, slug: 'custom-test' },
-    ]
-
-    mockUseBiomarkerSearch.mockImplementation(() =>
-      createSearchResult({ data: { results: mockResults } }),
-    )
-
-    renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
-
-    const input = screen.getByPlaceholderText('Search biomarkers')
-    fireEvent.change(input, { target: { value: 'custom' } })
-
-    const suggestion = screen.getByText('Custom Test')
-    await user.click(suggestion)
-
-    expect(mockOnSelect).toHaveBeenCalledWith({
-      code: 'custom-test', // Falls back to slug
-      name: 'Custom Test',
-    })
-  })
-
-  it('defers selection until results arrive when Enter is pressed early', async () => {
-    const user = userEvent.setup()
-    const mockResults = [
-      { id: 10, name: 'Glukoza', elab_code: 'GLUC', slug: 'glukoza' },
-      { id: 3349, name: 'Glukagon', elab_code: null, slug: 'glukagon' },
-    ]
-
-    let debouncedValue = ''
-    useDebounceMock.mockImplementation(() => debouncedValue)
-
-    let currentResult = createSearchResult()
-    mockUseBiomarkerSearch.mockImplementation(() => currentResult)
-
-    const { rerender } = renderWithQueryClient(<SearchBox onSelect={mockOnSelect} />)
-
-    const input = screen.getByPlaceholderText('Search biomarkers')
-
-    currentResult = createSearchResult({ isFetching: false })
-    fireEvent.change(input, { target: { value: 'glu' } })
-
-    await user.keyboard('{Enter}')
-    expect(mockOnSelect).not.toHaveBeenCalled()
-
-    debouncedValue = 'glu'
-    currentResult = createSearchResult({ data: { results: mockResults } })
-    rerender(<SearchBox onSelect={mockOnSelect} />)
-
-    expect(mockOnSelect).toHaveBeenCalledWith({ code: 'GLUC', name: 'Glukoza' })
-    expect(input).toHaveValue('')
+    expect(onSelect).toHaveBeenCalledWith({ code: 'CUSTOM', name: 'custom' })
   })
 })

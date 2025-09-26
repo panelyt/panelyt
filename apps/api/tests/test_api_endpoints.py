@@ -144,6 +144,77 @@ class TestCatalogEndpoints:
         data = response.json()
         assert data["results"] == []
 
+    @patch("panelyt_api.services.activity.touch_user_activity")
+    async def test_catalog_search_includes_templates(
+        self, mock_activity, async_client: AsyncClient, db_session
+    ):
+        mock_activity.return_value = None
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                {
+                    "id": 1,
+                    "name": "Total cholesterol",
+                    "elab_code": "CHOL",
+                    "slug": "cholesterol",
+                }
+            )
+        )
+
+        active_template = models.BiomarkerListTemplate(
+            slug="cholesterol-panel",
+            name="Cholesterol panel",
+            description=None,
+            is_active=True,
+        )
+        inactive_template = models.BiomarkerListTemplate(
+            slug="archived-template",
+            name="Archived template",
+            description=None,
+            is_active=False,
+        )
+        db_session.add_all([active_template, inactive_template])
+        await db_session.flush()
+
+        db_session.add_all(
+            [
+                models.BiomarkerListTemplateEntry(
+                    template_id=active_template.id,
+                    code="CHOL",
+                    display_name="Total cholesterol",
+                    sort_order=0,
+                ),
+                models.BiomarkerListTemplateEntry(
+                    template_id=active_template.id,
+                    code="HDL",
+                    display_name="HDL cholesterol",
+                    sort_order=1,
+                ),
+                models.BiomarkerListTemplateEntry(
+                    template_id=inactive_template.id,
+                    code="LDL",
+                    display_name="LDL cholesterol",
+                    sort_order=0,
+                ),
+            ]
+        )
+        await db_session.commit()
+
+        response = await async_client.get("/catalog/search?query=chol")
+        assert response.status_code == 200
+
+        payload = response.json()
+        assert "results" in payload
+
+        templates = [item for item in payload["results"] if item["type"] == "template"]
+        biomarkers = [item for item in payload["results"] if item["type"] == "biomarker"]
+
+        assert any(item["slug"] == "cholesterol" for item in biomarkers)
+        assert len(templates) == 1
+        template_entry = templates[0]
+        assert template_entry["slug"] == "cholesterol-panel"
+        assert template_entry["biomarker_count"] == 2
+
 
 class TestOptimizeEndpoint:
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
