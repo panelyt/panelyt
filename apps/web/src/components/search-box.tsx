@@ -170,16 +170,28 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
               {suggestions.map((item, index) => {
                 const isHighlighted = index === highlightedIndex;
                 const isTemplate = item.type === "template";
+                const templateDescription = isTemplate
+                  ? item.description?.trim() ?? ""
+                  : "";
                 const biomarkerBadge = !isTemplate
                   ? (item.elab_code ?? item.slug ?? item.name) ?? ""
                   : null;
                 const rightLabel = isTemplate
-                  ? item.slug
+                  ? templateDescription || null
                   : biomarkerBadge
                     ? item.elab_code
                       ? biomarkerBadge.toUpperCase()
                       : biomarkerBadge
                     : null;
+                const rightLabelClass = [
+                  "text-xs",
+                  isTemplate ? "truncate text-right" : "uppercase tracking-wide",
+                  isHighlighted
+                    ? "text-white/90"
+                    : isTemplate
+                      ? "text-slate-300"
+                      : "text-emerald-300",
+                ].join(" ");
                 return (
                   <li key={`${item.type}-${item.id}`}>
                     <button
@@ -208,13 +220,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                       </div>
                       {rightLabel && (
                         <span
-                          className={`text-xs uppercase tracking-wide ${
-                            isHighlighted
-                              ? "text-white/90"
-                              : isTemplate
-                                ? "text-slate-400"
-                                : "text-emerald-300"
-                          }`}
+                          className={rightLabelClass}
                         >
                           {rightLabel}
                         </span>

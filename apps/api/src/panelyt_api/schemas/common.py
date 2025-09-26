@@ -55,6 +55,7 @@ class CatalogTemplateResult(APIModel):
     id: int
     slug: str
     name: str
+    description: str | None = None
     biomarker_count: int
 
 
