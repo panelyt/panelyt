@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -39,3 +40,23 @@ class CatalogMeta(APIModel):
 
 class BiomarkerSearchResponse(APIModel):
     results: list[BiomarkerOut]
+
+
+class CatalogBiomarkerResult(APIModel):
+    type: Literal["biomarker"] = "biomarker"
+    id: int
+    name: str
+    elab_code: str | None = None
+    slug: str | None = None
+
+
+class CatalogTemplateResult(APIModel):
+    type: Literal["template"] = "template"
+    id: int
+    slug: str
+    name: str
+    biomarker_count: int
+
+
+class CatalogSearchResponse(APIModel):
+    results: list[CatalogBiomarkerResult | CatalogTemplateResult]

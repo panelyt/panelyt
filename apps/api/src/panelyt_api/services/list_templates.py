@@ -4,7 +4,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import Select
@@ -21,6 +21,14 @@ class TemplateEntryData:
     code: str
     display_name: str
     notes: str | None = None
+
+
+@dataclass(slots=True)
+class TemplateSearchMatch:
+    id: int
+    slug: str
+    name: str
+    biomarker_count: int
 
 
 class BiomarkerListTemplateService:
@@ -44,6 +52,66 @@ class BiomarkerListTemplateService:
         for template in templates:
             self._sort_entries(template)
         return templates
+
+    async def search_active_matches(
+        self, query: str, limit: int = 5
+    ) -> list[TemplateSearchMatch]:
+        normalized = query.strip().lower()
+        if not normalized:
+            return []
+
+        contains_pattern = f"%{normalized}%"
+        prefix_pattern = f"{normalized}%"
+
+        name_lower = func.lower(BiomarkerListTemplate.name)
+        slug_lower = func.lower(BiomarkerListTemplate.slug)
+
+        match_rank = case(
+            (slug_lower == normalized, 0),
+            (name_lower == normalized, 1),
+            (slug_lower.like(prefix_pattern), 2),
+            (name_lower.like(prefix_pattern), 3),
+            else_=10,
+        )
+
+        entry_count = func.count(BiomarkerListTemplateEntry.id).label("biomarker_count")
+
+        statement = (
+            select(
+                BiomarkerListTemplate.id,
+                BiomarkerListTemplate.slug,
+                BiomarkerListTemplate.name,
+                entry_count,
+            )
+            .outerjoin(BiomarkerListTemplate.entries)
+            .where(BiomarkerListTemplate.is_active.is_(True))
+            .where(
+                or_(
+                    slug_lower.like(contains_pattern),
+                    name_lower.like(contains_pattern),
+                )
+            )
+            .group_by(
+                BiomarkerListTemplate.id,
+                BiomarkerListTemplate.slug,
+                BiomarkerListTemplate.name,
+            )
+            .order_by(match_rank, BiomarkerListTemplate.name.asc())
+            .limit(limit)
+        )
+
+        result = await self._db.execute(statement)
+        matches: list[TemplateSearchMatch] = []
+        for row in result:
+            matches.append(
+                TemplateSearchMatch(
+                    id=row.id,
+                    slug=row.slug,
+                    name=row.name,
+                    biomarker_count=row.biomarker_count or 0,
+                )
+            )
+        return matches
 
     async def get_active_by_slug(self, slug: str) -> BiomarkerListTemplate | None:
         stmt = self._base_query().where(
