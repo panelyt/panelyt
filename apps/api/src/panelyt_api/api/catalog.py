@@ -7,7 +7,11 @@ from fastapi import APIRouter, Query
 from panelyt_api.api.deps import SessionDep
 from panelyt_api.core.settings import get_settings
 from panelyt_api.ingest.service import IngestionService
-from panelyt_api.schemas.common import BiomarkerSearchResponse, CatalogMeta
+from panelyt_api.schemas.common import (
+    BiomarkerSearchResponse,
+    CatalogMeta,
+    CatalogSearchResponse,
+)
 from panelyt_api.services import activity, catalog
 
 router = APIRouter()
@@ -33,3 +37,19 @@ async def search(
 ) -> BiomarkerSearchResponse:
     await activity.touch_user_activity(session)
     return await catalog.search_biomarkers(session, query)
+
+
+@router.get("/search", response_model=CatalogSearchResponse)
+async def search_catalog_endpoint(
+    query: Annotated[
+        str,
+        Query(
+            ...,
+            min_length=1,
+            description="Search biomarkers and curated templates",
+        ),
+    ],
+    session: SessionDep,
+) -> CatalogSearchResponse:
+    await activity.touch_user_activity(session)
+    return await catalog.search_catalog(session, query)

@@ -2,25 +2,35 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Loader2, Search as SearchIcon } from "lucide-react";
+import { type CatalogSearchResult } from "@panelyt/types";
 
 import { useDebounce } from "../hooks/useDebounce";
-import { useBiomarkerSearch } from "../hooks/useBiomarkerSearch";
+import { useCatalogSearch } from "../hooks/useCatalogSearch";
 
 interface SelectedBiomarker {
   code: string;
   name: string;
 }
 
-interface Props {
-  onSelect: (biomarker: SelectedBiomarker) => void;
+interface TemplateSelection {
+  slug: string;
+  name: string;
 }
 
-export function SearchBox({ onSelect }: Props) {
+interface Props {
+  onSelect: (biomarker: SelectedBiomarker) => void;
+  onTemplateSelect: (template: TemplateSelection) => void;
+}
+
+export function SearchBox({ onSelect, onTemplateSelect }: Props) {
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const debounced = useDebounce(query, 200);
-  const { data, isFetching } = useBiomarkerSearch(debounced);
-  const suggestions = useMemo(() => data?.results ?? [], [data?.results]);
+  const { data, isFetching } = useCatalogSearch(debounced);
+  const suggestions = useMemo<CatalogSearchResult[]>(
+    () => data?.results ?? [],
+    [data?.results],
+  );
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
 
   // Reset highlighted index when suggestions change
@@ -38,36 +48,35 @@ export function SearchBox({ onSelect }: Props) {
     }
   }, [query, pendingQuery]);
 
-  const resolveSuggestion = useCallback((item: { elab_code: string | null; slug: string | null; name: string }) => {
-    if (item.elab_code) {
-      return { code: item.elab_code, normalize: true };
-    }
-    if (item.slug) {
-      return { code: item.slug, normalize: false };
-    }
-    return { code: item.name, normalize: false };
-  }, []);
-
-  const commitSelection = useCallback((code: string, name: string, normalize: boolean) => {
-    const normalized = normalize && !/[^a-z0-9-]/i.test(code) ? code.toUpperCase() : code;
-    onSelect({ code: normalized, name });
-    setQuery("");
-    setHighlightedIndex(-1);
-    setPendingQuery(null);
-  }, [onSelect]);
+  const commitSuggestion = useCallback(
+    (suggestion: CatalogSearchResult) => {
+      if (suggestion.type === "template") {
+        onTemplateSelect({ slug: suggestion.slug, name: suggestion.name });
+      } else {
+        let code = suggestion.elab_code ?? suggestion.slug ?? suggestion.name;
+        if (!code) {
+          code = suggestion.name;
+        }
+        const shouldNormalize = Boolean(suggestion.elab_code) && !/[^a-z0-9-]/i.test(code);
+        const normalized = shouldNormalize ? code.toUpperCase() : code;
+        onSelect({ code: normalized, name: suggestion.name });
+      }
+      setQuery("");
+      setHighlightedIndex(-1);
+      setPendingQuery(null);
+    },
+    [onSelect, onTemplateSelect],
+  );
 
   const handleSubmit = () => {
     if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
       const selectedResult = suggestions[highlightedIndex];
-      const resolved = resolveSuggestion(selectedResult);
-      commitSelection(resolved.code, selectedResult.name, resolved.normalize);
+      commitSuggestion(selectedResult);
       return;
     }
 
     if (suggestions.length > 0) {
-      const firstResult = suggestions[0];
-      const resolved = resolveSuggestion(firstResult);
-      commitSelection(resolved.code, firstResult.name, resolved.normalize);
+      commitSuggestion(suggestions[0]);
       return;
     }
 
@@ -84,7 +93,12 @@ export function SearchBox({ onSelect }: Props) {
       return;
     }
 
-    commitSelection(trimmed, trimmed, true);
+    const shouldNormalize = !/[^a-z0-9-]/i.test(trimmed);
+    const normalized = shouldNormalize ? trimmed.toUpperCase() : trimmed;
+    onSelect({ code: normalized, name: trimmed });
+    setQuery("");
+    setHighlightedIndex(-1);
+    setPendingQuery(null);
   };
 
   useEffect(() => {
@@ -105,10 +119,8 @@ export function SearchBox({ onSelect }: Props) {
       return;
     }
 
-    const firstResult = suggestions[0];
-    const resolved = resolveSuggestion(firstResult);
-    commitSelection(resolved.code, firstResult.name, resolved.normalize);
-  }, [pendingQuery, suggestions, debounced, isFetching, resolveSuggestion, commitSelection]);
+    commitSuggestion(suggestions[0]);
+  }, [pendingQuery, suggestions, debounced, isFetching, commitSuggestion]);
 
   return (
     <div className="relative">
@@ -156,31 +168,55 @@ export function SearchBox({ onSelect }: Props) {
           {suggestions.length > 0 ? (
             <ul className="max-h-64 overflow-y-auto">
               {suggestions.map((item, index) => {
-                const display = item.elab_code ?? item.slug ?? item.name;
-                const resolved = resolveSuggestion(item);
-                const badge = item.elab_code ? resolved.code.toUpperCase() : resolved.code;
                 const isHighlighted = index === highlightedIndex;
+                const isTemplate = item.type === "template";
+                const biomarkerBadge = !isTemplate
+                  ? (item.elab_code ?? item.slug ?? item.name) ?? ""
+                  : null;
+                const rightLabel = isTemplate
+                  ? item.slug
+                  : biomarkerBadge
+                    ? item.elab_code
+                      ? biomarkerBadge.toUpperCase()
+                      : biomarkerBadge
+                    : null;
                 return (
-                  <li key={`${item.name}-${display}`}>
+                  <li key={`${item.type}-${item.id}`}>
                     <button
                       type="button"
-                      onClick={() => commitSelection(resolved.code, item.name, resolved.normalize)}
+                      onClick={() => commitSuggestion(item)}
                       className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition ${
                         isHighlighted
                           ? "bg-emerald-400/20 text-white"
                           : "hover:bg-slate-800/70 text-slate-200"
                       }`}
                     >
-                      <span className={`font-medium ${
-                        isHighlighted ? "text-white" : "text-slate-100"
-                      }`}>
-                        {item.name}
-                      </span>
-                      {display && (
-                        <span className={`text-xs uppercase tracking-wide ${
-                          isHighlighted ? "text-white/90" : "text-emerald-300"
+                      <div className="flex flex-col gap-1">
+                        <span className={`font-medium ${
+                          isHighlighted ? "text-white" : "text-slate-100"
                         }`}>
-                          {badge}
+                          {item.name}
+                        </span>
+                        {isTemplate && (
+                          <span className={`text-[11px] uppercase tracking-wide ${
+                            isHighlighted ? "text-white/80" : "text-amber-300"
+                          }`}>
+                            Template · {item.biomarker_count} biomarker
+                            {item.biomarker_count === 1 ? "" : "s"}
+                          </span>
+                        )}
+                      </div>
+                      {rightLabel && (
+                        <span
+                          className={`text-xs uppercase tracking-wide ${
+                            isHighlighted
+                              ? "text-white/90"
+                              : isTemplate
+                                ? "text-slate-400"
+                                : "text-emerald-300"
+                          }`}
+                        >
+                          {rightLabel}
                         </span>
                       )}
                     </button>

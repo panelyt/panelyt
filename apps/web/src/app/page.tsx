@@ -29,6 +29,9 @@ interface SelectedBiomarker {
 export default function Home() {
   const [selected, setSelected] = useState<SelectedBiomarker[]>([]);
   const [listError, setListError] = useState<string | null>(null);
+  const [listNotice, setListNotice] = useState<
+    { tone: "success" | "info"; message: string } | null
+  >(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -90,6 +93,8 @@ export default function Home() {
       if (current.some((b) => b.code === normalized)) return current;
       return [...current, { code: normalized, name: biomarker.name }];
     });
+    setListError(null);
+    setListNotice(null);
   };
 
   const handleRemove = (code: string) => {
@@ -115,6 +120,42 @@ export default function Home() {
     }
     return "Something went wrong";
   }, []);
+
+  const handleTemplateSelect = useCallback(
+    async (selection: { slug: string; name: string }) => {
+      const { slug } = selection;
+      try {
+        const payload = await getJson(`/biomarker-lists/templates/${slug}`);
+        const template = BiomarkerListTemplateSchema.parse(payload);
+        let pendingNotice: { tone: "success" | "info"; message: string } | null = null;
+        setSelected((current) => {
+          const existing = new Set(current.map((item) => item.code));
+          const additions = template.biomarkers.filter((entry) => !existing.has(entry.code));
+          if (additions.length === 0) {
+            pendingNotice = {
+              tone: "info",
+              message: `All biomarkers from ${template.name} are already selected.`,
+            };
+            return current;
+          }
+          pendingNotice = {
+            tone: "success",
+            message: `Added ${additions.length} biomarker${additions.length === 1 ? "" : "s"} from ${template.name}.`,
+          };
+          return [
+            ...current,
+            ...additions.map((entry) => ({ code: entry.code, name: entry.display_name })),
+          ];
+        });
+        setListError(null);
+        setListNotice(pendingNotice);
+      } catch (error) {
+        setListNotice(null);
+        setListError(extractErrorMessage(error));
+      }
+    },
+    [extractErrorMessage],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -161,6 +202,14 @@ export default function Home() {
       cancelled = true;
     };
   }, [router, extractErrorMessage]);
+
+  useEffect(() => {
+    if (!listNotice) {
+      return;
+    }
+    const timer = setTimeout(() => setListNotice(null), 4000);
+    return () => clearTimeout(timer);
+  }, [listNotice]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -542,11 +591,20 @@ export default function Home() {
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-900/30">
               <h2 className="text-lg font-semibold text-white">Build your biomarker set</h2>
               <div className="mt-6 flex flex-col gap-4">
-                <SearchBox onSelect={handleSelect} />
+                <SearchBox onSelect={handleSelect} onTemplateSelect={handleTemplateSelect} />
                 <SelectedBiomarkers biomarkers={selected} onRemove={handleRemove} />
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
+                {listNotice && (
+                  <p
+                    className={`text-sm ${
+                      listNotice.tone === "success" ? "text-emerald-300" : "text-slate-300"
+                    }`}
+                  >
+                    {listNotice.message}
+                  </p>
+                )}
                 {listError && <p className="text-sm text-red-300">{listError}</p>}
                 <div className="ml-auto flex items-center gap-2">
                   <div className="relative" ref={loadMenuRef}>
