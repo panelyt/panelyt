@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -40,6 +40,7 @@ export default function ListsPage() {
   const [shareActionId, setShareActionId] = useState<string | null>(null);
   const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const totalsSignatureRef = useRef<string | null>(null);
 
   const shareOrigin = useMemo(
     () => (typeof window === "undefined" ? "" : window.location.origin),
@@ -57,9 +58,21 @@ export default function ListsPage() {
   useEffect(() => {
     const lists = rawLists ?? [];
     if (!lists.length) {
+      totalsSignatureRef.current = "";
       setListsWithTotals({});
+      setLoadingTotals(false);
       return;
     }
+
+    const signature = lists
+      .map((list) => `${list.id}:${list.biomarkers.map((entry) => entry.code).join(",")}`)
+      .join("|");
+
+    if (totalsSignatureRef.current === signature) {
+      return;
+    }
+
+    totalsSignatureRef.current = signature;
 
     let cancelled = false;
     setLoadingTotals(true);
