@@ -622,14 +622,24 @@
   "Apo A1": {
     "aliases": [
       {
+        "alias": "ApoA1",
+        "type": "common_name",
+        "priority": 1
+      },
+      {
         "alias": "apolipoprotein A1",
         "type": "translation",
-        "priority": 2
+        "priority": 1
       }
     ]
   },
   "Apo B": {
     "aliases": [
+      {
+        "alias": "ApoB",
+        "type": "common_name",
+        "priority": 1
+      },
       {
         "alias": "apolipoprotein B",
         "type": "translation",
@@ -8711,9 +8721,19 @@
   "Koenzym Q10 (Ubichinon)": {
     "aliases": [
       {
-        "alias": "coenzyme Q10 (ubiquinone)",
+        "alias": "coenzyme Q10",
         "type": "translation",
         "priority": 2
+      },
+      {
+        "alias": "CoQ10",
+        "type": "translation",
+        "priority": 1
+      },
+      {
+        "alias": "ubiquinone",
+        "type": "common_name",
+        "priority": 1
       }
     ]
   },
@@ -8933,9 +8953,19 @@
         "priority": 1
       },
       {
+        "alias": "folate",
+        "type": "common_name",
+        "priority": 1
+      },
+      {
+        "alias": "Vitamin B9",
+        "type": "common_name",
+        "priority": 1
+      },
+      {
         "alias": "folic acid",
         "type": "translation",
-        "priority": 2
+        "priority": 1
       }
     ]
   },
@@ -12615,6 +12645,11 @@
     "aliases": [
       {
         "alias": "BNP",
+        "type": "abbreviation",
+        "priority": 1
+      },
+      {
+        "alias": "NT-proBNP",
         "type": "abbreviation",
         "priority": 1
       },
