@@ -4,6 +4,7 @@ import logging
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from ortools.sat.python import cp_model
 from sqlalchemy import func, or_, select
@@ -14,6 +15,12 @@ from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import OptimizeRequest, OptimizeResponse
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_CURRENCY = "PLN"
+SOLVER_TIMEOUT_SECONDS = 5.0
+SOLVER_WORKERS = 8
+PRICE_HISTORY_LOOKBACK_DAYS = 30
 
 
 @dataclass(slots=True)
@@ -56,14 +63,7 @@ class OptimizationService:
     async def solve(self, payload: OptimizeRequest) -> OptimizeResponse:
         resolved, unresolved_inputs = await self._resolve_biomarkers(payload.biomarkers)
         if not resolved:
-            return OptimizeResponse(
-                total_now=0.0,
-                total_min30=0.0,
-                currency="PLN",
-                items=[],
-                explain={},
-                uncovered=payload.biomarkers,
-            )
+            return self._empty_response(payload.biomarkers)
 
         candidates = await self._collect_candidates(resolved)
         pruned = self._prune_candidates(candidates)
@@ -165,7 +165,7 @@ class OptimizationService:
         if not biomarker_ids:
             return []
 
-        window_start = datetime.now(UTC).date() - timedelta(days=30)
+        window_start = datetime.now(UTC).date() - timedelta(days=PRICE_HISTORY_LOOKBACK_DAYS)
         history = (
             select(
                 models.PriceSnapshot.item_id.label("item_id"),
@@ -203,7 +203,9 @@ class OptimizationService:
                     name=item.name,
                     slug=item.slug,
                     price_now=item.price_now_grosz,
-                    price_min30=int(hist_min or item.price_min30_grosz or item.price_now_grosz),
+                    price_min30=self._resolve_price_floor(
+                        hist_min, item.price_min30_grosz, item.price_now_grosz
+                    ),
                     sale_price=item.sale_price_grosz,
                     regular_price=item.regular_price_grosz,
                 )
@@ -212,6 +214,16 @@ class OptimizationService:
             if token:
                 candidate.coverage.add(token)
         return list(by_id.values())
+
+    @staticmethod
+    def _resolve_price_floor(
+        history_price: int | None, rolling_min: int | None, current_price: int
+    ) -> int:
+        if history_price is not None:
+            return int(history_price)
+        if rolling_min is not None:
+            return int(rolling_min)
+        return int(current_price)
 
     def _prune_candidates(self, candidates: Iterable[CandidateItem]) -> list[CandidateItem]:
         items = list(candidates)
@@ -252,85 +264,125 @@ class OptimizationService:
 
     @staticmethod
     def _remove_dominated_candidates(items: Sequence[CandidateItem]) -> list[CandidateItem]:
-        dominant: list[CandidateItem] = []
-        for candidate in items:
+        retained: dict[int, CandidateItem] = {}
+        seen_coverages: list[tuple[frozenset[str], int]] = []
+        ordered = sorted(
+            items,
+            key=lambda item: (-len(item.coverage), item.price_now, item.id),
+        )
+
+        for candidate in ordered:
+            coverage = frozenset(candidate.coverage)
             dominated = any(
-                other is not candidate
-                and other.coverage.issuperset(candidate.coverage)
-                and other.price_now <= candidate.price_now
-                for other in items
+                existing_coverage.issuperset(coverage)
+                and existing_price <= candidate.price_now
+                for existing_coverage, existing_price in seen_coverages
             )
-            if not dominated:
-                dominant.append(candidate)
-        return dominant
+            if dominated:
+                continue
+            retained[candidate.id] = candidate
+            seen_coverages.append((coverage, candidate.price_now))
+
+        return [item for item in items if item.id in retained]
 
     async def _run_solver(
         self, candidates: Sequence[CandidateItem], biomarkers: Sequence[ResolvedBiomarker]
     ) -> OptimizeResponse:
-        model = cp_model.CpModel()
-        variables: dict[int, cp_model.IntVar] = {}
-        for item in candidates:
-            variables[item.id] = model.NewBoolVar(item.slug)
+        coverage_map = self._build_coverage_map(candidates)
+        model, variables = self._build_solver_model(candidates)
+        uncovered = self._apply_coverage_constraints(
+            model, variables, coverage_map, biomarkers
+        )
 
-        coverage_map: dict[str, list[int]] = {}
+        if not variables:
+            return self._empty_response(uncovered)
+
+        self._apply_objective(model, candidates, variables)
+        status, solver = self._solve_model(model)
+
+        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            logger.warning("CP-SAT returned status %s", status)
+            fallback_uncovered = uncovered or [b.token for b in biomarkers]
+            return self._empty_response(fallback_uncovered)
+
+        chosen = self._extract_selected_candidates(solver, candidates, variables)
+        return await self._build_response(chosen, uncovered)
+
+    @staticmethod
+    def _build_solver_model(
+        candidates: Sequence[CandidateItem],
+    ) -> tuple[cp_model.CpModel, dict[int, cp_model.IntVar]]:
+        model = cp_model.CpModel()
+        variables = {candidate.id: model.NewBoolVar(candidate.slug) for candidate in candidates}
+        return model, variables
+
+    @staticmethod
+    def _build_coverage_map(
+        candidates: Sequence[CandidateItem],
+    ) -> dict[str, list[int]]:
+        coverage: dict[str, list[int]] = {}
         for item in candidates:
             for token in item.coverage:
-                coverage_map.setdefault(token, []).append(item.id)
+                coverage.setdefault(token, []).append(item.id)
+        return coverage
 
+    @staticmethod
+    def _apply_coverage_constraints(
+        model: cp_model.CpModel,
+        variables: Mapping[int, cp_model.IntVar],
+        coverage_map: Mapping[str, Sequence[int]],
+        biomarkers: Sequence[ResolvedBiomarker],
+    ) -> list[str]:
         uncovered: list[str] = []
         for biomarker in biomarkers:
-            covering = coverage_map.get(biomarker.token, [])
+            covering = coverage_map.get(biomarker.token)
             if not covering:
                 uncovered.append(biomarker.token)
                 continue
             model.Add(sum(variables[item_id] for item_id in covering) >= 1)
+        return uncovered
 
-        if not variables:
-            return OptimizeResponse(
-                total_now=0.0,
-                total_min30=0.0,
-                currency="PLN",
-                items=[],
-                explain={},
-                uncovered=uncovered,
-            )
-
+    @staticmethod
+    def _apply_objective(
+        model: cp_model.CpModel,
+        candidates: Sequence[CandidateItem],
+        variables: Mapping[int, cp_model.IntVar],
+    ) -> None:
         model.Minimize(
             sum(candidate.price_now * variables[candidate.id] for candidate in candidates)
         )
 
+    @staticmethod
+    def _solve_model(
+        model: cp_model.CpModel,
+    ) -> tuple[int, cp_model.CpSolver]:
         solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = 5.0
-        solver.parameters.num_search_workers = 8
-        status = solver.Solve(model)
+        solver.parameters.max_time_in_seconds = SOLVER_TIMEOUT_SECONDS
+        solver.parameters.num_search_workers = SOLVER_WORKERS
+        status = cast(int, solver.Solve(model))
+        return status, solver
 
-        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            logger.warning("CP-SAT returned status %s", status)
-            return OptimizeResponse(
-                total_now=0.0,
-                total_min30=0.0,
-                currency="PLN",
-                items=[],
-                explain={},
-                uncovered=uncovered,
-            )
+    @staticmethod
+    def _extract_selected_candidates(
+        solver: cp_model.CpSolver,
+        candidates: Sequence[CandidateItem],
+        variables: Mapping[int, cp_model.IntVar],
+    ) -> list[CandidateItem]:
+        return [
+            candidate
+            for candidate in candidates
+            if solver.Value(variables[candidate.id])
+        ]
 
-        chosen: list[CandidateItem] = []
-        for item in candidates:
-            if solver.Value(variables[item.id]):
-                chosen.append(item)
-
+    async def _build_response(
+        self, chosen: Sequence[CandidateItem], uncovered: Sequence[str]
+    ) -> OptimizeResponse:
         total_now = round(sum(item.price_now for item in chosen) / 100, 2)
         total_min30 = round(sum(item.price_min30 for item in chosen) / 100, 2)
+        explain = self._build_explain_map(chosen)
 
-        explain: dict[str, list[str]] = {}
-        for item in chosen:
-            for token in item.coverage:
-                explain.setdefault(token, []).append(item.name)
-
-        # Fetch all biomarkers for chosen items to show bonus biomarkers
         chosen_item_ids = [item.id for item in chosen]
-        all_biomarkers = await self._get_all_biomarkers_for_items(chosen_item_ids)
+        biomarkers_by_item = await self._get_all_biomarkers_for_items(chosen_item_ids)
 
         items_payload = [
             ItemOut(
@@ -340,8 +392,8 @@ class OptimizationService:
                 slug=item.slug,
                 price_now_grosz=item.price_now,
                 price_min30_grosz=item.price_min30,
-                currency="PLN",
-                biomarkers=sorted(all_biomarkers.get(item.id, [])),
+                currency=DEFAULT_CURRENCY,
+                biomarkers=sorted(biomarkers_by_item.get(item.id, [])),
                 url=_item_url(item),
                 on_sale=item.on_sale,
             )
@@ -351,10 +403,31 @@ class OptimizationService:
         return OptimizeResponse(
             total_now=total_now,
             total_min30=total_min30,
-            currency="PLN",
+            currency=DEFAULT_CURRENCY,
             items=items_payload,
             explain=explain,
-            uncovered=uncovered,
+            uncovered=list(uncovered),
+        )
+
+    @staticmethod
+    def _build_explain_map(
+        chosen: Sequence[CandidateItem],
+    ) -> dict[str, list[str]]:
+        explain: dict[str, list[str]] = {}
+        for item in chosen:
+            for token in item.coverage:
+                explain.setdefault(token, []).append(item.name)
+        return explain
+
+    @staticmethod
+    def _empty_response(uncovered: Sequence[str]) -> OptimizeResponse:
+        return OptimizeResponse(
+            total_now=0.0,
+            total_min30=0.0,
+            currency=DEFAULT_CURRENCY,
+            items=[],
+            explain={},
+            uncovered=list(uncovered),
         )
 
     def _uncovered_tokens(
@@ -384,9 +457,7 @@ class OptimizationService:
         rows = (await self.session.execute(statement)).all()
         result: dict[int, list[str]] = {}
         for item_id, elab_code in rows:
-            if item_id not in result:
-                result[item_id] = []
-            result[item_id].append(elab_code)
+            result.setdefault(item_id, []).append(elab_code)
 
         return result
 
