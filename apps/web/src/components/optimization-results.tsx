@@ -250,7 +250,7 @@ export function OptimizationResults({ selected, result, isLoading, error }: Prop
                             <p className="mt-2 font-semibold text-emerald-600">30-day min</p>
                             <p>{formatGroszToPln(item.price_min30_grosz)}</p>
                             {item.on_sale && (
-                              <span className="mt-2 inline-flex items-center justify-end gap-1 rounded-full bg-amber-200/70 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700">
+                              <span className="mt-2 inline-flex items-center justify-end whitespace-nowrap gap-1 rounded-full bg-amber-200/70 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700">
                                 <Sparkles className="h-3 w-3" /> On sale
                               </span>
                             )}
