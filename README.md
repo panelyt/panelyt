@@ -1,9 +1,6 @@
 # Panelyt
 
-Panelyt minimizes the total cost of user-selected biomarkers by blending single blood tests and
-packages from diag.pl. The backend ingests the public catalog, stores a 30-day price history in
-Postgres, and exposes optimization endpoints. The Next.js frontend lets contributors search
-biomarkers, assemble panels, and compare current prices with Panelyt's historical minimum basket.
+Panelyt minimizes the total cost of user-selected biomarkers by blending single blood tests and packages from diag.pl. The backend ingests the public catalog, stores a 30-day price history in Postgres, and exposes optimization endpoints. The Next.js frontend lets contributors search biomarkers, assemble panels, and compare current prices with Panelyt's historical minimum basket.
 
 ## Getting started
 
@@ -32,9 +29,7 @@ Install [uv](https://github.com/astral-sh/uv) (for example `curl -LsSf https://a
    make migrate-api
    ```
 
-For a containerized setup, copy `infra/.env.example` to `infra/.env`, adjust credentials, and run
-`make docker-up`. The compose stack now provisions Postgres, the API, and the Next.js frontend for a
-self-contained VPS deployment.
+For a containerized setup, copy `infra/.env.example` to `infra/.env`, adjust credentials, and run `make docker-up`. The compose stack now provisions Postgres, the API, and the Next.js frontend for a self-contained VPS deployment.
 
 ## Project layout
 
@@ -47,8 +42,6 @@ packages/
 infra/
   docker-compose.yml
 ```
-
-Key specifications and data model details live in `SPEC.md`.
 
 ## Backend highlights
 
