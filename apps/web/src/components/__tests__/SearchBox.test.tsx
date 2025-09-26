@@ -55,6 +55,7 @@ describe('SearchBox', () => {
     id: 42,
     slug: 'liver-bundle',
     name: 'Liver bundle',
+    description: 'Daily liver health insights',
     biomarker_count: 4,
   }
 

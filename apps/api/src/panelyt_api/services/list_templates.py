@@ -28,6 +28,7 @@ class TemplateSearchMatch:
     id: int
     slug: str
     name: str
+    description: str | None
     biomarker_count: int
 
 
@@ -81,6 +82,7 @@ class BiomarkerListTemplateService:
                 BiomarkerListTemplate.id,
                 BiomarkerListTemplate.slug,
                 BiomarkerListTemplate.name,
+                BiomarkerListTemplate.description,
                 entry_count,
             )
             .outerjoin(BiomarkerListTemplate.entries)
@@ -95,6 +97,7 @@ class BiomarkerListTemplateService:
                 BiomarkerListTemplate.id,
                 BiomarkerListTemplate.slug,
                 BiomarkerListTemplate.name,
+                BiomarkerListTemplate.description,
             )
             .order_by(match_rank, BiomarkerListTemplate.name.asc())
             .limit(limit)
@@ -108,6 +111,7 @@ class BiomarkerListTemplateService:
                     id=row.id,
                     slug=row.slug,
                     name=row.name,
+                    description=row.description,
                     biomarker_count=row.biomarker_count or 0,
                 )
             )

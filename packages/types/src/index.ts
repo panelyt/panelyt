@@ -269,6 +269,7 @@ export const CatalogTemplateResultSchema = z.object({
   id: z.number().int().positive(),
   slug: z.string(),
   name: z.string(),
+  description: z.string().nullable(),
   biomarker_count: z.number().int().nonnegative(),
 });
 
