@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
 import pytest
 from sqlalchemy import insert
+
+from ortools.sat.python import cp_model
 
 from panelyt_api.db import models
 from panelyt_api.optimization.service import (
@@ -339,6 +339,47 @@ class TestOptimizationService:
         assert result.uncovered == []
         assert "ALT" in result.explain
         assert "AST" in result.explain
+
+    async def test_solve_returns_empty_response_when_solver_infeasible(
+        self, service, db_session, monkeypatch
+    ):
+        """Solver failures should surface as empty responses with uncovered tokens."""
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"id": 1, "name": "ALT", "elab_code": "ALT", "slug": "alt"},
+            ])
+        )
+        await db_session.execute(
+            insert(models.Item).values([
+                {
+                    "id": 1,
+                    "kind": "single",
+                    "name": "ALT Test",
+                    "slug": "alt-test",
+                    "price_now_grosz": 1000,
+                    "price_min30_grosz": 1000,
+                }
+            ])
+        )
+        await db_session.execute(
+            insert(models.ItemBiomarker).values([
+                {"item_id": 1, "biomarker_id": 1},
+            ])
+        )
+        await db_session.commit()
+
+        monkeypatch.setattr(
+            cp_model.CpSolver,
+            "Solve",
+            lambda self, *_args, **_kwargs: cp_model.INFEASIBLE,
+        )
+
+        result = await service.solve(OptimizeRequest(biomarkers=["ALT"]))
+
+        assert result.items == []
+        assert result.uncovered == ["ALT"]
+        assert result.total_now == 0.0
+        assert result.explain == {}
 
     def test_candidate_item_on_sale_property(self):
         """Test CandidateItem on_sale property."""
