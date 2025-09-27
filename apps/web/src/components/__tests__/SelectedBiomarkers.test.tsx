@@ -13,7 +13,11 @@ describe('SelectedBiomarkers', () => {
   it('shows empty state when no biomarkers are selected', () => {
     render(<SelectedBiomarkers biomarkers={[]} onRemove={mockOnRemove} />)
 
-    expect(screen.getByText('Add biomarkers to compare prices across packages and single tests.')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Add biomarkers to compare prices across single tests and bundles/i,
+      ),
+    ).toBeInTheDocument()
   })
 
   it('renders selected biomarkers as removable buttons', () => {
@@ -42,7 +46,7 @@ describe('SelectedBiomarkers', () => {
 
     render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
 
-    const altButton = screen.getByText('Alanine aminotransferase')
+    const altButton = screen.getByRole('button', { name: /Alanine aminotransferase/ })
     await user.click(altButton)
 
     expect(mockOnRemove).toHaveBeenCalledWith('ALT')
@@ -55,7 +59,7 @@ describe('SelectedBiomarkers', () => {
 
     render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
 
-    const button = screen.getByText('Alanine aminotransferase')
+    const button = screen.getByRole('button', { name: /Alanine aminotransferase/ })
     expect(button).toHaveAttribute('title', 'Remove Alanine aminotransferase')
   })
 
@@ -66,23 +70,22 @@ describe('SelectedBiomarkers', () => {
 
     render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
 
-    const button = screen.getByText('Alanine aminotransferase')
+    const button = screen.getByRole('button', { name: /Alanine aminotransferase/ })
     expect(button).toHaveClass(
-      'flex',
+      'group',
+      'inline-flex',
       'items-center',
+      'gap-2',
       'rounded-full',
       'border',
-      'border-brand',
-      'bg-brand/5',
+      'border-emerald-400/40',
+      'bg-emerald-400/15',
       'px-3',
-      'py-1',
+      'py-1.5',
       'text-xs',
       'font-semibold',
-      'text-brand',
-      'transition-colors',
-      'hover:border-red-500',
-      'hover:bg-red-500',
-      'hover:text-white'
+      'text-emerald-200',
+      'transition',
     )
   })
 
@@ -114,7 +117,9 @@ describe('SelectedBiomarkers', () => {
 
     render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
 
-    const container = screen.getByText('Alanine aminotransferase').closest('div')
+    const container = screen.getByRole('button', { name: /Alanine aminotransferase/ }).closest('div')
     expect(container).toHaveClass('flex', 'flex-wrap', 'gap-2')
+
+    expect(screen.queryByText('ALT', { exact: true })).not.toBeInTheDocument()
   })
 })
