@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 
 import { TemplateModal } from "../../components/template-modal";
+import { TemplatePriceSummary } from "../../components/template-price-summary";
 import { useTemplateCatalog } from "../../hooks/useBiomarkerListTemplates";
 import { useTemplateAdmin } from "../../hooks/useTemplateAdmin";
 import { useUserSession } from "../../hooks/useUserSession";
@@ -167,11 +168,16 @@ export default function CollectionsPage() {
                 }`}
               >
                 <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-                      Template
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">{template.name}</h2>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
+                        Template
+                      </p>
+                      <h2 className="mt-2 text-2xl font-semibold text-white">{template.name}</h2>
+                    </div>
+                    <TemplatePriceSummary
+                      codes={template.biomarkers.map((entry) => entry.code)}
+                    />
                   </div>
                   <p className="text-sm text-slate-300">{template.description ?? "No description provided."}</p>
                   <p className="text-xs text-slate-500">
