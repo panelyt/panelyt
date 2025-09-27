@@ -676,6 +676,7 @@ export default function Home() {
             result={optimization.data}
             isLoading={optimization.isFetching}
             error={optimization.error}
+            variant="dark"
           />
         </div>
       </section>
