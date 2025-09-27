@@ -90,11 +90,8 @@ export default function SharedListPage({ params }: SharedListPageProps) {
                     key={entry.id}
                     className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-white">{entry.display_name}</span>
-                      <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[11px] uppercase tracking-wide text-slate-300">
-                        {entry.code}
-                      </span>
                     </div>
                     {entry.biomarker_id && (
                       <p className="text-xs text-slate-400">Mapped biomarker ID: {entry.biomarker_id}</p>
@@ -116,6 +113,7 @@ export default function SharedListPage({ params }: SharedListPageProps) {
                   result={optimization.data}
                   isLoading={optimization.isLoading}
                   error={optimization.error}
+                  variant="dark"
                 />
               </div>
             </section>
