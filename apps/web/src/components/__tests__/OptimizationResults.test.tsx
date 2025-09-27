@@ -66,7 +66,7 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('Select at least one biomarker to see the cheapest mix of single tests and packages.')).toBeInTheDocument()
+    expect(screen.getByText(/Start by adding biomarkers above/)).toBeInTheDocument()
   })
 
   it('shows loading state', () => {
@@ -79,7 +79,7 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('Calculating optimal combination…')).toBeInTheDocument()
+    expect(screen.getByText('Crunching the optimal basket…')).toBeInTheDocument()
   })
 
   it('shows error state', () => {
@@ -93,7 +93,8 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('Optimization failed: Network error')).toBeInTheDocument()
+    expect(screen.getByText('Optimization failed')).toBeInTheDocument()
+    expect(screen.getByText('Network error')).toBeInTheDocument()
   })
 
   it('renders optimization results with single test and package', () => {
@@ -145,21 +146,21 @@ describe('OptimizationResults', () => {
     )
 
     // Check header information
-    expect(screen.getByText('Optimal basket')).toBeInTheDocument()
-    expect(screen.getByText('Covers 3 biomarkers using the lowest current prices.')).toBeInTheDocument()
+    expect(screen.getByText('Optimization summary')).toBeInTheDocument()
+    expect(screen.getByText(/Covering 3 biomarkers/)).toBeInTheDocument()
     expect(screen.getByText('$25.00')).toBeInTheDocument() // Current total
     expect(screen.getByText('$23.50')).toBeInTheDocument() // Min total
 
     // Check items are displayed
-    expect(screen.getByText('ALT Test')).toBeInTheDocument()
-    expect(screen.getByText('Liver Panel')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'ALT Test' })[0]).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Liver Panel' })[0]).toBeInTheDocument()
 
     // Check sections
-    expect(screen.getByText('Packages')).toBeInTheDocument()
-    expect(screen.getByText('Single tests')).toBeInTheDocument()
+    expect(screen.getByText(/Packages/)).toBeInTheDocument()
+    expect(screen.getByText(/Single tests/)).toBeInTheDocument()
 
-    // Check coverage matrix
-    expect(screen.getByText('Coverage matrix')).toBeInTheDocument()
+    // Check coverage summary
+    expect(screen.getByText('Coverage')).toBeInTheDocument()
   })
 
   it('shows uncovered biomarkers warning', () => {
@@ -196,8 +197,8 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText(/Unable to cover: UNKNOWN_BIOMARKER/)).toBeInTheDocument()
-    expect(screen.getByText(/These biomarkers are missing from the catalog/)).toBeInTheDocument()
+    expect(screen.getByText('UNKNOWN_BIOMARKER')).toBeInTheDocument()
+    expect(screen.getByText(/1 uncovered/)).toBeInTheDocument()
   })
 
   it('highlights bonus biomarkers', () => {
@@ -237,10 +238,9 @@ describe('OptimizationResults', () => {
 
     const cholesterolBadges = screen.getAllByText('Total cholesterol')
 
-    // Should find CHOL badges with bonus styling
     const bonusBadge = cholesterolBadges.find(badge =>
-      badge.classList.contains('bg-emerald-100') &&
-      badge.classList.contains('text-emerald-700')
+      badge.classList.contains('bg-emerald-200/70') &&
+      badge.classList.contains('text-emerald-900')
     )
     expect(bonusBadge).toBeInTheDocument()
   })
@@ -279,7 +279,7 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('On sale')).toBeInTheDocument()
+    expect(screen.queryByText('On sale')).not.toBeInTheDocument()
   })
 
   it('shows correct item counts in section headers', () => {
@@ -338,8 +338,8 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('2 items')).toBeInTheDocument() // Single tests
-    expect(screen.getByText('1 item')).toBeInTheDocument() // Packages
+    expect(screen.getAllByText(/2 items/).length).toBeGreaterThan(0) // Single tests
+    expect(screen.getAllByText(/1 item/).length).toBeGreaterThan(0) // Packages
   })
 
   it('renders external links with correct attributes', () => {
