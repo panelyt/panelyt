@@ -10,6 +10,7 @@ from panelyt_api.core.settings import Settings
 from panelyt_api.ingest.client import DiagClient, _normalize_identifier, _pln_to_grosz
 from panelyt_api.ingest.service import IngestionService
 from panelyt_api.ingest.types import LabIngestionResult, RawLabBiomarker, RawLabItem
+from panelyt_api.matching.config import MatchingConfig
 
 
 class TestIngestionService:
@@ -171,7 +172,11 @@ class TestIngestionService:
             await ingestion_service.run(reason="test")
 
             mock_fetch.assert_awaited_once()
-            mock_process.assert_awaited_once_with(mock_repo, lab_result)
+            mock_process.assert_awaited_once()
+            args, _ = mock_process.await_args
+            assert args[0] is mock_repo
+            assert args[1] == lab_result
+            assert isinstance(args[2], MatchingConfig)
             mock_repo.prune_snapshots.assert_called_once()
             mock_repo.finalize_run_log.assert_called_with(1, status="completed")
 
@@ -234,7 +239,7 @@ class TestIngestionService:
         mock_repo.stage_lab_items = AsyncMock(return_value=stage_context)
         mock_repo.synchronize_catalog = AsyncMock()
 
-        await ingestion_service._process_lab_result(mock_repo, lab_result)
+        await ingestion_service._process_lab_result(mock_repo, lab_result, MatchingConfig())
 
         mock_repo.write_raw_snapshot.assert_called_once()
         mock_repo.stage_lab_items.assert_awaited_once()
@@ -249,7 +254,7 @@ class TestIngestionService:
             raw_payload={"page_1": {}},
         )
 
-        await ingestion_service._process_lab_result(mock_repo, lab_result)
+        await ingestion_service._process_lab_result(mock_repo, lab_result, MatchingConfig())
 
         mock_repo.write_raw_snapshot.assert_called_once()
         mock_repo.stage_lab_items.assert_not_called()

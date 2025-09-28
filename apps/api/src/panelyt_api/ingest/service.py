@@ -12,6 +12,7 @@ from panelyt_api.db.session import get_session
 from panelyt_api.ingest.client import AlabClient, DiagClient
 from panelyt_api.ingest.repository import IngestionRepository
 from panelyt_api.ingest.types import LabIngestionResult
+from panelyt_api.matching import MatchingSynchronizer, load_config
 from panelyt_api.services.alerts import TelegramPriceAlertService
 
 logger = logging.getLogger(__name__)
@@ -68,8 +69,10 @@ class IngestionService:
                 if not any(result.items for result in results):
                     logger.warning("Ingestion returned no lab items")
 
+                matching_config = load_config()
+
                 for result in results:
-                    await self._process_lab_result(repo, result)
+                    await self._process_lab_result(repo, result, matching_config)
 
                 await repo.prune_snapshots(now_utc.date())
                 await self._dispatch_price_alerts(repo)
@@ -175,7 +178,10 @@ class IngestionService:
         return results
 
     async def _process_lab_result(
-        self, repo: IngestionRepository, result: LabIngestionResult
+        self,
+        repo: IngestionRepository,
+        result: LabIngestionResult,
+        matching_config,
     ) -> None:
         if result.raw_payload:
             await repo.write_raw_snapshot(
@@ -200,5 +206,9 @@ class IngestionService:
             result.items,
             fetched_at=result.fetched_at,
         )
+
+        if matching_config.biomarkers:
+            synchronizer = MatchingSynchronizer(repo.session, matching_config)
+            await synchronizer.apply()
 
         await repo.synchronize_catalog(context)

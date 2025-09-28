@@ -1,0 +1,14 @@
+version: 1
+biomarkers:
+  - code: alt
+    name: Aminotransferaza alaninowa (ALT)
+    elab_code: ALT
+    slug: aminotransferaza-alaninowa-alt
+    aliases:
+      - ALT
+      - Aminotransferaza alaninowa
+    labs:
+      diag:
+        - elab_code: ALT
+      alab:
+        - external_id: alt
