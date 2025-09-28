@@ -223,8 +223,8 @@ class SavedList(Base):
     notify_on_price_drop: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
-        default=False,
-        server_default=text("false"),
+        default=True,
+        server_default=text("true"),
     )
     last_known_total_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_total_updated_at: Mapped[datetime | None] = mapped_column(

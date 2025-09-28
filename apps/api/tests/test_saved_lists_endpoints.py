@@ -72,6 +72,7 @@ def test_saved_list_flow(client: TestClient) -> None:
     created = response.json()
     assert created["name"] == "Morning panel"
     assert len(created["biomarkers"]) == 2
+    assert created["notify_on_price_drop"] is True
 
     list_id = created["id"]
 
@@ -201,7 +202,21 @@ def test_notifications_toggle(client: TestClient) -> None:
     }
     response = client.post("/lists", json=payload)
     assert response.status_code == 201
-    list_id = response.json()["id"]
+    created = response.json()
+    list_id = created["id"]
+    assert created["notify_on_price_drop"] is True
+
+    response = client.post(
+        f"/lists/{list_id}/notifications",
+        json={"notify_on_price_drop": False},
+    )
+    assert response.status_code == 200
+    assert response.json()["notify_on_price_drop"] is False
+
+    response = client.get("/lists")
+    assert response.status_code == 200
+    lists_payload = response.json()["lists"]
+    assert lists_payload[0]["notify_on_price_drop"] is False
 
     response = client.post(
         f"/lists/{list_id}/notifications",
@@ -216,13 +231,6 @@ def test_notifications_toggle(client: TestClient) -> None:
     assert response.status_code == 200
     lists_payload = response.json()["lists"]
     assert lists_payload[0]["notify_on_price_drop"] is True
-
-    response = client.post(
-        f"/lists/{list_id}/notifications",
-        json={"notify_on_price_drop": False},
-    )
-    assert response.status_code == 200
-    assert response.json()["notify_on_price_drop"] is False
 
 
 def test_notifications_toggle_bulk(client: TestClient) -> None:
@@ -243,18 +251,23 @@ def test_notifications_toggle_bulk(client: TestClient) -> None:
 
     response = client.post("/lists", json=payload_one)
     assert response.status_code == 201
-    first_id = response.json()["id"]
+    first_created = response.json()
+    first_id = first_created["id"]
+    assert first_created["notify_on_price_drop"] is True
 
     response = client.post("/lists", json=payload_two)
     assert response.status_code == 201
-    second_id = response.json()["id"]
+    second_created = response.json()
+    second_id = second_created["id"]
+    assert second_created["notify_on_price_drop"] is True
 
-    # Enable notifications for a single list to ensure mixed initial state.
+    # Disable notifications for a single list to ensure mixed initial state.
     response = client.post(
         f"/lists/{first_id}/notifications",
-        json={"notify_on_price_drop": True},
+        json={"notify_on_price_drop": False},
     )
     assert response.status_code == 200
+    assert response.json()["notify_on_price_drop"] is False
 
     response = client.post(
         "/lists/notifications",
