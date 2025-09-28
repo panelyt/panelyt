@@ -368,7 +368,7 @@ describe('OptimizationResults', () => {
           price_now_grosz: 1500,
           price_min30_grosz: 1400,
           currency: 'PLN',
-          biomarkers: ['B'],
+          biomarkers: ['B', 'C'],
           url: 'https://example.com/package-cheap',
           on_sale: false,
         },
@@ -380,7 +380,7 @@ describe('OptimizationResults', () => {
           price_now_grosz: 2500,
           price_min30_grosz: 2400,
           currency: 'PLN',
-          biomarkers: ['C'],
+          biomarkers: ['B', 'E'],
           url: 'https://example.com/package-premium',
           on_sale: false,
         },
@@ -403,7 +403,7 @@ describe('OptimizationResults', () => {
 
     renderWithQueryClient(
       <OptimizationResults
-        selected={['A', 'B', 'C', 'D']}
+        selected={['A', 'B', 'C', 'D', 'E']}
         result={mockResult}
         isLoading={false}
         error={null}
@@ -414,6 +414,7 @@ describe('OptimizationResults', () => {
       article.querySelector('a')?.textContent?.trim()
     )
 
+    expect(screen.getByText(/Package overlaps/i)).toBeInTheDocument()
     expect(articleNames).toEqual([
       'Package Premium',
       'Package Cheap',
