@@ -90,6 +90,22 @@ export function OptimizationResults({
   const packagesCount = groups.find((group) => group.kind === "package")?.items.length ?? 0;
   const singlesCount = groups.find((group) => group.kind === "single")?.items.length ?? 0;
   const explainEntries = Object.entries(result.explain).sort((a, b) => a[0].localeCompare(b[0]));
+  const overlappingEntries = Array.from(
+    result.items.reduce((acc, item) => {
+      if (item.kind !== "package") {
+        return acc;
+      }
+      for (const biomarker of item.biomarkers) {
+        const current = acc.get(biomarker) ?? new Set<string>();
+        current.add(item.name);
+        acc.set(biomarker, current);
+      }
+      return acc;
+    }, new Map<string, Set<string>>()),
+  )
+    .filter(([, items]) => items.size > 1)
+    .map(([code, items]) => ({ code, items: Array.from(items) }))
+    .sort((a, b) => b.items.length - a.items.length || a.code.localeCompare(b.code));
 
   const summaryStats = [
     {
@@ -268,6 +284,82 @@ export function OptimizationResults({
             </div>
           )}
         </div>
+
+        {overlappingEntries.length > 0 && (
+          <div
+            className={`mt-6 rounded-xl border p-4 ${
+              isDark
+                ? "border-amber-400/40 bg-amber-500/10"
+                : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3
+                  className={`text-sm font-semibold uppercase tracking-wide ${
+                    isDark ? "text-amber-200" : "text-amber-700"
+                  }`}
+                >
+                  Package overlaps
+                </h3>
+                <p className={`text-xs ${isDark ? "text-amber-100/80" : "text-amber-700/80"}`}>
+                  These biomarkers appear in multiple packages. Consider staggering them to
+                  avoid redundant testing.
+                </p>
+              </div>
+            </div>
+            <ul className="mt-4 space-y-3">
+              {overlappingEntries.map((entry) => {
+                const displayName = biomarkerNames?.[entry.code] ?? entry.code;
+                return (
+                  <li
+                    key={entry.code}
+                    className={`rounded-lg border p-3 ${
+                      isDark
+                        ? "border-amber-400/30 bg-amber-500/10 text-amber-100"
+                        : "border-amber-200 bg-white text-amber-800"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            isDark
+                              ? "bg-amber-400/20 text-amber-100"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {displayName}
+                        </span>
+                        <span
+                          className={`text-[11px] uppercase tracking-wide ${
+                            isDark ? "text-amber-200/70" : "text-amber-600/70"
+                          }`}
+                        >
+                          {entry.items.length} packages
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      {entry.items.map((itemName) => (
+                        <span
+                          key={itemName}
+                          className={`rounded-full px-3 py-1 ${
+                            isDark
+                              ? "bg-amber-400/20 text-amber-100"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {itemName}
+                        </span>
+                      ))}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </section>
 
       <div
