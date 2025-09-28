@@ -9,9 +9,9 @@ from zoneinfo import ZoneInfo
 
 from panelyt_api.core.settings import Settings
 from panelyt_api.db.session import get_session
-from panelyt_api.ingest.client import DiagClient
+from panelyt_api.ingest.client import AlabClient, DiagClient
 from panelyt_api.ingest.repository import IngestionRepository
-from panelyt_api.ingest.types import RawProduct
+from panelyt_api.ingest.types import LabIngestionResult
 from panelyt_api.services.alerts import TelegramPriceAlertService
 
 logger = logging.getLogger(__name__)
@@ -63,22 +63,14 @@ class IngestionService:
         async with self._ingestion_session() as repo:
             log_id = await repo.create_run_log(started_at=now_utc, reason=reason or "manual")
             try:
-                client = DiagClient()
-                try:
-                    results = await client.fetch_all()
-                finally:
-                    await client.close()
+                results = await self._fetch_all_labs()
 
-                combined: list[RawProduct] = []
+                if not any(result.items for result in results):
+                    logger.warning("Ingestion returned no lab items")
+
                 for result in results:
-                    combined.extend(result.items)
-                    if result.raw_payload:
-                        await repo.write_raw_snapshot(result.source, result.raw_payload)
+                    await self._process_lab_result(repo, result)
 
-                if not combined:
-                    logger.warning("Ingestion returned no products")
-
-                await repo.upsert_catalog(combined, fetched_at=now_utc)
                 await repo.prune_snapshots(now_utc.date())
                 await self._dispatch_price_alerts(repo)
                 await repo.finalize_run_log(log_id, status="completed")
@@ -166,3 +158,47 @@ class IngestionService:
             await service.run()
         except Exception as exc:  # pragma: no cover - failures logged but ingestion continues
             logger.exception("Failed to deliver Telegram price alerts: %s", exc)
+
+    async def _fetch_all_labs(self) -> list[LabIngestionResult]:
+        clients = [DiagClient(), AlabClient()]
+        results: list[LabIngestionResult] = []
+        try:
+            for client in clients:
+                logger.info("Fetching catalog for lab %s", client.lab_code)
+                lab_result = await client.fetch_all()
+                logger.info(
+                    "Fetched %s items for lab %s", len(lab_result.items), client.lab_code
+                )
+                results.append(lab_result)
+        finally:
+            await asyncio.gather(*(client.close() for client in clients), return_exceptions=True)
+        return results
+
+    async def _process_lab_result(
+        self, repo: IngestionRepository, result: LabIngestionResult
+    ) -> None:
+        if result.raw_payload:
+            await repo.write_raw_snapshot(
+                source=f"{result.lab_code}:catalog",
+                payload={
+                    "lab": result.lab_code,
+                    "fetched_at": result.fetched_at.isoformat(),
+                    "payload": result.raw_payload,
+                },
+            )
+
+        if not result.items:
+            logger.info("Lab %s returned no items", result.lab_code)
+            return
+
+        logger.info(
+            "Staging %s items for lab %s", len(result.items), result.lab_code
+        )
+
+        context = await repo.stage_lab_items(
+            result.lab_code,
+            result.items,
+            fetched_at=result.fetched_at,
+        )
+
+        await repo.synchronize_catalog(context)

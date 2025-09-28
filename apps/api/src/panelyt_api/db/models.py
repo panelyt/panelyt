@@ -130,7 +130,7 @@ class Item(Base):
         "PriceSnapshot", back_populates="item", cascade="all, delete-orphan"
     )
     lab: Mapped[Lab] = relationship("Lab", back_populates="items")
-    lab_item: Mapped["LabItem" | None] = relationship("LabItem", back_populates="items")
+    lab_item: Mapped["LabItem | None"] = relationship("LabItem", back_populates="items")
 
     __table_args__ = (
         CheckConstraint("kind IN ('package', 'single')", name="item_kind_check"),
@@ -163,7 +163,7 @@ class LabBiomarker(Base):
     elab_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     slug: Mapped[str | None] = mapped_column(String(255), nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    metadata: Mapped[dict | None] = mapped_column(_get_json_type(), nullable=True)
+    attributes: Mapped[dict | None] = mapped_column(_get_json_type(), nullable=True)
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -210,7 +210,7 @@ class LabItem(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    metadata: Mapped[dict | None] = mapped_column(_get_json_type(), nullable=True)
+    attributes: Mapped[dict | None] = mapped_column(_get_json_type(), nullable=True)
 
     lab: Mapped[Lab] = relationship("Lab", back_populates="lab_items")
     biomarkers: Mapped[list["LabItemBiomarker"]] = relationship(

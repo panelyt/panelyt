@@ -84,7 +84,7 @@ def upgrade() -> None:
         sa.Column("elab_code", sa.String(length=64), nullable=True),
         sa.Column("slug", sa.String(length=255), nullable=True),
         sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("metadata", sa.JSON(), nullable=True),
+        sa.Column("attributes", sa.JSON(), nullable=True),
         sa.Column(
             "is_active",
             sa.Boolean(),
@@ -131,7 +131,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.func.now(),
         ),
-        sa.Column("metadata", sa.JSON(), nullable=True),
+        sa.Column("attributes", sa.JSON(), nullable=True),
         sa.UniqueConstraint("lab_id", "external_id", name="uq_lab_item_external"),
         sa.CheckConstraint("kind IN ('package', 'single')", name="lab_item_kind_check"),
     )
