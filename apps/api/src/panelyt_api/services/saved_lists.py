@@ -88,7 +88,11 @@ class SavedListService:
         prepared = self._prepare_entries(entries)
         biomarker_map = await self._resolve_biomarkers(prepared)
 
-        saved_list = SavedList(user_id=user_id, name=name)
+        saved_list = SavedList(
+            user_id=user_id,
+            name=name,
+            notify_on_price_drop=True,
+        )
         self._db.add(saved_list)
         await self._db.flush()
 
