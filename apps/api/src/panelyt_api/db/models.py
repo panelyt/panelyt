@@ -4,16 +4,18 @@ from datetime import date, datetime
 from uuid import uuid4
 
 from sqlalchemy import (
-    JSON,
     Boolean,
     CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
     Integer,
+    JSON,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
+    Float,
     func,
     text,
 )
@@ -22,6 +24,30 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from panelyt_api.core.settings import get_settings
 from panelyt_api.db.base import Base
+
+
+class Lab(Base):
+    __tablename__ = "lab"
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="Europe/Warsaw")
+    website_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    single_item_url_template: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    package_item_url_template: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    items: Mapped[list["Item"]] = relationship("Item", back_populates="lab")
+    lab_items: Mapped[list["LabItem"]] = relationship(
+        "LabItem", back_populates="lab", cascade="all, delete-orphan"
+    )
+    lab_biomarkers: Mapped[list["LabBiomarker"]] = relationship(
+        "LabBiomarker", back_populates="lab", cascade="all, delete-orphan"
+    )
 
 
 def _get_json_type():
@@ -43,6 +69,9 @@ class Biomarker(Base):
     items: Mapped[list[ItemBiomarker]] = relationship("ItemBiomarker", back_populates="biomarker")
     aliases: Mapped[list[BiomarkerAlias]] = relationship(
         "BiomarkerAlias", back_populates="biomarker", cascade="all, delete-orphan"
+    )
+    lab_matches: Mapped[list["BiomarkerMatch"]] = relationship(
+        "BiomarkerMatch", back_populates="biomarker", cascade="all, delete-orphan"
     )
 
 
@@ -72,6 +101,13 @@ class Item(Base):
     __tablename__ = "item"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lab_id: Mapped[int] = mapped_column(
+        SmallInteger, ForeignKey("lab.id", ondelete="RESTRICT"), nullable=False
+    )
+    external_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    lab_item_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("lab_item.id", ondelete="SET NULL"), nullable=True
+    )
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -93,9 +129,12 @@ class Item(Base):
     snapshots: Mapped[list[PriceSnapshot]] = relationship(
         "PriceSnapshot", back_populates="item", cascade="all, delete-orphan"
     )
+    lab: Mapped[Lab] = relationship("Lab", back_populates="items")
+    lab_item: Mapped["LabItem" | None] = relationship("LabItem", back_populates="items")
 
     __table_args__ = (
         CheckConstraint("kind IN ('package', 'single')", name="item_kind_check"),
+        UniqueConstraint("lab_id", "external_id", name="uq_item_lab_external"),
     )
 
 
@@ -113,11 +152,138 @@ class ItemBiomarker(Base):
     biomarker: Mapped[Biomarker] = relationship("Biomarker", back_populates="items")
 
 
+class LabBiomarker(Base):
+    __tablename__ = "lab_biomarker"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lab_id: Mapped[int] = mapped_column(
+        SmallInteger, ForeignKey("lab.id", ondelete="CASCADE"), nullable=False
+    )
+    external_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    elab_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    slug: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    metadata: Mapped[dict | None] = mapped_column(_get_json_type(), nullable=True)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("true"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    lab: Mapped[Lab] = relationship("Lab", back_populates="lab_biomarkers")
+    matches: Mapped[list["BiomarkerMatch"]] = relationship(
+        "BiomarkerMatch", back_populates="lab_biomarker", cascade="all, delete-orphan"
+    )
+    lab_items: Mapped[list["LabItemBiomarker"]] = relationship(
+        "LabItemBiomarker", back_populates="lab_biomarker", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("lab_id", "external_id", name="uq_lab_biomarker_external"),
+    )
+
+
+class LabItem(Base):
+    __tablename__ = "lab_item"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lab_id: Mapped[int] = mapped_column(
+        SmallInteger, ForeignKey("lab.id", ondelete="CASCADE"), nullable=False
+    )
+    external_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False, default="PLN")
+    price_now_grosz: Mapped[int] = mapped_column(Integer, nullable=False)
+    price_min30_grosz: Mapped[int] = mapped_column(Integer, nullable=False)
+    sale_price_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    regular_price_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    metadata: Mapped[dict | None] = mapped_column(_get_json_type(), nullable=True)
+
+    lab: Mapped[Lab] = relationship("Lab", back_populates="lab_items")
+    biomarkers: Mapped[list["LabItemBiomarker"]] = relationship(
+        "LabItemBiomarker", back_populates="lab_item", cascade="all, delete-orphan"
+    )
+    items: Mapped[list[Item]] = relationship("Item", back_populates="lab_item")
+
+    __table_args__ = (
+        UniqueConstraint("lab_id", "external_id", name="uq_lab_item_external"),
+        CheckConstraint("kind IN ('package', 'single')", name="lab_item_kind_check"),
+    )
+
+
+class LabItemBiomarker(Base):
+    __tablename__ = "lab_item_biomarker"
+
+    lab_item_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("lab_item.id", ondelete="CASCADE"), primary_key=True
+    )
+    lab_biomarker_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("lab_biomarker.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    lab_item: Mapped[LabItem] = relationship("LabItem", back_populates="biomarkers")
+    lab_biomarker: Mapped[LabBiomarker] = relationship(
+        "LabBiomarker", back_populates="lab_items"
+    )
+
+
+class BiomarkerMatch(Base):
+    __tablename__ = "biomarker_match"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    biomarker_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("biomarker.id", ondelete="CASCADE"), nullable=False
+    )
+    lab_biomarker_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("lab_biomarker.id", ondelete="CASCADE"), nullable=False
+    )
+    match_type: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="accepted", server_default=text("'accepted'"),
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    biomarker: Mapped[Biomarker] = relationship("Biomarker", back_populates="lab_matches")
+    lab_biomarker: Mapped[LabBiomarker] = relationship(
+        "LabBiomarker", back_populates="matches"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("lab_biomarker_id", name="uq_biomarker_match_lab_biomarker"),
+    )
+
+
 class PriceSnapshot(Base):
     __tablename__ = "price_snapshot"
 
     item_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("item.id", ondelete="CASCADE"), primary_key=True
+    )
+    lab_id: Mapped[int] = mapped_column(
+        SmallInteger, ForeignKey("lab.id", ondelete="RESTRICT"), nullable=False
     )
     snap_date: Mapped[date] = mapped_column(Date, primary_key=True)
     price_now_grosz: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -127,6 +293,7 @@ class PriceSnapshot(Base):
     )
 
     item: Mapped[Item] = relationship("Item", back_populates="snapshots")
+    lab: Mapped[Lab] = relationship("Lab")
 
 
 class RawSnapshot(Base):
@@ -333,6 +500,11 @@ class BiomarkerListTemplateEntry(Base):
 
 
 __all__ = [
+    "Lab",
+    "LabItem",
+    "LabItemBiomarker",
+    "LabBiomarker",
+    "BiomarkerMatch",
     "AppActivity",
     "Biomarker",
     "BiomarkerAlias",
