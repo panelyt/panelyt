@@ -342,6 +342,86 @@ describe('OptimizationResults', () => {
     expect(screen.getAllByText(/1 item/).length).toBeGreaterThan(0) // Packages
   })
 
+  it('orders packages before singles and sorts by descending price', () => {
+    const mockResult: OptimizeResponse = {
+      total_now: 0,
+      total_min30: 0,
+      currency: 'PLN',
+      items: [
+        {
+          id: 1,
+          kind: 'single',
+          name: 'Single Expensive',
+          slug: 'single-expensive',
+          price_now_grosz: 2000,
+          price_min30_grosz: 1900,
+          currency: 'PLN',
+          biomarkers: ['A'],
+          url: 'https://example.com/single-expensive',
+          on_sale: false,
+        },
+        {
+          id: 2,
+          kind: 'package',
+          name: 'Package Cheap',
+          slug: 'package-cheap',
+          price_now_grosz: 1500,
+          price_min30_grosz: 1400,
+          currency: 'PLN',
+          biomarkers: ['B'],
+          url: 'https://example.com/package-cheap',
+          on_sale: false,
+        },
+        {
+          id: 3,
+          kind: 'package',
+          name: 'Package Premium',
+          slug: 'package-premium',
+          price_now_grosz: 2500,
+          price_min30_grosz: 2400,
+          currency: 'PLN',
+          biomarkers: ['C'],
+          url: 'https://example.com/package-premium',
+          on_sale: false,
+        },
+        {
+          id: 4,
+          kind: 'single',
+          name: 'Single Budget',
+          slug: 'single-budget',
+          price_now_grosz: 500,
+          price_min30_grosz: 400,
+          currency: 'PLN',
+          biomarkers: ['D'],
+          url: 'https://example.com/single-budget',
+          on_sale: false,
+        },
+      ],
+      explain: {},
+      uncovered: [],
+    }
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['A', 'B', 'C', 'D']}
+        result={mockResult}
+        isLoading={false}
+        error={null}
+      />
+    )
+
+    const articleNames = Array.from(document.querySelectorAll('article')).map((article) =>
+      article.querySelector('a')?.textContent?.trim()
+    )
+
+    expect(articleNames).toEqual([
+      'Package Premium',
+      'Package Cheap',
+      'Single Expensive',
+      'Single Budget',
+    ])
+  })
+
   it('renders external links with correct attributes', () => {
     const mockResult: OptimizeResponse = {
       total_now: 10.00,

@@ -662,6 +662,10 @@ function groupByKind(items: OptimizeResponse["items"]) {
       singles.push(item);
     }
   }
+  const sortByPrice = (a: OptimizeResponse["items"][number], b: OptimizeResponse["items"][number]) =>
+    b.price_now_grosz - a.price_now_grosz;
+  packages.sort(sortByPrice);
+  singles.sort(sortByPrice);
   return [
     { kind: "package" as const, items: packages },
     { kind: "single" as const, items: singles },
