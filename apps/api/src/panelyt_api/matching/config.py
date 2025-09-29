@@ -23,6 +23,7 @@ class BiomarkerConfig(BaseModel):
     slug: str | None = None
     aliases: list[str] = Field(default_factory=list)
     labs: dict[str, list[LabMatchConfig]] = Field(default_factory=dict)
+    replaces: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _ensure_lab_entries_have_keys(self) -> BiomarkerConfig:

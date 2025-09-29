@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import delete, insert, select
-
 from ortools.sat.python import cp_model
+from sqlalchemy import delete, insert, select
 
 from panelyt_api.db import models
 from panelyt_api.optimization.service import (
@@ -316,6 +315,266 @@ class TestOptimizationService:
         assert result.uncovered == ["UNKNOWN1", "UNKNOWN2"]
 
     @pytest.mark.asyncio
+    async def test_solve_nonexclusive_with_more_expensive_alternative(
+        self, service, db_session
+    ):
+        """If another lab offers a biomarker, exclusivity should not trigger."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.PriceSnapshot))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarker_id = (
+            await db_session.execute(
+                insert(models.Biomarker)
+                .values({"name": "Żelazo", "slug": "zelazo", "elab_code": None})
+                .returning(models.Biomarker.id)
+            )
+        ).scalar_one()
+
+        await db_session.execute(
+            insert(models.Item).values(
+                {
+                    "id": 11,
+                    "lab_id": 1,
+                    "external_id": "diag-zelazo",
+                    "kind": "single",
+                    "name": "Żelazo",
+                    "slug": "zelazo",
+                    "price_now_grosz": 2500,
+                    "price_min30_grosz": 2500,
+                    "currency": "PLN",
+                    "is_available": True,
+                }
+            )
+        )
+        await db_session.execute(
+            insert(models.Item).values(
+                {
+                    "id": 22,
+                    "lab_id": 2,
+                    "external_id": "alab-zelazo",
+                    "kind": "single",
+                    "name": "Żelazo (ALAB)",
+                    "slug": "zelazo-w-surowicy",
+                    "price_now_grosz": 2900,
+                    "price_min30_grosz": 2900,
+                    "currency": "PLN",
+                    "is_available": True,
+                }
+            )
+        )
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [
+                    {"item_id": 11, "biomarker_id": biomarker_id},
+                    {"item_id": 22, "biomarker_id": biomarker_id},
+                ]
+            )
+        )
+        await db_session.commit()
+
+        response = await service.solve(OptimizeRequest(biomarkers=["zelazo"]))
+
+        assert response.lab_code == "diag"
+        assert response.exclusive == {}
+
+    @pytest.mark.asyncio
+    async def test_solve_selects_cheapest_single_lab_panel(
+        self, service, db_session
+    ):
+        """Optimizer compares summed prices per lab and keeps the cheapest full panel."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.PriceSnapshot))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarker_rows = (
+            await db_session.execute(
+                insert(models.Biomarker)
+                .returning(models.Biomarker.id, models.Biomarker.slug)
+                .values(
+                    [
+                        {"name": "Marker A", "slug": "marker-a", "elab_code": None},
+                        {"name": "Marker B", "slug": "marker-b", "elab_code": None},
+                    ]
+                )
+            )
+        ).all()
+        biomarker_ids = {slug: biomarker_id for biomarker_id, slug in biomarker_rows}
+
+        await db_session.execute(
+            insert(models.Item).values(
+                [
+                    {
+                        "id": 101,
+                        "lab_id": 1,
+                        "external_id": "diag-marker-a",
+                        "kind": "single",
+                        "name": "Diagnostyka Marker A",
+                        "slug": "diag-marker-a",
+                        "price_now_grosz": 5000,
+                        "price_min30_grosz": 5000,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                    {
+                        "id": 102,
+                        "lab_id": 1,
+                        "external_id": "diag-marker-b",
+                        "kind": "single",
+                        "name": "Diagnostyka Marker B",
+                        "slug": "diag-marker-b",
+                        "price_now_grosz": 7000,
+                        "price_min30_grosz": 7000,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                    {
+                        "id": 201,
+                        "lab_id": 2,
+                        "external_id": "alab-marker-a",
+                        "kind": "single",
+                        "name": "ALAB Marker A",
+                        "slug": "alab-marker-a",
+                        "price_now_grosz": 6000,
+                        "price_min30_grosz": 6000,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                    {
+                        "id": 202,
+                        "lab_id": 2,
+                        "external_id": "alab-marker-b",
+                        "kind": "single",
+                        "name": "ALAB Marker B",
+                        "slug": "alab-marker-b",
+                        "price_now_grosz": 8000,
+                        "price_min30_grosz": 8000,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                ]
+            )
+        )
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [
+                    {"item_id": 101, "biomarker_id": biomarker_ids["marker-a"]},
+                    {"item_id": 102, "biomarker_id": biomarker_ids["marker-b"]},
+                    {"item_id": 201, "biomarker_id": biomarker_ids["marker-a"]},
+                    {"item_id": 202, "biomarker_id": biomarker_ids["marker-b"]},
+                ]
+            )
+        )
+        await db_session.commit()
+
+        response = await service.solve(
+            OptimizeRequest(biomarkers=["marker-a", "marker-b"])
+        )
+
+        assert response.lab_code == "diag"
+        assert response.uncovered == []
+        assert {item.id for item in response.items} == {101, 102}
+        assert response.total_now == 120.0
+        assert response.items[0].biomarkers and response.items[1].biomarkers
+
+    @pytest.mark.asyncio
+    async def test_solve_skips_labs_missing_required_biomarker(
+        self, service, db_session
+    ):
+        """Labs that cannot cover the full selection are ignored."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.PriceSnapshot))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarker_rows = (
+            await db_session.execute(
+                insert(models.Biomarker)
+                .returning(models.Biomarker.id, models.Biomarker.slug)
+                .values(
+                    [
+                        {"name": "OnlyDiag", "slug": "only-diag", "elab_code": None},
+                        {"name": "Shared", "slug": "shared", "elab_code": None},
+                    ]
+                )
+            )
+        ).all()
+        biomarker_ids = {slug: biomarker_id for biomarker_id, slug in biomarker_rows}
+
+        await db_session.execute(
+            insert(models.Item).values(
+                [
+                    {
+                        "id": 301,
+                        "lab_id": 1,
+                        "external_id": "diag-only",
+                        "kind": "single",
+                        "name": "Diagnostyka Only",
+                        "slug": "diag-only",
+                        "price_now_grosz": 4000,
+                        "price_min30_grosz": 4000,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                    {
+                        "id": 302,
+                        "lab_id": 2,
+                        "external_id": "alab-shared",
+                        "kind": "single",
+                        "name": "ALAB Shared",
+                        "slug": "alab-shared",
+                        "price_now_grosz": 3500,
+                        "price_min30_grosz": 3500,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                    {
+                        "id": 303,
+                        "lab_id": 2,
+                        "external_id": "alab-only",
+                        "kind": "single",
+                        "name": "ALAB Only",
+                        "slug": "alab-only",
+                        "price_now_grosz": 4500,
+                        "price_min30_grosz": 4500,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                ]
+            )
+        )
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [
+                    {"item_id": 301, "biomarker_id": biomarker_ids["only-diag"]},
+                    {"item_id": 302, "biomarker_id": biomarker_ids["shared"]},
+                    {"item_id": 303, "biomarker_id": biomarker_ids["only-diag"]},
+                    {"item_id": 303, "biomarker_id": biomarker_ids["shared"]},
+                ]
+            )
+        )
+        await db_session.commit()
+
+        response = await service.solve(
+            OptimizeRequest(biomarkers=["only-diag", "shared"])
+        )
+
+        assert response.lab_code == "alab"
+        assert response.uncovered == []
+        assert {item.id for item in response.items} == {303}
+        assert response.exclusive
+
+    @pytest.mark.asyncio
     async def test_solve_simple_optimization(self, service, db_session):
         """Test simple optimization scenario."""
         await _ensure_default_labs(db_session)
@@ -498,6 +757,29 @@ class TestOptimizationService:
             slug="test-package",
         )
         assert _item_url(package_item) == "https://diag.pl/sklep/pakiety/test-package"
+
+        alab_single = make_candidate(
+            id=3,
+            kind="single",
+            lab_id=2,
+            lab_code="alab",
+            name="ALAB Test",
+            slug="alab-test",
+            single_url_template=None,
+        )
+        assert _item_url(alab_single) == "https://www.alab.pl/badanie/alab-test"
+
+        alab_package = make_candidate(
+            id=4,
+            kind="package",
+            lab_id=2,
+            lab_code="alab",
+            name="ALAB Pakiet",
+            slug="alab-pakiet",
+            single_url_template=None,
+            package_url_template=None,
+        )
+        assert _item_url(alab_package) == "https://www.alab.pl/pakiet/alab-pakiet"
 
 
 async def _ensure_default_labs(session):

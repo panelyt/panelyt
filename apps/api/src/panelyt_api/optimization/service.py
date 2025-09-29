@@ -71,11 +71,13 @@ class OptimizationService:
             return self._empty_response(payload.biomarkers)
 
         candidates = await self._collect_candidates(resolved)
+        if not candidates:
+            return self._empty_response(payload.biomarkers)
+
+        availability_map = self._token_availability_map(candidates)
         pruned = self._prune_candidates(candidates)
         if not pruned:
             return self._empty_response(payload.biomarkers)
-
-        availability_map = self._token_availability_map(pruned)
         grouped = self._group_candidates_by_lab(pruned)
         token_to_original = {entry.token: entry.original for entry in resolved}
 
@@ -93,6 +95,9 @@ class OptimizationService:
             combined_uncovered = list(
                 dict.fromkeys(unresolved_inputs + sorted(uncovered_tokens))
             )
+
+            if uncovered_tokens:
+                continue
 
             lab_code = lab_candidates[0].lab_code if lab_candidates else ""
             lab_name = lab_candidates[0].lab_name if lab_candidates else ""
@@ -344,33 +349,35 @@ class OptimizationService:
         return exclusives
 
     @staticmethod
-    def _cheapest_single_prices(items: Sequence[CandidateItem]) -> dict[str, int]:
-        cheapest: dict[str, int] = {}
+    def _cheapest_single_prices(items: Sequence[CandidateItem]) -> dict[tuple[int, str], int]:
+        cheapest: dict[tuple[int, str], int] = {}
         for item in items:
             if item.kind != "single" or len(item.coverage) != 1:
                 continue
             # coverage has exactly one token here
             token = next(iter(item.coverage))
-            current_price = cheapest.get(token)
+            key = (item.lab_id, token)
+            current_price = cheapest.get(key)
             if current_price is None or item.price_now < current_price:
-                cheapest[token] = item.price_now
+                cheapest[key] = item.price_now
         return cheapest
 
     @staticmethod
     def _should_skip_single_candidate(
-        item: CandidateItem, cheapest_per_token: Mapping[str, int]
+        item: CandidateItem, cheapest_per_token: Mapping[tuple[int, str], int]
     ) -> bool:
         if item.kind != "single" or len(item.coverage) != 1:
             return False
         token = next(iter(item.coverage), None)
         if token is None:
             return False
-        return cheapest_per_token.get(token, item.price_now) != item.price_now
+        key = (item.lab_id, token)
+        return cheapest_per_token.get(key, item.price_now) != item.price_now
 
     @staticmethod
     def _remove_dominated_candidates(items: Sequence[CandidateItem]) -> list[CandidateItem]:
         retained: dict[int, CandidateItem] = {}
-        seen_coverages: list[tuple[frozenset[str], int]] = []
+        seen_coverages: dict[int, list[tuple[frozenset[str], int]]] = {}
         ordered = sorted(
             items,
             key=lambda item: (-len(item.coverage), item.price_now, item.id),
@@ -378,15 +385,16 @@ class OptimizationService:
 
         for candidate in ordered:
             coverage = frozenset(candidate.coverage)
+            lab_seen = seen_coverages.setdefault(candidate.lab_id, [])
             dominated = any(
                 existing_coverage.issuperset(coverage)
                 and existing_price <= candidate.price_now
-                for existing_coverage, existing_price in seen_coverages
+                for existing_coverage, existing_price in lab_seen
             )
             if dominated:
                 continue
             retained[candidate.id] = candidate
-            seen_coverages.append((coverage, candidate.price_now))
+            lab_seen.append((coverage, candidate.price_now))
 
         return [item for item in items if item.id in retained]
 
@@ -560,16 +568,20 @@ class OptimizationService:
             select(
                 models.ItemBiomarker.item_id,
                 models.Biomarker.elab_code,
+                models.Biomarker.slug,
+                models.Biomarker.name,
             )
             .join(models.Biomarker, models.Biomarker.id == models.ItemBiomarker.biomarker_id)
             .where(models.ItemBiomarker.item_id.in_(item_ids))
-            .where(models.Biomarker.elab_code.is_not(None))
         )
 
         rows = (await self.session.execute(statement)).all()
         result: dict[int, list[str]] = {}
-        for item_id, elab_code in rows:
-            result.setdefault(item_id, []).append(elab_code)
+        for item_id, elab_code, slug, name in rows:
+            token = elab_code or slug or name
+            if not token:
+                continue
+            result.setdefault(item_id, []).append(token)
 
         return result
 
@@ -581,6 +593,9 @@ def _item_url(item: CandidateItem) -> str:
             return template.format(slug=item.slug, external_id=item.id)
         except Exception:  # pragma: no cover - fallback for malformed templates
             return template
+    if item.lab_code == "alab":
+        base = "https://www.alab.pl/pakiet" if item.kind == "package" else "https://www.alab.pl/badanie"
+        return f"{base}/{item.slug}"
     prefix = "pakiety" if item.kind == "package" else "badania"
     return f"https://diag.pl/sklep/{prefix}/{item.slug}"
 

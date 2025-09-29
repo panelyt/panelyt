@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
-from sqlalchemy import select
+from sqlalchemy import insert, select
 
 from panelyt_api.db import models
 from panelyt_api.matching import MatchingSynchronizer, load_config, suggest_lab_matches
+from panelyt_api.matching.config import BiomarkerConfig, LabMatchConfig, MatchingConfig
 
 
 @pytest.mark.asyncio
@@ -45,6 +48,124 @@ async def test_matching_synchronizer_applies_config(db_session):
         await db_session.execute(select(models.BiomarkerMatch.lab_biomarker_id))
     ).all()
     assert len(match_rows) == 2
+
+
+@pytest.mark.asyncio
+async def test_matching_synchronizer_merges_replacements(db_session):
+    await _seed_labs(db_session)
+
+    await db_session.execute(
+        models.LabBiomarker.__table__.insert(),
+        [
+            {
+                "lab_id": 1,
+                "external_id": "605348976",
+                "slug": "hemoglobina-glikowana-met-hplc",
+                "name": "Hemoglobina glikowana (HbA1c)",
+                "is_active": True,
+            },
+            {
+                "lab_id": 1,
+                "external_id": "605359535",
+                "slug": "hemoglobina-glikowana",
+                "name": "Hemoglobina glikowana",
+                "is_active": True,
+            },
+            {
+                "lab_id": 2,
+                "external_id": "1976197",
+                "slug": "hemoglobina-glikowana-hba1c-l55",
+                "name": "Hemoglobina glikowana (HbA1c)",
+                "is_active": True,
+            },
+        ],
+    )
+
+    primary_id = await db_session.scalar(
+        insert(models.Biomarker)
+        .values(slug="hemoglobina-glikowana", name="Hemoglobina glikowana")
+        .returning(models.Biomarker.id)
+    )
+    await db_session.execute(
+        models.BiomarkerAlias.__table__.insert(),
+        {
+            "biomarker_id": primary_id,
+            "alias": "HbA1c stary",
+            "alias_type": "legacy",
+            "priority": 1,
+        },
+    )
+    await db_session.execute(
+        insert(models.Biomarker)
+        .values(slug="hemoglobina-glikowana-met-hplc", name="HbA1c HPLC")
+    )
+
+    user_id = str(uuid4())
+    await db_session.execute(models.UserAccount.__table__.insert(), {"id": user_id})
+    list_id = str(uuid4())
+    await db_session.execute(
+        models.SavedList.__table__.insert(),
+        {
+            "id": list_id,
+            "user_id": user_id,
+            "name": "Test list",
+        },
+    )
+    await db_session.execute(
+        models.SavedListEntry.__table__.insert(),
+        {
+            "id": str(uuid4()),
+            "list_id": list_id,
+            "biomarker_id": primary_id,
+            "code": "hemoglobina-glikowana",
+            "display_name": "Hemoglobina glikowana",
+        },
+    )
+
+    await db_session.flush()
+
+    config = MatchingConfig(
+        biomarkers=[
+            BiomarkerConfig(
+                code="hba1c",
+                name="Hemoglobina glikowana (HbA1c)",
+                slug="hba1c",
+                aliases=["Hemoglobina glikowana"],
+                labs={
+                    "diag": [
+                        LabMatchConfig(id="605348976"),
+                        LabMatchConfig(id="605359535"),
+                    ],
+                    "alab": [LabMatchConfig(id="1976197")],
+                },
+                replaces=[
+                    "hemoglobina-glikowana",
+                    "hemoglobina-glikowana-met-hplc",
+                ],
+            )
+        ]
+    )
+    synchronizer = MatchingSynchronizer(db_session, config)
+    await synchronizer.apply()
+    await db_session.flush()
+
+    merged = await db_session.scalar(
+        select(models.Biomarker).where(models.Biomarker.slug == "hba1c")
+    )
+    assert merged is not None
+
+    entry_target = await db_session.scalar(
+        select(models.SavedListEntry.biomarker_id).where(
+            models.SavedListEntry.list_id == list_id
+        )
+    )
+    assert entry_target == merged.id
+
+    remaining_slugs = {
+        slug for (slug,) in (await db_session.execute(select(models.Biomarker.slug))).all()
+    }
+    assert "hemoglobina-glikowana" not in remaining_slugs
+    assert "hemoglobina-glikowana-met-hplc" not in remaining_slugs
 
 
 @pytest.mark.asyncio

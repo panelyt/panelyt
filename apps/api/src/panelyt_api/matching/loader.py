@@ -4,7 +4,7 @@ import logging
 import re
 from datetime import UTC, datetime
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from panelyt_api.db import models
@@ -22,6 +22,7 @@ class MatchingSynchronizer:
         lab_ids = await self._load_lab_ids()
         for biomarker_config in self._config.biomarkers:
             biomarker_id = await self._ensure_biomarker(biomarker_config)
+            await self._merge_replacements(biomarker_id, biomarker_config)
             await self._sync_aliases(biomarker_id, biomarker_config)
             await self._sync_lab_matches(biomarker_id, biomarker_config, lab_ids)
 
@@ -60,6 +61,112 @@ class MatchingSynchronizer:
             )
             await self._session.execute(update_stmt)
         return int(candidate.id)
+
+    async def _merge_replacements(self, biomarker_id: int, config: BiomarkerConfig) -> None:
+        if not config.replaces:
+            return
+        for entry in config.replaces:
+            slug_hint = (entry or "").strip()
+            if not slug_hint:
+                continue
+            replacement = await self._session.scalar(
+                select(models.Biomarker).where(models.Biomarker.slug == slug_hint)
+            )
+            if replacement is None:
+                normalized = _normalize_identifier(slug_hint)
+                if normalized:
+                    replacement = await self._session.scalar(
+                        select(models.Biomarker).where(models.Biomarker.slug == normalized)
+                    )
+            if replacement is None:
+                logger.debug(
+                    "Merge target '%s' for biomarker '%s' not found; skipping",
+                    slug_hint,
+                    config.code,
+                )
+                continue
+            if int(replacement.id) == biomarker_id:
+                continue
+
+            await self._reassign_biomarker(replacement, biomarker_id)
+            await self._session.execute(
+                delete(models.Biomarker).where(models.Biomarker.id == replacement.id)
+            )
+
+    async def _reassign_biomarker(
+        self, source: models.Biomarker, target_id: int
+    ) -> None:
+        source_id = int(source.id)
+        tables = [
+            (models.ItemBiomarker, models.ItemBiomarker.biomarker_id),
+            (models.BiomarkerMatch, models.BiomarkerMatch.biomarker_id),
+            (models.SavedListEntry, models.SavedListEntry.biomarker_id),
+            (models.BiomarkerListTemplateEntry, models.BiomarkerListTemplateEntry.biomarker_id),
+        ]
+        for table, column in tables:
+            stmt = update(table).where(column == source_id).values({column: target_id})
+            await self._session.execute(stmt)
+
+        alias_rows = (
+            await self._session.execute(
+                select(models.BiomarkerAlias.id, models.BiomarkerAlias.alias).where(
+                    models.BiomarkerAlias.biomarker_id == source_id
+                )
+            )
+        ).all()
+        for alias_id, alias_text in alias_rows:
+            if not alias_text:
+                await self._session.execute(
+                    delete(models.BiomarkerAlias).where(models.BiomarkerAlias.id == alias_id)
+                )
+                continue
+            existing = await self._session.scalar(
+                select(models.BiomarkerAlias.id).where(
+                    models.BiomarkerAlias.biomarker_id == target_id,
+                    func.lower(models.BiomarkerAlias.alias) == alias_text.lower(),
+                )
+            )
+            if existing is not None:
+                await self._session.execute(
+                    delete(models.BiomarkerAlias).where(models.BiomarkerAlias.id == alias_id)
+                )
+            else:
+                await self._session.execute(
+                    update(models.BiomarkerAlias)
+                    .where(models.BiomarkerAlias.id == alias_id)
+                    .values(biomarker_id=target_id)
+                )
+
+        await self._add_alias_if_missing(target_id, source.name, alias_type="merge-name")
+        await self._add_alias_if_missing(target_id, source.slug, alias_type="merge-slug")
+        if source.elab_code:
+            await self._add_alias_if_missing(target_id, source.elab_code, alias_type="merge-elab")
+
+    async def _add_alias_if_missing(
+        self, biomarker_id: int, alias: str | None, *, alias_type: str = "merge"
+    ) -> None:
+        if not alias:
+            return
+        cleaned = alias.strip()
+        if not cleaned:
+            return
+        exists = await self._session.scalar(
+            select(models.BiomarkerAlias.id).where(
+                models.BiomarkerAlias.biomarker_id == biomarker_id,
+                func.lower(models.BiomarkerAlias.alias) == cleaned.lower(),
+            )
+        )
+        if exists is not None:
+            return
+        stmt = insert(models.BiomarkerAlias).values(
+            {
+                "biomarker_id": biomarker_id,
+                "alias": cleaned,
+                "alias_type": alias_type,
+                "priority": 1,
+            }
+        )
+        await self._session.execute(stmt)
 
     async def _sync_aliases(self, biomarker_id: int, config: BiomarkerConfig) -> None:
         if not config.aliases:

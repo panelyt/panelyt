@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from typing import TypeVar
 
 from sqlalchemy import delete, exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -13,6 +14,24 @@ from panelyt_api.db import models
 from panelyt_api.ingest.types import RawLabBiomarker, RawLabItem
 
 RetentionWindow = timedelta(days=35)
+_UPSERT_BATCH_SIZE = 500
+
+
+T = TypeVar("T")
+
+
+def _chunked(items: Sequence[T], size: int) -> Iterable[Sequence[T]]:
+    for start in range(0, len(items), size):
+        yield items[start : start + size]
+
+
+def _truncate(value: str | None, length: int) -> str | None:
+    if value is None:
+        return None
+    trimmed = value.strip()
+    if len(trimmed) <= length:
+        return trimmed
+    return trimmed[:length]
 
 
 @dataclass(slots=True)
@@ -149,33 +168,35 @@ class IngestionRepository:
         biomarker_map: Mapping[str, RawLabBiomarker],
         fetched_at: datetime,
     ) -> dict[str, int]:
-        if biomarker_map:
-            values = [
-                {
-                    "lab_id": lab_id,
-                    "external_id": external_id,
-                    "name": biomarker.name,
-                    "slug": biomarker.slug,
-                    "elab_code": biomarker.elab_code,
-                    "attributes": dict(biomarker.metadata or {}),
-                    "is_active": True,
-                    "last_seen_at": fetched_at,
-                }
-                for external_id, biomarker in biomarker_map.items()
-            ]
-            stmt = insert(models.LabBiomarker).values(values)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["lab_id", "external_id"],
-                set_={
-                    "name": stmt.excluded.name,
-                    "slug": stmt.excluded.slug,
-                    "elab_code": stmt.excluded.elab_code,
-                    "attributes": stmt.excluded.attributes,
-                    "is_active": True,
-                    "last_seen_at": stmt.excluded.last_seen_at,
-                },
-            )
-            await self.session.execute(stmt)
+        biomarker_pairs = list(biomarker_map.items())
+        if biomarker_pairs:
+            for batch in _chunked(biomarker_pairs, _UPSERT_BATCH_SIZE):
+                values = [
+                    {
+                        "lab_id": lab_id,
+                        "external_id": _truncate(external_id, 128),
+                        "name": _truncate(biomarker.name, 255) or "",
+                        "slug": _truncate(biomarker.slug, 255),
+                        "elab_code": _truncate(biomarker.elab_code, 64),
+                        "attributes": dict(biomarker.metadata or {}),
+                        "is_active": True,
+                        "last_seen_at": fetched_at,
+                    }
+                    for external_id, biomarker in batch
+                ]
+                stmt = insert(models.LabBiomarker).values(values)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["lab_id", "external_id"],
+                    set_={
+                        "name": stmt.excluded.name,
+                        "slug": stmt.excluded.slug,
+                        "elab_code": stmt.excluded.elab_code,
+                        "attributes": stmt.excluded.attributes,
+                        "is_active": True,
+                        "last_seen_at": stmt.excluded.last_seen_at,
+                    },
+                )
+                await self.session.execute(stmt)
 
             unseen_stmt = (
                 update(models.LabBiomarker)
@@ -193,43 +214,45 @@ class IngestionRepository:
         item_map: Mapping[str, RawLabItem],
         fetched_at: datetime,
     ) -> dict[str, int]:
-        if item_map:
-            values = [
-                {
-                    "lab_id": lab_id,
-                    "external_id": external_id,
-                    "kind": item.kind,
-                    "name": item.name,
-                    "slug": item.slug,
-                    "currency": item.currency,
-                    "price_now_grosz": item.price_now_grosz,
-                    "price_min30_grosz": item.price_min30_grosz,
-                    "sale_price_grosz": item.sale_price_grosz,
-                    "regular_price_grosz": item.regular_price_grosz,
-                    "is_available": item.is_available,
-                    "fetched_at": fetched_at,
-                    "attributes": dict(item.metadata or {}),
-                }
-                for external_id, item in item_map.items()
-            ]
-            stmt = insert(models.LabItem).values(values)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["lab_id", "external_id"],
-                set_={
-                    "kind": stmt.excluded.kind,
-                    "name": stmt.excluded.name,
-                    "slug": stmt.excluded.slug,
-                    "currency": stmt.excluded.currency,
-                    "price_now_grosz": stmt.excluded.price_now_grosz,
-                    "price_min30_grosz": stmt.excluded.price_min30_grosz,
-                    "sale_price_grosz": stmt.excluded.sale_price_grosz,
-                    "regular_price_grosz": stmt.excluded.regular_price_grosz,
-                    "is_available": stmt.excluded.is_available,
-                    "fetched_at": stmt.excluded.fetched_at,
-                    "attributes": stmt.excluded.attributes,
-                },
-            )
-            await self.session.execute(stmt)
+        item_pairs = list(item_map.items())
+        if item_pairs:
+            for batch in _chunked(item_pairs, _UPSERT_BATCH_SIZE):
+                values = [
+                    {
+                        "lab_id": lab_id,
+                        "external_id": _truncate(external_id, 128) or "",
+                        "kind": item.kind,
+                        "name": _truncate(item.name, 255) or "",
+                        "slug": _truncate(item.slug, 255),
+                        "currency": _truncate(item.currency, 8) or "PLN",
+                        "price_now_grosz": item.price_now_grosz,
+                        "price_min30_grosz": item.price_min30_grosz,
+                        "sale_price_grosz": item.sale_price_grosz,
+                        "regular_price_grosz": item.regular_price_grosz,
+                        "is_available": item.is_available,
+                        "fetched_at": fetched_at,
+                        "attributes": dict(item.metadata or {}),
+                    }
+                    for external_id, item in batch
+                ]
+                stmt = insert(models.LabItem).values(values)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["lab_id", "external_id"],
+                    set_={
+                        "kind": stmt.excluded.kind,
+                        "name": stmt.excluded.name,
+                        "slug": stmt.excluded.slug,
+                        "currency": stmt.excluded.currency,
+                        "price_now_grosz": stmt.excluded.price_now_grosz,
+                        "price_min30_grosz": stmt.excluded.price_min30_grosz,
+                        "sale_price_grosz": stmt.excluded.sale_price_grosz,
+                        "regular_price_grosz": stmt.excluded.regular_price_grosz,
+                        "is_available": stmt.excluded.is_available,
+                        "fetched_at": stmt.excluded.fetched_at,
+                        "attributes": stmt.excluded.attributes,
+                    },
+                )
+                await self.session.execute(stmt)
 
             unseen_stmt = (
                 update(models.LabItem)
@@ -267,9 +290,10 @@ class IngestionRepository:
                     }
                 )
         if entries:
-            stmt = insert(models.LabItemBiomarker).values(entries)
-            stmt = stmt.on_conflict_do_nothing()
-            await self.session.execute(stmt)
+            for batch in _chunked(entries, _UPSERT_BATCH_SIZE):
+                stmt = insert(models.LabItemBiomarker).values(list(batch))
+                stmt = stmt.on_conflict_do_nothing()
+                await self.session.execute(stmt)
 
     async def _ensure_diag_matches(self, context: StageContext) -> None:
         diag_biomarkers = list(context.biomarkers.items())
@@ -283,9 +307,9 @@ class IngestionRepository:
 
         values = [
             {
-                "elab_code": biomarker.elab_code,
-                "slug": slug,
-                "name": biomarker.name,
+                "elab_code": _truncate(biomarker.elab_code, 64),
+                "slug": _truncate(slug, 255) or slug,
+                "name": _truncate(biomarker.name, 255) or "",
             }
             for _, biomarker, slug in prepared
         ]
@@ -365,18 +389,18 @@ class IngestionRepository:
                 continue
             slug = raw_item.slug or f"{context.lab_code}-{external_id}"
             values.append(
-                {
-                    "lab_id": context.lab_id,
-                    "external_id": external_id,
-                    "lab_item_id": lab_item_id,
-                    "kind": raw_item.kind,
-                    "name": raw_item.name,
-                    "slug": slug,
-                    "is_available": raw_item.is_available,
-                    "currency": raw_item.currency,
-                    "price_now_grosz": raw_item.price_now_grosz,
-                    "price_min30_grosz": raw_item.price_min30_grosz,
-                    "sale_price_grosz": raw_item.sale_price_grosz,
+                    {
+                        "lab_id": context.lab_id,
+                        "external_id": _truncate(external_id, 128) or "",
+                        "lab_item_id": lab_item_id,
+                        "kind": raw_item.kind,
+                        "name": _truncate(raw_item.name, 255) or "",
+                        "slug": _truncate(slug, 255) or slug,
+                        "is_available": raw_item.is_available,
+                        "currency": _truncate(raw_item.currency, 8) or "PLN",
+                        "price_now_grosz": raw_item.price_now_grosz,
+                        "price_min30_grosz": raw_item.price_min30_grosz,
+                        "sale_price_grosz": raw_item.sale_price_grosz,
                     "regular_price_grosz": raw_item.regular_price_grosz,
                     "fetched_at": context.fetched_at,
                 }
@@ -384,24 +408,25 @@ class IngestionRepository:
         if not values:
             return
 
-        stmt = insert(models.Item).values(values)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["lab_id", "external_id"],
-            set_={
-                "lab_item_id": stmt.excluded.lab_item_id,
-                "kind": stmt.excluded.kind,
-                "name": stmt.excluded.name,
-                "slug": stmt.excluded.slug,
-                "is_available": stmt.excluded.is_available,
-                "currency": stmt.excluded.currency,
-                "price_now_grosz": stmt.excluded.price_now_grosz,
-                "price_min30_grosz": stmt.excluded.price_min30_grosz,
-                "sale_price_grosz": stmt.excluded.sale_price_grosz,
-                "regular_price_grosz": stmt.excluded.regular_price_grosz,
-                "fetched_at": stmt.excluded.fetched_at,
-            },
-        )
-        await self.session.execute(stmt)
+        for batch in _chunked(values, _UPSERT_BATCH_SIZE):
+            stmt = insert(models.Item).values(list(batch))
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["lab_id", "external_id"],
+                set_={
+                    "lab_item_id": stmt.excluded.lab_item_id,
+                    "kind": stmt.excluded.kind,
+                    "name": stmt.excluded.name,
+                    "slug": stmt.excluded.slug,
+                    "is_available": stmt.excluded.is_available,
+                    "currency": stmt.excluded.currency,
+                    "price_now_grosz": stmt.excluded.price_now_grosz,
+                    "price_min30_grosz": stmt.excluded.price_min30_grosz,
+                    "sale_price_grosz": stmt.excluded.sale_price_grosz,
+                    "regular_price_grosz": stmt.excluded.regular_price_grosz,
+                    "fetched_at": stmt.excluded.fetched_at,
+                },
+            )
+            await self.session.execute(stmt)
 
     async def _replace_item_biomarkers(
         self, context: StageContext, item_ids: Mapping[str, int]
@@ -445,9 +470,10 @@ class IngestionRepository:
                     }
                 )
         if entries:
-            stmt = insert(models.ItemBiomarker).values(entries)
-            stmt = stmt.on_conflict_do_nothing()
-            await self.session.execute(stmt)
+            for batch in _chunked(entries, _UPSERT_BATCH_SIZE):
+                stmt = insert(models.ItemBiomarker).values(list(batch))
+                stmt = stmt.on_conflict_do_nothing()
+                await self.session.execute(stmt)
 
     async def _upsert_snapshots(
         self, context: StageContext, item_ids: Mapping[str, int]
@@ -473,16 +499,17 @@ class IngestionRepository:
         if not entries:
             return
 
-        stmt = insert(models.PriceSnapshot).values(entries)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["item_id", "snap_date"],
-            set_={
-                "price_now_grosz": stmt.excluded.price_now_grosz,
-                "is_available": stmt.excluded.is_available,
-                "lab_id": stmt.excluded.lab_id,
-            },
-        )
-        await self.session.execute(stmt)
+        for batch in _chunked(entries, _UPSERT_BATCH_SIZE):
+            stmt = insert(models.PriceSnapshot).values(list(batch))
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["item_id", "snap_date"],
+                set_={
+                    "price_now_grosz": stmt.excluded.price_now_grosz,
+                    "is_available": stmt.excluded.is_available,
+                    "lab_id": stmt.excluded.lab_id,
+                },
+            )
+            await self.session.execute(stmt)
 
     async def _fetch_lab_biomarker_ids(
         self, lab_id: int, externals: Iterable[str]

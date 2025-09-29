@@ -115,16 +115,20 @@ async def search_biomarkers(
     rows = (await session.execute(statement)).all()
     results = [row[0] for row in rows]
     lab_price_map = await _fetch_lab_prices(session, [row.id for row in results])
-    payload = [
-        BiomarkerOut(
-            id=row.id,
-            name=row.name,
-            elab_code=row.elab_code,
-            slug=row.slug,
-            lab_prices=lab_price_map.get(row.id, {}),
+    payload = []
+    for row in results:
+        prices = lab_price_map.get(row.id)
+        if not prices:
+            continue
+        payload.append(
+            BiomarkerOut(
+                id=row.id,
+                name=row.name,
+                elab_code=row.elab_code,
+                slug=row.slug,
+                lab_prices=prices,
+            )
         )
-        for row in results
-    ]
     return BiomarkerSearchResponse(results=payload)
 
 
