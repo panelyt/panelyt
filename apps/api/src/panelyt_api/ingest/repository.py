@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
-from typing import Iterable, Mapping
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -297,7 +297,11 @@ class IngestionRepository:
         )
         await self.session.execute(stmt)
 
-        elab_codes = [biomarker.elab_code for _, biomarker in diag_biomarkers if biomarker.elab_code]
+        elab_codes = [
+            biomarker.elab_code
+            for _, biomarker in diag_biomarkers
+            if biomarker.elab_code
+        ]
         biomarker_lookup: dict[str, int] = {}
         if elab_codes:
             statement = select(models.Biomarker.elab_code, models.Biomarker.id).where(

@@ -12,7 +12,7 @@ from panelyt_api.db.session import get_session
 from panelyt_api.ingest.client import AlabClient, DiagClient
 from panelyt_api.ingest.repository import IngestionRepository
 from panelyt_api.ingest.types import LabIngestionResult
-from panelyt_api.matching import MatchingSynchronizer, load_config
+from panelyt_api.matching import MatchingConfig, MatchingSynchronizer, load_config
 from panelyt_api.services.alerts import TelegramPriceAlertService
 
 logger = logging.getLogger(__name__)
@@ -163,7 +163,7 @@ class IngestionService:
             logger.exception("Failed to deliver Telegram price alerts: %s", exc)
 
     async def _fetch_all_labs(self) -> list[LabIngestionResult]:
-        clients = [DiagClient(), AlabClient()]
+        clients: list[DiagClient | AlabClient] = [DiagClient(), AlabClient()]
         results: list[LabIngestionResult] = []
         try:
             for client in clients:
@@ -181,7 +181,7 @@ class IngestionService:
         self,
         repo: IngestionRepository,
         result: LabIngestionResult,
-        matching_config,
+        matching_config: MatchingConfig,
     ) -> None:
         if result.raw_payload:
             await repo.write_raw_snapshot(

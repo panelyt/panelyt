@@ -106,6 +106,8 @@ export function OptimizationResults({
     .filter(([, items]) => items.size > 1)
     .map(([code, items]) => ({ code, items: Array.from(items) }))
     .sort((a, b) => b.items.length - a.items.length || a.code.localeCompare(b.code));
+  const exclusiveEntries = Object.entries(result.exclusive ?? {});
+  const exclusiveCodes = exclusiveEntries.map(([code]) => code);
 
   const summaryStats = [
     {
@@ -143,6 +145,14 @@ export function OptimizationResults({
       icon: <Boxes className="h-4 w-4" />,
       accentLight: "bg-violet-500/10 text-violet-500",
       accentDark: "bg-violet-500/20 text-violet-200",
+    },
+    {
+      label: "Selected lab",
+      value: result.lab_name || result.lab_code.toUpperCase(),
+      hint: result.lab_code.toUpperCase(),
+      icon: <Sparkles className="h-4 w-4" />,
+      accentLight: "bg-orange-500/10 text-orange-500",
+      accentDark: "bg-orange-500/20 text-orange-200",
     },
   ];
 
@@ -284,6 +294,44 @@ export function OptimizationResults({
             </div>
           )}
         </div>
+
+        {exclusiveEntries.length > 0 && (
+          <div
+            className={`mt-6 rounded-xl border p-4 ${
+              isDark
+                ? "border-amber-500/40 bg-amber-500/10"
+                : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-100">
+              <CircleAlert className="h-4 w-4" />
+              <span>
+                Exclusive to {result.lab_name || result.lab_code.toUpperCase()}
+              </span>
+            </div>
+            <ul className="mt-3 flex flex-wrap gap-2 text-xs">
+              {exclusiveCodes.map((code) => {
+                const normalized = code.trim().toUpperCase();
+                const display =
+                  biomarkerNames?.[normalized] ??
+                  biomarkerNames?.[code] ??
+                  normalized;
+                return (
+                  <li
+                    key={code}
+                    className={`rounded-full px-3 py-1 ${
+                      isDark
+                        ? "bg-amber-500/20 text-amber-100"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {display}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {overlappingEntries.length > 0 && (
           <div

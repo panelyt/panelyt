@@ -149,12 +149,15 @@ async def _create_item_with_biomarker(
     await db_session.execute(
         insert(models.Item).values({
             "id": item_id,
+            "lab_id": 1,
+            "external_id": str(item_id),
             "kind": "single",
             "name": "ALT Test",
             "slug": "alt-test",
             "price_now_grosz": price,
             "price_min30_grosz": price,
             "currency": "PLN",
+            "is_available": True,
             "fetched_at": datetime.now(UTC),
         })
     )

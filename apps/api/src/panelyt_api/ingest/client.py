@@ -46,7 +46,9 @@ class DiagClient:
             raw_payload=raw_payload,
         )
 
-    async def _fetch_source(self, base_params: dict[str, Any]) -> tuple[list[RawLabItem], dict[str, Any]]:
+    async def _fetch_source(
+        self, base_params: dict[str, Any]
+    ) -> tuple[list[RawLabItem], dict[str, Any]]:
         page = 1
         items: list[RawLabItem] = []
         raw_payload: dict[str, Any] = {}
@@ -374,7 +376,7 @@ def _pln_to_grosz(value: Any) -> int:
         numeric = float(value)
     except (TypeError, ValueError):
         return 0
-    return int(math.floor(numeric * 100 + 0.5))
+    return math.floor(numeric * 100 + 0.5)
 
 
 def _diag_biomarker_identifier(elab_code: str | None, slug: str | None, name: str) -> str:
@@ -405,4 +407,4 @@ def _clean_slug(value: Any) -> str | None:
     return text or None
 
 
-__all__ = ["DiagClient", "AlabClient"]
+__all__ = ["AlabClient", "DiagClient"]

@@ -37,6 +37,11 @@ class CandidateItem:
     kind: str
     name: str
     slug: str
+    lab_id: int
+    lab_code: str
+    lab_name: str
+    single_url_template: str | None
+    package_url_template: str | None
     price_now: int
     price_min30: int
     sale_price: int | None
@@ -67,12 +72,59 @@ class OptimizationService:
 
         candidates = await self._collect_candidates(resolved)
         pruned = self._prune_candidates(candidates)
-        solution = await self._run_solver(pruned, resolved)
+        if not pruned:
+            return self._empty_response(payload.biomarkers)
 
-        uncovered_tokens = set(solution.uncovered) | self._uncovered_tokens(resolved, pruned)
-        combined_uncovered = list(dict.fromkeys(unresolved_inputs + sorted(uncovered_tokens)))
+        availability_map = self._token_availability_map(pruned)
+        grouped = self._group_candidates_by_lab(pruned)
+        token_to_original = {entry.token: entry.original for entry in resolved}
 
-        return solution.model_copy(update={"uncovered": combined_uncovered})
+        best_response: OptimizeResponse | None = None
+        best_total: int | None = None
+
+        for lab_id, lab_candidates in grouped.items():
+            response, chosen, solver_uncovered, total_now_grosz = await self._run_solver(
+                lab_candidates, resolved
+            )
+            if not chosen:
+                continue
+
+            uncovered_tokens = solver_uncovered | self._uncovered_tokens(resolved, lab_candidates)
+            combined_uncovered = list(
+                dict.fromkeys(unresolved_inputs + sorted(uncovered_tokens))
+            )
+
+            lab_code = lab_candidates[0].lab_code if lab_candidates else ""
+            lab_name = lab_candidates[0].lab_name if lab_candidates else ""
+            exclusive_tokens = self._exclusive_tokens(resolved, availability_map, lab_id)
+            exclusive_map = {
+                token_to_original.get(token, token): lab_name for token in exclusive_tokens
+            }
+
+            updated_response = response.model_copy(
+                update={
+                    "uncovered": combined_uncovered,
+                    "lab_code": lab_code,
+                    "lab_name": lab_name,
+                    "exclusive": exclusive_map,
+                }
+            )
+
+            if best_response is None or (
+                best_total is None or total_now_grosz < best_total
+            ):
+                best_response = updated_response
+                best_total = total_now_grosz
+
+        if best_response is None:
+            fallback_uncovered = list(
+                dict.fromkeys(
+                    unresolved_inputs + [biomarker.token for biomarker in resolved]
+                )
+            )
+            return self._empty_response(fallback_uncovered)
+
+        return best_response
 
     async def _resolve_biomarkers(
         self, inputs: Sequence[str]
@@ -179,12 +231,17 @@ class OptimizationService:
         statement = (
             select(
                 models.Item,
+                models.Lab.code,
+                models.Lab.name,
+                models.Lab.single_item_url_template,
+                models.Lab.package_item_url_template,
                 models.ItemBiomarker.biomarker_id,
                 models.Biomarker.elab_code,
                 models.Biomarker.slug,
                 models.Biomarker.name,
                 history.c.hist_min,
             )
+            .join(models.Lab, models.Lab.id == models.Item.lab_id)
             .join(models.ItemBiomarker, models.Item.id == models.ItemBiomarker.item_id)
             .join(models.Biomarker, models.Biomarker.id == models.ItemBiomarker.biomarker_id)
             .outerjoin(history, history.c.item_id == models.Item.id)
@@ -194,7 +251,18 @@ class OptimizationService:
         rows = (await self.session.execute(statement)).all()
         by_id: dict[int, CandidateItem] = {}
         id_to_token = {b.id: b.token for b in biomarkers}
-        for item, biomarker_id, _elab_code, _slug, _name, hist_min in rows:
+        for (
+            item,
+            lab_code,
+            lab_name,
+            single_url_template,
+            package_url_template,
+            biomarker_id,
+            _elab_code,
+            _slug,
+            _name,
+            hist_min,
+        ) in rows:
             candidate = by_id.get(item.id)
             if candidate is None:
                 candidate = CandidateItem(
@@ -202,6 +270,11 @@ class OptimizationService:
                     kind=item.kind,
                     name=item.name,
                     slug=item.slug,
+                    lab_id=item.lab_id,
+                    lab_code=lab_code,
+                    lab_name=lab_name,
+                    single_url_template=single_url_template,
+                    package_url_template=package_url_template,
                     price_now=item.price_now_grosz,
                     price_min30=self._resolve_price_floor(
                         hist_min, item.price_min30_grosz, item.price_now_grosz
@@ -237,6 +310,38 @@ class OptimizationService:
             if not self._should_skip_single_candidate(item, cheapest_per_token)
         ]
         return self._remove_dominated_candidates(filtered)
+
+    @staticmethod
+    def _group_candidates_by_lab(
+        candidates: Sequence[CandidateItem],
+    ) -> dict[int, list[CandidateItem]]:
+        grouped: dict[int, list[CandidateItem]] = {}
+        for candidate in candidates:
+            grouped.setdefault(candidate.lab_id, []).append(candidate)
+        return grouped
+
+    @staticmethod
+    def _token_availability_map(
+        candidates: Sequence[CandidateItem],
+    ) -> dict[str, set[int]]:
+        availability: dict[str, set[int]] = {}
+        for candidate in candidates:
+            for token in candidate.coverage:
+                availability.setdefault(token, set()).add(candidate.lab_id)
+        return availability
+
+    @staticmethod
+    def _exclusive_tokens(
+        resolved: Sequence[ResolvedBiomarker],
+        availability_map: Mapping[str, set[int]],
+        lab_id: int,
+    ) -> set[str]:
+        exclusives: set[str] = set()
+        for biomarker in resolved:
+            labs = availability_map.get(biomarker.token, set())
+            if labs == {lab_id}:
+                exclusives.add(biomarker.token)
+        return exclusives
 
     @staticmethod
     def _cheapest_single_prices(items: Sequence[CandidateItem]) -> dict[str, int]:
@@ -287,7 +392,7 @@ class OptimizationService:
 
     async def _run_solver(
         self, candidates: Sequence[CandidateItem], biomarkers: Sequence[ResolvedBiomarker]
-    ) -> OptimizeResponse:
+    ) -> tuple[OptimizeResponse, list[CandidateItem], set[str], int]:
         coverage_map = self._build_coverage_map(candidates)
         model, variables = self._build_solver_model(candidates)
         uncovered = self._apply_coverage_constraints(
@@ -295,7 +400,8 @@ class OptimizationService:
         )
 
         if not variables:
-            return self._empty_response(uncovered)
+            response = self._empty_response(uncovered)
+            return response, [], set(uncovered), 0
 
         self._apply_objective(model, candidates, variables)
         status, solver = self._solve_model(model)
@@ -303,10 +409,13 @@ class OptimizationService:
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             logger.warning("CP-SAT returned status %s", status)
             fallback_uncovered = uncovered or [b.token for b in biomarkers]
-            return self._empty_response(fallback_uncovered)
+            response = self._empty_response(fallback_uncovered)
+            return response, [], set(fallback_uncovered), 0
 
         chosen = self._extract_selected_candidates(solver, candidates, variables)
-        return await self._build_response(chosen, uncovered)
+        response = await self._build_response(chosen, uncovered)
+        total_now_grosz = sum(item.price_now for item in chosen)
+        return response, chosen, set(uncovered), int(total_now_grosz)
 
     @staticmethod
     def _build_solver_model(
@@ -428,6 +537,9 @@ class OptimizationService:
             items=[],
             explain={},
             uncovered=list(uncovered),
+            lab_code="",
+            lab_name="",
+            exclusive={},
         )
 
     def _uncovered_tokens(
@@ -463,6 +575,12 @@ class OptimizationService:
 
 
 def _item_url(item: CandidateItem) -> str:
+    template = item.package_url_template if item.kind == "package" else item.single_url_template
+    if template:
+        try:
+            return template.format(slug=item.slug, external_id=item.id)
+        except Exception:  # pragma: no cover - fallback for malformed templates
+            return template
     prefix = "pakiety" if item.kind == "package" else "badania"
     return f"https://diag.pl/sklep/{prefix}/{item.slug}"
 

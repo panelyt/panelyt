@@ -5,6 +5,7 @@ export const BiomarkerSchema = z.object({
   name: z.string(),
   elab_code: z.string().nullable(),
   slug: z.string().nullable(),
+  lab_prices: z.record(z.string(), z.number().int().nonnegative()),
 });
 
 export type Biomarker = z.infer<typeof BiomarkerSchema>;
@@ -37,6 +38,9 @@ export const OptimizeResponseSchema = z.object({
   items: z.array(ItemSchema),
   explain: z.record(z.string(), z.array(z.string())),
   uncovered: z.array(z.string()),
+  lab_code: z.string(),
+  lab_name: z.string(),
+  exclusive: z.record(z.string(), z.string()),
 });
 
 export type OptimizeResponse = z.infer<typeof OptimizeResponseSchema>;
@@ -260,6 +264,7 @@ export const CatalogBiomarkerResultSchema = z.object({
   name: z.string(),
   elab_code: z.string().nullable(),
   slug: z.string().nullable(),
+  lab_prices: z.record(z.string(), z.number().int().nonnegative()),
 });
 
 export type CatalogBiomarkerResult = z.infer<typeof CatalogBiomarkerResultSchema>;

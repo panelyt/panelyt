@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class APIModel(BaseModel):
@@ -15,6 +15,7 @@ class BiomarkerOut(APIModel):
     name: str
     elab_code: str | None = None
     slug: str | None = None
+    lab_prices: dict[str, int] = Field(default_factory=dict)
 
 
 class ItemOut(APIModel):
@@ -48,6 +49,7 @@ class CatalogBiomarkerResult(APIModel):
     name: str
     elab_code: str | None = None
     slug: str | None = None
+    lab_prices: dict[str, int] = Field(default_factory=dict)
 
 
 class CatalogTemplateResult(APIModel):

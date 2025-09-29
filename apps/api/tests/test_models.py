@@ -76,6 +76,8 @@ class TestDatabaseModels:
         await db_session.execute(
             insert(models.Item).values({
                 "id": 123,
+                "lab_id": 1,
+                "external_id": "123",
                 "kind": "single",
                 "name": "ALT Test",
                 "slug": "alt-test",
@@ -122,11 +124,15 @@ class TestDatabaseModels:
         await db_session.execute(
             insert(models.Item).values({
                 "id": 456,
+                "lab_id": 1,
+                "external_id": "456",
                 "kind": "package",
                 "name": "Liver Panel",
                 "slug": "liver-panel",
                 "price_now_grosz": 2000,
                 "price_min30_grosz": 1900,
+                "currency": "PLN",
+                "is_available": True,
                 "fetched_at": datetime.now(timezone.utc),
             })
         )
@@ -162,11 +168,15 @@ class TestDatabaseModels:
         await db_session.execute(
             insert(models.Item).values({
                 "id": 789,
+                "lab_id": 1,
+                "external_id": "789",
                 "kind": "single",
                 "name": "Test Item",
                 "slug": "test-item",
                 "price_now_grosz": 1500,
                 "price_min30_grosz": 1400,
+                "currency": "PLN",
+                "is_available": True,
                 "fetched_at": datetime.now(timezone.utc),
             })
         )
@@ -176,6 +186,7 @@ class TestDatabaseModels:
         await db_session.execute(
             insert(models.PriceSnapshot).values({
                 "item_id": 789,
+                "lab_id": 1,
                 "snap_date": snap_date,
                 "price_now_grosz": 1500,
                 "is_available": True,
@@ -295,20 +306,28 @@ class TestDatabaseModels:
             insert(models.Item).values([
                 {
                     "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
                     "kind": "single",
                     "name": "Item 1",
                     "slug": "same-slug",
                     "price_now_grosz": 1000,
                     "price_min30_grosz": 950,
+                    "currency": "PLN",
+                    "is_available": True,
                     "fetched_at": datetime.now(timezone.utc),
                 },
                 {
                     "id": 2,
+                    "lab_id": 1,
+                    "external_id": "item-2",
                     "kind": "single",
                     "name": "Item 2",
                     "slug": "same-slug",  # Same slug should be allowed
                     "price_now_grosz": 1500,
                     "price_min30_grosz": 1400,
+                    "currency": "PLN",
+                    "is_available": True,
                     "fetched_at": datetime.now(timezone.utc),
                 },
             ])

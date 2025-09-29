@@ -4,18 +4,18 @@ from datetime import date, datetime
 from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
-    JSON,
     SmallInteger,
     String,
     Text,
     UniqueConstraint,
-    Float,
     func,
     text,
 )
@@ -41,11 +41,11 @@ class Lab(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    items: Mapped[list["Item"]] = relationship("Item", back_populates="lab")
-    lab_items: Mapped[list["LabItem"]] = relationship(
+    items: Mapped[list[Item]] = relationship("Item", back_populates="lab")
+    lab_items: Mapped[list[LabItem]] = relationship(
         "LabItem", back_populates="lab", cascade="all, delete-orphan"
     )
-    lab_biomarkers: Mapped[list["LabBiomarker"]] = relationship(
+    lab_biomarkers: Mapped[list[LabBiomarker]] = relationship(
         "LabBiomarker", back_populates="lab", cascade="all, delete-orphan"
     )
 
@@ -70,7 +70,7 @@ class Biomarker(Base):
     aliases: Mapped[list[BiomarkerAlias]] = relationship(
         "BiomarkerAlias", back_populates="biomarker", cascade="all, delete-orphan"
     )
-    lab_matches: Mapped[list["BiomarkerMatch"]] = relationship(
+    lab_matches: Mapped[list[BiomarkerMatch]] = relationship(
         "BiomarkerMatch", back_populates="biomarker", cascade="all, delete-orphan"
     )
 
@@ -130,7 +130,7 @@ class Item(Base):
         "PriceSnapshot", back_populates="item", cascade="all, delete-orphan"
     )
     lab: Mapped[Lab] = relationship("Lab", back_populates="items")
-    lab_item: Mapped["LabItem | None"] = relationship("LabItem", back_populates="items")
+    lab_item: Mapped[LabItem | None] = relationship("LabItem", back_populates="items")
 
     __table_args__ = (
         CheckConstraint("kind IN ('package', 'single')", name="item_kind_check"),
@@ -178,10 +178,10 @@ class LabBiomarker(Base):
     )
 
     lab: Mapped[Lab] = relationship("Lab", back_populates="lab_biomarkers")
-    matches: Mapped[list["BiomarkerMatch"]] = relationship(
+    matches: Mapped[list[BiomarkerMatch]] = relationship(
         "BiomarkerMatch", back_populates="lab_biomarker", cascade="all, delete-orphan"
     )
-    lab_items: Mapped[list["LabItemBiomarker"]] = relationship(
+    lab_items: Mapped[list[LabItemBiomarker]] = relationship(
         "LabItemBiomarker", back_populates="lab_biomarker", cascade="all, delete-orphan"
     )
 
@@ -213,7 +213,7 @@ class LabItem(Base):
     attributes: Mapped[dict | None] = mapped_column(_get_json_type(), nullable=True)
 
     lab: Mapped[Lab] = relationship("Lab", back_populates="lab_items")
-    biomarkers: Mapped[list["LabItemBiomarker"]] = relationship(
+    biomarkers: Mapped[list[LabItemBiomarker]] = relationship(
         "LabItemBiomarker", back_populates="lab_item", cascade="all, delete-orphan"
     )
     items: Mapped[list[Item]] = relationship("Item", back_populates="lab_item")
@@ -500,19 +500,19 @@ class BiomarkerListTemplateEntry(Base):
 
 
 __all__ = [
-    "Lab",
-    "LabItem",
-    "LabItemBiomarker",
-    "LabBiomarker",
-    "BiomarkerMatch",
     "AppActivity",
     "Biomarker",
     "BiomarkerAlias",
     "BiomarkerListTemplate",
     "BiomarkerListTemplateEntry",
+    "BiomarkerMatch",
     "IngestionLog",
     "Item",
     "ItemBiomarker",
+    "Lab",
+    "LabBiomarker",
+    "LabItem",
+    "LabItemBiomarker",
     "PriceSnapshot",
     "RawSnapshot",
     "SavedList",

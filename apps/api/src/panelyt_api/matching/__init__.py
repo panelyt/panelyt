@@ -1,12 +1,12 @@
-from .config import MatchingConfig, BiomarkerConfig, LabMatchConfig, load_config
+from .config import BiomarkerConfig, LabMatchConfig, MatchingConfig, load_config
 from .loader import MatchingSynchronizer
 from .suggest import suggest_lab_matches
 
 __all__ = [
-    "MatchingConfig",
     "BiomarkerConfig",
     "LabMatchConfig",
-    "load_config",
+    "MatchingConfig",
     "MatchingSynchronizer",
+    "load_config",
     "suggest_lab_matches",
 ]

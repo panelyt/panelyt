@@ -57,11 +57,15 @@ class TestCatalogEndpoints:
             insert(models.Item).values([
                 {
                     "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
                     "price_min30_grosz": 900,
+                    "currency": "PLN",
+                    "is_available": True,
                     "fetched_at": datetime.now(timezone.utc),
                 },
             ])
@@ -278,19 +282,27 @@ class TestOptimizeEndpoint:
             insert(models.Item).values([
                 {
                     "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
                     "price_min30_grosz": 900,
+                    "currency": "PLN",
+                    "is_available": True,
                 },
                 {
                     "id": 2,
+                    "lab_id": 1,
+                    "external_id": "item-2",
                     "kind": "package",
                     "name": "Liver Panel",
                     "slug": "liver-panel",
                     "price_now_grosz": 1800,
                     "price_min30_grosz": 1700,
+                    "currency": "PLN",
+                    "is_available": True,
                 },
             ])
         )
@@ -357,11 +369,15 @@ class TestOptimizeEndpoint:
             insert(models.Item).values([
                 {
                     "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
                     "price_min30_grosz": 900,
+                    "currency": "PLN",
+                    "is_available": True,
                 },
             ])
         )

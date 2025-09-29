@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field, model_validator
 
 _DEFAULT_CONFIG_PATH = Path(__file__).with_name("biomarkers.yaml")
@@ -27,15 +26,15 @@ class BiomarkerConfig(BaseModel):
     labs: dict[str, list[LabMatchConfig]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def _ensure_lab_entries_have_keys(cls, model: "BiomarkerConfig") -> "BiomarkerConfig":
-        for lab_code, matches in model.labs.items():
+    def _ensure_lab_entries_have_keys(self) -> BiomarkerConfig:
+        for lab_code, matches in self.labs.items():
             for entry in matches:
                 if not entry.has_key:
                     raise ValueError(
-                        f"Lab mapping for biomarker '{model.code}' and lab '{lab_code}' "
+                        f"Lab mapping for biomarker '{self.code}' and lab '{lab_code}' "
                         "requires at least one of external_id or elab_code"
                     )
-        return model
+        return self
 
 
 class MatchingConfig(BaseModel):
@@ -50,4 +49,4 @@ def load_config(path: str | Path | None = None) -> MatchingConfig:
     return MatchingConfig.model_validate(payload)
 
 
-__all__ = ["MatchingConfig", "BiomarkerConfig", "LabMatchConfig", "load_config"]
+__all__ = ["BiomarkerConfig", "LabMatchConfig", "MatchingConfig", "load_config"]

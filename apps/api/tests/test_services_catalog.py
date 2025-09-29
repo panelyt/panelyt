@@ -36,20 +36,28 @@ class TestCatalogService:
             insert(models.Item).values([
                 {
                     "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
                     "price_min30_grosz": 950,
+                    "currency": "PLN",
+                    "is_available": True,
                     "fetched_at": fetched_time,
                 },
                 {
                     "id": 2,
+                    "lab_id": 1,
+                    "external_id": "item-2",
                     "kind": "single",
                     "name": "AST Test",
                     "slug": "ast-test",
                     "price_now_grosz": 1200,
                     "price_min30_grosz": 1100,
+                    "currency": "PLN",
+                    "is_available": True,
                     "fetched_at": fetched_time,
                 },
             ])
@@ -63,16 +71,19 @@ class TestCatalogService:
             insert(models.PriceSnapshot).values([
                 {
                     "item_id": 1,
+                    "lab_id": 1,
                     "snap_date": today,
                     "price_now_grosz": 1000,
                 },
                 {
                     "item_id": 1,
+                    "lab_id": 1,
                     "snap_date": yesterday,
                     "price_now_grosz": 1100,
                 },
                 {
                     "item_id": 2,
+                    "lab_id": 1,
                     "snap_date": today,
                     "price_now_grosz": 1200,
                 },

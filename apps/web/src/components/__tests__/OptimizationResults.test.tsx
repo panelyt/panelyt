@@ -28,6 +28,21 @@ const createLookupResult = (
     ...overrides,
   } as unknown as ReturnType<typeof useBiomarkerLookup>)
 
+const makeOptimizeResponse = (
+  overrides: Partial<OptimizeResponse>,
+): OptimizeResponse => ({
+  total_now: 0,
+  total_min30: 0,
+  currency: 'PLN',
+  items: [],
+  explain: {},
+  uncovered: [],
+  lab_code: 'diag',
+  lab_name: 'Diagnostyka',
+  exclusive: {},
+  ...overrides,
+})
+
 function renderWithQueryClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -98,10 +113,9 @@ describe('OptimizationResults', () => {
   })
 
   it('renders optimization results with single test and package', () => {
-    const mockResult: OptimizeResponse = {
+    const mockResult = makeOptimizeResponse({
       total_now: 25.00,
       total_min30: 23.50,
-      currency: 'PLN',
       items: [
         {
           id: 1,
@@ -134,7 +148,7 @@ describe('OptimizationResults', () => {
         'CHOL': ['Liver Panel'],
       },
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -164,10 +178,9 @@ describe('OptimizationResults', () => {
   })
 
   it('shows uncovered biomarkers warning', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 10.00,
-      total_min30: 9.50,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 10.0,
+      total_min30: 9.5,
       items: [
         {
           id: 1,
@@ -186,7 +199,7 @@ describe('OptimizationResults', () => {
         'ALT': ['ALT Test'],
       },
       uncovered: ['UNKNOWN_BIOMARKER'],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -202,10 +215,9 @@ describe('OptimizationResults', () => {
   })
 
   it('highlights bonus biomarkers', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 15.00,
-      total_min30: 14.00,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 15.0,
+      total_min30: 14.0,
       items: [
         {
           id: 1,
@@ -225,7 +237,7 @@ describe('OptimizationResults', () => {
         'AST': ['Extended Panel'],
       },
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -236,20 +248,14 @@ describe('OptimizationResults', () => {
       />
     )
 
-    const cholesterolBadges = screen.getAllByText('Total cholesterol')
-
-    const bonusBadge = cholesterolBadges.find(badge =>
-      badge.classList.contains('bg-emerald-200/70') &&
-      badge.classList.contains('text-emerald-900')
-    )
-    expect(bonusBadge).toBeInTheDocument()
+    expect(screen.getByText(/bonus biomarker/)).toBeInTheDocument()
+    expect(screen.getByText('Total cholesterol')).toBeInTheDocument()
   })
 
   it('shows "On sale" indicator for discounted items', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 10.00,
-      total_min30: 9.50,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 10.0,
+      total_min30: 9.5,
       items: [
         {
           id: 1,
@@ -268,7 +274,7 @@ describe('OptimizationResults', () => {
         'ALT': ['ALT Test'],
       },
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -283,10 +289,9 @@ describe('OptimizationResults', () => {
   })
 
   it('shows correct item counts in section headers', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 25.00,
-      total_min30: 23.50,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 25.0,
+      total_min30: 23.5,
       items: [
         {
           id: 1,
@@ -327,7 +332,7 @@ describe('OptimizationResults', () => {
       ],
       explain: {},
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -338,15 +343,12 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getAllByText(/2 items/).length).toBeGreaterThan(0) // Single tests
-    expect(screen.getAllByText(/1 item/).length).toBeGreaterThan(0) // Packages
+    expect(screen.getByText(/Single tests · 2 items/)).toBeInTheDocument()
+    expect(screen.getByText(/Packages · 1 item/)).toBeInTheDocument()
   })
 
   it('orders packages before singles and sorts by descending price', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 0,
-      total_min30: 0,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
       items: [
         {
           id: 1,
@@ -399,7 +401,7 @@ describe('OptimizationResults', () => {
       ],
       explain: {},
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -424,10 +426,9 @@ describe('OptimizationResults', () => {
   })
 
   it('renders external links with correct attributes', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 10.00,
-      total_min30: 9.50,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 10.0,
+      total_min30: 9.5,
       items: [
         {
           id: 1,
@@ -443,10 +444,10 @@ describe('OptimizationResults', () => {
         },
       ],
       explain: {
-        'ALT': ['ALT Test'],
+        ALT: ['ALT Test'],
       },
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults

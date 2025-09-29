@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from panelyt_api.schemas.common import APIModel, ItemOut
 
@@ -16,3 +16,6 @@ class OptimizeResponse(APIModel):
     items: list[ItemOut]
     explain: dict[str, list[str]]
     uncovered: list[str]
+    lab_code: str = ""
+    lab_name: str = ""
+    exclusive: dict[str, str] = Field(default_factory=dict)

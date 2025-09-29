@@ -36,4 +36,4 @@ class LabIngestionResult:
     lab_code: str
     fetched_at: datetime
     items: list[RawLabItem]
-    raw_payload: dict[str, object]
+    raw_payload: Mapping[str, Any]

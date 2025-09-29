@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from panelyt_api.db import models
@@ -45,11 +45,15 @@ class MatchingSynchronizer:
             )
 
         if candidate is None:
-            stmt = models.Biomarker.__table__.insert().values(
-                elab_code=config.elab_code,
-                slug=config.slug,
-                name=config.name,
-            ).returning(models.Biomarker.id)
+            stmt = (
+                insert(models.Biomarker)
+                .values(
+                    elab_code=config.elab_code,
+                    slug=config.slug,
+                    name=config.name,
+                )
+                .returning(models.Biomarker.id)
+            )
             biomarker_id = int(await self._session.scalar(stmt))
             return biomarker_id
 
@@ -66,12 +70,12 @@ class MatchingSynchronizer:
             requires_update = True
 
         if requires_update:
-            stmt = (
+            update_stmt = (
                 update(models.Biomarker)
                 .where(models.Biomarker.id == candidate.id)
                 .values(**update_values)
             )
-            await self._session.execute(stmt)
+            await self._session.execute(update_stmt)
         return int(candidate.id)
 
     async def _sync_aliases(self, biomarker_id: int, config: BiomarkerConfig) -> None:
@@ -84,7 +88,7 @@ class MatchingSynchronizer:
         new_aliases = [alias for alias in config.aliases if alias not in existing]
         if not new_aliases:
             return
-        stmt = models.BiomarkerAlias.__table__.insert().values(
+        insert_stmt = insert(models.BiomarkerAlias).values(
             [
                 {
                     "biomarker_id": biomarker_id,
@@ -95,7 +99,7 @@ class MatchingSynchronizer:
                 for alias in new_aliases
             ]
         )
-        await self._session.execute(stmt)
+        await self._session.execute(insert_stmt)
 
     async def _sync_lab_matches(
         self,
@@ -143,20 +147,21 @@ class MatchingSynchronizer:
         }
 
         if existing_id is None:
-            stmt = models.BiomarkerMatch.__table__.insert().values(
+            insert_stmt = insert(models.BiomarkerMatch).values(
                 {
                     **payload,
                     "lab_biomarker_id": lab_biomarker_id,
                     "created_at": datetime.now(UTC),
                 }
             )
+            await self._session.execute(insert_stmt)
         else:
-            stmt = (
+            update_stmt = (
                 update(models.BiomarkerMatch)
                 .where(models.BiomarkerMatch.id == existing_id)
                 .values(payload)
             )
-        await self._session.execute(stmt)
+            await self._session.execute(update_stmt)
 
     async def _resolve_lab_biomarker_id(
         self, lab_id: int, match_config: LabMatchConfig

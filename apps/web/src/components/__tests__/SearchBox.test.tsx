@@ -48,6 +48,10 @@ describe('SearchBox', () => {
     name: 'Alanine aminotransferase',
     elab_code: 'ALT',
     slug: 'alt',
+    lab_prices: {
+      diag: 1000,
+      alab: 1250,
+    },
   }
 
   const templateSuggestion = {
@@ -104,6 +108,7 @@ describe('SearchBox', () => {
 
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
     expect(screen.getByText('ALT')).toBeInTheDocument()
+    expect(screen.getByText(/DIAG:/i)).toBeInTheDocument()
   })
 
   it('calls onSelect when a biomarker suggestion is clicked', async () => {

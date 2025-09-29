@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -113,8 +114,15 @@ async def search_biomarkers(
 
     rows = (await session.execute(statement)).all()
     results = [row[0] for row in rows]
+    lab_price_map = await _fetch_lab_prices(session, [row.id for row in results])
     payload = [
-        BiomarkerOut(id=row.id, name=row.name, elab_code=row.elab_code, slug=row.slug)
+        BiomarkerOut(
+            id=row.id,
+            name=row.name,
+            elab_code=row.elab_code,
+            slug=row.slug,
+            lab_prices=lab_price_map.get(row.id, {}),
+        )
         for row in results
     ]
     return BiomarkerSearchResponse(results=payload)
@@ -136,6 +144,7 @@ async def search_catalog(
             name=item.name,
             elab_code=item.elab_code,
             slug=item.slug,
+            lab_prices=item.lab_prices,
         )
         for item in biomarker_response.results
     ]
@@ -152,3 +161,29 @@ async def search_catalog(
     ]
 
     return CatalogSearchResponse(results=[*biomarker_results, *template_results])
+
+
+async def _fetch_lab_prices(
+    session: AsyncSession, biomarker_ids: Sequence[int]
+) -> dict[int, dict[str, int]]:
+    if not biomarker_ids:
+        return {}
+
+    statement = (
+        select(
+            models.ItemBiomarker.biomarker_id,
+            models.Lab.code,
+            func.min(models.Item.price_now_grosz).label("min_price"),
+        )
+        .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
+        .join(models.Lab, models.Lab.id == models.Item.lab_id)
+        .where(models.ItemBiomarker.biomarker_id.in_(biomarker_ids))
+        .where(models.Item.is_available.is_(True))
+        .group_by(models.ItemBiomarker.biomarker_id, models.Lab.code)
+    )
+
+    rows = await session.execute(statement)
+    mapping: dict[int, dict[str, int]] = {}
+    for biomarker_id, lab_code, min_price in rows.all():
+        mapping.setdefault(int(biomarker_id), {})[str(lab_code)] = int(min_price)
+    return mapping

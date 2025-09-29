@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search as SearchIcon } from "lucide-react";
 import { type CatalogSearchResult } from "@panelyt/types";
 
 import { useDebounce } from "../hooks/useDebounce";
 import { useCatalogSearch } from "../hooks/useCatalogSearch";
+import { formatGroszToPln } from "../lib/format";
 
 interface SelectedBiomarker {
   code: string;
@@ -176,21 +177,35 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                 const biomarkerBadge = !isTemplate
                   ? (item.elab_code ?? item.slug ?? item.name) ?? ""
                   : null;
-                const rightLabel = isTemplate
-                  ? templateDescription || null
-                  : biomarkerBadge
-                    ? item.elab_code
-                      ? biomarkerBadge.toUpperCase()
-                      : biomarkerBadge
-                    : null;
+                const labPriceEntries = !isTemplate ? Object.entries(item.lab_prices) : [];
+                const bestLabEntry = labPriceEntries.length
+                  ? labPriceEntries.reduce((best, current) =>
+                      current[1] < best[1] ? current : best
+                    )
+                  : null;
+                let rightLabel: string | null = null;
+                if (isTemplate) {
+                  rightLabel = templateDescription || null;
+                } else if (bestLabEntry) {
+                  const [labCode, grosz] = bestLabEntry;
+                  rightLabel = `${labCode.toUpperCase()}: ${formatGroszToPln(grosz)}`;
+                } else if (biomarkerBadge) {
+                  rightLabel = item.elab_code ? biomarkerBadge.toUpperCase() : biomarkerBadge;
+                }
                 const rightLabelClass = [
                   "text-xs",
-                  isTemplate ? "truncate text-right" : "uppercase tracking-wide",
+                  isTemplate
+                    ? "truncate text-right"
+                    : bestLabEntry
+                      ? "text-right font-semibold"
+                      : "uppercase tracking-wide",
                   isHighlighted
                     ? "text-white/90"
                     : isTemplate
                       ? "text-slate-300"
-                      : "text-emerald-300",
+                      : bestLabEntry
+                        ? "text-emerald-200"
+                        : "text-emerald-300",
                 ].join(" ");
                 return (
                   <li key={`${item.type}-${item.id}`}>
@@ -209,6 +224,13 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                         }`}>
                           {item.name}
                         </span>
+                        {!isTemplate && biomarkerBadge && (
+                          <span className={`text-[11px] uppercase tracking-wide ${
+                            isHighlighted ? "text-emerald-200" : "text-emerald-300"
+                          }`}>
+                            {item.elab_code ? biomarkerBadge.toUpperCase() : biomarkerBadge}
+                          </span>
+                        )}
                         {isTemplate && (
                           <span className={`text-[11px] uppercase tracking-wide ${
                             isHighlighted ? "text-white/80" : "text-amber-300"
