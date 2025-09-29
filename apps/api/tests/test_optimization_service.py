@@ -706,6 +706,49 @@ class TestOptimizationService:
         assert result.total_now == 0.0
         assert result.explain == {}
 
+    @pytest.mark.asyncio
+    async def test_solve_ignores_unavailable_items(self, service, db_session):
+        """Items flagged as unavailable must not be considered by the solver."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"name": "Alanine aminotransferase", "elab_code": "ALT", "slug": "alt"},
+            ])
+        )
+        await db_session.execute(
+            insert(models.Item).values([
+                {
+                    "id": 1,
+                    "lab_id": 2,
+                    "external_id": "1",
+                    "kind": "single",
+                    "name": "ALT Test",
+                    "slug": "alt-test",
+                    "price_now_grosz": 0,
+                    "price_min30_grosz": 0,
+                    "currency": "PLN",
+                    "is_available": False,
+                }
+            ])
+        )
+        await db_session.execute(
+            insert(models.ItemBiomarker).values([
+                {"item_id": 1, "biomarker_id": 1},
+            ])
+        )
+        await db_session.commit()
+
+        result = await service.solve(OptimizeRequest(biomarkers=["ALT"]))
+
+        assert result.items == []
+        assert result.uncovered == ["ALT"]
+        assert result.total_now == 0.0
+
     def test_candidate_item_on_sale_property(self):
         """Test CandidateItem on_sale property."""
         item1 = make_candidate(

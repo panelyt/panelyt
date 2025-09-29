@@ -257,15 +257,24 @@ class MatchingSynchronizer:
         self, lab_id: int, match_config: LabMatchConfig
     ) -> int | None:
         clauses = [models.LabBiomarker.lab_id == lab_id]
+
+        # Try the most specific keys first so we prefer explicit identifiers, but
+        # gracefully fall back when a lab rotates item IDs without touching slugs.
+        candidate_clauses = []
         if match_config.id:
-            clauses.append(models.LabBiomarker.external_id == str(match_config.id))
+            candidate_clauses.append(
+                models.LabBiomarker.external_id == str(match_config.id)
+            )
         if match_config.slug:
-            clauses.append(models.LabBiomarker.slug == match_config.slug)
-        if len(clauses) <= 1:
-            return None
-        statement = select(models.LabBiomarker.id).where(*clauses)
-        lab_biomarker_id = await self._session.scalar(statement)
-        return int(lab_biomarker_id) if lab_biomarker_id is not None else None
+            candidate_clauses.append(models.LabBiomarker.slug == match_config.slug)
+
+        for extra_clause in candidate_clauses:
+            statement = select(models.LabBiomarker.id).where(*clauses, extra_clause)
+            lab_biomarker_id = await self._session.scalar(statement)
+            if lab_biomarker_id is not None:
+                return int(lab_biomarker_id)
+
+        return None
 
 
 def _normalize_identifier(value: str | None) -> str:

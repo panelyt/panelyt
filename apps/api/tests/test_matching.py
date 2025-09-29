@@ -51,6 +51,50 @@ async def test_matching_synchronizer_applies_config(db_session):
 
 
 @pytest.mark.asyncio
+async def test_matching_synchronizer_falls_back_to_slug_when_id_mismatch(db_session):
+    await _seed_labs(db_session)
+
+    await db_session.execute(
+        models.LabBiomarker.__table__.insert(),
+        {
+            "lab_id": 2,
+            "external_id": "19213914",
+            "slug": "testosteron-wolny-o41",
+            "name": "Testosteron wolny",
+            "is_active": True,
+        },
+    )
+
+    config = MatchingConfig(
+        biomarkers=[
+            BiomarkerConfig(
+                code="testosteron-wolny",
+                name="Testosteron wolny",
+                slug="testosteron-wolny",
+                labs={
+                    "alab": [
+                        LabMatchConfig(id="1976070", slug="testosteron-wolny-o41"),
+                    ],
+                },
+            )
+        ]
+    )
+    synchronizer = MatchingSynchronizer(db_session, config)
+    await synchronizer.apply()
+
+    match_id = await db_session.scalar(
+        select(models.BiomarkerMatch.id)
+        .join(
+            models.LabBiomarker,
+            models.BiomarkerMatch.lab_biomarker_id == models.LabBiomarker.id,
+        )
+        .where(models.LabBiomarker.external_id == "19213914")
+    )
+
+    assert match_id is not None
+
+
+@pytest.mark.asyncio
 async def test_matching_synchronizer_merges_replacements(db_session):
     await _seed_labs(db_session)
 
