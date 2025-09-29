@@ -207,8 +207,8 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                                 ? "text-white"
                                 : "text-emerald-200"
                               : isHighlighted
-                                ? "text-white/70"
-                                : "text-emerald-300/80",
+                                ? "text-rose-200"
+                                : "text-rose-300/80",
                           ].join(" ")}
                         >
                           {labCode.toUpperCase()}: {formatGroszToPln(price)}
@@ -222,11 +222,11 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                     <button
                       type="button"
                       onClick={() => commitSuggestion(item)}
-                      className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition ${
-                        isHighlighted
-                          ? "bg-emerald-400/20 text-white"
-                          : "hover:bg-slate-800/70 text-slate-200"
-                      }`}
+                    className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition ${
+                      isHighlighted
+                        ? "bg-emerald-400/20 text-white"
+                        : "hover:bg-slate-800/70 text-slate-200"
+                    }`}
                     >
                       <div className="flex flex-col gap-1">
                         <span className={`font-medium ${

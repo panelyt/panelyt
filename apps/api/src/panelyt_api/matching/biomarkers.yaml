@@ -19711,12 +19711,18 @@ biomarkers:
         - id: '605349280'
           slug: pc-p-receptorom-acetylocholiny-anty-achr-met-ria
   - code: pc-p-receptorom-tsh-trab
-    name: P/c. p. receptorom TSH (TRAb)
+    name: Przeciwciała przeciwko receptorowi TSH (TRAb)
     slug: pc-p-receptorom-tsh-trab
+    aliases:
+      - Przeciwciała przeciwko receptorowi TSH (TRAb)
+      - TRAb
     labs:
       diag:
         - id: '605348925'
           slug: pc-p-receptorom-tsh-trab
+      alab:
+        - id: '1976814'
+          slug: pc-przeciw-receptorowi-tsh-trab-o15
   - code: pc-p-saccharomyces-cerevisiae-asca-met-iif
     name: P/c. p. Saccharomyces cerevisiae (ASCA) IgA i IgG
     slug: pc-p-saccharomyces-cerevisiae-asca-met-iif
@@ -20564,13 +20570,6 @@ biomarkers:
       alab:
         - id: '1976812'
           slug: pc-przeciw-receptorowi-acetylocholiny
-  - code: pc-przeciw-receptorowi-tsh-trab-o15
-    name: Przeciwciała przeciwko receptorowi TSH (TRAb)
-    slug: pc-przeciw-receptorowi-tsh-trab-o15
-    labs:
-      alab:
-        - id: '1976814'
-          slug: pc-przeciw-receptorowi-tsh-trab-o15
   - code: pc-przeciw-retikulinie-ara-o17
     name: Przeciwciała przeciwko retikulinie (ARA)
     slug: pc-przeciw-retikulinie-ara-o17

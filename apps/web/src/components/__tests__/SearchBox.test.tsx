@@ -160,7 +160,6 @@ describe('SearchBox', () => {
   })
 
   it('pressing Enter selects the highlighted suggestion', async () => {
-    const user = userEvent.setup()
     mockUseCatalogSearch.mockImplementation(() =>
       createSearchResult({ data: { results: [biomarkerSuggestion] } }),
     )
