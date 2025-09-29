@@ -4696,13 +4696,6 @@ biomarkers:
       diag:
         - id: '605365613'
           slug: deficyt-lchad-niedobor-dehydrogenazy-dlugolancuchowych-kwasow-tluszczowych-gen-hadha-najczestsza-mutacja
-  - code: dehydroepiandrosteron-dhea-k25
-    name: Dehydroepiandrosteron (DHEA)
-    slug: dehydroepiandrosteron-dhea-k25
-    labs:
-      alab:
-        - id: '1975825'
-          slug: dehydroepiandrosteron-dhea-k25
   - code: dehydrogenaza-beta-hydroksymaslanowa-k45
     name: Dehydrogenaza beta-hydroksymaślanowa
     slug: dehydrogenaza-beta-hydroksymaslanowa-k45
@@ -4798,12 +4791,18 @@ biomarkers:
         - id: '1979871'
           slug: dezypramina-t13
   - code: dhea
-    name: DHEA
+    name: Dehydroepiandrosterone (DHEA)
     slug: dhea
+    aliases:
+      - Dehydroepiandrosteron (DHEA)
+      - DHEA
     labs:
       diag:
         - id: '605348936'
           slug: dhea
+      alab:
+        - id: '1975825'
+          slug: dehydroepiandrosteron-dhea-k25
   - code: dhea-s-w-slinie
     name: DHEA-S w ślinie
     slug: dhea-s-w-slinie
@@ -4814,10 +4813,16 @@ biomarkers:
   - code: dhea-so4
     name: DHEA-SO4
     slug: dhea-so4
+    aliases:
+      - Siarczan dehydroepiandrostendionu (DHEA-S)
+      - DHEA-S
     labs:
       diag:
         - id: '605348935'
           slug: dhea-so4
+      alab:
+        - id: '1976054'
+          slug: siarczan-dehydroepiandrostendionu-dhea-s-k27
   - code: diagnostyczna-analiza-eksomu-maksimum-duosekwencjonowanie-eksomu-pacjenta-i-1-czlonka-rodz-z-zakresem-analizy-zaleznym-od-rozpoznania-klinicznegocnvsekwencje-intronowegenom-mitochondrialny
     name: Diagnostyczna analiza eksomu MAKSIMUM DUO.Sekwencjonowanie eksomu pacjenta i 1 członka rodz. z zakresem analizy zależnym od rozpoznania klinicznego(CNV,sekwencje
       intronowe,genom mitochondrialny)
@@ -24425,13 +24430,6 @@ biomarkers:
       diag:
         - id: '605348942'
           slug: shbg
-  - code: siarczan-dehydroepiandrostendionu-dhea-s-k27
-    name: Siarczan dehydroepiandrostendionu (DHEA-S)
-    slug: siarczan-dehydroepiandrostendionu-dhea-s-k27
-    labs:
-      alab:
-        - id: '1976054'
-          slug: siarczan-dehydroepiandrostendionu-dhea-s-k27
   - code: siarczan-pregnenolonu
     name: Siarczan pregnenolonu
     slug: siarczan-pregnenolonu

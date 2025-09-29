@@ -174,39 +174,49 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                 const templateDescription = isTemplate
                   ? item.description?.trim() ?? ""
                   : "";
-                const biomarkerBadge = !isTemplate
-                  ? (item.elab_code ?? item.slug ?? item.name) ?? ""
-                  : null;
-                const labPriceEntries = !isTemplate ? Object.entries(item.lab_prices) : [];
-                const bestLabEntry = labPriceEntries.length
-                  ? labPriceEntries.reduce((best, current) =>
-                      current[1] < best[1] ? current : best
+                const labPriceEntries = !isTemplate
+                  ? Object.entries(item.lab_prices).sort(([labA], [labB]) =>
+                      labA.localeCompare(labB)
                     )
+                  : [];
+                const lowestPrice = labPriceEntries.length
+                  ? Math.min(...labPriceEntries.map(([, value]) => value))
                   : null;
-                let rightLabel: string | null = null;
-                if (isTemplate) {
-                  rightLabel = templateDescription || null;
-                } else if (bestLabEntry) {
-                  const [labCode, grosz] = bestLabEntry;
-                  rightLabel = `${labCode.toUpperCase()}: ${formatGroszToPln(grosz)}`;
-                } else if (biomarkerBadge) {
-                  rightLabel = item.elab_code ? biomarkerBadge.toUpperCase() : biomarkerBadge;
-                }
-                const rightLabelClass = [
-                  "text-xs",
-                  isTemplate
-                    ? "truncate text-right"
-                    : bestLabEntry
-                      ? "text-right font-semibold"
-                      : "uppercase tracking-wide",
-                  isHighlighted
-                    ? "text-white/90"
-                    : isTemplate
-                      ? "text-slate-300"
-                      : bestLabEntry
-                        ? "text-emerald-200"
-                        : "text-emerald-300",
-                ].join(" ");
+                const rightContent = isTemplate ? (
+                  <span
+                    className={`truncate text-xs ${
+                      isHighlighted ? "text-white/80" : "text-slate-300"
+                    }`}
+                  >
+                    {templateDescription ||
+                      `Template · ${item.biomarker_count} biomarker${
+                        item.biomarker_count === 1 ? "" : "s"
+                      }`}
+                  </span>
+                ) : (
+                  <div className="flex flex-col items-end gap-0.5 text-xs">
+                    {labPriceEntries.map(([labCode, price]) => {
+                      const isBest = lowestPrice !== null && price === lowestPrice;
+                      return (
+                        <span
+                          key={`${labCode}-${price}`}
+                          className={[
+                            "font-semibold",
+                            isBest
+                              ? isHighlighted
+                                ? "text-white"
+                                : "text-emerald-200"
+                              : isHighlighted
+                                ? "text-white/70"
+                                : "text-emerald-300/80",
+                          ].join(" ")}
+                        >
+                          {labCode.toUpperCase()}: {formatGroszToPln(price)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                );
                 return (
                   <li key={`${item.type}-${item.id}`}>
                     <button
@@ -224,13 +234,6 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                         }`}>
                           {item.name}
                         </span>
-                        {!isTemplate && biomarkerBadge && (
-                          <span className={`text-[11px] uppercase tracking-wide ${
-                            isHighlighted ? "text-emerald-200" : "text-emerald-300"
-                          }`}>
-                            {item.elab_code ? biomarkerBadge.toUpperCase() : biomarkerBadge}
-                          </span>
-                        )}
                         {isTemplate && (
                           <span className={`text-[11px] uppercase tracking-wide ${
                             isHighlighted ? "text-white/80" : "text-amber-300"
@@ -240,13 +243,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                           </span>
                         )}
                       </div>
-                      {rightLabel && (
-                        <span
-                          className={rightLabelClass}
-                        >
-                          {rightLabel}
-                        </span>
-                      )}
+                      {rightContent}
                     </button>
                   </li>
                 );
