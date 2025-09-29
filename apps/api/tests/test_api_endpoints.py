@@ -331,6 +331,9 @@ class TestOptimizeEndpoint:
         assert data["items"][0]["kind"] == "package"
         assert "url" in data["items"][0]
         assert data["uncovered"] == []
+        assert data["lab_code"] == "diag"
+        assert data["lab_name"]
+        assert isinstance(data["exclusive"], dict)
 
         # Check explanation
         assert "ALT" in data["explain"]
@@ -401,3 +404,4 @@ class TestOptimizeEndpoint:
         assert data["items"][0]["name"] == "ALT Test"
         assert data["uncovered"] == ["UNKNOWN_BIOMARKER"]
         assert "ALT" in data["explain"]
+        assert data["lab_code"] == "diag"

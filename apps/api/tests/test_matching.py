@@ -17,18 +17,16 @@ async def test_matching_synchronizer_applies_config(db_session):
         [
             {
                 "lab_id": 1,
-                "external_id": "alt",
-                "elab_code": "ALT",
-                "slug": "alt",
-                "name": "ALT",
+                "external_id": "605348821",
+                "slug": "albumina",
+                "name": "Albumina",
                 "is_active": True,
             },
             {
                 "lab_id": 2,
-                "external_id": "alt",
-                "elab_code": None,
-                "slug": "alt",
-                "name": "ALT",
+                "external_id": "1975726",
+                "slug": "albumina-w-surowicy-i09",
+                "name": "Albumina",
                 "is_active": True,
             },
         ],
@@ -39,9 +37,9 @@ async def test_matching_synchronizer_applies_config(db_session):
     await synchronizer.apply()
 
     biomarker_rows = (
-        await db_session.execute(select(models.Biomarker.name, models.Biomarker.elab_code))
+        await db_session.execute(select(models.Biomarker.name, models.Biomarker.slug))
     ).all()
-    assert any(row.name.startswith("Aminotransferaza") for row in biomarker_rows)
+    assert any(row.slug == "albumina" for row in biomarker_rows)
 
     match_rows = (
         await db_session.execute(select(models.BiomarkerMatch.lab_biomarker_id))
@@ -58,18 +56,16 @@ async def test_suggest_lab_matches_returns_candidates(db_session):
         [
             {
                 "lab_id": 1,
-                "external_id": "alt",
-                "elab_code": "ALT",
-                "slug": "alt",
-                "name": "ALT",
+                "external_id": "605348821",
+                "slug": "albumina",
+                "name": "Albumina",
                 "is_active": True,
             },
             {
                 "lab_id": 2,
-                "external_id": "alt-test",
-                "elab_code": None,
-                "slug": "alt-test",
-                "name": "Aminotransferaza alaninowa",
+                "external_id": "1975726",
+                "slug": "albumina-w-surowicy-i09",
+                "name": "Albumina",
                 "is_active": True,
             },
         ],
@@ -84,9 +80,9 @@ async def test_suggest_lab_matches_returns_candidates(db_session):
         models.LabBiomarker.__table__.insert(),
         {
             "lab_id": 2,
-            "external_id": "alt-unmatched",
-            "slug": "alt-unmatched",
-            "name": "Alat",
+            "external_id": "999999",
+            "slug": "albumina-inna",
+            "name": "Albumina inna",
             "is_active": True,
         },
     )

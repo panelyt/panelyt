@@ -172,6 +172,8 @@ describe('OptimizationResults', () => {
     // Check sections
     expect(screen.getByText(/Packages/)).toBeInTheDocument()
     expect(screen.getByText(/Single tests/)).toBeInTheDocument()
+    expect(screen.getByText('Selected lab')).toBeInTheDocument()
+    expect(screen.getByText(/Diagnostyka/)).toBeInTheDocument()
 
     // Check coverage summary
     expect(screen.getByText('Coverage')).toBeInTheDocument()

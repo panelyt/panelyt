@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -271,57 +272,54 @@ class IngestionRepository:
             await self.session.execute(stmt)
 
     async def _ensure_diag_matches(self, context: StageContext) -> None:
-        diag_biomarkers = [
-            (external_id, biomarker)
-            for external_id, biomarker in context.biomarkers.items()
-            if biomarker.elab_code
-        ]
+        diag_biomarkers = list(context.biomarkers.items())
         if not diag_biomarkers:
             return
+
+        prepared: list[tuple[str, RawLabBiomarker, str]] = []
+        for external_id, biomarker in diag_biomarkers:
+            slug = biomarker.slug or _normalize_identifier(biomarker.name) or f"diag-{external_id}"
+            prepared.append((external_id, biomarker, slug))
 
         values = [
             {
                 "elab_code": biomarker.elab_code,
-                "slug": biomarker.slug,
+                "slug": slug,
                 "name": biomarker.name,
             }
-            for _, biomarker in diag_biomarkers
+            for _, biomarker, slug in prepared
         ]
         stmt = insert(models.Biomarker).values(values)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["elab_code"],
+            index_elements=["slug"],
             set_={
                 "name": stmt.excluded.name,
-                "slug": stmt.excluded.slug,
+                "elab_code": stmt.excluded.elab_code,
             },
         )
         await self.session.execute(stmt)
 
-        elab_codes = [
-            biomarker.elab_code
-            for _, biomarker in diag_biomarkers
-            if biomarker.elab_code
-        ]
+        slugs = [slug for _, _, slug in prepared]
         biomarker_lookup: dict[str, int] = {}
-        if elab_codes:
-            statement = select(models.Biomarker.elab_code, models.Biomarker.id).where(
-                models.Biomarker.elab_code.in_(elab_codes)
+        if slugs:
+            statement = select(models.Biomarker.slug, models.Biomarker.id).where(
+                models.Biomarker.slug.in_(slugs)
             )
             biomarker_lookup = {
-                row.elab_code: row.id for row in (await self.session.execute(statement)).all()
+                row.slug: row.id for row in (await self.session.execute(statement)).all()
             }
 
         match_values = []
-        for external_id, biomarker in diag_biomarkers:
+        for external_id, _biomarker, slug in prepared:
             lab_biomarker_id = context.lab_biomarker_ids.get(external_id)
-            biomarker_id = biomarker_lookup.get(biomarker.elab_code or "")
-            if not lab_biomarker_id or not biomarker_id:
+            biomarker_id = biomarker_lookup.get(slug)
+            if not lab_biomarker_id or biomarker_id is None:
                 continue
             match_values.append(
                 {
                     "biomarker_id": biomarker_id,
                     "lab_biomarker_id": lab_biomarker_id,
-                    "match_type": "auto-elab-code",
+                    "match_type": "auto-slug",
                     "status": "accepted",
                 }
             )
@@ -336,6 +334,28 @@ class IngestionRepository:
                 },
             )
             await self.session.execute(stmt)
+
+    async def prune_orphan_biomarkers(self) -> None:
+        stmt = (
+            delete(models.Biomarker)
+            .where(
+                ~exists().where(models.BiomarkerMatch.biomarker_id == models.Biomarker.id)
+            )
+            .where(
+                ~exists().where(models.ItemBiomarker.biomarker_id == models.Biomarker.id)
+            )
+            .where(
+                ~exists().where(
+                    models.SavedListEntry.biomarker_id == models.Biomarker.id
+                )
+            )
+            .where(
+                ~exists().where(
+                    models.BiomarkerListTemplateEntry.biomarker_id == models.Biomarker.id
+                )
+            )
+        )
+        await self.session.execute(stmt)
 
     async def _upsert_items(self, context: StageContext) -> None:
         values = []
@@ -505,6 +525,14 @@ class IngestionRepository:
         )
         rows = await self.session.execute(statement)
         return {external_id: identifier for external_id, identifier in rows.all()}
+
+
+def _normalize_identifier(value: str | None) -> str:
+    if not value:
+        return ""
+    text = value.lower()
+    text = re.sub(r"[^a-z0-9ąęółśżźćń]+", "-", text)
+    return text.strip("-")
 
 
 __all__ = ["IngestionRepository", "StageContext"]

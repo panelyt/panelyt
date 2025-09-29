@@ -126,15 +126,15 @@ class DiagClient:
         biomarkers: list[RawLabBiomarker] = []
 
         if entry.get("type") == "bloodtest":
-            elab_code = self._clean_str(entry.get("elabCode"))
+            diag_id = entry.get("id")
             slug = self._clean_str(entry.get("slug")) or fallback_slug
             name = self._clean_str(entry.get("name")) or ""
-            external_id = _diag_biomarker_identifier(elab_code, slug, name)
+            external_id = _diag_biomarker_identifier(diag_id, slug, name)
             biomarkers.append(
                 RawLabBiomarker(
                     external_id=external_id,
                     name=name or external_id,
-                    elab_code=elab_code,
+                    elab_code=self._clean_str(entry.get("elabCode")),
                     slug=slug,
                     metadata={"source": "diag_solo"},
                 )
@@ -143,15 +143,15 @@ class DiagClient:
         for product in entry.get("products") or []:
             if not isinstance(product, dict):
                 continue
-            elab_code = self._clean_str(product.get("elabCode"))
+            diag_product_id = product.get("id")
             slug = self._clean_str(product.get("slug"))
             name = self._clean_str(product.get("name")) or ""
-            external_id = _diag_biomarker_identifier(elab_code, slug, name)
+            external_id = _diag_biomarker_identifier(diag_product_id, slug, name)
             biomarkers.append(
                 RawLabBiomarker(
                     external_id=external_id,
                     name=name or external_id,
-                    elab_code=elab_code,
+                    elab_code=self._clean_str(product.get("elabCode")),
                     slug=slug,
                     metadata={"source": "diag_package"},
                 )
@@ -379,9 +379,9 @@ def _pln_to_grosz(value: Any) -> int:
     return math.floor(numeric * 100 + 0.5)
 
 
-def _diag_biomarker_identifier(elab_code: str | None, slug: str | None, name: str) -> str:
-    if elab_code:
-        return elab_code.lower()
+def _diag_biomarker_identifier(diag_id: Any, slug: str | None, name: str) -> str:
+    if diag_id not in (None, ""):
+        return str(diag_id)
     if slug:
         return slug.lower()
     normalized = _normalize_identifier(name)

@@ -75,6 +75,7 @@ class IngestionService:
                     await self._process_lab_result(repo, result, matching_config)
 
                 await repo.prune_snapshots(now_utc.date())
+                await repo.prune_orphan_biomarkers()
                 await self._dispatch_price_alerts(repo)
                 await repo.finalize_run_log(log_id, status="completed")
             except Exception as exc:

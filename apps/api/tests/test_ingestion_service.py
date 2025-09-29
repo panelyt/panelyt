@@ -429,7 +429,7 @@ class TestDiagClient:
         assert result.price_now_grosz == 800
         assert result.price_min30_grosz == 900
         assert result.biomarkers[0].elab_code == "ALT"
-        assert result.biomarkers[0].external_id == "alt"
+        assert result.biomarkers[0].external_id == "123"
 
     async def test_parse_product_package(self, diag_client):
         entry = {
@@ -438,8 +438,8 @@ class TestDiagClient:
             "slug": "liver-panel",
             "type": "package",
             "products": [
-                {"elabCode": "ALT", "name": "ALT", "slug": "alt"},
-                {"elabCode": "AST", "name": "AST", "slug": "ast"},
+                {"id": "1001", "elabCode": "ALT", "name": "ALT", "slug": "alt"},
+                {"id": "1002", "elabCode": "AST", "name": "AST", "slug": "ast"},
             ],
             "prices": {
                 "regular": {"gross": 20.0},
@@ -455,6 +455,7 @@ class TestDiagClient:
         assert result.kind == "package"
         assert result.price_now_grosz == 2000
         assert {b.elab_code for b in result.biomarkers} == {"ALT", "AST"}
+        assert {b.external_id for b in result.biomarkers} == {"1001", "1002"}
 
     def test_pln_to_grosz(self):
         assert _pln_to_grosz("12,34") == 1234

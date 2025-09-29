@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime
 
 from sqlalchemy import insert, select, update
@@ -30,46 +31,28 @@ class MatchingSynchronizer:
         return {code: lab_id for code, lab_id in rows.all()}
 
     async def _ensure_biomarker(self, config: BiomarkerConfig) -> int:
-        candidate = None
-        if config.elab_code:
-            candidate = await self._session.scalar(
-                select(models.Biomarker).where(models.Biomarker.elab_code == config.elab_code)
-            )
-        if candidate is None and config.slug:
-            candidate = await self._session.scalar(
-                select(models.Biomarker).where(models.Biomarker.slug == config.slug)
-            )
-        if candidate is None:
-            candidate = await self._session.scalar(
-                select(models.Biomarker).where(models.Biomarker.name == config.name)
-            )
+        slug = config.slug or _normalize_identifier(config.code) or config.code
+        candidate = await self._session.scalar(
+            select(models.Biomarker).where(models.Biomarker.slug == slug)
+        )
 
         if candidate is None:
             stmt = (
                 insert(models.Biomarker)
                 .values(
-                    elab_code=config.elab_code,
-                    slug=config.slug,
+                    slug=slug,
                     name=config.name,
                 )
                 .returning(models.Biomarker.id)
             )
-            biomarker_id = int(await self._session.scalar(stmt))
-            return biomarker_id
+            return int(await self._session.scalar(stmt))
 
-        requires_update = False
         update_values: dict[str, str | None] = {}
-        if config.elab_code and candidate.elab_code != config.elab_code:
-            update_values["elab_code"] = config.elab_code
-            requires_update = True
-        if config.slug and candidate.slug != config.slug:
-            update_values["slug"] = config.slug
-            requires_update = True
+        if candidate.slug != slug:
+            update_values["slug"] = slug
         if candidate.name != config.name:
             update_values["name"] = config.name
-            requires_update = True
-
-        if requires_update:
+        if update_values:
             update_stmt = (
                 update(models.Biomarker)
                 .where(models.Biomarker.id == candidate.id)
@@ -166,16 +149,24 @@ class MatchingSynchronizer:
     async def _resolve_lab_biomarker_id(
         self, lab_id: int, match_config: LabMatchConfig
     ) -> int | None:
-        clauses: list = [models.LabBiomarker.lab_id == lab_id]
-        if match_config.elab_code:
-            clauses.append(models.LabBiomarker.elab_code == match_config.elab_code)
-        if match_config.external_id:
-            clauses.append(models.LabBiomarker.external_id == match_config.external_id)
+        clauses = [models.LabBiomarker.lab_id == lab_id]
+        if match_config.id:
+            clauses.append(models.LabBiomarker.external_id == str(match_config.id))
+        if match_config.slug:
+            clauses.append(models.LabBiomarker.slug == match_config.slug)
         if len(clauses) <= 1:
             return None
         statement = select(models.LabBiomarker.id).where(*clauses)
         lab_biomarker_id = await self._session.scalar(statement)
         return int(lab_biomarker_id) if lab_biomarker_id is not None else None
+
+
+def _normalize_identifier(value: str | None) -> str:
+    if not value:
+        return ""
+    text = value.lower()
+    text = re.sub(r"[^a-z0-9ąęółśżźćń]+", "-", text)
+    return text.strip("-")
 
 
 __all__ = ["MatchingSynchronizer"]
