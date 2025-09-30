@@ -6282,13 +6282,6 @@ biomarkers:
       alab:
         - id: '1980036'
           slug: fluwoksamina
-  - code: folikulotropina-fsh-l65
-    name: Folikulotropina (FSH)
-    slug: folikulotropina-fsh-l65
-    labs:
-      alab:
-        - id: '1975865'
-          slug: folikulotropina-fsh-l65
   - code: foodprofil-22-igg
     name: FoodProfil 22 IgG
     slug: foodprofil-22-igg
@@ -6499,12 +6492,19 @@ biomarkers:
         - id: '605365401'
           slug: fruktozemia-wrodzona-mutacje-a150p-i-a175d-w-genie-aldob
   - code: fsh
-    name: FSH
+    name: Follicle-stimulating hormone (FSH)
     slug: fsh
+    aliases:
+      - Folikulotropina
+      - FSH
     labs:
       diag:
         - id: '605348947'
           slug: fsh
+    labs:
+      alab:
+        - id: '1975865'
+          slug: folikulotropina-fsh-l65
   - code: ft3
     name: FT3
     slug: ft3
@@ -14074,13 +14074,21 @@ biomarkers:
       alab:
         - id: '1980313'
           slug: lewomepromazyna
-  - code: lh
-    name: LH
-    slug: lh
+  - code: luteotropina
+    name: Luteotropin (LH)
+    slug: luteotropina
+    aliases:
+      - Luteotropina
+      - LH
+      - Luteotropin
     labs:
       diag:
         - id: '605348933'
           slug: lh
+    labs:
+      alab:
+        - id: '1975953'
+          slug: luteotropina-lh-l67
   - code: liczba-addisa
     name: Liczba Addisa
     slug: liczba-addisa
@@ -14255,13 +14263,6 @@ biomarkers:
       alab:
         - id: '1978125'
           slug: luszczyca-wykrywanie-obecnosci-genu-hla-cw6
-  - code: luteotropina-lh-l67
-    name: Luteotropina (LH)
-    slug: luteotropina-lh-l67
-    labs:
-      alab:
-        - id: '1975953'
-          slug: luteotropina-lh-l67
   - code: m2-pk-krew-utajona-w-kale
     name: M2-PK + Krew utajona w kale
     slug: m2-pk-krew-utajona-w-kale
