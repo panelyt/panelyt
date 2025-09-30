@@ -14086,7 +14086,6 @@ biomarkers:
       diag:
         - id: '605348933'
           slug: lh
-    labs:
       alab:
         - id: '1975953'
           slug: luteotropina-lh-l67
@@ -26813,6 +26812,8 @@ biomarkers:
     aliases:
       - Vitamin D
       - Vitamin D3
+      - Witamina D3
+      - D3
     labs:
       alab:
         - id: '1976655'
