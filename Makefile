@@ -1,4 +1,4 @@
-.PHONY: help install-web install-api install-bot dev-web dev-api dev-bot lint-api test-api migrate-api docker-up docker-down fmt-api check typecheck-api lint-web typecheck-web test-web lint-bot typecheck-bot
+.PHONY: help install-web install-api install-bot dev-web dev-api dev-bot lint-api test-api migrate-api ingest-api docker-up docker-down fmt-api check typecheck-api lint-web typecheck-web test-web lint-bot typecheck-bot
 
 UV ?= uv
 UV_ENV ?= UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache
@@ -37,6 +37,9 @@ test-api: ## Run API test suite
 
 migrate-api: ## Run database migrations
 	cd apps/api && $(UV_ENV) $(UV) run alembic upgrade head
+
+ingest-api: ## Run data ingestion for the API
+	cd apps/api && $(UV_ENV) $(UV) run python scripts/run_ingestion.py
 
 docker-up: ## Start all services with Docker Compose
 	cd infra && docker compose up --build

@@ -328,6 +328,16 @@ class AlabClient:
         price_min30 = price_min30_info.price_now or pricing.price_now
         currency = "PLN"
         is_available = bool(entry.get("is_available", True))
+        is_shop = bool(entry.get("is_shop", True))
+
+        if price_now <= 0 or not is_shop:
+            logger.debug(
+                "Skipping ALAB single %s due to unavailable pricing (price_now=%s is_shop=%s)",
+                item_id,
+                price_now,
+                is_shop,
+            )
+            return None
 
         biomarker = RawLabBiomarker(
             external_id=str(item_id),
@@ -370,6 +380,16 @@ class AlabClient:
         price_min30 = price_min30_info.price_now or pricing.price_now
         currency = "PLN"
         is_available = bool(entry.get("is_available", True))
+        is_shop = bool(entry.get("is_shop", True))
+
+        if price_now <= 0 or not is_shop:
+            logger.debug(
+                "Skipping ALAB package %s due to unavailable pricing (price_now=%s is_shop=%s)",
+                item_id,
+                price_now,
+                is_shop,
+            )
+            return None
 
         exams = entry.get("examinations") or []
         biomarkers: list[RawLabBiomarker] = []

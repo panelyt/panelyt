@@ -95,6 +95,50 @@ async def test_matching_synchronizer_falls_back_to_slug_when_id_mismatch(db_sess
 
 
 @pytest.mark.asyncio
+async def test_matching_synchronizer_matches_alias_slug(db_session):
+    await _seed_labs(db_session)
+
+    await db_session.execute(
+        models.LabBiomarker.__table__.insert(),
+        {
+            "lab_id": 2,
+            "external_id": "vit-d3",
+            "slug": "witamina-d3",
+            "name": "Witamina D3",
+            "is_active": True,
+        },
+    )
+
+    config = MatchingConfig(
+        biomarkers=[
+            BiomarkerConfig(
+                code="witamina-d-25oh",
+                name="Witamina D3 25(OH)",
+                slug="witamina-d-25oh",
+                aliases=["Witamina D3"],
+                labs={
+                    "alab": [LabMatchConfig(id="1976655", slug="witamina-d-25oh")],
+                },
+            )
+        ]
+    )
+
+    synchronizer = MatchingSynchronizer(db_session, config)
+    await synchronizer.apply()
+
+    match_id = await db_session.scalar(
+        select(models.BiomarkerMatch.id)
+        .join(
+            models.LabBiomarker,
+            models.BiomarkerMatch.lab_biomarker_id == models.LabBiomarker.id,
+        )
+        .where(models.LabBiomarker.slug == "witamina-d3")
+    )
+
+    assert match_id is not None
+
+
+@pytest.mark.asyncio
 async def test_matching_synchronizer_merges_replacements(db_session):
     await _seed_labs(db_session)
 

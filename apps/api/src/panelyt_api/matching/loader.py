@@ -202,8 +202,36 @@ class MatchingSynchronizer:
             if lab_id is None:
                 logger.warning("Skipping matches for unknown lab '%s'", lab_code)
                 continue
-            for match_config in matches:
-                await self._apply_match(biomarker_id, lab_id, lab_code, match_config)
+            expanded = list(matches)
+            existing_keys = {
+                (entry.id or "", entry.slug or "") for entry in expanded
+            }
+
+            candidate_slugs: set[str] = set()
+            if config.slug:
+                candidate_slugs.add(config.slug)
+            name_slug = _normalize_identifier(config.name)
+            if name_slug:
+                candidate_slugs.add(name_slug)
+            for alias in config.aliases:
+                alias_slug = _normalize_identifier(alias)
+                if alias_slug:
+                    candidate_slugs.add(alias_slug)
+
+            for slug in candidate_slugs:
+                if ("", slug) in existing_keys:
+                    continue
+                expanded.append(LabMatchConfig(slug=slug))
+                existing_keys.add(("", slug))
+
+            for index, match_config in enumerate(expanded):
+                await self._apply_match(
+                    biomarker_id,
+                    lab_id,
+                    lab_code,
+                    match_config,
+                    log_missing=index < len(matches),
+                )
 
     async def _apply_match(
         self,
@@ -211,14 +239,17 @@ class MatchingSynchronizer:
         lab_id: int,
         lab_code: str,
         match_config: LabMatchConfig,
+        *,
+        log_missing: bool = True,
     ) -> None:
         lab_biomarker_id = await self._resolve_lab_biomarker_id(lab_id, match_config)
         if lab_biomarker_id is None:
-            logger.warning(
-                "Unable to match biomarker %s for lab %s: no lab biomarker found",
-                biomarker_id,
-                lab_code,
-            )
+            if log_missing:
+                logger.warning(
+                    "Unable to match biomarker %s for lab %s: no lab biomarker found",
+                    biomarker_id,
+                    lab_code,
+                )
             return
 
         existing_id = await self._session.scalar(

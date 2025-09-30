@@ -183,6 +183,7 @@ async def _fetch_lab_prices(
         .join(models.Lab, models.Lab.id == models.Item.lab_id)
         .where(models.ItemBiomarker.biomarker_id.in_(biomarker_ids))
         .where(models.Item.is_available.is_(True))
+        .where(models.Item.price_now_grosz > 0)
         .group_by(models.ItemBiomarker.biomarker_id, models.Lab.code)
     )
 

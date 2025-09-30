@@ -26818,6 +26818,7 @@ biomarkers:
       alab:
         - id: '1976655'
           slug: witamina-d-25oh
+        - slug: witamina-d3
       diag:
         - id: '605348992'
           slug: witamina-d-metabolit-25oh
@@ -28662,6 +28663,7 @@ biomarkers:
     slug: zelazo
     aliases:
       - iron
+      - zelazo
     labs:
       diag:
         - id: '605348813'

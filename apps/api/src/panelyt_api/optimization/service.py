@@ -252,6 +252,7 @@ class OptimizationService:
             .outerjoin(history, history.c.item_id == models.Item.id)
             .where(models.ItemBiomarker.biomarker_id.in_(biomarker_ids))
             .where(models.Item.is_available.is_(True))
+            .where(models.Item.price_now_grosz > 0)
         )
 
         rows = (await self.session.execute(statement)).all()
