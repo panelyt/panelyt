@@ -489,8 +489,8 @@ class OptimizationService:
             context.unresolved_inputs, uncovered_tokens
         )
 
-        label_map = dict(outcome.labels)
-        label_map.update(self._token_display_map(context.resolved))
+        resolved_labels = self._token_display_map(context.resolved)
+        label_map = outcome.labels | resolved_labels
 
         response = outcome.response.model_copy(
             update={
@@ -628,6 +628,7 @@ class OptimizationService:
             items=items_payload,
             explain=explain,
             uncovered=list(uncovered),
+            labels=labels,
         )
         return response, labels
 
@@ -653,6 +654,7 @@ class OptimizationService:
             lab_code="",
             lab_name="",
             exclusive={},
+            labels={},
         )
 
     def _uncovered_tokens(
