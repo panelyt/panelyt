@@ -315,6 +315,73 @@ class TestOptimizationService:
         assert result.uncovered == ["UNKNOWN1", "UNKNOWN2"]
 
     @pytest.mark.asyncio
+    async def test_solve_preserves_unresolved_order(
+        self, service, db_session
+    ):
+        """Unresolved biomarkers remain in the original order in responses."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [
+                    {"name": "ALT", "elab_code": "ALT", "slug": "alt"},
+                    {"name": "AST", "elab_code": "AST", "slug": "ast"},
+                ]
+            )
+        )
+        await db_session.execute(
+            insert(models.Item).values(
+                [
+                    {
+                        "id": 501,
+                        "lab_id": 1,
+                        "external_id": "diag-alt",
+                        "kind": "single",
+                        "name": "Diagnostyka ALT",
+                        "slug": "diag-alt",
+                        "price_now_grosz": 1000,
+                        "price_min30_grosz": 900,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                    {
+                        "id": 502,
+                        "lab_id": 1,
+                        "external_id": "diag-ast",
+                        "kind": "single",
+                        "name": "Diagnostyka AST",
+                        "slug": "diag-ast",
+                        "price_now_grosz": 1100,
+                        "price_min30_grosz": 1000,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                ]
+            )
+        )
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [
+                    {"item_id": 501, "biomarker_id": 1},
+                    {"item_id": 502, "biomarker_id": 2},
+                ]
+            )
+        )
+        await db_session.commit()
+
+        request = OptimizeRequest(
+            biomarkers=["ALT", "unknown-b", "AST", "unknown-a"]
+        )
+        response = await service.solve(request)
+
+        assert response.uncovered == ["unknown-b", "unknown-a"]
+        assert {item.id for item in response.items} == {501, 502}
+
+    @pytest.mark.asyncio
     async def test_solve_nonexclusive_with_more_expensive_alternative(
         self, service, db_session
     ):
