@@ -6373,20 +6373,6 @@ biomarkers:
       alab:
         - id: '1981391'
           slug: formaldehyd-k80-ige-swoiste-l91
-  - code: fosfataza-alkaliczna-alp-l11
-    name: Fosfataza alkaliczna (ALP)
-    slug: fosfataza-alkaliczna-alp-l11
-    labs:
-      alab:
-        - id: '1976089'
-          slug: fosfataza-alkaliczna-alp-l11
-  - code: fosfataza-alkaliczna-frakcja-kostna-l13
-    name: Fosfataza alkaliczna frakcja kostna
-    slug: fosfataza-alkaliczna-frakcja-kostna-l13
-    labs:
-      alab:
-        - id: '1976085'
-          slug: fosfataza-alkaliczna-frakcja-kostna-l13
   - code: fosfataza-alkaliczna-izoenzymy
     name: Fosfataza alkaliczna, izoenzymy
     slug: fosfataza-alkaliczna-izoenzymy
@@ -6416,17 +6402,32 @@ biomarkers:
   - code: fosfataza-zasadowa
     name: Fosfataza zasadowa (ALP)
     slug: fosfataza-zasadowa
+    aliases:
+      - Fosfataza alkaliczna
+      - ALP
+      - Fosfataza zasadowa
     labs:
       diag:
         - id: '605348810'
           slug: fosfataza-zasadowa
+      alab:
+        - id: '1976089'
+          slug: fosfataza-alkaliczna-alp-l11
   - code: fosfataza-zasadowa-izoenzym-kostny
     name: Fosfataza zasadowa izoenzym kostny
     slug: fosfataza-zasadowa-izoenzym-kostny
+    alaises:
+      - Izoenzym kostny ALP
+      - BALP
+      - Fosfataza alkaliczna – frakcja kostna
+      - Bone ALP
     labs:
       diag:
         - id: '605348996'
           slug: fosfataza-zasadowa-izoenzym-kostny
+      alab:
+        - id: '1976085'
+          slug: fosfataza-alkaliczna-frakcja-kostna-l13
   - code: fosfolipaza-a2-zwiazana-z-lipoproteina
     name: Fosfolipaza A2 związana z lipoproteiną
     slug: fosfolipaza-a2-zwiazana-z-lipoproteina
