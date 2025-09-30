@@ -16860,10 +16860,15 @@ biomarkers:
   - code: ob
     name: OB
     slug: ob
+    aliases:
+      - Odczyn Biernackiego
     labs:
       diag:
         - id: '605348801'
           slug: ob
+      alab:
+        - id: '1979290'
+          slug: odczyn-biernackiego-c59
   - code: obojnactwo-rzekome-zenskieniedobor-aromatazy-gen-cyp19-fragment
     name: Obojnactwo rzekome żeńskie/niedobór aromatazy (gen CYP19 - fragment)
     slug: obojnactwo-rzekome-zenskieniedobor-aromatazy-gen-cyp19-fragment
@@ -16935,13 +16940,6 @@ biomarkers:
       alab:
         - id: '1981305'
           slug: odchody-kanarka-e301-ige-swoiste-l91
-  - code: odczyn-biernackiego-c59
-    name: Odczyn Biernackiego
-    slug: odczyn-biernackiego-c59
-    labs:
-      alab:
-        - id: '1979290'
-          slug: odczyn-biernackiego-c59
   - code: odczyn-precypitacji-w-kierunku-grzybicy-pluc
     name: Odczyn precypitacji w kierunku grzybicy płuc
     slug: odczyn-precypitacji-w-kierunku-grzybicy-pluc
