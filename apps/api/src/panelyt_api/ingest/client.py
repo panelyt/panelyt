@@ -4,6 +4,7 @@ import hashlib
 import logging
 import math
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -18,6 +19,51 @@ _DIAG_BASE_URL = "https://api-eshop.diag.pl/api/front/v1/products"
 _DIAG_DEFAULT_LIMIT = 200
 _ALAB_BASE_URL = "https://api.alab.pl/api/referrals/get-examinations"
 _ALAB_DEFAULT_FACILITY_ID = 166
+
+_ALAB_COMMON_HEADERS = {
+    "accept": "*/*",
+    "accept-language": "pl",
+    "app-name": "Transaction",
+    "authorization": "Bearer null",
+    "content-type": "application/json",
+    "dnt": "1",
+    "origin": "https://www.alab.pl",
+    "referer": "https://www.alab.pl/",
+    "sec-ch-ua": '"Chromium";v="141", "Not?A_Brand";v="8"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"macOS"',
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-site",
+    "user-agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/141.0.0.0 Safari/537.36"
+    ),
+    "x-requested-with": "XMLHttpRequest",
+}
+
+_ALAB_EXAM_PARAMS = {
+    "is_bundle": "false",
+    "is_service": "true",
+    "is_own": "false",
+    "is_search": "false",
+    "show_online": "false",
+    "show_mobile_nurse": "false",
+    "show_delivery": "false",
+    "show_offline": "false",
+}
+
+_ALAB_PACKAGE_PARAMS = {
+    "is_bundle": "true",
+    "is_service": "false",
+    "is_own": "false",
+    "is_search": "false",
+    "show_online": "false",
+    "show_mobile_nurse": "false",
+    "show_delivery": "false",
+    "show_offline": "false",
+}
 
 
 class DiagClient:
@@ -176,7 +222,11 @@ class AlabClient:
         *,
         facility_id: int = _ALAB_DEFAULT_FACILITY_ID,
     ) -> None:
-        self._client = client or httpx.AsyncClient(timeout=30, follow_redirects=True)
+        self._client = client or httpx.AsyncClient(
+            timeout=30,
+            follow_redirects=True,
+            headers=_ALAB_COMMON_HEADERS.copy(),
+        )
         self._facility_id = facility_id
 
     async def close(self) -> None:
@@ -203,6 +253,7 @@ class AlabClient:
             page_param="page",
             raw_store=raw_store,
             item_builder=self._build_single,
+            base_query=_ALAB_EXAM_PARAMS,
         )
 
     async def _collect_packages(self, raw_store: dict[str, Any]) -> list[RawLabItem]:
@@ -211,6 +262,7 @@ class AlabClient:
             page_param="package_page",
             raw_store=raw_store,
             item_builder=self._build_package,
+            base_query=_ALAB_PACKAGE_PARAMS,
         )
 
     async def _paginate_collection(
@@ -220,12 +272,17 @@ class AlabClient:
         page_param: str,
         raw_store: dict[str, Any],
         item_builder,
+        base_query: dict[str, str],
     ) -> list[RawLabItem]:
         page = 1
         records: list[RawLabItem] = []
 
         while True:
-            params = {"facility_id": self._facility_id, page_param: page}
+            params = {
+                **base_query,
+                "facility_id": str(self._facility_id),
+                page_param: page,
+            }
             if page_param == "page":
                 params["package_page"] = 1
             else:
@@ -261,8 +318,14 @@ class AlabClient:
 
         name = str(entry.get("name") or "Badanie ALAB")
         slug = _clean_slug(entry.get("slug"))
-        price_now = _pln_to_grosz(entry.get("price"))
-        price_min30 = _pln_to_grosz(entry.get("lowest_price")) or price_now
+        promotion = entry.get("slipOfNotepaperPromotion")
+        base_price = _pln_to_grosz(entry.get("price"))
+        price_floor = _pln_to_grosz(entry.get("lowest_price"))
+
+        pricing = _resolve_alab_pricing(base_price, promotion)
+        price_min30_info = _resolve_alab_pricing(price_floor or base_price, promotion)
+        price_now = pricing.price_now
+        price_min30 = price_min30_info.price_now or pricing.price_now
         currency = "PLN"
         is_available = bool(entry.get("is_available", True))
 
@@ -284,9 +347,9 @@ class AlabClient:
             currency=currency,
             is_available=is_available,
             biomarkers=[biomarker],
-            sale_price_grosz=None,
-            regular_price_grosz=price_now,
-            metadata={"raw_id": item_id},
+            sale_price_grosz=pricing.sale_price,
+            regular_price_grosz=pricing.regular_price,
+            metadata=_decorate_alab_metadata(item_id, promotion),
         )
 
     def _build_package(self, entry: dict[str, Any]) -> RawLabItem | None:
@@ -297,8 +360,14 @@ class AlabClient:
 
         name = str(entry.get("name") or "Pakiet ALAB")
         slug = _clean_slug(entry.get("slug"))
-        price_now = _pln_to_grosz(entry.get("price"))
-        price_min30 = _pln_to_grosz(entry.get("lowest_price")) or price_now
+        promotion = entry.get("slipOfNotepaperPromotion")
+        base_price = _pln_to_grosz(entry.get("price"))
+        price_floor = _pln_to_grosz(entry.get("lowest_price"))
+
+        pricing = _resolve_alab_pricing(base_price, promotion)
+        price_min30_info = _resolve_alab_pricing(price_floor or base_price, promotion)
+        price_now = pricing.price_now
+        price_min30 = price_min30_info.price_now or pricing.price_now
         currency = "PLN"
         is_available = bool(entry.get("is_available", True))
 
@@ -331,9 +400,9 @@ class AlabClient:
             currency=currency,
             is_available=is_available,
             biomarkers=biomarkers,
-            sale_price_grosz=None,
-            regular_price_grosz=price_now,
-            metadata={"raw_id": item_id},
+            sale_price_grosz=pricing.sale_price,
+            regular_price_grosz=pricing.regular_price,
+            metadata=_decorate_alab_metadata(item_id, promotion),
         )
 
 
@@ -398,6 +467,57 @@ def _normalize_identifier(value: str | None) -> str:
     text = re.sub(r"[^a-z0-9ąęółśżźćń]+", "-", text)
     text = text.strip("-")
     return text or ""
+
+
+@dataclass(slots=True)
+class _PromotionPricing:
+    price_now: int
+    sale_price: int | None
+    regular_price: int | None
+
+
+def _resolve_alab_pricing(
+    base_price_grosz: int, promotion: dict[str, Any] | None
+) -> _PromotionPricing:
+    price_now = base_price_grosz
+    regular_price = base_price_grosz
+    sale_price: int | None = None
+
+    if not promotion or base_price_grosz <= 0:
+        return _PromotionPricing(
+            price_now=price_now,
+            sale_price=sale_price,
+            regular_price=regular_price,
+        )
+
+    promo_type = str(promotion.get("type") or "").lower()
+    if promo_type == "percentage":
+        discount_raw = promotion.get("discount")
+        try:
+            discount_value = float(str(discount_raw).replace(",", "."))
+        except (TypeError, ValueError):
+            discount_value = 0.0
+        ratio = max(0.0, min(discount_value, 100.0)) / 100
+        discounted = math.floor(base_price_grosz * (1 - ratio) + 0.5)
+        price_now = max(0, discounted)
+        sale_price = price_now
+    else:
+        # Future promotion types can be handled here without changing callers.
+        price_now = base_price_grosz
+        sale_price = None
+
+    return _PromotionPricing(
+        price_now=price_now,
+        sale_price=sale_price,
+        regular_price=regular_price,
+    )
+
+
+def _decorate_alab_metadata(item_id: Any, promotion: dict[str, Any] | None) -> dict[str, Any]:
+    metadata: dict[str, Any] = {"raw_id": item_id}
+    if promotion:
+        metadata["promotion"] = dict(promotion)
+    return metadata
 
 
 def _clean_slug(value: Any) -> str | None:
