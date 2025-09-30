@@ -40,6 +40,7 @@ const makeOptimizeResponse = (
   lab_code: 'diag',
   lab_name: 'Diagnostyka',
   exclusive: {},
+  labels: {},
   ...overrides,
 })
 

@@ -19,3 +19,4 @@ class OptimizeResponse(APIModel):
     lab_code: str = ""
     lab_name: str = ""
     exclusive: dict[str, str] = Field(default_factory=dict)
+    labels: dict[str, str] = Field(default_factory=dict)

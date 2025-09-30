@@ -83,6 +83,7 @@ class SolverOutcome:
     chosen_items: list[CandidateItem]
     uncovered_tokens: set[str]
     total_now_grosz: int
+    labels: dict[str, str]
 
     @property
     def has_selection(self) -> bool:
@@ -420,6 +421,7 @@ class OptimizationService:
                 chosen_items=[],
                 uncovered_tokens=set(uncovered),
                 total_now_grosz=0,
+                labels={},
             )
 
         self._apply_objective(model, candidates, variables)
@@ -434,16 +436,18 @@ class OptimizationService:
                 chosen_items=[],
                 uncovered_tokens=set(fallback_uncovered),
                 total_now_grosz=0,
+                labels={},
             )
 
         chosen = self._extract_selected_candidates(solver, candidates, variables)
-        response = await self._build_response(chosen, uncovered)
+        response, labels = await self._build_response(chosen, uncovered)
         total_now_grosz = sum(item.price_now for item in chosen)
         return SolverOutcome(
             response=response,
             chosen_items=list(chosen),
             uncovered_tokens=set(uncovered),
             total_now_grosz=int(total_now_grosz),
+            labels=labels,
         )
 
     async def _find_best_solution(
@@ -479,14 +483,14 @@ class OptimizationService:
         exclusive_tokens = self._exclusive_tokens(
             context.resolved, context.availability_map, lab_id
         )
-        exclusive_map = {
-            context.token_to_original.get(token, token): lab_name
-            for token in exclusive_tokens
-        }
+        exclusive_map = {token: lab_name for token in exclusive_tokens}
 
         combined_uncovered = self._combine_uncovered_tokens(
             context.unresolved_inputs, uncovered_tokens
         )
+
+        label_map = dict(outcome.labels)
+        label_map.update(self._token_display_map(context.resolved))
 
         response = outcome.response.model_copy(
             update={
@@ -494,6 +498,7 @@ class OptimizationService:
                 "lab_code": lab_code,
                 "lab_name": lab_name,
                 "exclusive": exclusive_map,
+                "labels": label_map,
             }
         )
         return LabSolution(
@@ -514,6 +519,15 @@ class OptimizationService:
     ) -> list[str]:
         tokens = [biomarker.token for biomarker in resolved]
         return list(dict.fromkeys(list(unresolved_inputs) + tokens))
+
+    @staticmethod
+    def _token_display_map(
+        resolved: Sequence[ResolvedBiomarker],
+    ) -> dict[str, str]:
+        return {
+            biomarker.token: biomarker.display_name or biomarker.token
+            for biomarker in resolved
+        }
 
     @staticmethod
     def _build_solver_model(
@@ -583,13 +597,13 @@ class OptimizationService:
 
     async def _build_response(
         self, chosen: Sequence[CandidateItem], uncovered: Sequence[str]
-    ) -> OptimizeResponse:
+    ) -> tuple[OptimizeResponse, dict[str, str]]:
         total_now = round(sum(item.price_now for item in chosen) / 100, 2)
         total_min30 = round(sum(item.price_min30 for item in chosen) / 100, 2)
         explain = self._build_explain_map(chosen)
 
         chosen_item_ids = [item.id for item in chosen]
-        biomarkers_by_item = await self._get_all_biomarkers_for_items(chosen_item_ids)
+        biomarkers_by_item, labels = await self._get_all_biomarkers_for_items(chosen_item_ids)
 
         items_payload = [
             ItemOut(
@@ -607,7 +621,7 @@ class OptimizationService:
             for item in chosen
         ]
 
-        return OptimizeResponse(
+        response = OptimizeResponse(
             total_now=total_now,
             total_min30=total_min30,
             currency=DEFAULT_CURRENCY,
@@ -615,6 +629,7 @@ class OptimizationService:
             explain=explain,
             uncovered=list(uncovered),
         )
+        return response, labels
 
     @staticmethod
     def _build_explain_map(
@@ -649,10 +664,12 @@ class OptimizationService:
         tokens = {b.token for b in biomarkers}
         return tokens - available
 
-    async def _get_all_biomarkers_for_items(self, item_ids: list[int]) -> dict[int, list[str]]:
-        """Fetch all biomarkers for the given items to show bonus biomarkers."""
+    async def _get_all_biomarkers_for_items(
+        self, item_ids: list[int]
+    ) -> tuple[dict[int, list[str]], dict[str, str]]:
+        """Fetch biomarkers for items and provide display labels."""
         if not item_ids:
-            return {}
+            return {}, {}
 
         statement = (
             select(
@@ -667,13 +684,17 @@ class OptimizationService:
 
         rows = (await self.session.execute(statement)).all()
         result: dict[int, list[str]] = {}
+        labels: dict[str, str] = {}
         for item_id, elab_code, slug, name in rows:
             token = elab_code or slug or name
             if not token:
                 continue
+            display_name = (name or "").strip()
+            if display_name:
+                labels.setdefault(token, display_name)
             result.setdefault(item_id, []).append(token)
 
-        return result
+        return result, labels
 
 
 def _item_url(item: CandidateItem) -> str:

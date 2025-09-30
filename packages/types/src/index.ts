@@ -43,6 +43,7 @@ export const OptimizeResponseSchema = z.object({
   lab_code: z.string().default(""),
   lab_name: z.string().default(""),
   exclusive: z.record(z.string(), z.string()).default({}),
+  labels: z.record(z.string(), z.string()).default({}),
 });
 
 export type OptimizeResponse = z.infer<typeof OptimizeResponseSchema>;

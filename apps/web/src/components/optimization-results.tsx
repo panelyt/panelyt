@@ -37,7 +37,20 @@ export function OptimizationResults({
   const isDark = variant === "dark";
   const allBiomarkerCodes = result?.items.flatMap((item) => item.biomarkers) ?? [];
   const uniqueCodes = Array.from(new Set(allBiomarkerCodes));
-  const { data: biomarkerNames } = useBiomarkerLookup(uniqueCodes);
+  const labelMap = result?.labels ?? {};
+  const missingCodes = uniqueCodes.filter((code) => !(code in labelMap));
+  const { data: biomarkerNames } = useBiomarkerLookup(missingCodes);
+
+  const resolveDisplayName = (code: string): string => {
+    const normalized = code.trim().toUpperCase();
+    return (
+      labelMap[code] ??
+      labelMap[normalized] ??
+      biomarkerNames?.[code] ??
+      biomarkerNames?.[normalized] ??
+      code
+    );
+  };
 
   if (selected.length === 0) {
     return (
@@ -288,7 +301,7 @@ export function OptimizationResults({
                   }`}
                 >
                   <CircleAlert className="h-3.5 w-3.5" />
-                  {token}
+                  {resolveDisplayName(token)}
                 </span>
               ))}
             </div>
@@ -310,25 +323,18 @@ export function OptimizationResults({
               </span>
             </div>
             <ul className="mt-3 flex flex-wrap gap-2 text-xs">
-              {exclusiveCodes.map((code) => {
-                const normalized = code.trim().toUpperCase();
-                const display =
-                  biomarkerNames?.[normalized] ??
-                  biomarkerNames?.[code] ??
-                  normalized;
-                return (
-                  <li
-                    key={code}
-                    className={`rounded-full px-3 py-1 ${
-                      isDark
-                        ? "bg-amber-500/20 text-amber-100"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    {display}
-                  </li>
-                );
-              })}
+              {exclusiveCodes.map((code) => (
+                <li
+                  key={code}
+                  className={`rounded-full px-3 py-1 ${
+                    isDark
+                      ? "bg-amber-500/20 text-amber-100"
+                      : "bg-amber-100 text-amber-700"
+                  }`}
+                >
+                  {resolveDisplayName(code)}
+                </li>
+              ))}
             </ul>
           </div>
         )}
@@ -358,7 +364,7 @@ export function OptimizationResults({
             </div>
             <ul className="mt-4 space-y-3">
               {overlappingEntries.map((entry) => {
-                const displayName = biomarkerNames?.[entry.code] ?? entry.code;
+                const displayName = resolveDisplayName(entry.code);
                 return (
                   <li
                     key={entry.code}
@@ -488,7 +494,7 @@ export function OptimizationResults({
                             <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
                               {item.biomarkers.map((biomarker) => {
                                 const isBonus = !selectedSet.has(biomarker);
-                                const displayName = biomarkerNames?.[biomarker] ?? biomarker;
+                                const displayName = resolveDisplayName(biomarker);
                                 return (
                                   <span
                                     key={biomarker}

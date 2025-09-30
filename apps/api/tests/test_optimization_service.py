@@ -723,6 +723,60 @@ class TestOptimizationService:
         assert "AST" in result.explain
 
     @pytest.mark.asyncio
+    async def test_solver_prefers_biomarker_names(self, service, db_session):
+        """Returned payload should expose biomarker display names instead of slugs."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarker_id = (
+            await db_session.execute(
+                insert(models.Biomarker)
+                .returning(models.Biomarker.id)
+                .values(
+                    {
+                        "name": "Luteotropina",
+                        "elab_code": None,
+                        "slug": "luteotropina",
+                    }
+                )
+            )
+        ).scalar_one()
+
+        await db_session.execute(
+            insert(models.Item).values(
+                {
+                    "id": 501,
+                    "lab_id": 1,
+                    "external_id": "diag-lut",
+                    "kind": "single",
+                    "name": "Luteotropina",
+                    "slug": "diag-lut",
+                    "price_now_grosz": 2000,
+                    "price_min30_grosz": 1800,
+                    "currency": "PLN",
+                    "is_available": True,
+                }
+            )
+        )
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                {"item_id": 501, "biomarker_id": biomarker_id}
+            )
+        )
+        await db_session.commit()
+
+        response = await service.solve(OptimizeRequest(biomarkers=["luteotropina"]))
+
+        assert response.items
+        assert response.items[0].biomarkers == ["luteotropina"]
+        assert list(response.explain.keys()) == ["luteotropina"]
+        assert response.labels["luteotropina"] == "Luteotropina"
+        assert response.uncovered == []
+
+    @pytest.mark.asyncio
     async def test_solve_returns_empty_response_when_solver_infeasible(
         self, service, db_session, monkeypatch
     ):
