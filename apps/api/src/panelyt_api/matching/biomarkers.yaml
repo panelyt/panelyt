@@ -15379,7 +15379,7 @@ biomarkers:
         - id: '605376938'
           slug: morfologia-cbc
   - code: morfologia-krwi-pelna
-    name: Morfologia krwi (pełna)
+    name: Morfologia krwi
     slug: morfologia-krwi-pelna
     aliases:
       - CBC
@@ -15387,6 +15387,7 @@ biomarkers:
       - morfologia
       - morfologia z rozmazem
       - pełna morfologia krwi
+      - morfologia krwi pełna
     labs:
       diag:
         - id: '605348902'
@@ -18996,9 +18997,12 @@ biomarkers:
       diag:
         - id: '605365705'
           slug: paraplegia-spastyczna-typu-4-analiza-delecjiduplikacji-w-genie-spast-metoda-mlpa
-  - code: parathormon-intact
-    name: Parathormon (intact)
-    slug: parathormon-intact
+  - code: pth
+    name: Parathormon (PTH)
+    slug: pth
+    aliases:
+      - Parathyroid hormone
+      - PTH
     labs:
       diag:
         - id: '605348990'
@@ -19006,8 +19010,6 @@ biomarkers:
       alab:
         - id: '1975985'
           slug: parathormon-pth-n30
-    aliases:
-      - Parathormon (PTH)
   - code: parento-maksimum-badanie-dla-par-planujacych-ciaze-kobieta-1
     name: Parento Maksimum - badanie dla par planujących ciążę (kobieta)
     slug: parento-maksimum-badanie-dla-par-planujacych-ciaze-kobieta-1

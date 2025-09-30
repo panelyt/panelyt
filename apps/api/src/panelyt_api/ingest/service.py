@@ -165,18 +165,21 @@ class IngestionService:
 
     async def _fetch_all_labs(self) -> list[LabIngestionResult]:
         clients: list[DiagClient | AlabClient] = [DiagClient(), AlabClient()]
-        results: list[LabIngestionResult] = []
         try:
-            for client in clients:
-                logger.info("Fetching catalog for lab %s", client.lab_code)
-                lab_result = await client.fetch_all()
-                logger.info(
-                    "Fetched %s items for lab %s", len(lab_result.items), client.lab_code
-                )
-                results.append(lab_result)
+            tasks = [asyncio.create_task(self._fetch_lab_catalog(client)) for client in clients]
+            return await asyncio.gather(*tasks)
         finally:
             await asyncio.gather(*(client.close() for client in clients), return_exceptions=True)
-        return results
+
+    async def _fetch_lab_catalog(
+        self, client: DiagClient | AlabClient
+    ) -> LabIngestionResult:
+        logger.info("Fetching catalog for lab %s", client.lab_code)
+        lab_result = await client.fetch_all()
+        logger.info(
+            "Fetched %s items for lab %s", len(lab_result.items), client.lab_code
+        )
+        return lab_result
 
     async def _process_lab_result(
         self,

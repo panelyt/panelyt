@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import math
@@ -76,13 +77,23 @@ class DiagClient:
         await self._client.aclose()
 
     async def fetch_all(self) -> LabIngestionResult:
-        combined_items: list[RawLabItem] = []
-        raw_payload: dict[str, dict[str, Any]] = {}
-        for source, params in (
+        async def _load_source(
+            source: str, params: dict[str, Any]
+        ) -> tuple[str, list[RawLabItem], dict[str, Any]]:
+            items, payload = await self._fetch_source(params)
+            return source, items, payload
+
+        sources = (
             ("packages", {"filter[type]": "package,shop-package", "filter[institution]": "1135"}),
             ("singles", {"filter[type]": "bloodtest", "filter[institution]": "1135"}),
-        ):
-            items, payload = await self._fetch_source(params)
+        )
+
+        combined_items: list[RawLabItem] = []
+        raw_payload: dict[str, dict[str, Any]] = {}
+        results = await asyncio.gather(
+            *(asyncio.create_task(_load_source(source, params)) for source, params in sources)
+        )
+        for source, items, payload in results:
             combined_items.extend(items)
             raw_payload[source] = payload
         return LabIngestionResult(

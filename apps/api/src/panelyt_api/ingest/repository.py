@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import TypeVar
 
-from sqlalchemy import delete, exists, func, select, update
+from sqlalchemy import delete, exists, func, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -268,13 +268,11 @@ class IngestionRepository:
         if not context.lab_item_ids:
             return
 
-        await self.session.execute(
-            delete(models.LabItemBiomarker).where(
-                models.LabItemBiomarker.lab_item_id.in_(context.lab_item_ids.values())
-            )
-        )
+        lab_item_ids = list(context.lab_item_ids.values())
+        if not lab_item_ids:
+            return
 
-        entries = []
+        target_pairs: set[tuple[int, int]] = set()
         for item_external, biomarker_externals in context.item_to_biomarkers.items():
             lab_item_id = context.lab_item_ids.get(item_external)
             if not lab_item_id:
@@ -283,17 +281,46 @@ class IngestionRepository:
                 lab_biomarker_id = context.lab_biomarker_ids.get(biomarker_external)
                 if not lab_biomarker_id:
                     continue
-                entries.append(
-                    {
-                        "lab_item_id": lab_item_id,
-                        "lab_biomarker_id": lab_biomarker_id,
-                    }
+                target_pairs.add((int(lab_item_id), int(lab_biomarker_id)))
+
+        if not target_pairs:
+            await self.session.execute(
+                delete(models.LabItemBiomarker).where(
+                    models.LabItemBiomarker.lab_item_id.in_(lab_item_ids)
                 )
-        if entries:
-            for batch in _chunked(entries, _UPSERT_BATCH_SIZE):
-                stmt = insert(models.LabItemBiomarker).values(list(batch))
-                stmt = stmt.on_conflict_do_nothing()
-                await self.session.execute(stmt)
+            )
+            return
+
+        existing_stmt = (
+            select(models.LabItemBiomarker.lab_item_id, models.LabItemBiomarker.lab_biomarker_id)
+            .where(models.LabItemBiomarker.lab_item_id.in_(lab_item_ids))
+        )
+        existing_rows = await self.session.execute(existing_stmt)
+        existing_pairs = {
+            (int(lab_item_id), int(lab_biomarker_id))
+            for lab_item_id, lab_biomarker_id in existing_rows.all()
+        }
+
+        to_delete = list(existing_pairs - target_pairs)
+        if to_delete:
+            for delete_batch in _chunked(to_delete, _UPSERT_BATCH_SIZE):
+                delete_stmt = delete(models.LabItemBiomarker).where(
+                    tuple_(
+                        models.LabItemBiomarker.lab_item_id,
+                        models.LabItemBiomarker.lab_biomarker_id,
+                    ).in_(list(delete_batch))
+                )
+                await self.session.execute(delete_stmt)
+
+        to_insert = [
+            {"lab_item_id": lab_item_id, "lab_biomarker_id": lab_biomarker_id}
+            for lab_item_id, lab_biomarker_id in target_pairs - existing_pairs
+        ]
+        if to_insert:
+            for insert_batch in _chunked(to_insert, _UPSERT_BATCH_SIZE):
+                insert_stmt = insert(models.LabItemBiomarker).values(list(insert_batch))
+                insert_stmt = insert_stmt.on_conflict_do_nothing()
+                await self.session.execute(insert_stmt)
 
     async def _ensure_diag_matches(self, context: StageContext) -> None:
         diag_biomarkers = list(context.biomarkers.items())
