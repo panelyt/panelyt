@@ -6493,7 +6493,7 @@ biomarkers:
         - id: '605365401'
           slug: fruktozemia-wrodzona-mutacje-a150p-i-a175d-w-genie-aldob
   - code: fsh
-    name: Follicle-stimulating hormone (FSH)
+    name: FSH
     slug: fsh
     aliases:
       - Folikulotropina
@@ -7006,13 +7006,6 @@ biomarkers:
       alab:
         - id: '1978117'
           slug: glista-ludzka-p1-ige-swoiste-l91
-  - code: globulina-wiazaca-hormony-plciowe-shbg-i83
-    name: SHBG globulina wiążąca hormony płciowe
-    slug: globulina-wiazaca-hormony-plciowe-shbg-i83
-    labs:
-      alab:
-        - id: '1976185'
-          slug: globulina-wiazaca-hormony-plciowe-shbg-i83
   - code: gluchota-po-aminoglikozydach-badanie-najczestszych-mutacji-w-genie-12s-trna
     name: Głuchota po aminoglikozydach (badanie najczęstszych mutacji w genie 12S tRNA)
     slug: gluchota-po-aminoglikozydach-badanie-najczestszych-mutacji-w-genie-12s-trna
@@ -14076,11 +14069,10 @@ biomarkers:
         - id: '1980313'
           slug: lewomepromazyna
   - code: luteotropina
-    name: Luteotropin (LH)
+    name: LH
     slug: luteotropina
     aliases:
       - Luteotropina
-      - LH
       - Luteotropin
     labs:
       diag:
@@ -24430,6 +24422,9 @@ biomarkers:
       diag:
         - id: '605348942'
           slug: shbg
+      alab:
+        - id: '1976185'
+          slug: globulina-wiazaca-hormony-plciowe-shbg-i83
   - code: siarczan-pregnenolonu
     name: Siarczan pregnenolonu
     slug: siarczan-pregnenolonu
