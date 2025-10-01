@@ -37,6 +37,7 @@ class CandidateItem:
     kind: str
     name: str
     slug: str
+    external_id: str
     lab_id: int
     lab_code: str
     lab_name: str
@@ -260,6 +261,7 @@ class OptimizationService:
                     kind=item.kind,
                     name=item.name,
                     slug=item.slug,
+                    external_id=item.external_id,
                     lab_id=item.lab_id,
                     lab_code=lab_code,
                     lab_name=lab_name,
@@ -703,7 +705,7 @@ def _item_url(item: CandidateItem) -> str:
     template = item.package_url_template if item.kind == "package" else item.single_url_template
     if template:
         try:
-            return template.format(slug=item.slug, external_id=item.id)
+            return template.format(slug=item.slug, external_id=item.external_id)
         except Exception:  # pragma: no cover - fallback for malformed templates
             return template
     if item.lab_code == "alab":

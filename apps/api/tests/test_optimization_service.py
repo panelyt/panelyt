@@ -16,6 +16,7 @@ from panelyt_api.schemas.optimize import OptimizeRequest
 
 def make_candidate(**overrides) -> CandidateItem:
     defaults = {
+        "external_id": "item-1",
         "lab_id": 1,
         "lab_code": "diag",
         "lab_name": "Diagnostyka",
