@@ -76,6 +76,19 @@ def upgrade() -> None:
         ],
     )
 
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        sequence_name = bind.execute(
+            sa.text("SELECT pg_get_serial_sequence('lab', 'id')")
+        ).scalar()
+        if sequence_name:
+            bind.execute(
+                sa.text(
+                    "SELECT setval(:sequence_name, (SELECT COALESCE(MAX(id), 0) FROM lab), true)"
+                ),
+                {"sequence_name": sequence_name},
+            )
+
     op.create_table(
         "lab_biomarker",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
@@ -187,7 +200,6 @@ def upgrade() -> None:
         "fk_item_lab_item_id", "item", "lab_item", ["lab_item_id"], ["id"], ondelete="SET NULL"
     )
 
-    bind = op.get_bind()
     bind.execute(sa.text("UPDATE item SET lab_id = :lab_id"), {"lab_id": 1})
     bind.execute(sa.text("UPDATE item SET external_id = CAST(id AS TEXT) WHERE external_id IS NULL"))
 
