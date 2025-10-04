@@ -299,7 +299,7 @@ export function OptimizationResults({
                       {card.title}
                     </p>
 
-                    <div className="space-y-2">
+                    <div className="flex flex-1 flex-col justify-between">
                       <div className="flex items-center gap-2">
                         <p
                           className={`text-2xl font-semibold ${
@@ -320,9 +320,13 @@ export function OptimizationResults({
                           </span>
                         )}
                       </div>
-                      <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                        {card.meta ?? ""}
-                      </p>
+                      <div className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                        {card.meta ? (
+                          card.meta
+                        ) : (
+                          <span className="invisible">placeholder</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </button>
