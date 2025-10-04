@@ -64,8 +64,8 @@ typecheck-bot: ## Run type checking on Telegram bot code
 	cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev
 	cd apps/telegram-bot && $(UV_ENV) $(UV) run mypy src
 
-test-web: ## Run web frontend test suite (placeholder - not implemented yet)
-	@echo "Web tests not implemented yet"
+test-web: ## Run web frontend test suite
+	cd apps/web && pnpm --filter @panelyt/web test -- --run
 
 check: ## Run comprehensive code quality checks, tests, and linting for the entire project
 	@echo "🔍 Running comprehensive code quality checks..."
@@ -93,5 +93,8 @@ check: ## Run comprehensive code quality checks, tests, and linting for the enti
 	@echo ""
 	@echo "🌐 Web: Linting..."
 	$(MAKE) lint-web
+	@echo ""
+	@echo "🌐 Web: Running tests..."
+	$(MAKE) test-web
 	@echo ""
 	@echo "✅ All checks completed successfully!"
