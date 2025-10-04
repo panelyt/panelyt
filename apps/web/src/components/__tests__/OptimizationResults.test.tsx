@@ -224,8 +224,9 @@ describe('OptimizationResults', () => {
     // Check header information
     expect(screen.getByText('Optimization summary')).toBeInTheDocument()
     expect(screen.getByText(/Covering 3 biomarkers/)).toBeInTheDocument()
-    expect(screen.getAllByText('$25.00')[0]).toBeInTheDocument() // Current total
-    expect(screen.getAllByText('$23.50')[0]).toBeInTheDocument() // Min total
+    expect(screen.getByText('30-day minimum')).toBeInTheDocument()
+    expect(screen.getAllByText('$23.50')[0]).toBeInTheDocument()
+    expect(screen.queryByText('Current total')).not.toBeInTheDocument()
 
     // Check items are displayed
     expect(screen.getAllByRole('link', { name: 'ALT Test' })[0]).toBeInTheDocument()

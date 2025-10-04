@@ -1,16 +1,7 @@
 "use client";
 
 import type { OptimizeResponse } from "@panelyt/types";
-import {
-  ArrowDownRight,
-  Boxes,
-  CircleAlert,
-  CircleCheck,
-  Layers3,
-  Loader2,
-  ShoppingCart,
-  Sparkles,
-} from "lucide-react";
+import { ArrowDownRight, Boxes, CircleAlert, CircleCheck, Layers3, Loader2, Sparkles } from "lucide-react";
 
 import { useBiomarkerLookup } from "../hooks/useBiomarkerLookup";
 import { formatCurrency, formatGroszToPln } from "../lib/format";
@@ -139,14 +130,6 @@ export function OptimizationResults({
 
   const summaryStats = [
     {
-      label: "Current total",
-      value: formatCurrency(result.total_now),
-      hint: "Live prices from diag.pl",
-      icon: <ShoppingCart className="h-4 w-4" />,
-      accentLight: "bg-sky-500/10 text-sky-500",
-      accentDark: "bg-sky-500/20 text-sky-200",
-    },
-    {
       label: "30-day minimum",
       value: formatCurrency(result.total_min30),
       hint: "Lowest basket seen this month",
@@ -218,7 +201,7 @@ export function OptimizationResults({
           )}
         </div>
 
-        <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
           {summaryStats.map((stat) => (
             <div
               key={stat.label}
@@ -265,7 +248,7 @@ export function OptimizationResults({
         </div>
 
         {labCards.length > 0 && (
-          <div className="mt-4 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-4 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
             {labCards.map((card) => {
               const isActive = card.active;
               const isDisabled = card.disabled || card.loading;
