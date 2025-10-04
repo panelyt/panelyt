@@ -1,9 +1,19 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BarChart3, Clock, Layers, Loader2, Sparkles } from "lucide-react";
+import {
+  BarChart3,
+  Clock,
+  Factory,
+  FlaskConical,
+  Layers,
+  Loader2,
+  Sparkles,
+  Workflow,
+} from "lucide-react";
 import {
   BiomarkerListTemplateSchema,
   OptimizeResponseSchema,
@@ -226,6 +236,29 @@ export default function Home() {
           : "—"
         : `${missingCount} Missing · ${bonusCount} Bonus`;
 
+      const preset: { icon: ReactNode; accentLight: string; accentDark: string } = (() => {
+        switch (labShort) {
+          case "DIAG":
+            return {
+              icon: <FlaskConical className="h-4 w-4" />,
+              accentLight: "bg-emerald-500/10 text-emerald-600",
+              accentDark: "bg-emerald-500/20 text-emerald-200",
+            } as const;
+          case "ALAB":
+            return {
+              icon: <Factory className="h-4 w-4" />,
+              accentLight: "bg-sky-500/10 text-sky-500",
+              accentDark: "bg-sky-500/20 text-sky-200",
+            } as const;
+          default:
+            return {
+              icon: <Sparkles className="h-4 w-4" />,
+              accentLight: "bg-slate-500/10 text-slate-600",
+              accentDark: "bg-slate-500/20 text-slate-300",
+            } as const;
+        }
+      })();
+
       return {
         key: code || `lab-${index}`,
         title: labTitle,
@@ -237,6 +270,9 @@ export default function Home() {
         loading: query.isFetching || query.isLoading,
         disabled: optimizerInput.length === 0,
         onSelect: () => setSelectedLabChoice(code),
+        icon: preset.icon,
+        accentLight: preset.accentLight,
+        accentDark: preset.accentDark,
       };
     });
 
@@ -266,6 +302,9 @@ export default function Home() {
       loading: splitLoading,
       disabled: optimizerInput.length === 0,
       onSelect: () => setSelectedLabChoice("all"),
+      icon: <Workflow className="h-4 w-4" />,
+      accentLight: "bg-indigo-500/10 text-indigo-500",
+      accentDark: "bg-indigo-500/20 text-indigo-200",
     });
 
     const priceCandidates = cards

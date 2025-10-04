@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Sparkles } from 'lucide-react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
 import type { OptimizeResponse } from '@panelyt/types'
+import type { ReactNode } from 'react'
 
 // Mock the hooks
 vi.mock('../../hooks/useBiomarkerLookup', () => ({
@@ -39,6 +41,9 @@ interface LabChoiceCardStub {
   loading?: boolean;
   disabled?: boolean;
   onSelect: () => void;
+  icon: ReactNode;
+  accentLight: string;
+  accentDark: string;
 }
 
 type OptimizeResponseOverrides = Partial<Omit<OptimizeResponse, 'items'>> & {
@@ -205,6 +210,9 @@ describe('OptimizationResults', () => {
             disabled: false,
             onSelect: vi.fn(),
             priceValue: 25,
+            icon: <Sparkles className="h-4 w-4" />,
+            accentLight: 'bg-emerald-500/10 text-emerald-600',
+            accentDark: 'bg-emerald-500/20 text-emerald-200',
           },
           {
             key: 'all',
@@ -216,6 +224,9 @@ describe('OptimizationResults', () => {
             disabled: false,
             onSelect: vi.fn(),
             priceValue: 25,
+            icon: <Sparkles className="h-4 w-4" />,
+            accentLight: 'bg-indigo-500/10 text-indigo-500',
+            accentDark: 'bg-indigo-500/20 text-indigo-200',
           },
         ]}
       />
@@ -559,6 +570,9 @@ describe('OptimizationResults', () => {
         loading: false,
         disabled: false,
         onSelect: vi.fn(),
+        icon: <Sparkles className="h-4 w-4" />,
+        accentLight: 'bg-emerald-500/10 text-emerald-600',
+        accentDark: 'bg-emerald-500/20 text-emerald-200',
       },
       {
         key: 'alab',
@@ -571,6 +585,9 @@ describe('OptimizationResults', () => {
         loading: false,
         disabled: false,
         onSelect: vi.fn(),
+        icon: <Sparkles className="h-4 w-4" />,
+        accentLight: 'bg-sky-500/10 text-sky-500',
+        accentDark: 'bg-sky-500/20 text-sky-200',
       },
     ] satisfies LabChoiceCardStub[]
 

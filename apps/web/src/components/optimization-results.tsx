@@ -1,7 +1,16 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
-import { ArrowDownRight, Boxes, CircleAlert, CircleCheck, Layers3, Loader2, Sparkles } from "lucide-react";
+import {
+  ArrowDownRight,
+  Boxes,
+  CircleAlert,
+  CircleCheck,
+  Layers3,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 
 import { useBiomarkerLookup } from "../hooks/useBiomarkerLookup";
 import { formatCurrency, formatGroszToPln } from "../lib/format";
@@ -17,6 +26,9 @@ interface LabChoiceCard {
   loading?: boolean;
   disabled?: boolean;
   onSelect: () => void;
+  icon: ReactNode;
+  accentLight: string;
+  accentDark: string;
 }
 
 interface Props {
@@ -274,13 +286,26 @@ export function OptimizationResults({
                   } ${isDisabled ? "cursor-not-allowed opacity-60" : ""}`}
                 >
                   <div className="flex h-full flex-col justify-between gap-4">
-                    <p
-                      className={`text-xs font-semibold uppercase tracking-wide ${
-                        isDark ? "text-slate-300" : "text-slate-500"
+                    <div
+                      className={`flex items-center gap-3 text-sm ${
+                        isDark ? "text-slate-400" : "text-slate-500"
                       }`}
                     >
-                      {card.title}
-                    </p>
+                      <span
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                          isDark ? card.accentDark : card.accentLight
+                        }`}
+                      >
+                        {card.icon}
+                      </span>
+                      <span
+                        className={`font-semibold uppercase tracking-wide text-[11px] ${
+                          isDark ? "text-slate-200" : ""
+                        }`}
+                      >
+                        {card.title}
+                      </span>
+                    </div>
 
                     <div className="flex flex-1 flex-col justify-between">
                       <div className="flex items-center gap-2">
