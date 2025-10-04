@@ -28,21 +28,57 @@ const createLookupResult = (
     ...overrides,
   } as unknown as ReturnType<typeof useBiomarkerLookup>)
 
+interface LabChoiceCardStub {
+  key: string;
+  title: string;
+  priceLabel: string;
+  priceValue: number | null;
+  meta?: string;
+  badge?: string;
+  active: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+}
+
+type OptimizeResponseOverrides = Partial<Omit<OptimizeResponse, 'items'>> & {
+  items?: Array<Partial<OptimizeResponse['items'][number]>>;
+};
+
 const makeOptimizeResponse = (
-  overrides: Partial<OptimizeResponse>,
-): OptimizeResponse => ({
-  total_now: 0,
-  total_min30: 0,
-  currency: 'PLN',
-  items: [],
-  explain: {},
-  uncovered: [],
-  lab_code: 'diag',
-  lab_name: 'Diagnostyka',
-  exclusive: {},
-  labels: {},
-  ...overrides,
-})
+  overrides: OptimizeResponseOverrides,
+): OptimizeResponse => {
+  const { items: overrideItems, ...rest } = overrides
+  const items: OptimizeResponse['items'] = (overrideItems ?? []).map((item) => {
+    const {
+      lab_code = 'diag',
+      lab_name = 'Diagnostyka',
+      ...restItem
+    } = item
+    return {
+      lab_code,
+      lab_name,
+      ...restItem,
+    } as OptimizeResponse['items'][number]
+  })
+
+  return {
+    total_now: 0,
+    total_min30: 0,
+    currency: 'PLN',
+    items,
+    explain: {},
+    uncovered: [],
+    lab_code: 'diag',
+    lab_name: 'Diagnostyka',
+    exclusive: {},
+    labels: {},
+    mode: 'auto',
+    lab_options: [],
+    lab_selections: [],
+    ...rest,
+  }
+}
 
 function renderWithQueryClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -157,14 +193,39 @@ describe('OptimizationResults', () => {
         result={mockResult}
         isLoading={false}
         error={null}
+        labCards={[
+          {
+            key: 'diag',
+            title: 'ONLY DIAG',
+            priceLabel: '$25.00',
+            meta: '0 Missing · 0 Bonus',
+            badge: 'Cheapest',
+            active: true,
+            loading: false,
+            disabled: false,
+            onSelect: vi.fn(),
+            priceValue: 25,
+          },
+          {
+            key: 'all',
+            title: 'BOTH LABS',
+            priceLabel: '$25.00',
+            meta: '0 Missing · 1 Bonus',
+            active: false,
+            loading: false,
+            disabled: false,
+            onSelect: vi.fn(),
+            priceValue: 25,
+          },
+        ]}
       />
     )
 
     // Check header information
     expect(screen.getByText('Optimization summary')).toBeInTheDocument()
     expect(screen.getByText(/Covering 3 biomarkers/)).toBeInTheDocument()
-    expect(screen.getByText('$25.00')).toBeInTheDocument() // Current total
-    expect(screen.getByText('$23.50')).toBeInTheDocument() // Min total
+    expect(screen.getAllByText('$25.00')[0]).toBeInTheDocument() // Current total
+    expect(screen.getAllByText('$23.50')[0]).toBeInTheDocument() // Min total
 
     // Check items are displayed
     expect(screen.getAllByRole('link', { name: 'ALT Test' })[0]).toBeInTheDocument()
@@ -173,8 +234,8 @@ describe('OptimizationResults', () => {
     // Check sections
     expect(screen.getByText(/Packages/)).toBeInTheDocument()
     expect(screen.getByText(/Single tests/)).toBeInTheDocument()
-    expect(screen.getByText('Selected lab')).toBeInTheDocument()
-    expect(screen.getByText(/Diagnostyka/)).toBeInTheDocument()
+    expect(screen.getByText('ONLY DIAG')).toBeInTheDocument()
+    expect(screen.getByText('BOTH LABS')).toBeInTheDocument()
 
     // Check coverage summary
     expect(screen.getByText('Coverage')).toBeInTheDocument()
@@ -426,6 +487,138 @@ describe('OptimizationResults', () => {
       'Single Expensive',
       'Single Budget',
     ])
+  })
+
+  it('shows lab splitting summary and per-lab breakdown', () => {
+    const mockResult = makeOptimizeResponse({
+      mode: 'split',
+      lab_code: 'mixed',
+      lab_name: 'Multiple labs',
+      lab_selections: [
+        { code: 'diag', name: 'Diagnostyka', total_now_grosz: 1500, items: 2 },
+        { code: 'alab', name: 'ALAB', total_now_grosz: 900, items: 1 },
+      ],
+      items: [
+        {
+          id: 1,
+          kind: 'single',
+          name: 'ALT Test',
+          slug: 'alt-test',
+          price_now_grosz: 600,
+          price_min30_grosz: 500,
+          currency: 'PLN',
+          biomarkers: ['ALT'],
+          url: 'https://diag.pl/sklep/badania/alt-test',
+          on_sale: false,
+          lab_code: 'diag',
+          lab_name: 'Diagnostyka',
+        },
+        {
+          id: 2,
+          kind: 'single',
+          name: 'AST Test',
+          slug: 'ast-test',
+          price_now_grosz: 900,
+          price_min30_grosz: 850,
+          currency: 'PLN',
+          biomarkers: ['AST'],
+          url: 'https://diag.pl/sklep/badania/ast-test',
+          on_sale: false,
+          lab_code: 'diag',
+          lab_name: 'Diagnostyka',
+        },
+        {
+          id: 3,
+          kind: 'single',
+          name: 'CRP Test',
+          slug: 'crp-test',
+          price_now_grosz: 900,
+          price_min30_grosz: 850,
+          currency: 'PLN',
+          biomarkers: ['CRP'],
+          url: 'https://alab.pl/badania/crp-test',
+          on_sale: false,
+          lab_code: 'alab',
+          lab_name: 'ALAB',
+        },
+      ],
+      explain: {},
+      uncovered: [],
+    })
+
+    const labCards = [
+      {
+        key: 'diag',
+        title: 'ONLY DIAG',
+        priceLabel: '$100.00',
+        priceValue: 10000,
+        meta: '0 Missing · 0 Bonus',
+        badge: 'Cheapest',
+        active: true,
+        loading: false,
+        disabled: false,
+        onSelect: vi.fn(),
+      },
+      {
+        key: 'alab',
+        title: 'ONLY ALAB',
+        priceLabel: '$110.00',
+        priceValue: 11000,
+        meta: '2 Missing · 1 Bonus',
+        badge: undefined,
+        active: false,
+        loading: false,
+        disabled: false,
+        onSelect: vi.fn(),
+      },
+    ] satisfies LabChoiceCardStub[]
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT', 'AST', 'CRP']}
+        result={mockResult}
+        isLoading={false}
+        error={null}
+        labCards={labCards}
+      />
+    )
+
+    expect(screen.getByText('Optimization summary')).toBeInTheDocument()
+    expect(screen.getByText('ONLY DIAG')).toBeInTheDocument()
+    expect(screen.getByText('ONLY ALAB')).toBeInTheDocument()
+  })
+
+  it('suggests lab splitting when exclusive biomarkers block other labs', () => {
+    const mockResult = makeOptimizeResponse({
+      exclusive: { ALT: 'Diagnostyka' },
+      items: [
+        {
+          id: 1,
+          kind: 'single',
+          name: 'ALT Test',
+          slug: 'alt-test',
+          price_now_grosz: 1000,
+          price_min30_grosz: 950,
+          currency: 'PLN',
+          biomarkers: ['ALT'],
+          url: 'https://diag.pl/sklep/badania/alt-test',
+          on_sale: false,
+        },
+      ],
+    })
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT']}
+        result={mockResult}
+        isLoading={false}
+        error={null}
+      />
+    )
+
+    expect(
+      screen.getByText('Exclusive to Diagnostyka'),
+    ).toBeInTheDocument()
   })
 
   it('renders external links with correct attributes', () => {

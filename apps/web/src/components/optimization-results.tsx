@@ -15,6 +15,19 @@ import {
 import { useBiomarkerLookup } from "../hooks/useBiomarkerLookup";
 import { formatCurrency, formatGroszToPln } from "../lib/format";
 
+interface LabChoiceCard {
+  key: string;
+  title: string;
+  priceLabel: string;
+  priceValue?: number | null;
+  meta?: string;
+  badge?: string;
+  active: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+}
+
 interface Props {
   selected: string[];
   result?: OptimizeResponse;
@@ -23,6 +36,7 @@ interface Props {
   variant?: "light" | "dark";
   showInsights?: boolean;
   showExplainability?: boolean;
+  labCards?: LabChoiceCard[];
 }
 
 export function OptimizationResults({
@@ -33,6 +47,7 @@ export function OptimizationResults({
   variant = "light",
   showInsights = true,
   showExplainability = true,
+  labCards = [],
 }: Props) {
   const isDark = variant === "dark";
   const allBiomarkerCodes = result?.items.flatMap((item) => item.biomarkers) ?? [];
@@ -159,14 +174,6 @@ export function OptimizationResults({
       accentLight: "bg-violet-500/10 text-violet-500",
       accentDark: "bg-violet-500/20 text-violet-200",
     },
-    {
-      label: "Selected lab",
-      value: result.lab_name || result.lab_code.toUpperCase(),
-      hint: result.lab_code.toUpperCase(),
-      icon: <Sparkles className="h-4 w-4" />,
-      accentLight: "bg-orange-500/10 text-orange-500",
-      accentDark: "bg-orange-500/20 text-orange-200",
-    },
   ];
 
   return (
@@ -211,11 +218,11 @@ export function OptimizationResults({
           )}
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
           {summaryStats.map((stat) => (
             <div
               key={stat.label}
-              className={`rounded-2xl border px-4 py-5 shadow-sm ${
+              className={`flex h-full flex-col rounded-2xl border px-4 py-5 shadow-sm ${
                 isDark
                   ? "border-slate-800 bg-slate-950/60 text-slate-100 shadow-black/20"
                   : "border-slate-100 bg-slate-50 text-slate-900"
@@ -241,19 +248,88 @@ export function OptimizationResults({
                   {stat.label}
                 </span>
               </div>
-              <p
-                className={`mt-4 text-2xl font-semibold ${
-                  isDark ? "text-white" : "text-slate-900"
-                }`}
-              >
-                {stat.value}
-              </p>
-              <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                {stat.hint}
-              </p>
+              <div className="mt-4 flex flex-1 flex-col justify-between">
+                <p
+                  className={`text-2xl font-semibold ${
+                    isDark ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  {stat.value}
+                </p>
+                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  {stat.hint}
+                </p>
+              </div>
             </div>
           ))}
         </div>
+
+        {labCards.length > 0 && (
+          <div className="mt-4 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {labCards.map((card) => {
+              const isActive = card.active;
+              const isDisabled = card.disabled || card.loading;
+
+              return (
+                <button
+                  key={card.key}
+                  type="button"
+                  onClick={card.onSelect}
+                  disabled={isDisabled}
+                  className={`group flex h-full flex-col rounded-2xl border px-4 py-5 text-left transition ${
+                    isDark
+                      ? `bg-slate-950/60 ${
+                          isActive
+                            ? "border-emerald-400/80 shadow-lg shadow-emerald-500/10"
+                            : "border-slate-800 hover:border-emerald-300/70 hover:bg-slate-900"
+                        }`
+                      : `bg-slate-50 ${
+                          isActive
+                            ? "border-emerald-300 shadow-lg shadow-emerald-200/40"
+                            : "border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/60"
+                        }`
+                  } ${isDisabled ? "cursor-not-allowed opacity-60" : ""}`}
+                >
+                  <div className="flex h-full flex-col justify-between gap-4">
+                    <p
+                      className={`text-xs font-semibold uppercase tracking-wide ${
+                        isDark ? "text-slate-300" : "text-slate-500"
+                      }`}
+                    >
+                      {card.title}
+                    </p>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <p
+                          className={`text-2xl font-semibold ${
+                            isDark ? "text-white" : "text-slate-900"
+                          }`}
+                        >
+                          {card.loading ? "—" : card.priceLabel}
+                        </p>
+                        {card.badge && (
+                          <span
+                            className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                              isDark
+                                ? "bg-slate-800 text-emerald-200"
+                                : "bg-emerald-100 text-emerald-700"
+                            }`}
+                          >
+                            {card.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                        {card.meta ?? ""}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div
           className={`mt-8 rounded-xl border p-4 ${

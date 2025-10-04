@@ -29,6 +29,8 @@ class ItemOut(APIModel):
     biomarkers: list[str]
     url: str
     on_sale: bool
+    lab_code: str = ""
+    lab_name: str = ""
 
 
 class CatalogMeta(APIModel):
