@@ -1,10 +1,10 @@
-import { render, screen } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { screen } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
 import type { OptimizeResponse } from '@panelyt/types'
 import type { ReactNode } from 'react'
+import { renderWithQueryClient } from '../../test/utils'
 
 // Mock the hooks
 vi.mock('../../hooks/useBiomarkerLookup', () => ({
@@ -83,20 +83,6 @@ const makeOptimizeResponse = (
     lab_selections: [],
     ...rest,
   }
-}
-
-function renderWithQueryClient(ui: React.ReactElement) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      {ui}
-    </QueryClientProvider>
-  )
 }
 
 describe('OptimizationResults', () => {

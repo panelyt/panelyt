@@ -8,7 +8,7 @@ import {
   type SessionResponse,
 } from "@panelyt/types";
 
-import { postJson } from "../lib/http";
+import { postJson, postParsedJson } from "../lib/http";
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -16,8 +16,7 @@ export function useAuth() {
   const loginMutation = useMutation<SessionResponse, Error, Credentials>({
     mutationFn: async (credentials) => {
       const parsed = CredentialsSchema.parse(credentials);
-      const payload = await postJson("/users/login", parsed);
-      return SessionResponseSchema.parse(payload);
+      return postParsedJson("/users/login", SessionResponseSchema, parsed);
     },
     onSuccess: (session) => {
       queryClient.setQueryData(["session"], session);
@@ -27,8 +26,7 @@ export function useAuth() {
   const registerMutation = useMutation<SessionResponse, Error, Credentials>({
     mutationFn: async (credentials) => {
       const parsed = CredentialsSchema.parse(credentials);
-      const payload = await postJson("/users/register", parsed);
-      return SessionResponseSchema.parse(payload);
+      return postParsedJson("/users/register", SessionResponseSchema, parsed);
     },
     onSuccess: (session) => {
       queryClient.setQueryData(["session"], session);
