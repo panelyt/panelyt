@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Sparkles } from 'lucide-react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
 import type { OptimizeResponse } from '@panelyt/types'
+import type { ReactNode } from 'react'
 
 // Mock the hooks
 vi.mock('../../hooks/useBiomarkerLookup', () => ({
@@ -27,6 +29,61 @@ const createLookupResult = (
     error: null,
     ...overrides,
   } as unknown as ReturnType<typeof useBiomarkerLookup>)
+
+interface LabChoiceCardStub {
+  key: string;
+  title: string;
+  priceLabel: string;
+  priceValue: number | null;
+  meta?: string;
+  badge?: string;
+  active: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+  icon: ReactNode;
+  accentLight: string;
+  accentDark: string;
+}
+
+type OptimizeResponseOverrides = Partial<Omit<OptimizeResponse, 'items'>> & {
+  items?: Array<Partial<OptimizeResponse['items'][number]>>;
+};
+
+const makeOptimizeResponse = (
+  overrides: OptimizeResponseOverrides,
+): OptimizeResponse => {
+  const { items: overrideItems, ...rest } = overrides
+  const items: OptimizeResponse['items'] = (overrideItems ?? []).map((item) => {
+    const {
+      lab_code = 'diag',
+      lab_name = 'Diagnostyka',
+      ...restItem
+    } = item
+    return {
+      lab_code,
+      lab_name,
+      ...restItem,
+    } as OptimizeResponse['items'][number]
+  })
+
+  return {
+    total_now: 0,
+    total_min30: 0,
+    currency: 'PLN',
+    items,
+    explain: {},
+    uncovered: [],
+    lab_code: 'diag',
+    lab_name: 'Diagnostyka',
+    exclusive: {},
+    labels: {},
+    mode: 'auto',
+    lab_options: [],
+    lab_selections: [],
+    ...rest,
+  }
+}
 
 function renderWithQueryClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -98,10 +155,9 @@ describe('OptimizationResults', () => {
   })
 
   it('renders optimization results with single test and package', () => {
-    const mockResult: OptimizeResponse = {
+    const mockResult = makeOptimizeResponse({
       total_now: 25.00,
       total_min30: 23.50,
-      currency: 'PLN',
       items: [
         {
           id: 1,
@@ -134,7 +190,7 @@ describe('OptimizationResults', () => {
         'CHOL': ['Liver Panel'],
       },
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -142,14 +198,46 @@ describe('OptimizationResults', () => {
         result={mockResult}
         isLoading={false}
         error={null}
+        labCards={[
+          {
+            key: 'diag',
+            title: 'ONLY DIAG',
+            priceLabel: '$25.00',
+            meta: '0 Missing · 0 Bonus',
+            badge: 'Cheapest',
+            active: true,
+            loading: false,
+            disabled: false,
+            onSelect: vi.fn(),
+            priceValue: 25,
+            icon: <Sparkles className="h-4 w-4" />,
+            accentLight: 'bg-emerald-500/10 text-emerald-600',
+            accentDark: 'bg-emerald-500/20 text-emerald-200',
+          },
+          {
+            key: 'all',
+            title: 'BOTH LABS',
+            priceLabel: '$25.00',
+            meta: '0 Missing · 1 Bonus',
+            active: false,
+            loading: false,
+            disabled: false,
+            onSelect: vi.fn(),
+            priceValue: 25,
+            icon: <Sparkles className="h-4 w-4" />,
+            accentLight: 'bg-indigo-500/10 text-indigo-500',
+            accentDark: 'bg-indigo-500/20 text-indigo-200',
+          },
+        ]}
       />
     )
 
     // Check header information
     expect(screen.getByText('Optimization summary')).toBeInTheDocument()
     expect(screen.getByText(/Covering 3 biomarkers/)).toBeInTheDocument()
-    expect(screen.getByText('$25.00')).toBeInTheDocument() // Current total
-    expect(screen.getByText('$23.50')).toBeInTheDocument() // Min total
+    expect(screen.getByText('30-day minimum')).toBeInTheDocument()
+    expect(screen.getAllByText('$23.50')[0]).toBeInTheDocument()
+    expect(screen.queryByText('Current total')).not.toBeInTheDocument()
 
     // Check items are displayed
     expect(screen.getAllByRole('link', { name: 'ALT Test' })[0]).toBeInTheDocument()
@@ -158,16 +246,17 @@ describe('OptimizationResults', () => {
     // Check sections
     expect(screen.getByText(/Packages/)).toBeInTheDocument()
     expect(screen.getByText(/Single tests/)).toBeInTheDocument()
+    expect(screen.getByText('ONLY DIAG')).toBeInTheDocument()
+    expect(screen.getByText('BOTH LABS')).toBeInTheDocument()
 
     // Check coverage summary
     expect(screen.getByText('Coverage')).toBeInTheDocument()
   })
 
   it('shows uncovered biomarkers warning', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 10.00,
-      total_min30: 9.50,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 10.0,
+      total_min30: 9.5,
       items: [
         {
           id: 1,
@@ -186,7 +275,7 @@ describe('OptimizationResults', () => {
         'ALT': ['ALT Test'],
       },
       uncovered: ['UNKNOWN_BIOMARKER'],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -202,10 +291,9 @@ describe('OptimizationResults', () => {
   })
 
   it('highlights bonus biomarkers', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 15.00,
-      total_min30: 14.00,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 15.0,
+      total_min30: 14.0,
       items: [
         {
           id: 1,
@@ -225,7 +313,7 @@ describe('OptimizationResults', () => {
         'AST': ['Extended Panel'],
       },
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -236,20 +324,14 @@ describe('OptimizationResults', () => {
       />
     )
 
-    const cholesterolBadges = screen.getAllByText('Total cholesterol')
-
-    const bonusBadge = cholesterolBadges.find(badge =>
-      badge.classList.contains('bg-emerald-200/70') &&
-      badge.classList.contains('text-emerald-900')
-    )
-    expect(bonusBadge).toBeInTheDocument()
+    expect(screen.getByText(/bonus biomarker/)).toBeInTheDocument()
+    expect(screen.getByText('Total cholesterol')).toBeInTheDocument()
   })
 
   it('shows "On sale" indicator for discounted items', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 10.00,
-      total_min30: 9.50,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 10.0,
+      total_min30: 9.5,
       items: [
         {
           id: 1,
@@ -268,7 +350,7 @@ describe('OptimizationResults', () => {
         'ALT': ['ALT Test'],
       },
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -283,10 +365,9 @@ describe('OptimizationResults', () => {
   })
 
   it('shows correct item counts in section headers', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 25.00,
-      total_min30: 23.50,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 25.0,
+      total_min30: 23.5,
       items: [
         {
           id: 1,
@@ -327,7 +408,7 @@ describe('OptimizationResults', () => {
       ],
       explain: {},
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -338,15 +419,12 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getAllByText(/2 items/).length).toBeGreaterThan(0) // Single tests
-    expect(screen.getAllByText(/1 item/).length).toBeGreaterThan(0) // Packages
+    expect(screen.getByText(/Single tests · 2 items/)).toBeInTheDocument()
+    expect(screen.getByText(/Packages · 1 item/)).toBeInTheDocument()
   })
 
   it('orders packages before singles and sorts by descending price', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 0,
-      total_min30: 0,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
       items: [
         {
           id: 1,
@@ -399,7 +477,7 @@ describe('OptimizationResults', () => {
       ],
       explain: {},
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults
@@ -423,11 +501,148 @@ describe('OptimizationResults', () => {
     ])
   })
 
+  it('shows lab splitting summary and per-lab breakdown', () => {
+    const mockResult = makeOptimizeResponse({
+      mode: 'split',
+      lab_code: 'mixed',
+      lab_name: 'Multiple labs',
+      lab_selections: [
+        { code: 'diag', name: 'Diagnostyka', total_now_grosz: 1500, items: 2 },
+        { code: 'alab', name: 'ALAB', total_now_grosz: 900, items: 1 },
+      ],
+      items: [
+        {
+          id: 1,
+          kind: 'single',
+          name: 'ALT Test',
+          slug: 'alt-test',
+          price_now_grosz: 600,
+          price_min30_grosz: 500,
+          currency: 'PLN',
+          biomarkers: ['ALT'],
+          url: 'https://diag.pl/sklep/badania/alt-test',
+          on_sale: false,
+          lab_code: 'diag',
+          lab_name: 'Diagnostyka',
+        },
+        {
+          id: 2,
+          kind: 'single',
+          name: 'AST Test',
+          slug: 'ast-test',
+          price_now_grosz: 900,
+          price_min30_grosz: 850,
+          currency: 'PLN',
+          biomarkers: ['AST'],
+          url: 'https://diag.pl/sklep/badania/ast-test',
+          on_sale: false,
+          lab_code: 'diag',
+          lab_name: 'Diagnostyka',
+        },
+        {
+          id: 3,
+          kind: 'single',
+          name: 'CRP Test',
+          slug: 'crp-test',
+          price_now_grosz: 900,
+          price_min30_grosz: 850,
+          currency: 'PLN',
+          biomarkers: ['CRP'],
+          url: 'https://alab.pl/badania/crp-test',
+          on_sale: false,
+          lab_code: 'alab',
+          lab_name: 'ALAB',
+        },
+      ],
+      explain: {},
+      uncovered: [],
+    })
+
+    const labCards = [
+      {
+        key: 'diag',
+        title: 'ONLY DIAG',
+        priceLabel: '$100.00',
+        priceValue: 10000,
+        meta: '0 Missing · 0 Bonus',
+        badge: 'Cheapest',
+        active: true,
+        loading: false,
+        disabled: false,
+        onSelect: vi.fn(),
+        icon: <Sparkles className="h-4 w-4" />,
+        accentLight: 'bg-emerald-500/10 text-emerald-600',
+        accentDark: 'bg-emerald-500/20 text-emerald-200',
+      },
+      {
+        key: 'alab',
+        title: 'ONLY ALAB',
+        priceLabel: '$110.00',
+        priceValue: 11000,
+        meta: '2 Missing · 1 Bonus',
+        badge: undefined,
+        active: false,
+        loading: false,
+        disabled: false,
+        onSelect: vi.fn(),
+        icon: <Sparkles className="h-4 w-4" />,
+        accentLight: 'bg-sky-500/10 text-sky-500',
+        accentDark: 'bg-sky-500/20 text-sky-200',
+      },
+    ] satisfies LabChoiceCardStub[]
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT', 'AST', 'CRP']}
+        result={mockResult}
+        isLoading={false}
+        error={null}
+        labCards={labCards}
+      />
+    )
+
+    expect(screen.getByText('Optimization summary')).toBeInTheDocument()
+    expect(screen.getByText('ONLY DIAG')).toBeInTheDocument()
+    expect(screen.getByText('ONLY ALAB')).toBeInTheDocument()
+  })
+
+  it('suggests lab splitting when exclusive biomarkers block other labs', () => {
+    const mockResult = makeOptimizeResponse({
+      exclusive: { ALT: 'Diagnostyka' },
+      items: [
+        {
+          id: 1,
+          kind: 'single',
+          name: 'ALT Test',
+          slug: 'alt-test',
+          price_now_grosz: 1000,
+          price_min30_grosz: 950,
+          currency: 'PLN',
+          biomarkers: ['ALT'],
+          url: 'https://diag.pl/sklep/badania/alt-test',
+          on_sale: false,
+        },
+      ],
+    })
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT']}
+        result={mockResult}
+        isLoading={false}
+        error={null}
+      />
+    )
+
+    expect(
+      screen.getByText('Exclusive to Diagnostyka'),
+    ).toBeInTheDocument()
+  })
+
   it('renders external links with correct attributes', () => {
-    const mockResult: OptimizeResponse = {
-      total_now: 10.00,
-      total_min30: 9.50,
-      currency: 'PLN',
+    const mockResult = makeOptimizeResponse({
+      total_now: 10.0,
+      total_min30: 9.5,
       items: [
         {
           id: 1,
@@ -443,10 +658,10 @@ describe('OptimizationResults', () => {
         },
       ],
       explain: {
-        'ALT': ['ALT Test'],
+        ALT: ['ALT Test'],
       },
       uncovered: [],
-    }
+    })
 
     renderWithQueryClient(
       <OptimizationResults

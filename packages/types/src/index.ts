@@ -5,6 +5,9 @@ export const BiomarkerSchema = z.object({
   name: z.string(),
   elab_code: z.string().nullable(),
   slug: z.string().nullable(),
+  lab_prices: z
+    .record(z.string(), z.number().int().nonnegative())
+    .default({}),
 });
 
 export type Biomarker = z.infer<typeof BiomarkerSchema>;
@@ -20,15 +23,51 @@ export const ItemSchema = z.object({
   biomarkers: z.array(z.string()),
   url: z.string().url(),
   on_sale: z.boolean(),
+  lab_code: z.string(),
+  lab_name: z.string(),
 });
 
 export type Item = z.infer<typeof ItemSchema>;
 
-export const OptimizeRequestSchema = z.object({
-  biomarkers: z.array(z.string().min(1)).min(1),
-});
+export const OptimizeModeSchema = z.enum(["auto", "single_lab", "split"]);
+
+export type OptimizeMode = z.infer<typeof OptimizeModeSchema>;
+
+export const OptimizeRequestSchema = z
+  .object({
+    biomarkers: z.array(z.string().min(1)).min(1),
+    mode: OptimizeModeSchema.default("auto"),
+    lab_code: z.string().min(1).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mode === "single_lab" && !data.lab_code) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "lab_code is required when mode is single_lab",
+        path: ["lab_code"],
+      });
+    }
+  });
 
 export type OptimizeRequest = z.infer<typeof OptimizeRequestSchema>;
+
+export const LabAvailabilitySchema = z.object({
+  code: z.string(),
+  name: z.string(),
+  covers_all: z.boolean(),
+  missing_tokens: z.array(z.string()).default([]),
+});
+
+export type LabAvailability = z.infer<typeof LabAvailabilitySchema>;
+
+export const LabSelectionSummarySchema = z.object({
+  code: z.string(),
+  name: z.string(),
+  total_now_grosz: z.number().int().nonnegative(),
+  items: z.number().int().nonnegative(),
+});
+
+export type LabSelectionSummary = z.infer<typeof LabSelectionSummarySchema>;
 
 export const OptimizeResponseSchema = z.object({
   total_now: z.number().nonnegative(),
@@ -37,6 +76,13 @@ export const OptimizeResponseSchema = z.object({
   items: z.array(ItemSchema),
   explain: z.record(z.string(), z.array(z.string())),
   uncovered: z.array(z.string()),
+  lab_code: z.string().default(""),
+  lab_name: z.string().default(""),
+  exclusive: z.record(z.string(), z.string()).default({}),
+  labels: z.record(z.string(), z.string()).default({}),
+  mode: OptimizeModeSchema.default("auto"),
+  lab_options: z.array(LabAvailabilitySchema).default([]),
+  lab_selections: z.array(LabSelectionSummarySchema).default([]),
 });
 
 export type OptimizeResponse = z.infer<typeof OptimizeResponseSchema>;
@@ -260,6 +306,9 @@ export const CatalogBiomarkerResultSchema = z.object({
   name: z.string(),
   elab_code: z.string().nullable(),
   slug: z.string().nullable(),
+  lab_prices: z
+    .record(z.string(), z.number().int().nonnegative())
+    .default({}),
 });
 
 export type CatalogBiomarkerResult = z.infer<typeof CatalogBiomarkerResultSchema>;

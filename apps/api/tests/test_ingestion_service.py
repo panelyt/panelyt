@@ -7,9 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from panelyt_api.core.settings import Settings
-from panelyt_api.ingest.client import DiagClient, _extract_grosz, _clean_str
+from panelyt_api.ingest.client import DiagClient, _normalize_identifier, _pln_to_grosz
 from panelyt_api.ingest.service import IngestionService
-from panelyt_api.ingest.types import IngestionResult, RawBiomarker, RawProduct
+from panelyt_api.ingest.types import LabIngestionResult, RawLabBiomarker, RawLabItem
+from panelyt_api.matching.config import MatchingConfig
 
 
 class TestIngestionService:
@@ -25,7 +26,8 @@ class TestIngestionService:
         repo.last_user_activity.return_value = None
         repo.create_run_log.return_value = 1
         repo.finalize_run_log.return_value = None
-        repo.upsert_catalog.return_value = None
+        repo.stage_lab_items.return_value = MagicMock()
+        repo.synchronize_catalog.return_value = None
         repo.prune_snapshots.return_value = None
         repo.write_raw_snapshot.return_value = None
         return repo
@@ -118,11 +120,10 @@ class TestIngestionService:
                 mock_run.assert_awaited_once_with(reason="staleness_check", blocking=False)
                 mock_schedule.assert_not_called()
 
-    @patch("panelyt_api.ingest.service.DiagClient")
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.IngestionRepository")
     async def test_run_successful_ingestion(
-        self, mock_repo_class, mock_get_session, mock_client_class, ingestion_service
+        self, mock_repo_class, mock_get_session, ingestion_service
     ):
         """Test successful ingestion run."""
         # Mock session and repository
@@ -134,50 +135,55 @@ class TestIngestionService:
         mock_repo.create_run_log.return_value = 1
         mock_repo_class.return_value = mock_repo
 
-        # Mock client
-        mock_client = AsyncMock()
-        mock_client.fetch_all.return_value = [
-            IngestionResult(
-                fetched_at=datetime.now(UTC),
-                items=[
-                    RawProduct(
-                        id=1,
-                        kind="single",
-                        name="ALT Test",
-                        slug="alt-test",
-                        price_now_grosz=1000,
-                        price_min30_grosz=900,
-                        currency="PLN",
-                        is_available=True,
-                        biomarkers=[
-                            RawBiomarker(elab_code="ALT", slug="alt", name="ALT")
-                        ],
-                        sale_price_grosz=None,
-                        regular_price_grosz=1000,
-                    )
-                ],
-                raw_payload={"test": "data"},
-                source="singles",
-            )
-        ]
-        mock_client_class.return_value = mock_client
+        sample_item = RawLabItem(
+            external_id="1",
+            kind="single",
+            name="ALT Test",
+            slug="alt-test",
+            price_now_grosz=1000,
+            price_min30_grosz=900,
+            currency="PLN",
+            is_available=True,
+            biomarkers=[
+                RawLabBiomarker(
+                    external_id="alt",
+                    name="ALT",
+                    elab_code="ALT",
+                    slug="alt",
+                )
+            ],
+            sale_price_grosz=None,
+            regular_price_grosz=1000,
+        )
+        lab_result = LabIngestionResult(
+            lab_code="diag",
+            fetched_at=datetime.now(UTC),
+            items=[sample_item],
+            raw_payload={"sample": "payload"},
+        )
 
-        await ingestion_service.run(reason="test")
+        with patch.object(
+            ingestion_service, "_fetch_all_labs", new_callable=AsyncMock
+        ) as mock_fetch, patch.object(
+            ingestion_service, "_process_lab_result", new_callable=AsyncMock
+        ) as mock_process:
+            mock_fetch.return_value = [lab_result]
 
-        # Verify the flow
-        mock_repo.create_run_log.assert_called_once()
-        mock_client.fetch_all.assert_called_once()
-        mock_client.close.assert_called_once()
-        mock_repo.write_raw_snapshot.assert_called_once_with("singles", {"test": "data"})
-        mock_repo.upsert_catalog.assert_called_once()
-        mock_repo.prune_snapshots.assert_called_once()
-        mock_repo.finalize_run_log.assert_called_with(1, status="completed")
+            await ingestion_service.run(reason="test")
 
-    @patch("panelyt_api.ingest.service.DiagClient")
+            mock_fetch.assert_awaited_once()
+            mock_process.assert_awaited_once()
+            args, _ = mock_process.await_args
+            assert args[0] is mock_repo
+            assert args[1] == lab_result
+            assert isinstance(args[2], MatchingConfig)
+            mock_repo.prune_snapshots.assert_called_once()
+            mock_repo.finalize_run_log.assert_called_with(1, status="completed")
+
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.IngestionRepository")
     async def test_run_failed_ingestion(
-        self, mock_repo_class, mock_get_session, mock_client_class, ingestion_service
+        self, mock_repo_class, mock_get_session, ingestion_service
     ):
         """Test failed ingestion run."""
         # Mock session and repository
@@ -189,19 +195,69 @@ class TestIngestionService:
         mock_repo.create_run_log.return_value = 1
         mock_repo_class.return_value = mock_repo
 
-        # Mock client to raise exception
-        mock_client = AsyncMock()
-        mock_client.fetch_all.side_effect = Exception("Network error")
-        mock_client.close = AsyncMock()
-        mock_client_class.return_value = mock_client
+        with patch.object(
+            ingestion_service, "_fetch_all_labs", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.side_effect = Exception("Network error")
 
-        # Run and expect exception to be raised
-        with pytest.raises(Exception, match="Network error"):
-            await ingestion_service.run(reason="test")
+            with pytest.raises(Exception, match="Network error"):
+                await ingestion_service.run(reason="test")
 
-        # Verify error handling was called
         mock_repo.create_run_log.assert_called_once()
         mock_repo.finalize_run_log.assert_called_with(1, status="failed", note="Network error")
+
+    @pytest.mark.asyncio
+    async def test_process_lab_result_stages_and_syncs(self, mock_repo, ingestion_service):
+        fetched_at = datetime.now(UTC)
+        lab_result = LabIngestionResult(
+            lab_code="diag",
+            fetched_at=fetched_at,
+            items=[
+                RawLabItem(
+                    external_id="1",
+                    kind="single",
+                    name="ALT",
+                    slug="alt",
+                    price_now_grosz=1000,
+                    price_min30_grosz=900,
+                    currency="PLN",
+                    is_available=True,
+                    biomarkers=[
+                        RawLabBiomarker(
+                            external_id="alt",
+                            name="ALT",
+                            elab_code="ALT",
+                            slug="alt",
+                        )
+                    ],
+                )
+            ],
+            raw_payload={"page_1": {}},
+        )
+
+        stage_context = MagicMock()
+        mock_repo.stage_lab_items = AsyncMock(return_value=stage_context)
+        mock_repo.synchronize_catalog = AsyncMock()
+
+        await ingestion_service._process_lab_result(mock_repo, lab_result, MatchingConfig())
+
+        mock_repo.write_raw_snapshot.assert_called_once()
+        mock_repo.stage_lab_items.assert_awaited_once()
+        mock_repo.synchronize_catalog.assert_awaited_once_with(stage_context)
+
+    @pytest.mark.asyncio
+    async def test_process_lab_result_without_items(self, mock_repo, ingestion_service):
+        lab_result = LabIngestionResult(
+            lab_code="diag",
+            fetched_at=datetime.now(UTC),
+            items=[],
+            raw_payload={"page_1": {}},
+        )
+
+        await ingestion_service._process_lab_result(mock_repo, lab_result, MatchingConfig())
+
+        mock_repo.write_raw_snapshot.assert_called_once()
+        mock_repo.stage_lab_items.assert_not_called()
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.IngestionRepository")
@@ -308,39 +364,48 @@ class TestDiagClient:
 
     async def test_fetch_all_success(self, diag_client, mock_http_client):
         """Test successful fetch_all operation."""
-        # Mock successful HTTP responses
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "data": [
-                {
-                    "id": "1",
-                    "name": "ALT Test",
-                    "slug": "alt-test",
-                    "type": "bloodtest",
-                    "elabCode": "ALT",
-                    "prices": {
-                        "regular": {"gross": 10.0},
-                        "sale": None,
-                        "minimal": {"gross": 9.0},
-                        "currency": "PLN",
-                        "sellState": "available",
-                    },
-                }
+        package_entry = {
+            "id": "10",
+            "name": "Panel",
+            "slug": "panel",
+            "type": "package",
+            "products": [
+                {"elabCode": "ALT", "name": "ALT", "slug": "alt"},
             ],
-            "meta": {"last_page": 1},
+            "prices": {
+                "regular": {"gross": 50.0},
+                "currency": "PLN",
+                "sellState": "available",
+            },
         }
-        mock_http_client.get.return_value = mock_response
+        single_entry = {
+            "id": "11",
+            "name": "ALT",
+            "slug": "alt",
+            "type": "bloodtest",
+            "elabCode": "ALT",
+            "prices": {
+                "regular": {"gross": 25.0},
+                "currency": "PLN",
+                "sellState": "available",
+            },
+        }
 
-        results = await diag_client.fetch_all()
+        package_response = MagicMock()
+        package_response.json.return_value = {"data": [package_entry], "meta": {"last_page": 1}}
+        single_response = MagicMock()
+        single_response.json.return_value = {"data": [single_entry], "meta": {"last_page": 1}}
 
-        assert len(results) == 2  # packages and singles
-        assert all(isinstance(r, IngestionResult) for r in results)
+        mock_http_client.get.side_effect = [package_response, single_response]
 
-        # Verify HTTP calls were made
+        result = await diag_client.fetch_all()
+
+        assert isinstance(result, LabIngestionResult)
+        assert len(result.items) == 2
+        assert {item.kind for item in result.items} == {"package", "single"}
         assert mock_http_client.get.call_count == 2
 
     async def test_parse_product_single_test(self, diag_client):
-        """Test parsing a single blood test product."""
         entry = {
             "id": "123",
             "name": "ALT Test",
@@ -356,30 +421,25 @@ class TestDiagClient:
             },
         }
 
-        result = diag_client._parse_product(entry, {})
+        result = diag_client._parse_product(entry)
 
         assert result is not None
-        assert result.id == 123
-        assert result.name == "ALT Test"
-        assert result.slug == "alt-test"
+        assert result.external_id == "123"
         assert result.kind == "single"
-        assert result.price_now_grosz == 800  # Sale price
-        assert result.price_min30_grosz == 900  # Minimal price
-        assert result.currency == "PLN"
-        assert result.is_available is True
-        assert len(result.biomarkers) == 1
+        assert result.price_now_grosz == 800
+        assert result.price_min30_grosz == 900
         assert result.biomarkers[0].elab_code == "ALT"
+        assert result.biomarkers[0].external_id == "123"
 
     async def test_parse_product_package(self, diag_client):
-        """Test parsing a package product."""
         entry = {
             "id": "456",
             "name": "Liver Panel",
             "slug": "liver-panel",
             "type": "package",
             "products": [
-                {"elabCode": "ALT", "name": "ALT", "slug": "alt"},
-                {"elabCode": "AST", "name": "AST", "slug": "ast"},
+                {"id": "1001", "elabCode": "ALT", "name": "ALT", "slug": "alt"},
+                {"id": "1002", "elabCode": "AST", "name": "AST", "slug": "ast"},
             ],
             "prices": {
                 "regular": {"gross": 20.0},
@@ -388,24 +448,28 @@ class TestDiagClient:
             },
         }
 
-        result = diag_client._parse_product(entry, {})
+        result = diag_client._parse_product(entry)
 
         assert result is not None
-        assert result.id == 456
-        assert result.name == "Liver Panel"
+        assert result.external_id == "456"
         assert result.kind == "package"
         assert result.price_now_grosz == 2000
-        assert len(result.biomarkers) == 2
         assert {b.elab_code for b in result.biomarkers} == {"ALT", "AST"}
+        assert {b.external_id for b in result.biomarkers} == {"1001", "1002"}
+
+    def test_pln_to_grosz(self):
+        assert _pln_to_grosz("12,34") == 1234
+        assert _pln_to_grosz(0) == 0
+
+    def test_normalize_identifier(self):
+        assert _normalize_identifier("Białko całkowite") == "białko-całkowite"
 
     async def test_parse_product_invalid_id(self, diag_client):
-        """Test parsing product with invalid ID."""
         entry = {"id": "invalid", "name": "Test"}
-        result = diag_client._parse_product(entry, {})
+        result = diag_client._parse_product(entry)
         assert result is None
 
     async def test_parse_product_unavailable(self, diag_client):
-        """Test parsing unavailable product."""
         entry = {
             "id": "123",
             "name": "Unavailable Test",
@@ -413,7 +477,7 @@ class TestDiagClient:
             "prices": {"sellState": "unavailable"},
         }
 
-        result = diag_client._parse_product(entry, {})
+        result = diag_client._parse_product(entry)
 
         assert result is not None
         assert result.is_available is False
@@ -422,43 +486,3 @@ class TestDiagClient:
         """Test client cleanup."""
         await diag_client.close()
         mock_http_client.aclose.assert_called_once()
-
-
-class TestIngestionUtilities:
-    def test_extract_grosz_from_dict(self):
-        """Test grosz extraction from price dictionary."""
-        # Test with gross value
-        assert _extract_grosz({"gross": 10.5}) == 1050
-
-        # Test with value fallback
-        assert _extract_grosz({"value": 15.25}) == 1525
-
-        # Test with no valid value
-        assert _extract_grosz({"other": 10}) == 0
-
-        # Test with invalid gross
-        assert _extract_grosz({"gross": "invalid"}) == 0
-
-    def test_extract_grosz_from_number(self):
-        """Test grosz extraction from numbers."""
-        assert _extract_grosz(10.5) == 1050
-        assert _extract_grosz(15) == 1500
-        assert _extract_grosz(0) == 0
-
-    def test_extract_grosz_invalid_input(self):
-        """Test grosz extraction with invalid input."""
-        assert _extract_grosz(None) == 0
-        assert _extract_grosz("invalid") == 0
-        assert _extract_grosz([]) == 0
-
-    def test_clean_str_valid_input(self):
-        """Test string cleaning with valid input."""
-        assert _clean_str("  test  ") == "test"
-        assert _clean_str("normal") == "normal"
-        assert _clean_str(123) == "123"
-
-    def test_clean_str_invalid_input(self):
-        """Test string cleaning with invalid input."""
-        assert _clean_str(None) is None
-        assert _clean_str("") is None
-        assert _clean_str("   ") is None

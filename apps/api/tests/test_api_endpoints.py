@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from panelyt_api.db import models
 
@@ -36,6 +36,59 @@ class TestHealthEndpoints:
 
 
 class TestCatalogEndpoints:
+    async def _ensure_lab(self, session):
+        existing = await session.scalar(select(models.Lab.id).where(models.Lab.id == 1))
+        if existing is not None:
+            return
+        await session.execute(
+            insert(models.Lab).values(
+                {
+                    "id": 1,
+                    "code": "diag",
+                    "name": "Diagnostyka",
+                    "slug": "diag",
+                    "timezone": "Europe/Warsaw",
+                }
+            )
+        )
+
+    async def _attach_item(
+        self,
+        session,
+        biomarker_id: int,
+        *,
+        item_id: int,
+        price: int = 1000,
+        lab_id: int = 1,
+    ) -> None:
+        await self._ensure_lab(session)
+        now = datetime.now(timezone.utc)
+        await session.execute(
+            insert(models.Item).values(
+                {
+                    "id": item_id,
+                    "lab_id": lab_id,
+                    "external_id": f"item-{item_id}",
+                    "kind": "single",
+                    "name": f"Item {item_id}",
+                    "slug": f"item-{item_id}",
+                    "price_now_grosz": price,
+                    "price_min30_grosz": price,
+                    "currency": "PLN",
+                    "is_available": True,
+                    "fetched_at": now,
+                }
+            )
+        )
+        await session.execute(
+            insert(models.ItemBiomarker).values(
+                {
+                    "item_id": item_id,
+                    "biomarker_id": biomarker_id,
+                }
+            )
+        )
+
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     @patch("panelyt_api.services.activity.touch_user_activity")
     async def test_get_catalog_meta(
@@ -46,6 +99,7 @@ class TestCatalogEndpoints:
         mock_ensure_fresh.return_value = None
 
         # Add some test data
+        await self._ensure_lab(db_session)
         await db_session.execute(
             insert(models.Biomarker).values([
                 {"name": "ALT", "elab_code": "ALT", "slug": "alt"},
@@ -57,11 +111,15 @@ class TestCatalogEndpoints:
             insert(models.Item).values([
                 {
                     "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
                     "price_min30_grosz": 900,
+                    "currency": "PLN",
+                    "is_available": True,
                     "fetched_at": datetime.now(timezone.utc),
                 },
             ])
@@ -101,6 +159,8 @@ class TestCatalogEndpoints:
             ])
         )
         await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=2001, price=1000)
+        await db_session.commit()
 
         response = await async_client.get("/catalog/biomarkers?query=ALT")
         assert response.status_code == 200
@@ -123,6 +183,10 @@ class TestCatalogEndpoints:
                 {"id": 3, "name": "HDL cholesterol", "elab_code": "HDL", "slug": "hdl-cholesterol"},
             ])
         )
+        await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=2101, price=1000)
+        await self._attach_item(db_session, biomarker_id=2, item_id=2102, price=1050)
+        await self._attach_item(db_session, biomarker_id=3, item_id=2103, price=980)
         await db_session.commit()
 
         response = await async_client.get("/catalog/biomarkers?query=cholesterol")
@@ -160,7 +224,9 @@ class TestCatalogEndpoints:
                 }
             )
         )
-
+        await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=2201, price=1000)
+        
         active_template = models.BiomarkerListTemplate(
             slug="cholesterol-panel",
             name="Cholesterol panel",
@@ -278,19 +344,27 @@ class TestOptimizeEndpoint:
             insert(models.Item).values([
                 {
                     "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
                     "price_min30_grosz": 900,
+                    "currency": "PLN",
+                    "is_available": True,
                 },
                 {
                     "id": 2,
+                    "lab_id": 1,
+                    "external_id": "item-2",
                     "kind": "package",
                     "name": "Liver Panel",
                     "slug": "liver-panel",
                     "price_now_grosz": 1800,
                     "price_min30_grosz": 1700,
+                    "currency": "PLN",
+                    "is_available": True,
                 },
             ])
         )
@@ -319,6 +393,9 @@ class TestOptimizeEndpoint:
         assert data["items"][0]["kind"] == "package"
         assert "url" in data["items"][0]
         assert data["uncovered"] == []
+        assert data["lab_code"] == "diag"
+        assert data["lab_name"]
+        assert isinstance(data["exclusive"], dict)
 
         # Check explanation
         assert "ALT" in data["explain"]
@@ -357,11 +434,15 @@ class TestOptimizeEndpoint:
             insert(models.Item).values([
                 {
                     "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
                     "price_min30_grosz": 900,
+                    "currency": "PLN",
+                    "is_available": True,
                 },
             ])
         )
@@ -385,3 +466,4 @@ class TestOptimizeEndpoint:
         assert data["items"][0]["name"] == "ALT Test"
         assert data["uncovered"] == ["UNKNOWN_BIOMARKER"]
         assert "ALT" in data["explain"]
+        assert data["lab_code"] == "diag"

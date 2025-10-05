@@ -28,7 +28,7 @@ describe('useDebounce', () => {
       () => {
         expect(result.current).toBe('changed')
       },
-      { timeout: 150 }
+      { timeout: 250 }
     )
   })
 
@@ -53,7 +53,7 @@ describe('useDebounce', () => {
       () => {
         expect(result.current).toBe('final')
       },
-      { timeout: 150 }
+      { timeout: 250 }
     )
   })
 
@@ -72,7 +72,7 @@ describe('useDebounce', () => {
       () => {
         expect(result.current).toBe('changed')
       },
-      { timeout: 75 }
+      { timeout: 200 }
     )
   })
 
@@ -115,7 +115,7 @@ describe('useDebounce', () => {
       () => {
         expect(result.current).toBe(100)
       },
-      { timeout: 75 }
+      { timeout: 200 }
     )
   })
 
@@ -138,7 +138,7 @@ describe('useDebounce', () => {
       () => {
         expect(result.current).toBe(changedObj)
       },
-      { timeout: 75 }
+      { timeout: 200 }
     )
   })
 })

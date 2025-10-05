@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from panelyt_api.db import models
 from panelyt_api.services import catalog
@@ -36,20 +36,28 @@ class TestCatalogService:
             insert(models.Item).values([
                 {
                     "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
                     "slug": "alt-test",
                     "price_now_grosz": 1000,
                     "price_min30_grosz": 950,
+                    "currency": "PLN",
+                    "is_available": True,
                     "fetched_at": fetched_time,
                 },
                 {
                     "id": 2,
+                    "lab_id": 1,
+                    "external_id": "item-2",
                     "kind": "single",
                     "name": "AST Test",
                     "slug": "ast-test",
                     "price_now_grosz": 1200,
                     "price_min30_grosz": 1100,
+                    "currency": "PLN",
+                    "is_available": True,
                     "fetched_at": fetched_time,
                 },
             ])
@@ -63,16 +71,19 @@ class TestCatalogService:
             insert(models.PriceSnapshot).values([
                 {
                     "item_id": 1,
+                    "lab_id": 1,
                     "snap_date": today,
                     "price_now_grosz": 1000,
                 },
                 {
                     "item_id": 1,
+                    "lab_id": 1,
                     "snap_date": yesterday,
                     "price_now_grosz": 1100,
                 },
                 {
                     "item_id": 2,
+                    "lab_id": 1,
                     "snap_date": today,
                     "price_now_grosz": 1200,
                 },
@@ -107,6 +118,9 @@ class TestCatalogService:
             ])
         )
         await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=1001, price=1000)
+        await self._attach_item(db_session, biomarker_id=2, item_id=1002, price=1100)
+        await db_session.commit()
 
         result = await catalog.search_biomarkers(db_session, "ALT")
 
@@ -123,6 +137,8 @@ class TestCatalogService:
             ])
         )
         await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=1101, price=900)
+        await db_session.commit()
 
         result = await catalog.search_biomarkers(db_session, "alt")
         assert len(result.results) == 1
@@ -138,6 +154,10 @@ class TestCatalogService:
                 {"id": 3, "name": "HDL cholesterol", "elab_code": "HDL", "slug": "hdl-cholesterol"},
             ])
         )
+        await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=1201, price=1000)
+        await self._attach_item(db_session, biomarker_id=2, item_id=1202, price=1050)
+        await self._attach_item(db_session, biomarker_id=3, item_id=1203, price=980)
         await db_session.commit()
 
         # Search by partial name
@@ -166,6 +186,8 @@ class TestCatalogService:
             ])
         )
         await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=1301, price=1000)
+        await db_session.commit()
 
         # Search by alias
         result = await catalog.search_biomarkers(db_session, "ALAT")
@@ -184,6 +206,9 @@ class TestCatalogService:
             for i in range(1, 16)  # 15 biomarkers
         ]
         await db_session.execute(insert(models.Biomarker).values(biomarkers))
+        await db_session.commit()
+        for i in range(1, 16):
+            await self._attach_item(db_session, biomarker_id=i, item_id=1400 + i)
         await db_session.commit()
 
         # Search with default limit (10)
@@ -209,6 +234,10 @@ class TestCatalogService:
             ])
         )
         await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=10, item_id=1501, price=900)
+        await self._attach_item(db_session, biomarker_id=3349, item_id=1502, price=950)
+        await self._attach_item(db_session, biomarker_id=4000, item_id=1503, price=970)
+        await db_session.commit()
 
         result = await catalog.search_biomarkers(db_session, "glu")
         names = [r.name for r in result.results]
@@ -227,6 +256,60 @@ class TestCatalogService:
             ])
         )
         await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=1601, price=880)
+        await db_session.commit()
 
         result = await catalog.search_biomarkers(db_session, "ast")
         assert result.results[0].elab_code == "AST"
+    async def _ensure_lab(self, session):
+        existing = await session.scalar(select(models.Lab.id).where(models.Lab.id == 1))
+        if existing is not None:
+            return
+        await session.execute(
+            insert(models.Lab).values(
+                {
+                    "id": 1,
+                    "code": "diag",
+                    "name": "Diagnostyka",
+                    "slug": "diag",
+                    "timezone": "Europe/Warsaw",
+                }
+            )
+        )
+
+    async def _attach_item(
+        self,
+        session,
+        biomarker_id: int,
+        *,
+        item_id: int,
+        price: int = 1000,
+        lab_id: int = 1,
+    ) -> None:
+        await self._ensure_lab(session)
+        now = datetime.now(timezone.utc)
+        await session.execute(
+            insert(models.Item).values(
+                {
+                    "id": item_id,
+                    "lab_id": lab_id,
+                    "external_id": f"item-{item_id}",
+                    "kind": "single",
+                    "name": f"Item {item_id}",
+                    "slug": f"item-{item_id}",
+                    "price_now_grosz": price,
+                    "price_min30_grosz": price,
+                    "currency": "PLN",
+                    "is_available": True,
+                    "fetched_at": now,
+                }
+            )
+        )
+        await session.execute(
+            insert(models.ItemBiomarker).values(
+                {
+                    "item_id": item_id,
+                    "biomarker_id": biomarker_id,
+                }
+            )
+        )

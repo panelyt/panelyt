@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search as SearchIcon } from "lucide-react";
 import { type CatalogSearchResult } from "@panelyt/types";
 
 import { useDebounce } from "../hooks/useDebounce";
 import { useCatalogSearch } from "../hooks/useCatalogSearch";
+import { formatGroszToPln } from "../lib/format";
 
 interface SelectedBiomarker {
   code: string;
@@ -173,35 +174,59 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                 const templateDescription = isTemplate
                   ? item.description?.trim() ?? ""
                   : "";
-                const biomarkerBadge = !isTemplate
-                  ? (item.elab_code ?? item.slug ?? item.name) ?? ""
+                const labPriceEntries = !isTemplate
+                  ? Object.entries(item.lab_prices).sort(([labA], [labB]) =>
+                      labA.localeCompare(labB)
+                    )
+                  : [];
+                const lowestPrice = labPriceEntries.length
+                  ? Math.min(...labPriceEntries.map(([, value]) => value))
                   : null;
-                const rightLabel = isTemplate
-                  ? templateDescription || null
-                  : biomarkerBadge
-                    ? item.elab_code
-                      ? biomarkerBadge.toUpperCase()
-                      : biomarkerBadge
-                    : null;
-                const rightLabelClass = [
-                  "text-xs",
-                  isTemplate ? "truncate text-right" : "uppercase tracking-wide",
-                  isHighlighted
-                    ? "text-white/90"
-                    : isTemplate
-                      ? "text-slate-300"
-                      : "text-emerald-300",
-                ].join(" ");
+                const rightContent = isTemplate ? (
+                  <span
+                    className={`truncate text-xs ${
+                      isHighlighted ? "text-white/80" : "text-slate-300"
+                    }`}
+                  >
+                    {templateDescription ||
+                      `Template · ${item.biomarker_count} biomarker${
+                        item.biomarker_count === 1 ? "" : "s"
+                      }`}
+                  </span>
+                ) : (
+                  <div className="flex flex-col items-end gap-0.5 text-xs">
+                    {labPriceEntries.map(([labCode, price]) => {
+                      const isBest = lowestPrice !== null && price === lowestPrice;
+                      return (
+                        <span
+                          key={`${labCode}-${price}`}
+                          className={[
+                            "font-semibold",
+                            isBest
+                              ? isHighlighted
+                                ? "text-white"
+                                : "text-emerald-200"
+                              : isHighlighted
+                                ? "text-rose-200"
+                                : "text-rose-300/80",
+                          ].join(" ")}
+                        >
+                          {labCode.toUpperCase()}: {formatGroszToPln(price)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                );
                 return (
                   <li key={`${item.type}-${item.id}`}>
                     <button
                       type="button"
                       onClick={() => commitSuggestion(item)}
-                      className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition ${
-                        isHighlighted
-                          ? "bg-emerald-400/20 text-white"
-                          : "hover:bg-slate-800/70 text-slate-200"
-                      }`}
+                    className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition ${
+                      isHighlighted
+                        ? "bg-emerald-400/20 text-white"
+                        : "hover:bg-slate-800/70 text-slate-200"
+                    }`}
                     >
                       <div className="flex flex-col gap-1">
                         <span className={`font-medium ${
@@ -218,13 +243,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                           </span>
                         )}
                       </div>
-                      {rightLabel && (
-                        <span
-                          className={rightLabelClass}
-                        >
-                          {rightLabel}
-                        </span>
-                      )}
+                      {rightContent}
                     </button>
                   </li>
                 );

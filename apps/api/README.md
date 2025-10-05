@@ -88,3 +88,14 @@ Then import with (after activating `.venv`):
 ```bash
 uv run scripts/import_aliases.py your_aliases.json
 ```
+
+### Biomarker Matching YAML
+
+Rebuild the curated biomarker mapping by fetching the latest catalog data from both labs:
+
+```bash
+uv run scripts/compile_biomarkers.py
+```
+
+The generated `src/panelyt_api/matching/biomarkers.yaml` merges semantically similar tests
+and creates standalone entries for unmatched biomarkers per lab.

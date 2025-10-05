@@ -10,7 +10,7 @@ interface TemplatePriceSummaryProps {
 }
 
 export function TemplatePriceSummary({ codes }: TemplatePriceSummaryProps) {
-  const optimization = useOptimization(codes);
+  const optimization = useOptimization(codes, 'auto');
   const hasCodes = codes.length > 0;
 
   if (!hasCodes) {
