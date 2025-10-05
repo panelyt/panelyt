@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
 import {
   ArrowDownRight,
@@ -8,12 +9,27 @@ import {
   CircleCheck,
   Layers3,
   Loader2,
-  ShoppingCart,
   Sparkles,
 } from "lucide-react";
 
 import { useBiomarkerLookup } from "../hooks/useBiomarkerLookup";
 import { formatCurrency, formatGroszToPln } from "../lib/format";
+
+interface LabChoiceCard {
+  key: string;
+  title: string;
+  priceLabel: string;
+  priceValue?: number | null;
+  meta?: string;
+  badge?: string;
+  active: boolean;
+  loading?: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+  icon: ReactNode;
+  accentLight: string;
+  accentDark: string;
+}
 
 interface Props {
   selected: string[];
@@ -23,6 +39,7 @@ interface Props {
   variant?: "light" | "dark";
   showInsights?: boolean;
   showExplainability?: boolean;
+  labCards?: LabChoiceCard[];
 }
 
 export function OptimizationResults({
@@ -33,11 +50,25 @@ export function OptimizationResults({
   variant = "light",
   showInsights = true,
   showExplainability = true,
+  labCards = [],
 }: Props) {
   const isDark = variant === "dark";
   const allBiomarkerCodes = result?.items.flatMap((item) => item.biomarkers) ?? [];
   const uniqueCodes = Array.from(new Set(allBiomarkerCodes));
-  const { data: biomarkerNames } = useBiomarkerLookup(uniqueCodes);
+  const labelMap = result?.labels ?? {};
+  const missingCodes = uniqueCodes.filter((code) => !(code in labelMap));
+  const { data: biomarkerNames } = useBiomarkerLookup(missingCodes);
+
+  const resolveDisplayName = (code: string): string => {
+    const normalized = code.trim().toUpperCase();
+    return (
+      labelMap[code] ??
+      labelMap[normalized] ??
+      biomarkerNames?.[code] ??
+      biomarkerNames?.[normalized] ??
+      code
+    );
+  };
 
   if (selected.length === 0) {
     return (
@@ -106,16 +137,10 @@ export function OptimizationResults({
     .filter(([, items]) => items.size > 1)
     .map(([code, items]) => ({ code, items: Array.from(items) }))
     .sort((a, b) => b.items.length - a.items.length || a.code.localeCompare(b.code));
+  const exclusiveEntries = Object.entries(result.exclusive ?? {});
+  const exclusiveCodes = exclusiveEntries.map(([code]) => code);
 
   const summaryStats = [
-    {
-      label: "Current total",
-      value: formatCurrency(result.total_now),
-      hint: "Live prices from diag.pl",
-      icon: <ShoppingCart className="h-4 w-4" />,
-      accentLight: "bg-sky-500/10 text-sky-500",
-      accentDark: "bg-sky-500/20 text-sky-200",
-    },
     {
       label: "30-day minimum",
       value: formatCurrency(result.total_min30),
@@ -188,11 +213,11 @@ export function OptimizationResults({
           )}
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
           {summaryStats.map((stat) => (
             <div
               key={stat.label}
-              className={`rounded-2xl border px-4 py-5 shadow-sm ${
+              className={`flex h-full flex-col rounded-2xl border px-4 py-5 shadow-sm ${
                 isDark
                   ? "border-slate-800 bg-slate-950/60 text-slate-100 shadow-black/20"
                   : "border-slate-100 bg-slate-50 text-slate-900"
@@ -218,19 +243,105 @@ export function OptimizationResults({
                   {stat.label}
                 </span>
               </div>
-              <p
-                className={`mt-4 text-2xl font-semibold ${
-                  isDark ? "text-white" : "text-slate-900"
-                }`}
-              >
-                {stat.value}
-              </p>
-              <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                {stat.hint}
-              </p>
+              <div className="mt-4 flex flex-1 flex-col justify-between">
+                <p
+                  className={`text-2xl font-semibold ${
+                    isDark ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  {stat.value}
+                </p>
+                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  {stat.hint}
+                </p>
+              </div>
             </div>
           ))}
         </div>
+
+        {labCards.length > 0 && (
+          <div className="mt-4 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {labCards.map((card) => {
+              const isActive = card.active;
+              const isDisabled = card.disabled || card.loading;
+
+              return (
+                <button
+                  key={card.key}
+                  type="button"
+                  onClick={card.onSelect}
+                  disabled={isDisabled}
+                  className={`group flex h-full flex-col rounded-2xl border px-4 py-5 text-left transition ${
+                    isDark
+                      ? `bg-slate-950/60 ${
+                          isActive
+                            ? "border-emerald-400/80 shadow-lg shadow-emerald-500/10"
+                            : "border-slate-800 hover:border-emerald-300/70 hover:bg-slate-900"
+                        }`
+                      : `bg-slate-50 ${
+                          isActive
+                            ? "border-emerald-300 shadow-lg shadow-emerald-200/40"
+                            : "border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/60"
+                        }`
+                  } ${isDisabled ? "cursor-not-allowed opacity-60" : ""}`}
+                >
+                  <div className="flex h-full flex-col justify-between gap-4">
+                    <div
+                      className={`flex items-center gap-3 text-sm ${
+                        isDark ? "text-slate-400" : "text-slate-500"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                          isDark ? card.accentDark : card.accentLight
+                        }`}
+                      >
+                        {card.icon}
+                      </span>
+                      <span
+                        className={`font-semibold uppercase tracking-wide text-[11px] ${
+                          isDark ? "text-slate-200" : ""
+                        }`}
+                      >
+                        {card.title}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-1 flex-col justify-between">
+                      <div className="flex items-center gap-2">
+                        <p
+                          className={`text-2xl font-semibold ${
+                            isDark ? "text-white" : "text-slate-900"
+                          }`}
+                        >
+                          {card.loading ? "—" : card.priceLabel}
+                        </p>
+                        {card.badge && (
+                          <span
+                            className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                              isDark
+                                ? "bg-slate-800 text-emerald-200"
+                                : "bg-emerald-100 text-emerald-700"
+                            }`}
+                          >
+                            {card.badge}
+                          </span>
+                        )}
+                      </div>
+                      <div className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                        {card.meta ? (
+                          card.meta
+                        ) : (
+                          <span className="invisible">placeholder</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div
           className={`mt-8 rounded-xl border p-4 ${
@@ -278,12 +389,43 @@ export function OptimizationResults({
                   }`}
                 >
                   <CircleAlert className="h-3.5 w-3.5" />
-                  {token}
+                  {resolveDisplayName(token)}
                 </span>
               ))}
             </div>
           )}
         </div>
+
+        {exclusiveEntries.length > 0 && (
+          <div
+            className={`mt-6 rounded-xl border p-4 ${
+              isDark
+                ? "border-amber-500/40 bg-amber-500/10"
+                : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-100">
+              <CircleAlert className="h-4 w-4" />
+              <span>
+                Exclusive to {result.lab_name || result.lab_code.toUpperCase()}
+              </span>
+            </div>
+            <ul className="mt-3 flex flex-wrap gap-2 text-xs">
+              {exclusiveCodes.map((code) => (
+                <li
+                  key={code}
+                  className={`rounded-full px-3 py-1 ${
+                    isDark
+                      ? "bg-amber-500/20 text-amber-100"
+                      : "bg-amber-100 text-amber-700"
+                  }`}
+                >
+                  {resolveDisplayName(code)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {overlappingEntries.length > 0 && (
           <div
@@ -310,7 +452,7 @@ export function OptimizationResults({
             </div>
             <ul className="mt-4 space-y-3">
               {overlappingEntries.map((entry) => {
-                const displayName = biomarkerNames?.[entry.code] ?? entry.code;
+                const displayName = resolveDisplayName(entry.code);
                 return (
                   <li
                     key={entry.code}
@@ -440,7 +582,7 @@ export function OptimizationResults({
                             <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
                               {item.biomarkers.map((biomarker) => {
                                 const isBonus = !selectedSet.has(biomarker);
-                                const displayName = biomarkerNames?.[biomarker] ?? biomarker;
+                                const displayName = resolveDisplayName(biomarker);
                                 return (
                                   <span
                                     key={biomarker}

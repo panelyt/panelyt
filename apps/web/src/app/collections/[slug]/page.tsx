@@ -23,7 +23,7 @@ export default function TemplateDetailPage({ params }: TemplateDetailPageProps) 
     () => template?.biomarkers.map((entry) => entry.code) ?? [],
     [template],
   );
-  const optimization = useOptimization(biomarkerCodes);
+  const optimization = useOptimization(biomarkerCodes, 'auto');
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">

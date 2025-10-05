@@ -1,13 +1,30 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BarChart3, Clock, Layers, Loader2, Sparkles } from "lucide-react";
-import { BiomarkerListTemplateSchema, SavedListSchema, type SavedList } from "@panelyt/types";
+import {
+  BarChart3,
+  Clock,
+  Factory,
+  FlaskConical,
+  Layers,
+  Loader2,
+  Sparkles,
+  Workflow,
+} from "lucide-react";
+import {
+  BiomarkerListTemplateSchema,
+  OptimizeResponseSchema,
+  SavedListSchema,
+  type LabAvailability,
+  type SavedList,
+} from "@panelyt/types";
 
 import { useCatalogMeta } from "../hooks/useCatalogMeta";
 import { useOptimization } from "../hooks/useOptimization";
+import { useQueries } from "@tanstack/react-query";
 import { useSavedLists } from "../hooks/useSavedLists";
 import { useUserSession } from "../hooks/useUserSession";
 import { useAuth } from "../hooks/useAuth";
@@ -18,7 +35,8 @@ import { SelectedBiomarkers } from "../components/selected-biomarkers";
 import { AuthModal } from "../components/auth-modal";
 import { SaveListModal } from "../components/save-list-modal";
 import { TemplateModal } from "../components/template-modal";
-import { HttpError, getJson } from "../lib/http";
+import { HttpError, getJson, postJson } from "../lib/http";
+import { formatCurrency } from "../lib/format";
 import { slugify } from "../lib/slug";
 
 interface SelectedBiomarker {
@@ -48,6 +66,8 @@ export default function Home() {
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [templateSlugTouched, setTemplateSlugTouched] = useState(false);
+  const [selectedLabChoice, setSelectedLabChoice] = useState<string | "all" | null>(null);
+  const [cachedLabOptions, setCachedLabOptions] = useState<LabAvailability[]>([]);
 
   const { data: meta } = useCatalogMeta();
   const sessionQuery = useUserSession();
@@ -66,8 +86,251 @@ export default function Home() {
     () => selected.map((item) => ({ code: item.code, name: item.name })),
     [selected],
   );
-  const optimization = useOptimization(optimizerInput);
+  const autoOptimization = useOptimization(optimizerInput, "auto");
+  const splitOptimization = useOptimization(optimizerInput, "split");
 
+  const latestLabOptions = autoOptimization.data?.lab_options;
+  const labOptions = latestLabOptions ?? cachedLabOptions;
+
+  useEffect(() => {
+    if (latestLabOptions !== undefined) {
+      setCachedLabOptions(latestLabOptions);
+    }
+    if (optimizerInput.length === 0) {
+      setCachedLabOptions([]);
+      setSelectedLabChoice(null);
+    }
+  }, [latestLabOptions, optimizerInput.length]);
+
+  const autoLabCode = autoOptimization.data?.lab_code ?? null;
+
+  const primaryLabCodes = useMemo(() => {
+    const codes: string[] = [];
+    if (autoLabCode) {
+      codes.push(autoLabCode);
+    }
+    for (const option of labOptions) {
+      if (option.code && !codes.includes(option.code)) {
+        codes.push(option.code);
+      }
+      if (codes.length >= 2) {
+        break;
+      }
+    }
+    return codes.slice(0, 2);
+  }, [autoLabCode, labOptions]);
+
+  useEffect(() => {
+    if (primaryLabCodes.length === 0) {
+      setSelectedLabChoice(null);
+      return;
+    }
+    setSelectedLabChoice((current) => {
+      if (current === "all") {
+        return current;
+      }
+      if (current && primaryLabCodes.includes(current)) {
+        return current;
+      }
+      return primaryLabCodes[0];
+    });
+  }, [primaryLabCodes]);
+
+  const optimizationKey = useMemo(
+    () => optimizerInput.map((item) => item.toLowerCase()).sort().join("|"),
+    [optimizerInput],
+  );
+
+  const labComparisons = useQueries({
+    queries: primaryLabCodes.map((code) => ({
+      queryKey: ["optimize", optimizationKey, "single_lab", code],
+      queryFn: async () => {
+        const payload = await postJson("/optimize", {
+          biomarkers: optimizerInput,
+          mode: "single_lab",
+          lab_code: code,
+        });
+        return OptimizeResponseSchema.parse(payload);
+      },
+      enabled: optimizerInput.length > 0 && Boolean(code),
+    })),
+  });
+
+  const splitResult = splitOptimization.data;
+  const splitLoading = splitOptimization.isLoading || splitOptimization.isFetching;
+  const splitError =
+    splitOptimization.error instanceof Error ? splitOptimization.error : null;
+
+  const autoLoading = autoOptimization.isLoading || autoOptimization.isFetching;
+  const autoError =
+    autoOptimization.error instanceof Error ? autoOptimization.error : null;
+
+  const resolvedSingleCode =
+    selectedLabChoice && selectedLabChoice !== "all"
+      ? selectedLabChoice
+      : primaryLabCodes[0] ?? autoLabCode;
+
+  const activeSingleIndex = resolvedSingleCode
+    ? primaryLabCodes.indexOf(resolvedSingleCode)
+    : -1;
+  const activeSingleQuery =
+    activeSingleIndex >= 0 ? labComparisons[activeSingleIndex] : undefined;
+
+  const singleResult = activeSingleQuery?.data ?? autoOptimization.data;
+  const singleLoading = activeSingleQuery
+    ? activeSingleQuery.isLoading || activeSingleQuery.isFetching
+    : autoLoading;
+  const singleError = activeSingleQuery?.error instanceof Error
+    ? activeSingleQuery.error
+    : autoError;
+
+  const activeResult = selectedLabChoice === "all"
+    ? splitResult ?? (singleResult ? { ...singleResult, mode: "split" } : undefined)
+    : singleResult;
+  const activeLoading = selectedLabChoice === "all"
+    ? splitLoading || (!splitResult && singleLoading)
+    : singleLoading;
+  const activeError = selectedLabChoice === "all"
+    ? splitError ?? singleError
+    : singleError;
+
+  const labelForLab = useCallback((code: string, name?: string | null) => {
+    const normalizedCode = (code || "").trim().toLowerCase();
+    const normalizedName = (name || "").trim().toLowerCase();
+    if (normalizedCode === "diag" || normalizedName.includes("diag")) {
+      return "DIAG";
+    }
+    if (normalizedCode === "alab" || normalizedName.includes("alab")) {
+      return "ALAB";
+    }
+    const fallback = (code || name || "Lab").trim();
+    return fallback ? fallback.toUpperCase() : "LAB";
+  }, []);
+
+  const labCards = useMemo(() => {
+    if (primaryLabCodes.length === 0) {
+      return [];
+    }
+
+    let cards = primaryLabCodes.map((code, index) => {
+      const query = labComparisons[index];
+      const option = labOptions.find((lab) => lab.code === code);
+      const labShort = labelForLab(code, option?.name ?? query.data?.lab_name);
+      const labTitle = `ONLY ${labShort}`;
+      const priceLabel = query.data ? formatCurrency(query.data.total_now) : "—";
+      const missingTokensCount = option?.missing_tokens?.length ?? 0;
+      const hasGaps = option ? !option.covers_all && missingTokensCount > 0 : false;
+      const uncoveredTotal = query.data ? query.data.uncovered.length : 0;
+      const missingCount = hasGaps ? missingTokensCount : uncoveredTotal;
+      const bonusCount = query.data
+        ? query.data.items.reduce(
+            (acc, item) =>
+              acc + item.biomarkers.filter((token) => !optimizerInput.includes(token)).length,
+            0,
+          )
+        : 0;
+      const hasCounts = optimizerInput.length > 0 && (query.data || missingTokensCount > 0 || bonusCount > 0);
+      const coverageLabel = !hasCounts
+        ? optimizerInput.length === 0
+          ? "Add biomarkers to compare labs"
+          : "—"
+        : `${missingCount} Missing · ${bonusCount} Bonus`;
+
+      const preset: { icon: ReactNode; accentLight: string; accentDark: string } = (() => {
+        switch (labShort) {
+          case "DIAG":
+            return {
+              icon: <FlaskConical className="h-4 w-4" />,
+              accentLight: "bg-emerald-500/10 text-emerald-600",
+              accentDark: "bg-emerald-500/20 text-emerald-200",
+            } as const;
+          case "ALAB":
+            return {
+              icon: <Factory className="h-4 w-4" />,
+              accentLight: "bg-sky-500/10 text-sky-500",
+              accentDark: "bg-sky-500/20 text-sky-200",
+            } as const;
+          default:
+            return {
+              icon: <Sparkles className="h-4 w-4" />,
+              accentLight: "bg-slate-500/10 text-slate-600",
+              accentDark: "bg-slate-500/20 text-slate-300",
+            } as const;
+        }
+      })();
+
+      return {
+        key: code || `lab-${index}`,
+        title: labTitle,
+        priceLabel,
+        priceValue: query.data?.total_now ?? null,
+        meta: coverageLabel,
+        badge: undefined as string | undefined,
+        active: selectedLabChoice === code,
+        loading: query.isFetching || query.isLoading,
+        disabled: optimizerInput.length === 0,
+        onSelect: () => setSelectedLabChoice(code),
+        icon: preset.icon,
+        accentLight: preset.accentLight,
+        accentDark: preset.accentDark,
+      };
+    });
+
+    const splitBonusCount = splitResult
+      ? splitResult.items.reduce(
+          (acc, item) =>
+            acc + item.biomarkers.filter((token) => !optimizerInput.includes(token)).length,
+          0,
+        )
+      : 0;
+    const splitMissingCount = splitResult?.uncovered?.length ?? 0;
+    const splitHasCounts = optimizerInput.length > 0 && (splitResult || splitBonusCount > 0 || splitMissingCount > 0);
+    const splitMeta = !splitHasCounts
+      ? optimizerInput.length === 0
+        ? "Add biomarkers to compare labs"
+        : "—"
+      : `${splitMissingCount} Missing · ${splitBonusCount} Bonus`;
+
+    cards.push({
+      key: "all",
+      title: "BOTH LABS",
+      priceLabel: splitResult ? formatCurrency(splitResult.total_now) : "—",
+      priceValue: splitResult?.total_now ?? null,
+      meta: splitMeta,
+      badge: undefined as string | undefined,
+      active: selectedLabChoice === "all",
+      loading: splitLoading,
+      disabled: optimizerInput.length === 0,
+      onSelect: () => setSelectedLabChoice("all"),
+      icon: <Workflow className="h-4 w-4" />,
+      accentLight: "bg-indigo-500/10 text-indigo-500",
+      accentDark: "bg-indigo-500/20 text-indigo-200",
+    });
+
+    const priceCandidates = cards
+      .map((card, index) => ({ index, price: card.priceValue ?? Number.POSITIVE_INFINITY }))
+      .filter((entry) => Number.isFinite(entry.price));
+    if (priceCandidates.length > 0) {
+      const cheapest = priceCandidates.reduce((best, entry) =>
+        entry.price < best.price ? entry : best,
+      priceCandidates[0]);
+      cards = cards.map((card, index) => ({
+        ...card,
+        badge: index === cheapest.index ? "Cheapest" : undefined,
+      }));
+    }
+
+    return cards;
+  }, [
+    labComparisons,
+    labOptions,
+    optimizerInput,
+    primaryLabCodes,
+    selectedLabChoice,
+    splitLoading,
+    splitResult,
+    labelForLab,
+  ]);
   const loadMenuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!isLoadMenuOpen) {
@@ -673,10 +936,11 @@ export default function Home() {
 
           <OptimizationResults
             selected={optimizerInput}
-            result={optimization.data}
-            isLoading={optimization.isFetching}
-            error={optimization.error}
+            result={activeResult}
+            isLoading={activeLoading}
+            error={activeError ?? undefined}
             variant="dark"
+            labCards={labCards}
           />
         </div>
       </section>

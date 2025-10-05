@@ -4,7 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { vi } from 'vitest'
 import { SearchBox } from '../search-box'
 
-const useDebounceMock = vi.fn<(value: string, delay?: number) => string>((value) => value)
+const useDebounceMock = vi.hoisted(() =>
+  vi.fn<(value: string, delay?: number) => string>((value) => value),
+)
 vi.mock('../../hooks/useDebounce', () => ({
   useDebounce: useDebounceMock,
 }))
@@ -48,6 +50,10 @@ describe('SearchBox', () => {
     name: 'Alanine aminotransferase',
     elab_code: 'ALT',
     slug: 'alt',
+    lab_prices: {
+      diag: 1000,
+      alab: 1250,
+    },
   }
 
   const templateSuggestion = {
@@ -103,7 +109,8 @@ describe('SearchBox', () => {
     })
 
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
-    expect(screen.getByText('ALT')).toBeInTheDocument()
+    expect(screen.getByText('DIAG: 10,00 zł')).toBeInTheDocument()
+    expect(screen.getByText('ALAB: 12,50 zł')).toBeInTheDocument()
   })
 
   it('calls onSelect when a biomarker suggestion is clicked', async () => {
@@ -153,7 +160,6 @@ describe('SearchBox', () => {
   })
 
   it('pressing Enter selects the highlighted suggestion', async () => {
-    const user = userEvent.setup()
     mockUseCatalogSearch.mockImplementation(() =>
       createSearchResult({ data: { results: [biomarkerSuggestion] } }),
     )
@@ -165,7 +171,9 @@ describe('SearchBox', () => {
     const input = screen.getByPlaceholderText('Search biomarkers')
     fireEvent.change(input, { target: { value: 'ALT' } })
 
-    await user.keyboard('{ArrowDown}{Enter}')
+    await screen.findByText('Alanine aminotransferase')
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(onSelect).toHaveBeenCalledWith({
       code: 'ALT',
