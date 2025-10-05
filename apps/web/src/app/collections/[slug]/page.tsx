@@ -120,8 +120,6 @@ export default function TemplateDetailPage({ params }: TemplateDetailPageProps) 
                   isLoading={optimization.isLoading}
                   error={optimization.error}
                   variant="dark"
-                  showInsights={false}
-                  showExplainability={false}
                 />
               </div>
             </section>

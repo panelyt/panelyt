@@ -6,7 +6,6 @@ import { CircleAlert, Loader2 } from "lucide-react";
 
 import { useBiomarkerLookup } from "../../hooks/useBiomarkerLookup";
 import type { LabChoiceCard } from "./types";
-import { InsightsSection } from "./insights-section";
 import { PriceBreakdownSection } from "./price-breakdown";
 import { SummarySection } from "./summary-section";
 import { buildOptimizationViewModel } from "./view-model";
@@ -17,8 +16,6 @@ export interface OptimizationResultsProps {
   isLoading: boolean;
   error?: Error | null;
   variant?: "light" | "dark";
-  showInsights?: boolean;
-  showExplainability?: boolean;
   labCards?: LabChoiceCard[];
 }
 
@@ -28,8 +25,6 @@ export function OptimizationResults({
   isLoading,
   error,
   variant = "light",
-  showInsights = true,
-  showExplainability = true,
   labCards = [],
 }: OptimizationResultsProps) {
   const missingCodes = useMemo(() => {
@@ -97,24 +92,7 @@ export function OptimizationResults({
   return (
     <div className="space-y-8">
       <SummarySection viewModel={viewModel} labCards={labCards} />
-
-      <div
-        className={`grid gap-6 ${
-          showInsights || showExplainability
-            ? "xl:grid-cols-[minmax(0,_3fr)_minmax(0,_2fr)]"
-            : ""
-        }`}
-      >
-        <PriceBreakdownSection viewModel={viewModel} />
-
-        {(showInsights || showExplainability) && (
-          <InsightsSection
-            viewModel={viewModel}
-            showInsights={showInsights}
-            showExplainability={showExplainability}
-          />
-        )}
-      </div>
+      <PriceBreakdownSection viewModel={viewModel} />
     </div>
   );
 }
