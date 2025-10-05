@@ -68,6 +68,7 @@ export default function Home() {
   const [templateSlugTouched, setTemplateSlugTouched] = useState(false);
   const [selectedLabChoice, setSelectedLabChoice] = useState<string | "all" | null>(null);
   const [cachedLabOptions, setCachedLabOptions] = useState<LabAvailability[]>([]);
+  const autoSelectionRef = useRef<string | null>(null);
 
   const { data: meta } = useCatalogMeta();
   const sessionQuery = useUserSession();
@@ -99,6 +100,7 @@ export default function Home() {
     if (optimizerInput.length === 0) {
       setCachedLabOptions([]);
       setSelectedLabChoice(null);
+      autoSelectionRef.current = null;
     }
   }, [latestLabOptions, optimizerInput.length]);
 
@@ -120,22 +122,6 @@ export default function Home() {
     return codes.slice(0, 2);
   }, [autoLabCode, labOptions]);
 
-  useEffect(() => {
-    if (primaryLabCodes.length === 0) {
-      setSelectedLabChoice(null);
-      return;
-    }
-    setSelectedLabChoice((current) => {
-      if (current === "all") {
-        return current;
-      }
-      if (current && primaryLabCodes.includes(current)) {
-        return current;
-      }
-      return primaryLabCodes[0];
-    });
-  }, [primaryLabCodes]);
-
   const optimizationKey = useMemo(
     () => optimizerInput.map((item) => item.toLowerCase()).sort().join("|"),
     [optimizerInput],
@@ -155,6 +141,75 @@ export default function Home() {
       enabled: optimizerInput.length > 0 && Boolean(code),
     })),
   });
+
+  const defaultSingleLabCode = (() => {
+    if (optimizerInput.length === 0 || primaryLabCodes.length === 0) {
+      return null;
+    }
+
+    let best: { code: string; covered: number; price: number } | null = null;
+
+    for (let index = 0; index < primaryLabCodes.length; index += 1) {
+      const code = primaryLabCodes[index];
+      const option = labOptions.find((lab) => lab.code === code);
+      const missingCount = option?.missing_tokens?.length ?? optimizerInput.length;
+      const covered = Math.max(optimizerInput.length - missingCount, 0);
+      const query = labComparisons[index];
+      const price = query?.data?.total_now ?? Number.POSITIVE_INFINITY;
+      const candidate = { code, covered, price };
+
+      if (best === null) {
+        best = candidate;
+        continue;
+      }
+
+      if (candidate.covered > best.covered) {
+        best = candidate;
+        continue;
+      }
+
+      if (candidate.covered === best.covered && candidate.price < best.price) {
+        best = candidate;
+      }
+    }
+
+    return best?.code ?? null;
+  })();
+
+  useEffect(() => {
+    if (optimizerInput.length === 0 || primaryLabCodes.length === 0) {
+      setSelectedLabChoice(null);
+      autoSelectionRef.current = null;
+      return;
+    }
+
+    const nextChoice = defaultSingleLabCode ?? primaryLabCodes[0] ?? null;
+
+    if (!nextChoice) {
+      return;
+    }
+
+    setSelectedLabChoice((current) => {
+      if (current === "all") {
+        autoSelectionRef.current = null;
+        return current;
+      }
+
+      const isCurrentValid = (current && primaryLabCodes.includes(current)) || false;
+
+      if (isCurrentValid && autoSelectionRef.current === null) {
+        return current;
+      }
+
+      if (isCurrentValid && current === nextChoice) {
+        autoSelectionRef.current = nextChoice;
+        return current;
+      }
+
+      autoSelectionRef.current = nextChoice;
+      return nextChoice;
+    });
+  }, [defaultSingleLabCode, optimizerInput.length, primaryLabCodes]);
 
   const splitResult = splitOptimization.data;
   const splitLoading = splitOptimization.isLoading || splitOptimization.isFetching;
@@ -269,7 +324,10 @@ export default function Home() {
         active: selectedLabChoice === code,
         loading: query.isFetching || query.isLoading,
         disabled: optimizerInput.length === 0,
-        onSelect: () => setSelectedLabChoice(code),
+        onSelect: () => {
+          autoSelectionRef.current = null;
+          setSelectedLabChoice(code);
+        },
         icon: preset.icon,
         accentLight: preset.accentLight,
         accentDark: preset.accentDark,
@@ -301,7 +359,10 @@ export default function Home() {
       active: selectedLabChoice === "all",
       loading: splitLoading,
       disabled: optimizerInput.length === 0,
-      onSelect: () => setSelectedLabChoice("all"),
+      onSelect: () => {
+        autoSelectionRef.current = null;
+        setSelectedLabChoice("all");
+      },
       icon: <Workflow className="h-4 w-4" />,
       accentLight: "bg-indigo-500/10 text-indigo-500",
       accentDark: "bg-indigo-500/20 text-indigo-200",
@@ -390,34 +451,37 @@ export default function Home() {
       try {
         const payload = await getJson(`/biomarker-lists/templates/${slug}`);
         const template = BiomarkerListTemplateSchema.parse(payload);
-        let pendingNotice: { tone: "success" | "info"; message: string } | null = null;
-        setSelected((current) => {
-          const existing = new Set(current.map((item) => item.code));
-          const additions = template.biomarkers.filter((entry) => !existing.has(entry.code));
-          if (additions.length === 0) {
-            pendingNotice = {
+        const existing = new Set(selected.map((item) => item.code));
+        const additions = template.biomarkers.filter((entry) => !existing.has(entry.code));
+
+        const notice: { tone: "success" | "info"; message: string } = additions.length === 0
+          ? {
               tone: "info",
               message: `All biomarkers from ${template.name} are already selected.`,
+            }
+          : {
+              tone: "success",
+              message: `Added ${additions.length} biomarker${additions.length === 1 ? "" : "s"} from ${template.name}.`,
             };
-            return current;
-          }
-          pendingNotice = {
-            tone: "success",
-            message: `Added ${additions.length} biomarker${additions.length === 1 ? "" : "s"} from ${template.name}.`,
-          };
-          return [
-            ...current,
+
+        if (additions.length > 0) {
+          const merged = [
+            ...selected,
             ...additions.map((entry) => ({ code: entry.code, name: entry.display_name })),
           ];
-        });
+          setSelected(merged);
+          autoSelectionRef.current = null;
+          setSelectedLabChoice(null);
+        }
+
         setListError(null);
-        setListNotice(pendingNotice);
+        setListNotice(notice);
       } catch (error) {
         setListNotice(null);
         setListError(extractErrorMessage(error));
       }
     },
-    [extractErrorMessage],
+    [extractErrorMessage, selected, setSelectedLabChoice],
   );
 
   useEffect(() => {
@@ -445,6 +509,8 @@ export default function Home() {
             name: entry.display_name,
           })),
         );
+        autoSelectionRef.current = null;
+        setSelectedLabChoice(null);
         setListError(null);
       } catch (error) {
         if (!cancelled) {
@@ -464,7 +530,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [router, extractErrorMessage]);
+  }, [router, extractErrorMessage, setSelectedLabChoice]);
 
   useEffect(() => {
     if (!listNotice) {
@@ -499,6 +565,8 @@ export default function Home() {
             name: entry.display_name,
           })),
         );
+        autoSelectionRef.current = null;
+        setSelectedLabChoice(null);
         setListError(null);
       } catch (error) {
         if (!cancelled) {
@@ -518,7 +586,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [router, extractErrorMessage]);
+  }, [router, extractErrorMessage, setSelectedLabChoice]);
 
   const closeAuthModal = () => {
     setIsAuthOpen(false);
@@ -567,9 +635,14 @@ export default function Home() {
     }
   };
 
-  const handleLoadList = useCallback((list: SavedList) => {
-    setSelected(list.biomarkers.map((entry) => ({ code: entry.code, name: entry.display_name })));
-  }, []);
+  const handleLoadList = useCallback(
+    (list: SavedList) => {
+      setSelected(list.biomarkers.map((entry) => ({ code: entry.code, name: entry.display_name })));
+      autoSelectionRef.current = null;
+      setSelectedLabChoice(null);
+    },
+    [setSelectedLabChoice],
+  );
 
   const handleLoadFromMenu = (list: SavedList) => {
     handleLoadList(list);
