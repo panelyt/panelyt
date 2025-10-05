@@ -87,6 +87,62 @@ async def test_no_alert_for_small_drop(db_session, test_settings) -> None:
     assert saved_list.last_notified_total_grosz is None
 
 
+@pytest.mark.asyncio
+async def test_no_alert_when_tokens_uncovered(db_session, test_settings) -> None:
+    test_settings.telegram_bot_token = "token"
+
+    user_id = await _create_user(db_session, telegram_chat_id="555")
+    saved_list_id = await _create_saved_list(
+        db_session,
+        user_id=user_id,
+        biomarker_code="ALT",
+        previous_total=4500,
+    )
+    await db_session.commit()
+
+    client = StubTelegramClient()
+    service = TelegramPriceAlertService(db_session, settings=test_settings, http_client=client)
+    await service.run()
+
+    assert client.requests == []
+
+    saved_list = await db_session.scalar(
+        select(models.SavedList).where(models.SavedList.id == saved_list_id)
+    )
+    assert saved_list is not None
+    assert saved_list.last_known_total_grosz is None
+
+
+@pytest.mark.asyncio
+async def test_no_alert_when_not_lower_than_last_notified(db_session, test_settings) -> None:
+    test_settings.telegram_bot_token = "token"
+
+    biomarker_id = await _create_biomarker(db_session, "ALT")
+    user_id = await _create_user(db_session, telegram_chat_id="888")
+    previous_total = 4800
+    saved_list_id = await _create_saved_list(
+        db_session,
+        user_id=user_id,
+        biomarker_code="ALT",
+        previous_total=previous_total,
+        last_notified_total=3000,
+        last_notified_at=datetime(2024, 1, 1, tzinfo=UTC),
+    )
+    await _create_item_with_biomarker(db_session, biomarker_id=biomarker_id, item_id=5, price=3000)
+    await db_session.commit()
+
+    client = StubTelegramClient()
+    service = TelegramPriceAlertService(db_session, settings=test_settings, http_client=client)
+    await service.run()
+
+    assert client.requests == []
+
+    saved_list = await db_session.scalar(
+        select(models.SavedList).where(models.SavedList.id == saved_list_id)
+    )
+    assert saved_list is not None
+    assert saved_list.last_known_total_grosz == 3000
+    assert saved_list.last_notified_total_grosz == 3000
 async def _create_biomarker(db_session, code: str) -> int:
     result = await db_session.execute(
         insert(models.Biomarker)
@@ -115,6 +171,8 @@ async def _create_saved_list(
     user_id: str,
     biomarker_code: str,
     previous_total: int,
+    last_notified_total: int | None = None,
+    last_notified_at: datetime | None = None,
 ) -> str:
     result = await db_session.execute(
         insert(models.SavedList)
@@ -124,6 +182,8 @@ async def _create_saved_list(
             "notify_on_price_drop": True,
             "last_known_total_grosz": previous_total,
             "last_total_updated_at": datetime.now(UTC),
+            "last_notified_total_grosz": last_notified_total,
+            "last_notified_at": last_notified_at,
         })
         .returning(models.SavedList.id)
     )
