@@ -8,7 +8,7 @@ import {
   type TelegramLinkTokenResponse,
 } from "@panelyt/types";
 
-import { getJson, postJson } from "../lib/http";
+import { getParsedJson, postParsedJson, postJson } from "../lib/http";
 
 function toAccountSettings(response: TelegramLinkTokenResponse): AccountSettings {
   return {
@@ -23,8 +23,7 @@ export function useAccountSettings(enabled: boolean) {
     queryKey: ["account-settings"],
     enabled,
     queryFn: async () => {
-      const payload = await getJson("/account/settings");
-      return AccountSettingsSchema.parse(payload);
+      return getParsedJson("/account/settings", AccountSettingsSchema);
     },
     staleTime: 60_000,
   });
@@ -35,8 +34,10 @@ export function useAccountSettings(enabled: boolean) {
 
   const linkTokenMutation = useMutation<TelegramLinkTokenResponse, Error>({
     mutationFn: async () => {
-      const response = await postJson("/account/telegram/link-token");
-      return TelegramLinkTokenResponseSchema.parse(response);
+      return postParsedJson(
+        "/account/telegram/link-token",
+        TelegramLinkTokenResponseSchema,
+      );
     },
     onSuccess: (data) => {
       updateCache(data);
@@ -48,8 +49,11 @@ export function useAccountSettings(enabled: boolean) {
 
   const manualLinkMutation = useMutation<TelegramLinkTokenResponse, Error, string>({
     mutationFn: async (chatId) => {
-      const response = await postJson("/account/telegram/manual-link", { chat_id: chatId });
-      return TelegramLinkTokenResponseSchema.parse(response);
+      return postParsedJson(
+        "/account/telegram/manual-link",
+        TelegramLinkTokenResponseSchema,
+        { chat_id: chatId },
+      );
     },
     onSuccess: (data) => {
       updateCache(data);

@@ -61,49 +61,8 @@ class TelegramPriceAlertService:
             logger.debug("No saved lists eligible for Telegram alerts")
             return
 
-        now = datetime.now(UTC)
-        alerts: list[AlertPayload] = []
-        for candidate in candidates:
-            saved_list = candidate.saved_list
-            codes = [entry.code for entry in sorted(saved_list.entries, key=lambda e: e.sort_order)]
-            previous_total = saved_list.last_known_total_grosz
-
-            if not codes:
-                saved_list.last_known_total_grosz = None
-                saved_list.last_total_updated_at = now
-                continue
-
-            request = OptimizeRequest(biomarkers=codes)
-            response = await self._optimizer.solve(request)
-            if response.uncovered:
-                saved_list.last_known_total_grosz = None
-                saved_list.last_total_updated_at = now
-                continue
-
-            total_grosz = sum(item.price_now_grosz for item in response.items)
-            saved_list.last_known_total_grosz = total_grosz
-            saved_list.last_total_updated_at = now
-
-            if previous_total is None:
-                continue
-
-            drop = previous_total - total_grosz
-            if drop < _MIN_DROP_GROSZ:
-                continue
-
-            last_notified = saved_list.last_notified_total_grosz
-            if last_notified is not None and total_grosz >= last_notified:
-                continue
-
-            alerts.append(
-                AlertPayload(
-                    saved_list=saved_list,
-                    chat_id=candidate.chat_id,
-                    previous_total=previous_total,
-                    new_total=total_grosz,
-                    items=response.items,
-                )
-            )
+        timestamp = datetime.now(UTC)
+        alerts = await self._prepare_alerts(candidates, timestamp)
 
         await self._session.flush()
 
@@ -113,11 +72,62 @@ class TelegramPriceAlertService:
 
         if self._http_client is None:
             async with httpx.AsyncClient(timeout=10) as client:
-                await self._deliver_alerts(bot_token, alerts, client, now)
+                await self._deliver_alerts(bot_token, alerts, client, timestamp)
         else:
-            await self._deliver_alerts(bot_token, alerts, self._http_client, now)
+            await self._deliver_alerts(bot_token, alerts, self._http_client, timestamp)
 
         await self._session.flush()
+
+    async def _prepare_alerts(
+        self,
+        candidates: Sequence[AlertCandidate],
+        timestamp: datetime,
+    ) -> list[AlertPayload]:
+        alerts: list[AlertPayload] = []
+        for candidate in candidates:
+            alert = await self._evaluate_candidate(candidate, timestamp)
+            if alert is not None:
+                alerts.append(alert)
+        return alerts
+
+    async def _evaluate_candidate(
+        self,
+        candidate: AlertCandidate,
+        timestamp: datetime,
+    ) -> AlertPayload | None:
+        saved_list = candidate.saved_list
+        codes = self._biomarker_codes(saved_list)
+        previous_total = saved_list.last_known_total_grosz
+
+        if not codes:
+            self._update_saved_list(saved_list, timestamp, total_grosz=None)
+            return None
+
+        response = await self._optimizer.solve(OptimizeRequest(biomarkers=codes))
+        if response.uncovered:
+            self._update_saved_list(saved_list, timestamp, total_grosz=None)
+            return None
+
+        total_grosz = self._sum_price(response.items)
+        self._update_saved_list(saved_list, timestamp, total_grosz=total_grosz)
+
+        if previous_total is None:
+            return None
+
+        if not self._should_notify(
+            previous_total,
+            total_grosz,
+            saved_list.last_notified_total_grosz,
+        ):
+            return None
+
+        return AlertPayload(
+            saved_list=saved_list,
+            chat_id=candidate.chat_id,
+            previous_total=previous_total,
+            new_total=total_grosz,
+            items=response.items,
+        )
 
     async def _fetch_candidates(self) -> list[AlertCandidate]:
         stmt = (
@@ -193,6 +203,38 @@ class TelegramPriceAlertService:
     @staticmethod
     def _format_price(total_grosz: int) -> str:
         return f"{total_grosz / 100:.2f} PLN"
+
+    @staticmethod
+    def _biomarker_codes(saved_list: SavedList) -> list[str]:
+        entries = sorted(saved_list.entries, key=lambda entry: entry.sort_order)
+        return [entry.code for entry in entries]
+
+    @staticmethod
+    def _sum_price(items: Sequence[ItemOut]) -> int:
+        return sum(item.price_now_grosz for item in items)
+
+    @staticmethod
+    def _update_saved_list(
+        saved_list: SavedList,
+        timestamp: datetime,
+        *,
+        total_grosz: int | None,
+    ) -> None:
+        saved_list.last_known_total_grosz = total_grosz
+        saved_list.last_total_updated_at = timestamp
+
+    @staticmethod
+    def _should_notify(
+        previous_total: int,
+        new_total: int,
+        last_notified_total: int | None,
+    ) -> bool:
+        drop = previous_total - new_total
+        if drop < _MIN_DROP_GROSZ:
+            return False
+        if last_notified_total is not None and new_total >= last_notified_total:
+            return False
+        return True
 
 
 __all__ = ["TelegramPriceAlertService"]

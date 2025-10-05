@@ -6,14 +6,16 @@ import {
   type CatalogSearchResponse,
 } from "@panelyt/types";
 
-import { getJson } from "../lib/http";
+import { getParsedJson } from "../lib/http";
 
 export function useCatalogSearch(query: string) {
   return useQuery<CatalogSearchResponse, Error>({
     queryKey: ["catalog-search", query],
     queryFn: async () => {
-      const payload = await getJson(`/catalog/search?query=${encodeURIComponent(query)}`);
-      return CatalogSearchResponseSchema.parse(payload);
+      return getParsedJson(
+        `/catalog/search?query=${encodeURIComponent(query)}`,
+        CatalogSearchResponseSchema,
+      );
     },
     enabled: query.trim().length >= 2,
     staleTime: 60_000,

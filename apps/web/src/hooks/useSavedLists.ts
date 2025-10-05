@@ -17,7 +17,7 @@ import {
   type SavedListNotificationsBulkResponse,
 } from "@panelyt/types";
 
-import { deleteRequest, getJson, postJson, putJson } from "../lib/http";
+import { deleteRequest, getParsedJson, postParsedJson, putParsedJson } from "../lib/http";
 
 export function useSavedLists(enabled: boolean) {
   const queryClient = useQueryClient();
@@ -26,8 +26,7 @@ export function useSavedLists(enabled: boolean) {
     queryKey: ["saved-lists"],
     enabled,
     queryFn: async () => {
-      const payload = await getJson("/lists");
-      const parsed = SavedListCollectionSchema.parse(payload);
+      const parsed = await getParsedJson("/lists", SavedListCollectionSchema);
       return parsed.lists;
     },
   });
@@ -35,8 +34,7 @@ export function useSavedLists(enabled: boolean) {
   const createMutation = useMutation<SavedList, Error, SavedListUpsert>({
     mutationFn: async (input) => {
       const payload = SavedListUpsertSchema.parse(input);
-      const response = await postJson(`/lists`, payload);
-      return SavedListSchema.parse(response);
+      return postParsedJson(`/lists`, SavedListSchema, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-lists"] });
@@ -46,8 +44,7 @@ export function useSavedLists(enabled: boolean) {
   const updateMutation = useMutation<SavedList, Error, { id: string; payload: SavedListUpsert }>({
     mutationFn: async ({ id, payload }) => {
       const parsed = SavedListUpsertSchema.parse(payload);
-      const response = await putJson(`/lists/${id}`, parsed);
-      return SavedListSchema.parse(response);
+      return putParsedJson(`/lists/${id}`, SavedListSchema, parsed);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-lists"] });
@@ -70,9 +67,7 @@ export function useSavedLists(enabled: boolean) {
   >({
     mutationFn: async ({ id, regenerate }) => {
       const payload = SavedListShareRequestSchema.parse({ regenerate });
-      const response = await postJson(`/lists/${id}/share`, payload);
-      const parsed = SavedListShareResponseSchema.parse(response);
-      return parsed;
+      return postParsedJson(`/lists/${id}/share`, SavedListShareResponseSchema, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-lists"] });
@@ -88,8 +83,11 @@ export function useSavedLists(enabled: boolean) {
       const payload = SavedListNotificationRequestSchema.parse({
         notify_on_price_drop: notify,
       });
-      const response = await postJson(`/lists/${id}/notifications`, payload);
-      return SavedListNotificationResponseSchema.parse(response);
+      return postParsedJson(
+        `/lists/${id}/notifications`,
+        SavedListNotificationResponseSchema,
+        payload,
+      );
     },
     onSuccess: (result) => {
       queryClient.setQueryData<SavedList[] | undefined>(["saved-lists"], (current) => {
@@ -119,8 +117,11 @@ export function useSavedLists(enabled: boolean) {
       const payload = SavedListNotificationRequestSchema.parse({
         notify_on_price_drop: notify,
       });
-      const response = await postJson(`/lists/notifications`, payload);
-      return SavedListNotificationsBulkResponseSchema.parse(response);
+      return postParsedJson(
+        `/lists/notifications`,
+        SavedListNotificationsBulkResponseSchema,
+        payload,
+      );
     },
     onSuccess: (result) => {
       queryClient.setQueryData<SavedList[] | undefined>(["saved-lists"], (current) => {

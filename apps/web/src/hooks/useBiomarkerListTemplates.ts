@@ -7,7 +7,7 @@ import {
   type BiomarkerListTemplate,
 } from "@panelyt/types";
 
-import { getJson } from "../lib/http";
+import { getParsedJson } from "../lib/http";
 
 export function useTemplateCatalog(options: { includeAll?: boolean } = {}) {
   const includeAll = Boolean(options.includeAll);
@@ -17,8 +17,7 @@ export function useTemplateCatalog(options: { includeAll?: boolean } = {}) {
       const endpoint = includeAll
         ? "/biomarker-lists/admin/templates"
         : "/biomarker-lists/templates";
-      const payload = await getJson(endpoint);
-      const parsed = BiomarkerListTemplateCollectionSchema.parse(payload);
+      const parsed = await getParsedJson(endpoint, BiomarkerListTemplateCollectionSchema);
       return parsed.templates;
     },
   });
@@ -29,8 +28,10 @@ export function useTemplateDetail(slug: string, enabled = true) {
     queryKey: ["biomarker-list", "template", slug],
     enabled,
     queryFn: async () => {
-      const payload = await getJson(`/biomarker-lists/templates/${slug}`);
-      return BiomarkerListTemplateSchema.parse(payload);
+      return getParsedJson(
+        `/biomarker-lists/templates/${slug}`,
+        BiomarkerListTemplateSchema,
+      );
     },
   });
 }

@@ -6,14 +6,16 @@ import {
   type BiomarkerSearchResponse,
 } from "@panelyt/types";
 
-import { getJson } from "../lib/http";
+import { getParsedJson } from "../lib/http";
 
 export function useBiomarkerSearch(query: string) {
   return useQuery<BiomarkerSearchResponse, Error>({
     queryKey: ["biomarker-search", query],
     queryFn: async () => {
-      const payload = await getJson(`/catalog/biomarkers?query=${encodeURIComponent(query)}`);
-      return BiomarkerSearchResponseSchema.parse(payload);
+      return getParsedJson(
+        `/catalog/biomarkers?query=${encodeURIComponent(query)}`,
+        BiomarkerSearchResponseSchema,
+      );
     },
     enabled: query.length >= 2,
     staleTime: 1000 * 60,

@@ -11,6 +11,16 @@ from sqlalchemy import insert, select
 from panelyt_api.db import models
 
 
+@pytest.fixture
+def activity_spy(monkeypatch) -> AsyncMock:
+    spy = AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        "panelyt_api.ingest.repository.IngestionRepository.record_user_activity",
+        spy,
+    )
+    return spy
+
+
 class TestHealthEndpoints:
     def test_healthz_endpoint(self, client: TestClient):
         """Test liveness probe endpoint."""
@@ -90,12 +100,14 @@ class TestCatalogEndpoints:
         )
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
-    @patch("panelyt_api.services.activity.touch_user_activity")
     async def test_get_catalog_meta(
-        self, mock_activity, mock_ensure_fresh, async_client: AsyncClient, db_session
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+        db_session,
+        activity_spy: AsyncMock,
     ):
         """Test catalog meta endpoint."""
-        mock_activity.return_value = None
         mock_ensure_fresh.return_value = None
 
         # Add some test data
@@ -140,15 +152,16 @@ class TestCatalogEndpoints:
         assert data["biomarker_count"] == 2
 
         # Verify mocks were called
-        mock_activity.assert_called_once()
+        activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_called_once()
 
-    @patch("panelyt_api.services.activity.touch_user_activity")
     async def test_search_biomarkers_success(
-        self, mock_activity, async_client: AsyncClient, db_session
+        self,
+        async_client: AsyncClient,
+        db_session,
+        activity_spy: AsyncMock,
     ):
         """Test biomarker search endpoint with valid query."""
-        mock_activity.return_value = None
 
         # Add test biomarkers
         await db_session.execute(
@@ -171,7 +184,7 @@ class TestCatalogEndpoints:
         assert data["results"][0]["elab_code"] == "ALT"
         assert data["results"][0]["name"] == "Alanine aminotransferase"
 
-        mock_activity.assert_called_once()
+        activity_spy.assert_awaited_once()
 
     async def test_search_biomarkers_fuzzy_search(self, async_client: AsyncClient, db_session):
         """Test biomarker fuzzy search functionality."""
@@ -208,11 +221,9 @@ class TestCatalogEndpoints:
         data = response.json()
         assert data["results"] == []
 
-    @patch("panelyt_api.services.activity.touch_user_activity")
     async def test_catalog_search_includes_templates(
-        self, mock_activity, async_client: AsyncClient, db_session
+        self, async_client: AsyncClient, db_session
     ):
-        mock_activity.return_value = None
 
         await db_session.execute(
             insert(models.Biomarker).values(
@@ -284,12 +295,13 @@ class TestCatalogEndpoints:
 
 class TestOptimizeEndpoint:
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
-    @patch("panelyt_api.services.activity.touch_user_activity")
     async def test_optimize_empty_biomarkers(
-        self, mock_activity, mock_ensure_fresh, async_client: AsyncClient
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+        activity_spy: AsyncMock,
     ):
         """Test optimization with empty biomarkers list."""
-        mock_activity.return_value = None
         mock_ensure_fresh.return_value = None
 
         payload = {"biomarkers": []}
@@ -303,14 +315,16 @@ class TestOptimizeEndpoint:
         assert data["items"] == []
         assert data["explain"] == {}
         assert data["uncovered"] == []
+        activity_spy.assert_awaited_once()
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
-    @patch("panelyt_api.services.activity.touch_user_activity")
     async def test_optimize_unknown_biomarkers(
-        self, mock_activity, mock_ensure_fresh, async_client: AsyncClient
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+        activity_spy: AsyncMock,
     ):
         """Test optimization with unknown biomarkers."""
-        mock_activity.return_value = None
         mock_ensure_fresh.return_value = None
 
         payload = {"biomarkers": ["UNKNOWN1", "UNKNOWN2"]}
@@ -321,14 +335,17 @@ class TestOptimizeEndpoint:
         assert data["total_now"] == 0.0
         assert data["items"] == []
         assert data["uncovered"] == ["UNKNOWN1", "UNKNOWN2"]
+        activity_spy.assert_awaited_once()
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
-    @patch("panelyt_api.services.activity.touch_user_activity")
     async def test_optimize_successful_optimization(
-        self, mock_activity, mock_ensure_fresh, async_client: AsyncClient, db_session
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+        db_session,
+        activity_spy: AsyncMock,
     ):
         """Test successful optimization scenario."""
-        mock_activity.return_value = None
         mock_ensure_fresh.return_value = None
 
         # Add biomarkers
@@ -402,6 +419,7 @@ class TestOptimizeEndpoint:
         assert "AST" in data["explain"]
         assert "Liver Panel" in data["explain"]["ALT"]
         assert "Liver Panel" in data["explain"]["AST"]
+        activity_spy.assert_awaited_once()
 
     async def test_optimize_invalid_payload(self, async_client: AsyncClient):
         """Test optimization with invalid payload."""
@@ -414,12 +432,14 @@ class TestOptimizeEndpoint:
         assert response.status_code == 422
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
-    @patch("panelyt_api.services.activity.touch_user_activity")
     async def test_optimize_partial_coverage(
-        self, mock_activity, mock_ensure_fresh, async_client: AsyncClient, db_session
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+        db_session,
+        activity_spy: AsyncMock,
     ):
         """Test optimization with partial biomarker coverage."""
-        mock_activity.return_value = None
         mock_ensure_fresh.return_value = None
 
         # Add biomarkers
@@ -467,3 +487,4 @@ class TestOptimizeEndpoint:
         assert data["uncovered"] == ["UNKNOWN_BIOMARKER"]
         assert "ALT" in data["explain"]
         assert data["lab_code"] == "diag"
+        activity_spy.assert_awaited_once()

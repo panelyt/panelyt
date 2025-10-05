@@ -27,13 +27,14 @@ dev-bot: ## Run Telegram bot locally with long polling
 	cd apps/telegram-bot && $(UV_ENV) $(UV) run panelyt-telegram-bot
 
 lint-api: ## Run linting checks on API code
-	cd apps/api && $(UV_ENV) $(UV) run ruff check src
+	( cd apps/api && $(UV_ENV) $(UV) run ruff check src ) || ( cd apps/api && .venv/bin/ruff check src )
 
 fmt-api: ## Format and fix API code style
 	cd apps/api && $(UV_ENV) $(UV) run ruff check src --fix
 
 test-api: ## Run API test suite
-	cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" $(UV_ENV) $(UV) run pytest
+	( cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" $(UV_ENV) $(UV) run pytest ) || \
+		( cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" .venv/bin/pytest )
 
 migrate-api: ## Run database migrations
 	cd apps/api && $(UV_ENV) $(UV) run alembic upgrade head
@@ -48,21 +49,21 @@ docker-down: ## Stop all Docker Compose services
 	cd infra && docker compose down
 
 typecheck-api: ## Run type checking on API code
-	cd apps/api && $(UV_ENV) $(UV) run mypy src
+	( cd apps/api && $(UV_ENV) $(UV) run mypy src ) || ( cd apps/api && .venv/bin/python -m mypy src )
 
 lint-web: ## Run linting checks on web frontend
 	cd apps/web && pnpm lint
 
 lint-bot: ## Run linting checks on Telegram bot code
-	cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev
-	cd apps/telegram-bot && $(UV_ENV) $(UV) run ruff check src
+	( cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
+	( cd apps/telegram-bot && $(UV_ENV) $(UV) run ruff check src ) || ( cd apps/telegram-bot && .venv/bin/ruff check src )
 
 typecheck-web: ## Run type checking on web frontend
 	cd apps/web && pnpm typecheck
 
 typecheck-bot: ## Run type checking on Telegram bot code
-	cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev
-	cd apps/telegram-bot && $(UV_ENV) $(UV) run mypy src
+	( cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
+	( cd apps/telegram-bot && $(UV_ENV) $(UV) run mypy src ) || ( cd apps/telegram-bot && .venv/bin/python -m mypy src )
 
 test-web: ## Run web frontend test suite
 	cd apps/web && pnpm --filter @panelyt/web test -- --run
