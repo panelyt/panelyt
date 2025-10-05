@@ -162,7 +162,12 @@ class OptimizationService:
                 chosen_items = best_solution.chosen_items
                 base_response = best_solution.response
             else:
-                base_response = self._empty_response(fallback_uncovered)
+                multi_solution = await self._solve_multi_lab(context)
+                if multi_solution is not None:
+                    chosen_items = multi_solution.chosen_items
+                    base_response = multi_solution.response
+                else:
+                    base_response = self._empty_response(fallback_uncovered)
 
         return self._finalize_response(base_response, context, chosen_items, mode)
 
