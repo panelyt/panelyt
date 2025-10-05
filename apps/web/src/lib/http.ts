@@ -1,3 +1,5 @@
+import type { ZodType } from "zod";
+
 import { env } from "./env";
 
 export class HttpError extends Error {
@@ -43,6 +45,15 @@ export async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
   return parseResponse<T>(response);
 }
 
+export async function getParsedJson<T>(
+  path: string,
+  schema: ZodType<T>,
+  init?: RequestInit,
+): Promise<T> {
+  const payload = await getJson<unknown>(path, init);
+  return schema.parse(payload);
+}
+
 export async function postJson<T>(
   path: string,
   body?: unknown,
@@ -73,6 +84,16 @@ export async function postJson<T>(
   return parseResponse<T>(response);
 }
 
+export async function postParsedJson<T>(
+  path: string,
+  schema: ZodType<T>,
+  body?: unknown,
+  init?: RequestInit,
+): Promise<T> {
+  const payload = await postJson<unknown>(path, body, init);
+  return schema.parse(payload);
+}
+
 export async function putJson<T>(
   path: string,
   body: unknown,
@@ -96,6 +117,16 @@ export async function putJson<T>(
   }
 
   return parseResponse<T>(response);
+}
+
+export async function putParsedJson<T>(
+  path: string,
+  schema: ZodType<T>,
+  body: unknown,
+  init?: RequestInit,
+): Promise<T> {
+  const payload = await putJson<unknown>(path, body, init);
+  return schema.parse(payload);
 }
 
 export async function deleteRequest(

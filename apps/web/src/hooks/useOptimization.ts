@@ -8,7 +8,7 @@ import {
   type OptimizeResponse,
 } from "@panelyt/types";
 
-import { postJson } from "../lib/http";
+import { postParsedJson } from "../lib/http";
 
 export function useOptimization(
   biomarkers: string[],
@@ -21,14 +21,17 @@ export function useOptimization(
   return useQuery<OptimizeResponse, Error>({
     queryKey: ["optimize", key, resolvedMode, normalizedLab],
     queryFn: async () => {
-      const payload = await postJson("/optimize", {
-        biomarkers,
-        mode: resolvedMode,
-        ...(resolvedMode === "single_lab" && normalizedLab
-          ? { lab_code: normalizedLab }
-          : {}),
-      });
-      return OptimizeResponseSchema.parse(payload);
+      return postParsedJson(
+        "/optimize",
+        OptimizeResponseSchema,
+        {
+          biomarkers,
+          mode: resolvedMode,
+          ...(resolvedMode === "single_lab" && normalizedLab
+            ? { lab_code: normalizedLab }
+            : {}),
+        },
+      );
     },
     enabled:
       biomarkers.length > 0 &&

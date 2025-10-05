@@ -1,3 +1,3 @@
-from . import activity, catalog, list_templates
+from . import catalog, list_templates
 
-__all__ = ["activity", "catalog", "list_templates"]
+__all__ = ["catalog", "list_templates"]

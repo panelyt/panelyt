@@ -1,8 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { vi } from 'vitest'
 import { SearchBox } from '../search-box'
+import { renderWithQueryClient } from '../../test/utils'
 
 const useDebounceMock = vi.hoisted(() =>
   vi.fn<(value: string, delay?: number) => string>((value) => value),
@@ -28,20 +28,6 @@ const createSearchResult = (
     error: null,
     ...overrides,
   } as unknown as ReturnType<typeof useCatalogSearch>)
-
-function renderWithQueryClient(ui: React.ReactElement) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      {ui}
-    </QueryClientProvider>
-  )
-}
 
 describe('SearchBox', () => {
   const biomarkerSuggestion = {

@@ -1,25 +1,28 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Query
 
 from panelyt_api.api.deps import SessionDep
 from panelyt_api.core.settings import get_settings
+from panelyt_api.ingest.repository import IngestionRepository
 from panelyt_api.ingest.service import IngestionService
 from panelyt_api.schemas.common import (
     BiomarkerSearchResponse,
     CatalogMeta,
     CatalogSearchResponse,
 )
-from panelyt_api.services import activity, catalog
+from panelyt_api.services import catalog
 
 router = APIRouter()
 
 
 @router.get("/meta", response_model=CatalogMeta)
 async def get_meta(session: SessionDep) -> CatalogMeta:
-    await activity.touch_user_activity(session)
+    repo = IngestionRepository(session)
+    await repo.record_user_activity(datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
     await ingestion_service.ensure_fresh_data(background=True)
     return await catalog.get_catalog_meta(session)
@@ -35,7 +38,8 @@ async def search(
     ],
     session: SessionDep,
 ) -> BiomarkerSearchResponse:
-    await activity.touch_user_activity(session)
+    repo = IngestionRepository(session)
+    await repo.record_user_activity(datetime.now(UTC))
     return await catalog.search_biomarkers(session, query)
 
 
@@ -51,5 +55,6 @@ async def search_catalog_endpoint(
     ],
     session: SessionDep,
 ) -> CatalogSearchResponse:
-    await activity.touch_user_activity(session)
+    repo = IngestionRepository(session)
+    await repo.record_user_activity(datetime.now(UTC))
     return await catalog.search_catalog(session, query)
