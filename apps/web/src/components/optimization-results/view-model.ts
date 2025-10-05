@@ -43,12 +43,6 @@ export interface OptimizationViewModel {
     displayName: string;
     packages: string[];
   }>;
-  explainability: Array<{
-    token: string;
-    displayName: string;
-    packages: string[];
-    isCovered: boolean;
-  }>;
 }
 
 interface BuildOptimizationViewModelArgs {
@@ -117,15 +111,6 @@ export function buildOptimizationViewModel({
     }))
     .sort((a, b) => b.packages.length - a.packages.length || a.code.localeCompare(b.code));
 
-  const explainability = Object.entries(result.explain ?? {})
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([token, items]) => ({
-      token,
-      displayName: displayNameFor(token),
-      packages: items,
-      isCovered: !uncoveredTokens.includes(token),
-    }));
-
   return {
     variant,
     isDark,
@@ -158,7 +143,6 @@ export function buildOptimizationViewModel({
       biomarkers: exclusiveBiomarkers,
     },
     overlaps,
-    explainability,
   };
 }
 
