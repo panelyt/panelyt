@@ -277,19 +277,30 @@ export default function Home() {
       const hasGaps = option ? !option.covers_all && missingTokensCount > 0 : false;
       const uncoveredTotal = query.data ? query.data.uncovered.length : 0;
       const missingCount = hasGaps ? missingTokensCount : uncoveredTotal;
-      const bonusCount = query.data
-        ? query.data.items.reduce(
-            (acc, item) =>
-              acc + item.biomarkers.filter((token) => !optimizerInput.includes(token)).length,
-            0,
+      const bonusTokens = query.data
+        ? new Set(
+            query.data.items.flatMap((item) =>
+              item.biomarkers.filter((token) => !optimizerInput.includes(token)),
+            ),
           )
-        : 0;
-      const hasCounts = optimizerInput.length > 0 && (query.data || missingTokensCount > 0 || bonusCount > 0);
+        : new Set<string>();
+      const bonusCount = bonusTokens.size;
+      const bonusValue = query.data?.bonus_total_now ?? 0;
+      const bonusValueLabel = bonusValue > 0 ? formatCurrency(bonusValue) : null;
+      const hasCounts =
+        optimizerInput.length > 0 &&
+        (query.data || missingTokensCount > 0 || bonusCount > 0 || bonusValue > 0);
+      const shouldShowBonusLabel = !!query.data || bonusCount > 0;
+      const bonusLabel = shouldShowBonusLabel
+        ? bonusCount > 0
+          ? `${bonusCount} Bonus${bonusValueLabel ? ` (${bonusValueLabel})` : ""}`
+          : "0 Bonus"
+        : null;
       const coverageLabel = !hasCounts
         ? optimizerInput.length === 0
           ? "Add biomarkers to compare labs"
           : "—"
-        : `${missingCount} Missing · ${bonusCount} Bonus`;
+        : [`${missingCount} Missing`, bonusLabel].filter(Boolean).join(" · ");
 
       const preset: { icon: ReactNode; accentLight: string; accentDark: string } = (() => {
         switch (labShort) {
@@ -335,19 +346,35 @@ export default function Home() {
     });
 
     const splitBonusCount = splitResult
-      ? splitResult.items.reduce(
-          (acc, item) =>
-            acc + item.biomarkers.filter((token) => !optimizerInput.includes(token)).length,
-          0,
-        )
+      ? new Set(
+          splitResult.items.flatMap((item) =>
+            item.biomarkers.filter((token) => !optimizerInput.includes(token)),
+          ),
+        ).size
       : 0;
     const splitMissingCount = splitResult?.uncovered?.length ?? 0;
-    const splitHasCounts = optimizerInput.length > 0 && (splitResult || splitBonusCount > 0 || splitMissingCount > 0);
+    const splitBonusValue = splitResult?.bonus_total_now ?? 0;
+    const splitBonusLabel =
+      splitResult || splitBonusCount > 0
+        ? splitBonusCount > 0
+          ? `${splitBonusCount} Bonus${
+              splitBonusValue > 0 ? ` (${formatCurrency(splitBonusValue)})` : ""
+            }`
+          : "0 Bonus"
+        : null;
+    const splitHasCounts =
+      optimizerInput.length > 0 &&
+      (splitResult || splitBonusCount > 0 || splitMissingCount > 0 || !!splitBonusLabel);
     const splitMeta = !splitHasCounts
       ? optimizerInput.length === 0
         ? "Add biomarkers to compare labs"
         : "—"
-      : `${splitMissingCount} Missing · ${splitBonusCount} Bonus`;
+      : [
+          `${splitMissingCount} Missing`,
+          splitBonusLabel,
+        ]
+          .filter(Boolean)
+          .join(" · ");
 
     cards.push({
       key: "all",

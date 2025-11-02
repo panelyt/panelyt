@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { OptimizeResponse } from '@panelyt/types'
 
 import { buildOptimizationViewModel } from '../optimization-results/view-model'
+import { formatCurrency } from '../../lib/format'
 
 type OptimizeResponseOverrides = Partial<Omit<OptimizeResponse, 'items'>> & {
   items?: Array<Partial<OptimizeResponse['items'][number]>>
@@ -49,6 +50,7 @@ function makeOptimizeResponse(overrides: OptimizeResponseOverrides): OptimizeRes
     total_min30: 0,
     currency: 'PLN',
     items,
+    bonus_total_now: 0,
     explain: {},
     uncovered: [],
     lab_code: 'diag',
@@ -67,6 +69,7 @@ describe('buildOptimizationViewModel', () => {
     const response = makeOptimizeResponse({
       total_now: 30,
       total_min30: 25,
+      bonus_total_now: 12.5,
       labels: {
         ALT: 'Alanine aminotransferase',
         AST: 'Aspartate aminotransferase',
@@ -130,6 +133,8 @@ describe('buildOptimizationViewModel', () => {
     expect(viewModel.overlaps[0]?.code).toBe('ALT')
     expect(viewModel.overlaps[0]?.packages).toEqual(['Liver Panel', 'Metabolic Panel'])
     expect(viewModel.displayNameFor('GLU')).toBe('Glucose')
+    expect(viewModel.bonusPricing.totalNowValue).toBeCloseTo(12.5)
+    expect(viewModel.bonusPricing.totalNowLabel).toBe(formatCurrency(12.5))
   })
 
   it('handles empty selections without crashing', () => {
@@ -151,5 +156,7 @@ describe('buildOptimizationViewModel', () => {
     expect(viewModel.pricing.highlightSavings).toBe(false)
     expect(viewModel.maxPrice).toBe(1)
     expect(viewModel.groups[0]?.items).toHaveLength(0)
+    expect(viewModel.bonusPricing.totalNowValue).toBe(0)
+    expect(viewModel.bonusPricing.totalNowLabel).toBe(formatCurrency(0))
   })
 })

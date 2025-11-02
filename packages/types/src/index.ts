@@ -74,6 +74,7 @@ export const OptimizeResponseSchema = z.object({
   total_min30: z.number().nonnegative(),
   currency: z.string(),
   items: z.array(ItemSchema),
+  bonus_total_now: z.number().nonnegative().default(0),
   explain: z.record(z.string(), z.array(z.string())),
   uncovered: z.array(z.string()),
   lab_code: z.string().default(""),
