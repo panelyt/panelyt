@@ -72,6 +72,7 @@ const makeOptimizeResponse = (
     total_min30: 0,
     currency: 'PLN',
     items,
+    bonus_total_now: 0,
     explain: {},
     uncovered: [],
     lab_code: 'diag',
@@ -280,6 +281,7 @@ describe('OptimizationResults', () => {
     const mockResult = makeOptimizeResponse({
       total_now: 15.0,
       total_min30: 14.0,
+      bonus_total_now: 42,
       items: [
         {
           id: 1,
@@ -310,7 +312,7 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText(/bonus biomarker/)).toBeInTheDocument()
+    expect(screen.getByText(/1 bonus biomarker \(\$42\.00\)/)).toBeInTheDocument()
     expect(screen.getByText('Total cholesterol')).toBeInTheDocument()
   })
 

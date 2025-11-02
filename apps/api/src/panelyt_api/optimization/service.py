@@ -506,7 +506,11 @@ class OptimizationService:
             )
 
         chosen = self._extract_selected_candidates(solver, candidates, variables)
-        response, labels = await self._build_response(chosen, uncovered)
+        response, labels = await self._build_response(
+            chosen,
+            uncovered,
+            [biomarker.token for biomarker in biomarkers],
+        )
         total_now_grosz = sum(item.price_now for item in chosen)
         return SolverOutcome(
             response=response,
@@ -812,7 +816,10 @@ class OptimizationService:
         ]
 
     async def _build_response(
-        self, chosen: Sequence[CandidateItem], uncovered: Sequence[str]
+        self,
+        chosen: Sequence[CandidateItem],
+        uncovered: Sequence[str],
+        requested_tokens: Sequence[str],
     ) -> tuple[OptimizeResponse, dict[str, str]]:
         total_now = round(sum(item.price_now for item in chosen) / 100, 2)
         total_min30 = round(sum(item.price_min30 for item in chosen) / 100, 2)
@@ -820,6 +827,25 @@ class OptimizationService:
 
         chosen_item_ids = [item.id for item in chosen]
         biomarkers_by_item, labels = await self._get_all_biomarkers_for_items(chosen_item_ids)
+
+        requested_normalized = {
+            token.strip().lower()
+            for token in requested_tokens
+            if isinstance(token, str) and token.strip()
+        }
+        bonus_tokens: dict[str, str] = {}
+        for item in chosen:
+            for token in biomarkers_by_item.get(item.id, []):
+                if not token:
+                    continue
+                normalized = token.strip().lower()
+                if not normalized or normalized in requested_normalized:
+                    continue
+                bonus_tokens.setdefault(normalized, token)
+
+        bonus_price_map = await self._bonus_price_map(bonus_tokens)
+        bonus_total_grosz = sum(bonus_price_map.get(key, 0) for key in bonus_tokens.keys())
+        bonus_total_now = round(bonus_total_grosz / 100, 2) if bonus_total_grosz else 0.0
 
         items_payload = [
             ItemOut(
@@ -844,6 +870,7 @@ class OptimizationService:
             total_min30=total_min30,
             currency=DEFAULT_CURRENCY,
             items=items_payload,
+            bonus_total_now=bonus_total_now,
             explain=explain,
             uncovered=list(uncovered),
             labels=labels,
@@ -867,6 +894,7 @@ class OptimizationService:
             total_min30=0.0,
             currency=DEFAULT_CURRENCY,
             items=[],
+            bonus_total_now=0.0,
             explain={},
             uncovered=list(uncovered),
             lab_code="",
@@ -915,6 +943,71 @@ class OptimizationService:
             result.setdefault(item_id, []).append(token)
 
         return result, labels
+
+    async def _bonus_price_map(self, tokens: Mapping[str, str]) -> dict[str, int]:
+        """Return the best-known single-test price (in grosz) for each normalized token."""
+        if not tokens:
+            return {}
+
+        normalized_lookup = {
+            value.strip().lower(): key
+            for key, value in tokens.items()
+            if isinstance(value, str) and value.strip()
+        }
+        raw_tokens = {
+            value.strip()
+            for value in tokens.values()
+            if isinstance(value, str) and value.strip()
+        }
+        if not raw_tokens or not normalized_lookup:
+            return {}
+
+        statement = (
+            select(
+                models.Biomarker.elab_code,
+                models.Biomarker.slug,
+                models.Biomarker.name,
+                func.min(models.Item.price_now_grosz).label("min_price"),
+            )
+            .select_from(models.Biomarker)
+            .join(models.ItemBiomarker, models.ItemBiomarker.biomarker_id == models.Biomarker.id)
+            .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
+            .where(models.Item.kind == "single")
+            .where(models.Item.is_available.is_(True))
+            .where(models.Item.price_now_grosz > 0)
+            .where(
+                or_(
+                    models.Biomarker.elab_code.in_(raw_tokens),
+                    models.Biomarker.slug.in_(raw_tokens),
+                    models.Biomarker.name.in_(raw_tokens),
+                )
+            )
+            .group_by(
+                models.Biomarker.id,
+                models.Biomarker.elab_code,
+                models.Biomarker.slug,
+                models.Biomarker.name,
+            )
+        )
+
+        rows = (await self.session.execute(statement)).all()
+        price_map: dict[str, int] = {}
+
+        for elab_code, slug, name, min_price in rows:
+            for candidate in (elab_code, slug, name):
+                if not candidate:
+                    continue
+                normalized = candidate.strip().lower()
+                key = normalized_lookup.get(normalized)
+                if key is None:
+                    continue
+                price_value = int(min_price or 0)
+                existing = price_map.get(key)
+                if existing is None or price_value < existing:
+                    price_map[key] = price_value
+                break
+
+        return price_map
 
 
 def _item_url(item: CandidateItem) -> str:
