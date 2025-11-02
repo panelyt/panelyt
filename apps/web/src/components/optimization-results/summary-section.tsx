@@ -14,7 +14,7 @@ interface SummarySectionProps {
 }
 
 export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
-  const { isDark, selected, bonusBiomarkers } = viewModel;
+  const { isDark, selected, bonusBiomarkers, bonusPricing } = viewModel;
 
   return (
     <section
@@ -44,16 +44,20 @@ export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
           </p>
         </div>
         {bonusBiomarkers.length > 0 && (
-          <div
-            className={`rounded-full px-4 py-2 text-sm font-medium ${
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ${
               isDark
                 ? "bg-emerald-500/20 text-emerald-200"
                 : "bg-emerald-500/10 text-emerald-600"
             }`}
           >
-            <Sparkles className="mr-2 inline h-4 w-4" /> {bonusBiomarkers.length} bonus
-            biomarker{bonusBiomarkers.length === 1 ? "" : "s"} included
-          </div>
+            <Sparkles className="h-4 w-4 flex-shrink-0" />
+            <span className="font-medium">
+              {`${bonusBiomarkers.length} bonus biomarker${
+                bonusBiomarkers.length === 1 ? "" : "s"
+              } (${bonusPricing.totalNowLabel})`}
+            </span>
+          </span>
         )}
       </div>
 

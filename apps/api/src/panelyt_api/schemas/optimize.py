@@ -47,6 +47,7 @@ class OptimizeResponse(APIModel):
     total_min30: float
     currency: str = "PLN"
     items: list[ItemOut]
+    bonus_total_now: float = 0.0
     explain: dict[str, list[str]]
     uncovered: list[str]
     lab_code: str = ""
