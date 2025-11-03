@@ -12,9 +12,10 @@ import { SummaryStatsGrid } from "./summary-stats";
 interface SummarySectionProps {
   viewModel: OptimizationViewModel;
   labCards: LabChoiceCard[];
+  onAddBiomarkers?: (biomarkers: Array<{ code: string; name: string }>) => void;
 }
 
-export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
+export function SummarySection({ viewModel, labCards, onAddBiomarkers }: SummarySectionProps) {
   const { isDark, selected, bonusBiomarkers, bonusPricing } = viewModel;
 
   return (
@@ -62,7 +63,7 @@ export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
         )}
       </div>
 
-      <AddOnSuggestionsSection viewModel={viewModel} />
+      <AddOnSuggestionsSection viewModel={viewModel} onAdd={onAddBiomarkers} />
 
       <SummaryStatsGrid viewModel={viewModel} />
 

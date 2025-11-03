@@ -6,9 +6,10 @@ import type { OptimizationViewModel } from "./view-model";
 
 interface AddOnSuggestionsSectionProps {
   viewModel: OptimizationViewModel;
+  onAdd?: (biomarkers: Array<{ code: string; name: string }>) => void;
 }
 
-export function AddOnSuggestionsSection({ viewModel }: AddOnSuggestionsSectionProps) {
+export function AddOnSuggestionsSection({ viewModel, onAdd }: AddOnSuggestionsSectionProps) {
   const { addOnSuggestions, isDark } = viewModel;
 
   if (addOnSuggestions.length === 0) {
@@ -44,9 +45,40 @@ export function AddOnSuggestionsSection({ viewModel }: AddOnSuggestionsSectionPr
         {addOnSuggestions.map((suggestion) => (
           <article
             key={suggestion.item.id}
-            className={`rounded-xl border p-4 ${
-              isDark ? "border-slate-800 bg-slate-900/80" : "border-white bg-white/90 shadow-sm"
-            }`}
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              if (!onAdd) {
+                return;
+              }
+              const additions = suggestion.bonusTokens.map((token) => ({
+                code: token.code,
+                name: token.displayName || token.code,
+              }));
+              if (additions.length > 0) {
+                onAdd(additions);
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                if (!onAdd) {
+                  return;
+                }
+                const additions = suggestion.bonusTokens.map((token) => ({
+                  code: token.code,
+                  name: token.displayName || token.code,
+                }));
+                if (additions.length > 0) {
+                  onAdd(additions);
+                }
+              }
+            }}
+            className={`rounded-xl border p-4 transition ${
+              isDark
+                ? "border-slate-800 bg-slate-900/80 hover:border-emerald-400/50 hover:bg-slate-900"
+                : "border-white bg-white/90 shadow-sm hover:border-emerald-200 hover:bg-emerald-50/70"
+            } cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400/60 focus:ring-offset-2 focus:ring-offset-transparent`}
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-3">
