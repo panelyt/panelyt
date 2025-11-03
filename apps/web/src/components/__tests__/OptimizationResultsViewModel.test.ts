@@ -123,12 +123,12 @@ describe('buildOptimizationViewModel', () => {
       },
     })
 
-    expect(viewModel.coverage.percent).toBe(67)
-    expect(viewModel.coverage.uncoveredTokens).toEqual(['GLU'])
     expect(viewModel.pricing.potentialSavingsRaw).toBeCloseTo(5)
     expect(viewModel.pricing.highlightSavings).toBe(true)
     expect(viewModel.counts.packages).toBe(2)
     expect(viewModel.counts.onSale).toBe(1)
+    expect(viewModel.totalNowGrosz).toBe(4300)
+    expect(viewModel.totalMin30Grosz).toBe(3700)
     expect(viewModel.exclusive.biomarkers[0]?.code).toBe('GLU')
     expect(viewModel.exclusive.biomarkers[0]?.displayName).toBe('Glucose')
     expect(viewModel.overlaps[0]?.code).toBe('ALT')
@@ -153,9 +153,9 @@ describe('buildOptimizationViewModel', () => {
       variant: 'dark',
     })
 
-    expect(viewModel.coverage.percent).toBe(0)
     expect(viewModel.pricing.highlightSavings).toBe(false)
-    expect(viewModel.maxPrice).toBe(1)
+    expect(viewModel.totalNowGrosz).toBe(0)
+    expect(viewModel.totalMin30Grosz).toBe(0)
     expect(viewModel.groups[0]?.items).toHaveLength(0)
     expect(viewModel.bonusPricing.totalNowValue).toBe(0)
     expect(viewModel.bonusPricing.totalNowLabel).toBe(formatCurrency(0))
