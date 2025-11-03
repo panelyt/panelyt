@@ -452,7 +452,7 @@ class OptimizationService:
     @staticmethod
     def _remove_dominated_candidates(items: Sequence[CandidateItem]) -> list[CandidateItem]:
         retained: dict[int, CandidateItem] = {}
-        seen_coverages: dict[int, list[tuple[frozenset[str], int]]] = {}
+        seen_coverages: dict[int, list[tuple[frozenset[str], int, str]]] = {}
         ordered = sorted(
             items,
             key=lambda item: (-len(item.coverage), item.price_now, item.id),
@@ -461,15 +461,19 @@ class OptimizationService:
         for candidate in ordered:
             coverage = frozenset(candidate.coverage)
             lab_seen = seen_coverages.setdefault(candidate.lab_id, [])
-            dominated = any(
-                existing_coverage.issuperset(coverage)
-                and existing_price <= candidate.price_now
-                for existing_coverage, existing_price in lab_seen
-            )
+            dominated = False
+            for existing_coverage, existing_price, _existing_kind in lab_seen:
+                if not existing_coverage.issuperset(coverage):
+                    continue
+                if existing_price <= candidate.price_now:
+                    if candidate.kind == "package":
+                        continue
+                    dominated = True
+                    break
             if dominated:
                 continue
             retained[candidate.id] = candidate
-            lab_seen.append((coverage, candidate.price_now))
+            lab_seen.append((coverage, candidate.price_now, candidate.kind))
 
         return [item for item in items if item.id in retained]
 
@@ -647,8 +651,9 @@ class OptimizationService:
     ) -> OptimizeResponse:
         lab_options = self._build_lab_options(context)
         lab_selections = self._lab_selection_summary(chosen_items)
+        existing_tokens = self._current_coverage_tokens(response.items)
         suggestions, suggestion_labels = await self._build_add_on_suggestions(
-            context, chosen_items
+            context, chosen_items, existing_tokens
         )
         merged_labels = response.labels | suggestion_labels
         return response.model_copy(
@@ -726,11 +731,15 @@ class OptimizationService:
         self,
         context: OptimizationContext,
         chosen_items: Sequence[CandidateItem],
+        existing_tokens: set[str],
     ) -> tuple[list[AddOnSuggestion], dict[str, str]]:
         if not chosen_items:
             return [], {}
 
         resolved_tokens = {entry.token for entry in context.resolved}
+        resolved_tokens_normalized = {
+            token.strip().lower() for token in resolved_tokens if isinstance(token, str)
+        }
         if not resolved_tokens:
             return [], {}
 
@@ -766,7 +775,8 @@ class OptimizationService:
                 continue
 
             bonus_tokens = [
-                token for token in normalized_biomarkers if token not in resolved_tokens
+                token for token in normalized_biomarkers
+                if token.strip().lower() not in resolved_tokens_normalized
             ]
             bonus_tokens = self._unique_preserving_order(bonus_tokens)
             if not bonus_tokens:
@@ -780,7 +790,22 @@ class OptimizationService:
             if incremental_grosz <= 0:
                 continue
 
-            per_bonus = incremental_grosz / max(len(bonus_tokens), 1)
+            existing_included = [
+                token
+                for token in bonus_tokens
+                if token.strip().lower() in existing_tokens
+            ]
+            existing_included = self._unique_preserving_order(existing_included)
+            new_bonus_tokens = [
+                token
+                for token in bonus_tokens
+                if token.strip().lower() not in existing_tokens
+            ]
+            new_bonus_tokens = self._unique_preserving_order(new_bonus_tokens)
+            if not new_bonus_tokens:
+                continue
+
+            per_bonus = incremental_grosz / max(len(new_bonus_tokens), 1)
             item_out = ItemOut(
                 id=candidate.id,
                 kind=candidate.kind,
@@ -798,7 +823,8 @@ class OptimizationService:
             suggestion = AddOnSuggestion(
                 item=item_out,
                 matched_tokens=matched_tokens,
-                bonus_tokens=bonus_tokens,
+                bonus_tokens=new_bonus_tokens,
+                already_included_tokens=existing_included,
                 incremental_now=round(incremental_grosz / 100, 2),
                 incremental_now_grosz=int(incremental_grosz),
             )
@@ -873,6 +899,18 @@ class OptimizationService:
             seen.add(value)
             result.append(value)
         return result
+
+    @staticmethod
+    def _current_coverage_tokens(items: Sequence[ItemOut]) -> set[str]:
+        coverage: set[str] = set()
+        for item in items:
+            for token in item.biomarkers:
+                if not isinstance(token, str):
+                    continue
+                normalized = token.strip().lower()
+                if normalized:
+                    coverage.add(normalized)
+        return coverage
 
     @staticmethod
     def _combine_uncovered_tokens(

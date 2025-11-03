@@ -15,6 +15,7 @@ export interface AddOnSuggestionViewModel {
   bonusTokens: Array<{ code: string; displayName: string }>;
   matchedTokens: Array<{ code: string; displayName: string }>;
   bonusCount: number;
+  alreadyCoveredTokens: Array<{ code: string; displayName: string }>;
 }
 
 export interface OptimizationViewModel {
@@ -138,6 +139,10 @@ export function buildOptimizationViewModel({
           displayName: displayNameFor(code),
         })),
         matchedTokens: suggestion.matched_tokens.map((code) => ({
+          code,
+          displayName: displayNameFor(code),
+        })),
+        alreadyCoveredTokens: (suggestion.already_included_tokens ?? []).map((code) => ({
           code,
           displayName: displayNameFor(code),
         })),

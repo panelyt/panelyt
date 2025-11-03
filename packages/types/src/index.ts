@@ -73,6 +73,7 @@ export const AddOnSuggestionSchema = z.object({
   item: ItemSchema,
   matched_tokens: z.array(z.string()).default([]),
   bonus_tokens: z.array(z.string()).default([]),
+  already_included_tokens: z.array(z.string()).default([]),
   incremental_now: z.number().nonnegative(),
   incremental_now_grosz: z.number().int().nonnegative(),
 });

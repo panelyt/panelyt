@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
@@ -292,6 +292,7 @@ describe('OptimizationResults', () => {
           },
           matched_tokens: ['FERR', 'IRON'],
           bonus_tokens: ['B9', 'B12'],
+          already_included_tokens: [],
           incremental_now: 17,
           incremental_now_grosz: 1700,
         },
@@ -352,7 +353,8 @@ describe('OptimizationResults', () => {
             lab_name: 'Diagnostyka',
           },
           matched_tokens: ['FERR'],
-          bonus_tokens: ['B9', 'B12'],
+          bonus_tokens: ['B12'],
+          already_included_tokens: ['B9'],
           incremental_now: 17,
           incremental_now_grosz: 1700,
         },
@@ -372,13 +374,17 @@ describe('OptimizationResults', () => {
       />,
     )
 
-    await user.click(screen.getByRole('button', { name: /iron vitality package/i }))
+    const suggestionCard = screen.getByRole('button', { name: /iron vitality package/i })
+
+    await user.click(suggestionCard)
 
     expect(handleAdd).toHaveBeenCalledTimes(1)
     expect(handleAdd).toHaveBeenCalledWith([
-      { code: 'B9', name: 'B9' },
       { code: 'B12', name: 'B12' },
     ])
+
+    const existingBadge = within(suggestionCard).getByText('B9')
+    expect(existingBadge.className).toContain('bg-slate-200')
   })
 
   it('does not show uncovered biomarkers warning when results omit coverage', () => {

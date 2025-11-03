@@ -1032,7 +1032,92 @@ class TestOptimizationService:
         assert suggestion.item.kind == "package"
         assert set(suggestion.matched_tokens) == {"FERR", "IRON"}
         assert set(suggestion.bonus_tokens) == {"B9", "B12"}
+        assert suggestion.already_included_tokens == []
         assert suggestion.incremental_now_grosz == 300
+
+    @pytest.mark.asyncio
+    async def test_add_on_suggestions_respect_existing_bonus(self, service, db_session):
+        """Do not count already covered bonus biomarkers as new suggestions."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        await db_session.execute(
+            insert(models.Biomarker).values([
+                {"id": 4001, "name": "Ferrytyna", "elab_code": "FERR", "slug": "ferr"},
+                {"id": 4002, "name": "Witamina B9", "elab_code": "B9", "slug": "b9"},
+                {"id": 4003, "name": "Witamina B12", "elab_code": "B12", "slug": "b12"},
+            ])
+        )
+        await db_session.commit()
+
+        await db_session.execute(
+            insert(models.Item).values([
+                {
+                    "id": 5001,
+                    "lab_id": 1,
+                    "external_id": "ferr-single",
+                    "kind": "single",
+                    "name": "Ferrytyna",
+                    "slug": "ferrytyna",
+                    "price_now_grosz": 4000,
+                    "price_min30_grosz": 4000,
+                    "currency": "PLN",
+                    "is_available": True,
+                },
+                {
+                    "id": 5002,
+                    "lab_id": 1,
+                    "external_id": "base-package",
+                    "kind": "package",
+                    "name": "Panel ferrytyna + B9",
+                    "slug": "panel-ferr-b9",
+                    "price_now_grosz": 2000,
+                    "price_min30_grosz": 2000,
+                    "currency": "PLN",
+                    "is_available": True,
+                },
+                {
+                    "id": 5003,
+                    "lab_id": 1,
+                    "external_id": "upgrade-package",
+                    "kind": "package",
+                    "name": "Panel ferrytyna + B9 + B12",
+                    "slug": "panel-ferr-b9-b12",
+                    "price_now_grosz": 2600,
+                    "price_min30_grosz": 2600,
+                    "currency": "PLN",
+                    "is_available": True,
+                },
+            ])
+        )
+        await db_session.commit()
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values([
+                {"item_id": 5001, "biomarker_id": 4001},
+                {"item_id": 5002, "biomarker_id": 4001},
+                {"item_id": 5002, "biomarker_id": 4002},
+                {"item_id": 5003, "biomarker_id": 4001},
+                {"item_id": 5003, "biomarker_id": 4002},
+                {"item_id": 5003, "biomarker_id": 4003},
+            ])
+        )
+        await db_session.commit()
+
+        response = await service.solve(OptimizeRequest(biomarkers=["FERR"]))
+
+        item_ids = {item.id for item in response.items}
+        assert item_ids == {5002}
+
+        suggestions = response.add_on_suggestions
+        assert len(suggestions) == 1
+        suggestion = suggestions[0]
+        assert suggestion.item.id == 5003
+        assert suggestion.bonus_tokens == ["B12"]
+        assert suggestion.already_included_tokens == ["B9"]
 
 async def _ensure_default_labs(session):
     existing = await session.scalar(
