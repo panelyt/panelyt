@@ -319,7 +319,6 @@ describe('OptimizationResults', () => {
     expect(screen.getAllByText(/Ferritin/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/B9/)).toBeInTheDocument()
     expect(screen.getByText(/\+\$17\.00/)).toBeInTheDocument()
-    expect(screen.getByText(/≈ \$8\.50 per biomarker/)).toBeInTheDocument()
     expect(screen.getAllByText(/Net Value/).length).toBeGreaterThan(0)
   })
 

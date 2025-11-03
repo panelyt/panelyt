@@ -152,11 +152,6 @@ export function AddOnSuggestionsSection({ viewModel, onAdd }: AddOnSuggestionsSe
                 >
                   +{suggestion.incrementalLabel}
                 </p>
-                {suggestion.bonusCount > 0 && (
-                  <p className="mt-1 text-[11px]">
-                    ≈ {suggestion.perBonusLabel} per biomarker
-                  </p>
-                )}
                 <div className="mt-3 text-right">
                   <p className="text-[11px] uppercase tracking-wide">Net Value</p>
                   <p
