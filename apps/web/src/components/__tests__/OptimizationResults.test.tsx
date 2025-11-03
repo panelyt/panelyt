@@ -320,7 +320,7 @@ describe('OptimizationResults', () => {
     expect(screen.getByText(/B9/)).toBeInTheDocument()
     expect(screen.getByText(/\+\$17\.00/)).toBeInTheDocument()
     expect(screen.getByText(/≈ \$8\.50 per biomarker/)).toBeInTheDocument()
-    expect(screen.getAllByText(/Net singles value/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Net Value/).length).toBeGreaterThan(0)
   })
 
   it('invokes onAddBiomarkers callback when clicking suggestion', async () => {
@@ -402,9 +402,8 @@ describe('OptimizationResults', () => {
     expect(existingBadge.className).toContain('bg-slate-200')
     const removedBadge = within(suggestionCard).getByText('B10')
     expect(removedBadge.className).toMatch(/bg-red/)
-    expect(within(suggestionCard).getAllByText('Net singles value')[0]).toBeInTheDocument()
+    expect(within(suggestionCard).getAllByText('Net Value')[0]).toBeInTheDocument()
     expect(within(suggestionCard).getByText(/\u2212\$8\.00/)).toBeInTheDocument()
-    expect(within(suggestionCard).getByText(/\+\$4\.00 \/ \u2212\$12\.00/)).toBeInTheDocument()
   })
 
   it('does not show uncovered biomarkers warning when results omit coverage', () => {

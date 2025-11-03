@@ -158,7 +158,7 @@ export function AddOnSuggestionsSection({ viewModel, onAdd }: AddOnSuggestionsSe
                   </p>
                 )}
                 <div className="mt-3 text-right">
-                  <p className="text-[11px] uppercase tracking-wide">Net singles value</p>
+                  <p className="text-[11px] uppercase tracking-wide">Net Value</p>
                   <p
                     className={`text-sm font-semibold ${
                       suggestion.netBonusPricing.isPositive
@@ -171,14 +171,6 @@ export function AddOnSuggestionsSection({ viewModel, onAdd }: AddOnSuggestionsSe
                     }`}
                   >
                     {suggestion.netBonusPricing.signedLabel}
-                  </p>
-                  <p
-                    className={`text-[11px] ${
-                      isDark ? "text-emerald-200/70" : "text-emerald-700/70"
-                    }`}
-                  >
-                    +{suggestion.netBonusPricing.addedLabel} / −
-                    {suggestion.netBonusPricing.removedLabel}
                   </p>
                 </div>
               </div>

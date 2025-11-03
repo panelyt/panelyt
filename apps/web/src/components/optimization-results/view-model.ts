@@ -21,8 +21,6 @@ export interface AddOnSuggestionViewModel {
     value: number;
     signedLabel: string;
     isPositive: boolean;
-    addedLabel: string;
-    removedLabel: string;
   };
 }
 
@@ -142,8 +140,6 @@ export function buildOptimizationViewModel({
         suggestion.net_bonus_price_now ?? addedBonusValue - removedBonusValue;
       const netPositive = netBonusValue >= 0;
       const netBonusLabel = `${netPositive ? "+" : "−"}${formatCurrency(Math.abs(netBonusValue))}`;
-      const addedBonusLabel = formatCurrency(addedBonusValue);
-      const removedBonusLabel = formatCurrency(removedBonusValue);
       return {
         item: suggestion.item,
         incrementalLabel: formatCurrency(incrementalValue),
@@ -170,8 +166,6 @@ export function buildOptimizationViewModel({
           value: netBonusValue,
           signedLabel: netBonusLabel,
           isPositive: netPositive,
-          addedLabel: addedBonusLabel,
-          removedLabel: removedBonusLabel,
         },
       };
     },
