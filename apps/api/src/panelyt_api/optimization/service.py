@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from panelyt_api.db import models
 from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import (
+    AddOnSuggestion,
     LabAvailability,
     LabSelectionSummary,
     OptimizeMode,
@@ -27,6 +28,7 @@ DEFAULT_CURRENCY = "PLN"
 SOLVER_TIMEOUT_SECONDS = 5.0
 SOLVER_WORKERS = 8
 PRICE_HISTORY_LOOKBACK_DAYS = 30
+MAX_ADD_ON_SUGGESTIONS = 3
 
 
 @dataclass(slots=True)
@@ -169,7 +171,7 @@ class OptimizationService:
                 else:
                     base_response = self._empty_response(fallback_uncovered)
 
-        return self._finalize_response(base_response, context, chosen_items, mode)
+        return await self._finalize_response(base_response, context, chosen_items, mode)
 
     async def _resolve_biomarkers(
         self, inputs: Sequence[str]
@@ -636,7 +638,7 @@ class OptimizationService:
             chosen_items=list(outcome.chosen_items),
         )
 
-    def _finalize_response(
+    async def _finalize_response(
         self,
         response: OptimizeResponse,
         context: OptimizationContext,
@@ -645,11 +647,17 @@ class OptimizationService:
     ) -> OptimizeResponse:
         lab_options = self._build_lab_options(context)
         lab_selections = self._lab_selection_summary(chosen_items)
+        suggestions, suggestion_labels = await self._build_add_on_suggestions(
+            context, chosen_items
+        )
+        merged_labels = response.labels | suggestion_labels
         return response.model_copy(
             update={
                 "mode": mode,
                 "lab_options": lab_options,
                 "lab_selections": lab_selections,
+                "add_on_suggestions": suggestions,
+                "labels": merged_labels,
             }
         )
 
@@ -714,6 +722,94 @@ class OptimizationService:
             for entry in ordered
         ]
 
+    async def _build_add_on_suggestions(
+        self,
+        context: OptimizationContext,
+        chosen_items: Sequence[CandidateItem],
+    ) -> tuple[list[AddOnSuggestion], dict[str, str]]:
+        if not chosen_items:
+            return [], {}
+
+        resolved_tokens = {entry.token for entry in context.resolved}
+        if not resolved_tokens:
+            return [], {}
+
+        selected_ids = {item.id for item in chosen_items}
+        candidate_packages: list[CandidateItem] = []
+        for lab_candidates in context.grouped_candidates.values():
+            for candidate in lab_candidates:
+                if (
+                    candidate.kind == "package"
+                    and candidate.id not in selected_ids
+                    and candidate.price_now > 0
+                    and candidate.coverage & resolved_tokens
+                ):
+                    candidate_packages.append(candidate)
+
+        if not candidate_packages:
+            return [], {}
+
+        candidate_ids = [candidate.id for candidate in candidate_packages]
+        biomarkers_map, labels_map = await self._get_all_biomarkers_for_items(candidate_ids)
+        cost_cache: dict[frozenset[str], int | None] = {}
+        ranked: list[tuple[float, int, int, AddOnSuggestion]] = []
+
+        for candidate in candidate_packages:
+            biomarkers = biomarkers_map.get(candidate.id, [])
+            if not biomarkers:
+                continue
+
+            normalized_biomarkers = self._unique_preserving_order(biomarkers)
+            matched_tokens = [token for token in normalized_biomarkers if token in resolved_tokens]
+            matched_set = frozenset(matched_tokens)
+            if not matched_set:
+                continue
+
+            bonus_tokens = [
+                token for token in normalized_biomarkers if token not in resolved_tokens
+            ]
+            bonus_tokens = self._unique_preserving_order(bonus_tokens)
+            if not bonus_tokens:
+                continue
+
+            coverage_cost = self._selection_cost(chosen_items, matched_set, cost_cache)
+            if coverage_cost is None:
+                continue
+
+            incremental_grosz = int(candidate.price_now) - int(coverage_cost)
+            if incremental_grosz <= 0:
+                continue
+
+            per_bonus = incremental_grosz / max(len(bonus_tokens), 1)
+            item_out = ItemOut(
+                id=candidate.id,
+                kind=candidate.kind,
+                name=candidate.name,
+                slug=candidate.slug,
+                price_now_grosz=int(candidate.price_now),
+                price_min30_grosz=int(candidate.price_min30),
+                currency=DEFAULT_CURRENCY,
+                biomarkers=normalized_biomarkers,
+                url=_item_url(candidate),
+                on_sale=candidate.on_sale,
+                lab_code=candidate.lab_code,
+                lab_name=candidate.lab_name,
+            )
+            suggestion = AddOnSuggestion(
+                item=item_out,
+                matched_tokens=matched_tokens,
+                bonus_tokens=bonus_tokens,
+                incremental_now=round(incremental_grosz / 100, 2),
+                incremental_now_grosz=int(incremental_grosz),
+            )
+            ranked.append(
+                (per_bonus, incremental_grosz, item_out.price_now_grosz, suggestion)
+            )
+
+        ranked.sort(key=lambda entry: (entry[0], entry[1], entry[2], entry[3].item.id))
+        suggestions = [entry[3] for entry in ranked[:MAX_ADD_ON_SUGGESTIONS]]
+        return suggestions, labels_map
+
     def _global_exclusive_map(self, context: OptimizationContext) -> dict[str, str]:
         exclusive: dict[str, str] = {}
         for token, lab_ids in context.availability_map.items():
@@ -726,6 +822,57 @@ class OptimizationService:
             lab_name = (lab_candidates[0].lab_name or lab_candidates[0].lab_code.upper()).strip()
             exclusive[token] = lab_name
         return exclusive
+
+    def _selection_cost(
+        self,
+        chosen_items: Sequence[CandidateItem],
+        target_tokens: frozenset[str],
+        cache: dict[frozenset[str], int | None],
+    ) -> int | None:
+        if not target_tokens:
+            return None
+        if target_tokens in cache:
+            return cache[target_tokens]
+
+        tokens = list(target_tokens)
+        index_map = {token: idx for idx, token in enumerate(tokens)}
+        target_mask = (1 << len(tokens)) - 1
+        inf = 10**12
+        dp = [inf] * (target_mask + 1)
+        dp[0] = 0
+
+        for item in chosen_items:
+            coverage_mask = 0
+            for token in item.coverage:
+                idx = index_map.get(token)
+                if idx is not None:
+                    coverage_mask |= 1 << idx
+            if coverage_mask == 0:
+                continue
+            cost = int(item.price_now)
+            for state in range(target_mask, -1, -1):
+                if dp[state] == inf:
+                    continue
+                new_state = state | coverage_mask
+                new_cost = dp[state] + cost
+                if new_cost < dp[new_state]:
+                    dp[new_state] = new_cost
+
+        final_cost = dp[target_mask]
+        value: int | None = int(final_cost) if final_cost != inf else None
+        cache[target_tokens] = value
+        return value
+
+    @staticmethod
+    def _unique_preserving_order(values: Sequence[str]) -> list[str]:
+        seen: set[str] = set()
+        result: list[str] = []
+        for value in values:
+            if value in seen:
+                continue
+            seen.add(value)
+            result.append(value)
+        return result
 
     @staticmethod
     def _combine_uncovered_tokens(

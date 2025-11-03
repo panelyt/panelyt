@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import type { LabChoiceCard } from "./types";
 import type { OptimizationViewModel } from "./view-model";
 import { CoverageSection } from "./coverage-section";
+import { AddOnSuggestionsSection } from "./add-on-section";
 import { ExclusiveSection } from "./exclusive-section";
 import { LabCardGrid } from "./lab-card-grid";
 import { OverlapSection } from "./overlap-section";
@@ -11,9 +12,10 @@ import { SummaryStatsGrid } from "./summary-stats";
 interface SummarySectionProps {
   viewModel: OptimizationViewModel;
   labCards: LabChoiceCard[];
+  onAddBiomarkers?: (biomarkers: Array<{ code: string; name: string }>) => void;
 }
 
-export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
+export function SummarySection({ viewModel, labCards, onAddBiomarkers }: SummarySectionProps) {
   const { isDark, selected, bonusBiomarkers, bonusPricing } = viewModel;
 
   return (
@@ -60,6 +62,8 @@ export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
           </span>
         )}
       </div>
+
+      <AddOnSuggestionsSection viewModel={viewModel} onAdd={onAddBiomarkers} />
 
       <SummaryStatsGrid viewModel={viewModel} />
 
