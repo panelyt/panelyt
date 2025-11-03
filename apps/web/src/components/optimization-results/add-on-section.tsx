@@ -124,6 +124,19 @@ export function AddOnSuggestionsSection({ viewModel, onAdd }: AddOnSuggestionsSe
                       {token.displayName}
                     </span>
                   ))}
+                  {suggestion.removedBonusTokens.map((token) => (
+                    <span
+                      key={`removed-${token.code}`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
+                        isDark
+                          ? "bg-red-500/30 text-red-100"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                      title="Losing this bonus biomarker by switching to this package"
+                    >
+                      {token.displayName}
+                    </span>
+                  ))}
                 </div>
               </div>
               <div

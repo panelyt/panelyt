@@ -1034,6 +1034,7 @@ class TestOptimizationService:
         assert set(suggestion.bonus_tokens) == {"B9", "B12"}
         assert suggestion.already_included_tokens == []
         assert suggestion.incremental_now_grosz == 300
+        assert suggestion.removed_bonus_tokens == []
 
     @pytest.mark.asyncio
     async def test_add_on_suggestions_respect_existing_bonus(self, service, db_session):
@@ -1084,8 +1085,8 @@ class TestOptimizationService:
                     "lab_id": 1,
                     "external_id": "upgrade-package",
                     "kind": "package",
-                    "name": "Panel ferrytyna + B9 + B12",
-                    "slug": "panel-ferr-b9-b12",
+                    "name": "Panel ferrytyna + B12",
+                    "slug": "panel-ferr-b12",
                     "price_now_grosz": 2600,
                     "price_min30_grosz": 2600,
                     "currency": "PLN",
@@ -1101,7 +1102,6 @@ class TestOptimizationService:
                 {"item_id": 5002, "biomarker_id": 4001},
                 {"item_id": 5002, "biomarker_id": 4002},
                 {"item_id": 5003, "biomarker_id": 4001},
-                {"item_id": 5003, "biomarker_id": 4002},
                 {"item_id": 5003, "biomarker_id": 4003},
             ])
         )
@@ -1117,7 +1117,8 @@ class TestOptimizationService:
         suggestion = suggestions[0]
         assert suggestion.item.id == 5003
         assert suggestion.bonus_tokens == ["B12"]
-        assert suggestion.already_included_tokens == ["B9"]
+        assert suggestion.already_included_tokens == []
+        assert suggestion.removed_bonus_tokens == ["B9"]
 
 async def _ensure_default_labs(session):
     existing = await session.scalar(

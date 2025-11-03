@@ -47,6 +47,7 @@ class AddOnSuggestion(APIModel):
     matched_tokens: list[str] = Field(default_factory=list)
     bonus_tokens: list[str] = Field(default_factory=list)
     already_included_tokens: list[str] = Field(default_factory=list)
+    removed_bonus_tokens: list[str] = Field(default_factory=list)
     incremental_now: float
     incremental_now_grosz: int
 

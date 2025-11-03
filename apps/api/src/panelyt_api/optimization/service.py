@@ -758,10 +758,14 @@ class OptimizationService:
         if not candidate_packages:
             return [], {}
 
+        chosen_biomarkers_map, chosen_labels = await self._get_all_biomarkers_for_items(
+            list(selected_ids)
+        )
         candidate_ids = [candidate.id for candidate in candidate_packages]
         biomarkers_map, labels_map = await self._get_all_biomarkers_for_items(candidate_ids)
         cost_cache: dict[frozenset[str], int | None] = {}
         ranked: list[tuple[float, int, int, AddOnSuggestion]] = []
+        all_labels = labels_map | chosen_labels
 
         for candidate in candidate_packages:
             biomarkers = biomarkers_map.get(candidate.id, [])
@@ -805,6 +809,16 @@ class OptimizationService:
             if not new_bonus_tokens:
                 continue
 
+            removed_bonus_tokens = self._removed_bonus_tokens(
+                chosen_items,
+                matched_set,
+                chosen_biomarkers_map,
+                new_bonus_tokens,
+                existing_tokens,
+                candidate.coverage,
+                resolved_tokens_normalized,
+            )
+
             per_bonus = incremental_grosz / max(len(new_bonus_tokens), 1)
             item_out = ItemOut(
                 id=candidate.id,
@@ -825,6 +839,7 @@ class OptimizationService:
                 matched_tokens=matched_tokens,
                 bonus_tokens=new_bonus_tokens,
                 already_included_tokens=existing_included,
+                removed_bonus_tokens=removed_bonus_tokens,
                 incremental_now=round(incremental_grosz / 100, 2),
                 incremental_now_grosz=int(incremental_grosz),
             )
@@ -834,7 +849,7 @@ class OptimizationService:
 
         ranked.sort(key=lambda entry: (entry[0], entry[1], entry[2], entry[3].item.id))
         suggestions = [entry[3] for entry in ranked[:MAX_ADD_ON_SUGGESTIONS]]
-        return suggestions, labels_map
+        return suggestions, all_labels
 
     def _global_exclusive_map(self, context: OptimizationContext) -> dict[str, str]:
         exclusive: dict[str, str] = {}
@@ -899,6 +914,76 @@ class OptimizationService:
             seen.add(value)
             result.append(value)
         return result
+
+    def _removed_bonus_tokens(
+        self,
+        chosen_items: Sequence[CandidateItem],
+        matched_set: frozenset[str],
+        chosen_biomarkers_map: Mapping[int, Sequence[str]],
+        new_bonus_tokens: Sequence[str],
+        existing_tokens: set[str],
+        candidate_coverage: set[str],
+        resolved_tokens_normalized: set[str],
+    ) -> list[str]:
+        if not matched_set:
+            return []
+
+        candidate_tokens_normalized = {
+            token.strip().lower()
+            for token in candidate_coverage
+            if isinstance(token, str) and token.strip()
+        }
+        remaining_tokens_normalized: set[str] = set()
+        replaced_item_ids: set[int] = set()
+        matched_normalized = {
+            token.strip().lower() for token in matched_set if isinstance(token, str) and token.strip()
+        }
+
+        for item in chosen_items:
+            normalized_coverage = {
+                token.strip().lower()
+                for token in item.coverage
+                if isinstance(token, str) and token.strip()
+            }
+            if normalized_coverage & matched_normalized:
+                replaced_item_ids.add(item.id)
+                continue
+            for token in chosen_biomarkers_map.get(item.id, []):
+                normalized = token.strip().lower()
+                if normalized:
+                    remaining_tokens_normalized.add(normalized)
+
+        lost_tokens: list[str] = []
+        seen: set[str] = set()
+        for item in chosen_items:
+            if item.id not in replaced_item_ids:
+                continue
+            for token in chosen_biomarkers_map.get(item.id, []):
+                normalized = token.strip().lower()
+                if not normalized:
+                    continue
+                if normalized in resolved_tokens_normalized:
+                    continue
+                if normalized in candidate_tokens_normalized:
+                    continue
+                if normalized in remaining_tokens_normalized:
+                    continue
+                if normalized not in existing_tokens:
+                    continue
+                if token in seen:
+                    continue
+                seen.add(token)
+                lost_tokens.append(token)
+
+        new_bonus_normalized = {
+            token.strip().lower() for token in new_bonus_tokens if isinstance(token, str)
+        }
+        filtered = [
+            token
+            for token in lost_tokens
+            if token.strip().lower() not in new_bonus_normalized
+        ]
+        return filtered
 
     @staticmethod
     def _current_coverage_tokens(items: Sequence[ItemOut]) -> set[str]:

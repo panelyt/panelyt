@@ -293,6 +293,7 @@ describe('OptimizationResults', () => {
           matched_tokens: ['FERR', 'IRON'],
           bonus_tokens: ['B9', 'B12'],
           already_included_tokens: [],
+          removed_bonus_tokens: [],
           incremental_now: 17,
           incremental_now_grosz: 1700,
         },
@@ -355,6 +356,7 @@ describe('OptimizationResults', () => {
           matched_tokens: ['FERR'],
           bonus_tokens: ['B12'],
           already_included_tokens: ['B9'],
+          removed_bonus_tokens: ['B10'],
           incremental_now: 17,
           incremental_now_grosz: 1700,
         },
@@ -385,6 +387,8 @@ describe('OptimizationResults', () => {
 
     const existingBadge = within(suggestionCard).getByText('B9')
     expect(existingBadge.className).toContain('bg-slate-200')
+    const removedBadge = within(suggestionCard).getByText('B10')
+    expect(removedBadge.className).toMatch(/bg-red/)
   })
 
   it('does not show uncovered biomarkers warning when results omit coverage', () => {
