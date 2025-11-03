@@ -101,7 +101,7 @@ export function AddOnSuggestionsSection({ viewModel, onAdd }: AddOnSuggestionsSe
                 <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
                   {suggestion.bonusTokens.map((token) => (
                     <span
-                      key={token.code}
+                      key={`new-${token.code}`}
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
                         isDark
                           ? "bg-emerald-500/20 text-emerald-200"
@@ -109,6 +109,31 @@ export function AddOnSuggestionsSection({ viewModel, onAdd }: AddOnSuggestionsSe
                       }`}
                     >
                       <Sparkles className="h-3 w-3 flex-shrink-0" />
+                      {token.displayName}
+                    </span>
+                  ))}
+                  {suggestion.alreadyCoveredTokens.map((token) => (
+                    <span
+                      key={`existing-${token.code}`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
+                        isDark
+                          ? "bg-slate-800 text-slate-300"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {token.displayName}
+                    </span>
+                  ))}
+                  {suggestion.removedBonusTokens.map((token) => (
+                    <span
+                      key={`removed-${token.code}`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${
+                        isDark
+                          ? "bg-red-500/30 text-red-100"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                      title="Losing this bonus biomarker by switching to this package"
+                    >
                       {token.displayName}
                     </span>
                   ))}
@@ -127,11 +152,22 @@ export function AddOnSuggestionsSection({ viewModel, onAdd }: AddOnSuggestionsSe
                 >
                   +{suggestion.incrementalLabel}
                 </p>
-                {suggestion.bonusCount > 0 && (
-                  <p className="mt-1 text-[11px]">
-                    ≈ {suggestion.perBonusLabel} per biomarker
+                <div className="mt-3 text-right">
+                  <p className="text-[11px] uppercase tracking-wide">Net Value</p>
+                  <p
+                    className={`text-sm font-semibold ${
+                      suggestion.netBonusPricing.isPositive
+                        ? isDark
+                          ? "text-emerald-200"
+                          : "text-emerald-700"
+                        : isDark
+                          ? "text-red-300"
+                          : "text-red-600"
+                    }`}
+                  >
+                    {suggestion.netBonusPricing.signedLabel}
                   </p>
-                )}
+                </div>
               </div>
             </div>
           </article>
