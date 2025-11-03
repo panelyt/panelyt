@@ -17,6 +17,13 @@ export interface AddOnSuggestionViewModel {
   bonusCount: number;
   alreadyCoveredTokens: Array<{ code: string; displayName: string }>;
   removedBonusTokens: Array<{ code: string; displayName: string }>;
+  netBonusPricing: {
+    value: number;
+    signedLabel: string;
+    isPositive: boolean;
+    addedLabel: string;
+    removedLabel: string;
+  };
 }
 
 export interface OptimizationViewModel {
@@ -129,6 +136,14 @@ export function buildOptimizationViewModel({
       const bonusCount = Math.max(suggestion.bonus_tokens.length, 1);
       const incrementalValue = suggestion.incremental_now ?? 0;
       const perBonusValue = incrementalValue / bonusCount;
+      const addedBonusValue = Math.max(suggestion.added_bonus_price_now ?? 0, 0);
+      const removedBonusValue = Math.max(suggestion.removed_bonus_price_now ?? 0, 0);
+      const netBonusValue =
+        suggestion.net_bonus_price_now ?? addedBonusValue - removedBonusValue;
+      const netPositive = netBonusValue >= 0;
+      const netBonusLabel = `${netPositive ? "+" : "−"}${formatCurrency(Math.abs(netBonusValue))}`;
+      const addedBonusLabel = formatCurrency(addedBonusValue);
+      const removedBonusLabel = formatCurrency(removedBonusValue);
       return {
         item: suggestion.item,
         incrementalLabel: formatCurrency(incrementalValue),
@@ -151,6 +166,13 @@ export function buildOptimizationViewModel({
           code,
           displayName: displayNameFor(code),
         })),
+        netBonusPricing: {
+          value: netBonusValue,
+          signedLabel: netBonusLabel,
+          isPositive: netPositive,
+          addedLabel: addedBonusLabel,
+          removedLabel: removedBonusLabel,
+        },
       };
     },
   );

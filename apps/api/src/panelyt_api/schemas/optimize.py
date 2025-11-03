@@ -48,6 +48,12 @@ class AddOnSuggestion(APIModel):
     bonus_tokens: list[str] = Field(default_factory=list)
     already_included_tokens: list[str] = Field(default_factory=list)
     removed_bonus_tokens: list[str] = Field(default_factory=list)
+    added_bonus_price_now: float = 0.0
+    added_bonus_price_now_grosz: int = 0
+    removed_bonus_price_now: float = 0.0
+    removed_bonus_price_now_grosz: int = 0
+    net_bonus_price_now: float = 0.0
+    net_bonus_price_now_grosz: int = 0
     incremental_now: float
     incremental_now_grosz: int
 

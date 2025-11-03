@@ -1034,6 +1034,9 @@ class TestOptimizationService:
         assert set(suggestion.bonus_tokens) == {"B9", "B12"}
         assert suggestion.already_included_tokens == []
         assert suggestion.incremental_now_grosz == 300
+        assert suggestion.added_bonus_price_now_grosz == 0
+        assert suggestion.removed_bonus_price_now_grosz == 0
+        assert suggestion.net_bonus_price_now_grosz == 0
         assert suggestion.removed_bonus_tokens == []
 
     @pytest.mark.asyncio
@@ -1119,6 +1122,9 @@ class TestOptimizationService:
         assert suggestion.bonus_tokens == ["B12"]
         assert suggestion.already_included_tokens == []
         assert suggestion.removed_bonus_tokens == ["B9"]
+        assert suggestion.added_bonus_price_now_grosz == 0
+        assert suggestion.removed_bonus_price_now_grosz == 0
+        assert suggestion.net_bonus_price_now_grosz == 0
 
 async def _ensure_default_labs(session):
     existing = await session.scalar(

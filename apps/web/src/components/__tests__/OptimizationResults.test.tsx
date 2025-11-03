@@ -294,6 +294,12 @@ describe('OptimizationResults', () => {
           bonus_tokens: ['B9', 'B12'],
           already_included_tokens: [],
           removed_bonus_tokens: [],
+          added_bonus_price_now: 0,
+          added_bonus_price_now_grosz: 0,
+          removed_bonus_price_now: 0,
+          removed_bonus_price_now_grosz: 0,
+          net_bonus_price_now: 0,
+          net_bonus_price_now_grosz: 0,
           incremental_now: 17,
           incremental_now_grosz: 1700,
         },
@@ -314,6 +320,7 @@ describe('OptimizationResults', () => {
     expect(screen.getByText(/B9/)).toBeInTheDocument()
     expect(screen.getByText(/\+\$17\.00/)).toBeInTheDocument()
     expect(screen.getByText(/≈ \$8\.50 per biomarker/)).toBeInTheDocument()
+    expect(screen.getAllByText(/Net singles value/).length).toBeGreaterThan(0)
   })
 
   it('invokes onAddBiomarkers callback when clicking suggestion', async () => {
@@ -357,6 +364,12 @@ describe('OptimizationResults', () => {
           bonus_tokens: ['B12'],
           already_included_tokens: ['B9'],
           removed_bonus_tokens: ['B10'],
+          added_bonus_price_now: 4,
+          added_bonus_price_now_grosz: 400,
+          removed_bonus_price_now: 12,
+          removed_bonus_price_now_grosz: 1200,
+          net_bonus_price_now: -8,
+          net_bonus_price_now_grosz: -800,
           incremental_now: 17,
           incremental_now_grosz: 1700,
         },
@@ -389,6 +402,9 @@ describe('OptimizationResults', () => {
     expect(existingBadge.className).toContain('bg-slate-200')
     const removedBadge = within(suggestionCard).getByText('B10')
     expect(removedBadge.className).toMatch(/bg-red/)
+    expect(within(suggestionCard).getAllByText('Net singles value')[0]).toBeInTheDocument()
+    expect(within(suggestionCard).getByText(/\u2212\$8\.00/)).toBeInTheDocument()
+    expect(within(suggestionCard).getByText(/\+\$4\.00 \/ \u2212\$12\.00/)).toBeInTheDocument()
   })
 
   it('does not show uncovered biomarkers warning when results omit coverage', () => {

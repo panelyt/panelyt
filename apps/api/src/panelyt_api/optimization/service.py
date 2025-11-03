@@ -764,8 +764,10 @@ class OptimizationService:
         candidate_ids = [candidate.id for candidate in candidate_packages]
         biomarkers_map, labels_map = await self._get_all_biomarkers_for_items(candidate_ids)
         cost_cache: dict[frozenset[str], int | None] = {}
-        ranked: list[tuple[float, int, int, AddOnSuggestion]] = []
+        ranked: list[tuple[float, int, int, AddOnSuggestion, list[str], list[str]]] = []
         all_labels = labels_map | chosen_labels
+        added_token_registry: dict[str, str] = {}
+        removed_token_registry: dict[str, str] = {}
 
         for candidate in candidate_packages:
             biomarkers = biomarkers_map.get(candidate.id, [])
@@ -840,15 +842,54 @@ class OptimizationService:
                 bonus_tokens=new_bonus_tokens,
                 already_included_tokens=existing_included,
                 removed_bonus_tokens=removed_bonus_tokens,
+                added_bonus_price_now=0.0,
+                added_bonus_price_now_grosz=0,
+                removed_bonus_price_now=0.0,
+                removed_bonus_price_now_grosz=0,
+                net_bonus_price_now=0.0,
+                net_bonus_price_now_grosz=0,
                 incremental_now=round(incremental_grosz / 100, 2),
                 incremental_now_grosz=int(incremental_grosz),
             )
             ranked.append(
-                (per_bonus, incremental_grosz, item_out.price_now_grosz, suggestion)
+                (
+                    per_bonus,
+                    incremental_grosz,
+                    item_out.price_now_grosz,
+                    suggestion,
+                    new_bonus_tokens,
+                    removed_bonus_tokens,
+                )
             )
+            for token in new_bonus_tokens:
+                added_token_registry.setdefault(token, token)
+            for token in removed_bonus_tokens:
+                removed_token_registry.setdefault(token, token)
 
         ranked.sort(key=lambda entry: (entry[0], entry[1], entry[2], entry[3].item.id))
-        suggestions = [entry[3] for entry in ranked[:MAX_ADD_ON_SUGGESTIONS]]
+        limited = ranked[:MAX_ADD_ON_SUGGESTIONS]
+
+        added_price_map = await self._bonus_price_map(added_token_registry)
+        removed_price_map = await self._bonus_price_map(removed_token_registry)
+
+        suggestions: list[AddOnSuggestion] = []
+        for _, _, _, suggestion, new_tokens, removed_tokens in limited:
+            added_grosz = sum(added_price_map.get(token, 0) for token in new_tokens)
+            removed_grosz = sum(removed_price_map.get(token, 0) for token in removed_tokens)
+            net_grosz = added_grosz - removed_grosz
+            suggestions.append(
+                suggestion.model_copy(
+                    update={
+                        "added_bonus_price_now": round(added_grosz / 100, 2),
+                        "added_bonus_price_now_grosz": int(added_grosz),
+                        "removed_bonus_price_now": round(removed_grosz / 100, 2),
+                        "removed_bonus_price_now_grosz": int(removed_grosz),
+                        "net_bonus_price_now": round(net_grosz / 100, 2),
+                        "net_bonus_price_now_grosz": int(net_grosz),
+                    }
+                )
+            )
+
         return suggestions, all_labels
 
     def _global_exclusive_map(self, context: OptimizationContext) -> dict[str, str]:
@@ -936,7 +977,9 @@ class OptimizationService:
         remaining_tokens_normalized: set[str] = set()
         replaced_item_ids: set[int] = set()
         matched_normalized = {
-            token.strip().lower() for token in matched_set if isinstance(token, str) and token.strip()
+            token.strip().lower()
+            for token in matched_set
+            if isinstance(token, str) and token.strip()
         }
 
         for item in chosen_items:
