@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import type { LabChoiceCard } from "./types";
 import type { OptimizationViewModel } from "./view-model";
 import { CoverageSection } from "./coverage-section";
+import { AddOnSuggestionsSection } from "./add-on-section";
 import { ExclusiveSection } from "./exclusive-section";
 import { LabCardGrid } from "./lab-card-grid";
 import { OverlapSection } from "./overlap-section";
@@ -60,6 +61,8 @@ export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
           </span>
         )}
       </div>
+
+      <AddOnSuggestionsSection viewModel={viewModel} />
 
       <SummaryStatsGrid viewModel={viewModel} />
 

@@ -82,6 +82,7 @@ const makeOptimizeResponse = (
     mode: 'auto',
     lab_options: [],
     lab_selections: [],
+    add_on_suggestions: [],
     ...rest,
   }
 }
@@ -238,6 +239,80 @@ describe('OptimizationResults', () => {
 
     // Check coverage summary
     expect(screen.getByText('Coverage')).toBeInTheDocument()
+  })
+
+  it('shows cheap add-on suggestions when provided', () => {
+    const mockResult = makeOptimizeResponse({
+      items: [
+        {
+          id: 1,
+          kind: 'single',
+          name: 'Ferritin',
+          slug: 'ferritin',
+          price_now_grosz: 2500,
+          price_min30_grosz: 2500,
+          currency: 'PLN',
+          biomarkers: ['FERR'],
+          url: 'https://diag.pl/sklep/badania/ferritin',
+          on_sale: false,
+        },
+        {
+          id: 2,
+          kind: 'single',
+          name: 'Iron',
+          slug: 'iron',
+          price_now_grosz: 2500,
+          price_min30_grosz: 2500,
+          currency: 'PLN',
+          biomarkers: ['IRON'],
+          url: 'https://diag.pl/sklep/badania/iron',
+          on_sale: false,
+        },
+      ],
+      labels: {
+        FERR: 'Ferritin',
+        IRON: 'Iron',
+        B9: 'B9',
+        B12: 'B12',
+      },
+      add_on_suggestions: [
+        {
+          item: {
+            id: 3,
+            kind: 'package',
+            name: 'Iron vitality package',
+            slug: 'iron-vitality',
+            price_now_grosz: 5200,
+            price_min30_grosz: 5000,
+            currency: 'PLN',
+            biomarkers: ['FERR', 'IRON', 'B9', 'B12'],
+            url: 'https://diag.pl/sklep/pakiety/iron-vitality',
+            on_sale: false,
+            lab_code: 'diag',
+            lab_name: 'Diagnostyka',
+          },
+          matched_tokens: ['FERR', 'IRON'],
+          bonus_tokens: ['B9', 'B12'],
+          incremental_now: 17,
+          incremental_now_grosz: 1700,
+        },
+      ],
+    })
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['FERR', 'IRON']}
+        result={mockResult}
+        isLoading={false}
+        error={null}
+      />,
+    )
+
+    expect(screen.getByText('Cheap add-on suggestions')).toBeInTheDocument()
+    expect(screen.getAllByText(/Ferritin/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/B9/)).toBeInTheDocument()
+    expect(screen.getByText(/\+\$17\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/≈ \$8\.50 per biomarker/)).toBeInTheDocument()
   })
 
   it('shows uncovered biomarkers warning', () => {
