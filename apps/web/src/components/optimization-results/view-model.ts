@@ -24,17 +24,13 @@ export interface OptimizationViewModel {
   selectedSet: Set<string>;
   result: OptimizeResponse;
   groups: OptimizationGroup[];
-  maxPrice: number;
+  totalNowGrosz: number;
+  totalMin30Grosz: number;
   displayNameFor: (code: string) => string;
   bonusBiomarkers: string[];
   bonusPricing: {
     totalNowLabel: string;
     totalNowValue: number;
-  };
-  coverage: {
-    percent: number;
-    coveredTokens: string[];
-    uncoveredTokens: string[];
   };
   pricing: {
     totalMin30Label: string;
@@ -81,12 +77,6 @@ export function buildOptimizationViewModel({
   const bonusBiomarkers = uniqueBiomarkers.filter((code) => !selectedSet.has(code));
   const displayNameFor = createDisplayResolver(labelMap, biomarkerNames);
 
-  const uncoveredTokens = result.uncovered ?? [];
-  const coveredTokens = selected.filter((token) => !uncoveredTokens.includes(token));
-  const coveragePercent = selected.length
-    ? Math.round((coveredTokens.length / selected.length) * 100)
-    : 0;
-
   const potentialSavingsRaw = Math.max(result.total_now - result.total_min30, 0);
   const highlightSavings = potentialSavingsRaw > 0.01;
   const potentialSavingsLabel = potentialSavingsRaw > 0 ? formatCurrency(potentialSavingsRaw) : "—";
@@ -98,7 +88,11 @@ export function buildOptimizationViewModel({
   const packagesCount = groups.find((group) => group.kind === "package")?.items.length ?? 0;
   const singlesCount = groups.find((group) => group.kind === "single")?.items.length ?? 0;
   const onSaleCount = result.items.filter((item) => item.on_sale).length;
-  const maxPrice = Math.max(...result.items.map((item) => item.price_now_grosz), 1);
+  const totalNowGrosz = result.items.reduce((sum, item) => sum + (item.price_now_grosz ?? 0), 0);
+  const totalMin30Grosz = result.items.reduce(
+    (sum, item) => sum + (item.price_min30_grosz ?? 0),
+    0,
+  );
 
   const exclusiveEntries = Object.entries(result.exclusive ?? {});
   const exclusiveBiomarkers = exclusiveEntries.map(([code]) => ({
@@ -158,17 +152,13 @@ export function buildOptimizationViewModel({
     selectedSet,
     result,
     groups,
-    maxPrice,
+    totalNowGrosz,
+    totalMin30Grosz,
     displayNameFor,
     bonusBiomarkers,
     bonusPricing: {
       totalNowLabel: bonusTotalNowLabel,
       totalNowValue: bonusTotalNowValue,
-    },
-    coverage: {
-      percent: coveragePercent,
-      coveredTokens,
-      uncoveredTokens,
     },
     pricing: {
       totalMin30Label,

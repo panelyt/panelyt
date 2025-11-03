@@ -9,7 +9,15 @@ interface PriceBreakdownSectionProps {
 }
 
 export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps) {
-  const { isDark, variant, groups, selectedSet, displayNameFor, maxPrice } = viewModel;
+  const {
+    isDark,
+    variant,
+    groups,
+    selectedSet,
+    displayNameFor,
+    totalNowGrosz,
+    totalMin30Grosz,
+  } = viewModel;
 
   return (
     <section
@@ -134,7 +142,8 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                       <PriceComparisonBar
                         now={item.price_now_grosz}
                         min={item.price_min30_grosz}
-                        max={maxPrice}
+                        totalNow={totalNowGrosz}
+                        totalMin={totalMin30Grosz}
                         variant={variant}
                       />
                     </div>
@@ -152,16 +161,19 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
 function PriceComparisonBar({
   now,
   min,
-  max,
+  totalNow,
+  totalMin,
   variant = "light",
 }: {
   now: number;
   min: number;
-  max: number;
+  totalNow: number;
+  totalMin: number;
   variant?: "light" | "dark";
 }) {
-  const nowWidth = Math.min(100, Math.round((now / max) * 100));
-  const minWidth = Math.min(100, Math.round((min / max) * 100));
+  const baselineNow = totalNow > 0 ? totalNow : now || 1;
+  const nowWidth = Math.min(100, Math.round((now / baselineNow) * 100));
+  const minWidth = totalMin > 0 ? Math.min(100, Math.round((min / totalMin) * 100)) : 0;
   const isDark = variant === "dark";
 
   return (
