@@ -7,6 +7,18 @@ export interface OptimizationGroup {
   items: OptimizeResponse["items"];
 }
 
+export interface AddonSuggestionViewModel {
+  key: string;
+  package: OptimizeResponse["addon_suggestions"][number]["package"];
+  upgradeCostLabel: string;
+  upgradeCostValue: number;
+  upgradeCostGrosz: number;
+  estimatedTotalLabel: string;
+  estimatedTotalValue: number;
+  adds: OptimizeResponse["addon_suggestions"][number]["adds"];
+  covers: OptimizeResponse["addon_suggestions"][number]["covers"];
+}
+
 export interface OptimizationViewModel {
   variant: "light" | "dark";
   isDark: boolean;
@@ -48,6 +60,7 @@ export interface OptimizationViewModel {
     displayName: string;
     packages: string[];
   }>;
+  addons: AddonSuggestionViewModel[];
 }
 
 interface BuildOptimizationViewModelArgs {
@@ -119,6 +132,24 @@ export function buildOptimizationViewModel({
     }))
     .sort((a, b) => b.packages.length - a.packages.length || a.code.localeCompare(b.code));
 
+  const addons: AddonSuggestionViewModel[] = (result.addon_suggestions ?? []).map((addon) => {
+    const upgradeCostValue =
+      addon.upgrade_cost ?? addon.upgrade_cost_grosz / 100;
+    const estimatedTotalValue =
+      addon.estimated_total_now ?? addon.estimated_total_now_grosz / 100;
+    return {
+      key: `addon-${addon.package.id}`,
+      package: addon.package,
+      upgradeCostLabel: formatCurrency(upgradeCostValue),
+      upgradeCostValue,
+      upgradeCostGrosz: addon.upgrade_cost_grosz,
+      estimatedTotalLabel: formatCurrency(estimatedTotalValue),
+      estimatedTotalValue,
+      adds: addon.adds ?? [],
+      covers: addon.covers ?? [],
+    };
+  });
+
   return {
     variant,
     isDark,
@@ -156,6 +187,7 @@ export function buildOptimizationViewModel({
       biomarkers: exclusiveBiomarkers,
     },
     overlaps,
+    addons,
   };
 }
 

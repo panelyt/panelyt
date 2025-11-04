@@ -69,6 +69,25 @@ export const LabSelectionSummarySchema = z.object({
 
 export type LabSelectionSummary = z.infer<typeof LabSelectionSummarySchema>;
 
+export const AddonBiomarkerSchema = z.object({
+  code: z.string(),
+  display_name: z.string(),
+});
+
+export type AddonBiomarker = z.infer<typeof AddonBiomarkerSchema>;
+
+export const AddonSuggestionSchema = z.object({
+  package: ItemSchema,
+  upgrade_cost_grosz: z.number().int(),
+  upgrade_cost: z.number(),
+  estimated_total_now_grosz: z.number().int(),
+  estimated_total_now: z.number(),
+  covers: z.array(AddonBiomarkerSchema).default([]),
+  adds: z.array(AddonBiomarkerSchema).default([]),
+});
+
+export type AddonSuggestion = z.infer<typeof AddonSuggestionSchema>;
+
 export const OptimizeResponseSchema = z.object({
   total_now: z.number().nonnegative(),
   total_min30: z.number().nonnegative(),
@@ -84,6 +103,7 @@ export const OptimizeResponseSchema = z.object({
   mode: OptimizeModeSchema.default("auto"),
   lab_options: z.array(LabAvailabilitySchema).default([]),
   lab_selections: z.array(LabSelectionSummarySchema).default([]),
+  addon_suggestions: z.array(AddonSuggestionSchema).default([]),
 });
 
 export type OptimizeResponse = z.infer<typeof OptimizeResponseSchema>;

@@ -511,6 +511,49 @@ export default function Home() {
     [extractErrorMessage, selected, setSelectedLabChoice],
   );
 
+  const handleApplyAddon = useCallback(
+    (biomarkers: { code: string; name: string }[], packageName: string) => {
+      const normalized = biomarkers
+        .map((entry) => ({
+          code: entry.code.trim(),
+          name: entry.name.trim() || entry.code.trim(),
+        }))
+        .filter((entry) => entry.code.length > 0);
+
+      if (normalized.length === 0) {
+        return;
+      }
+
+      let additions: { code: string; name: string }[] = [];
+      setSelected((current) => {
+        const existing = new Set(current.map((item) => item.code));
+        additions = normalized.filter((entry) => !existing.has(entry.code));
+        if (additions.length === 0) {
+          return current;
+        }
+        return [...current, ...additions];
+      });
+
+      if (additions.length === 0) {
+        setListError(null);
+        setListNotice({
+          tone: "info",
+          message: `All biomarkers from ${packageName} are already selected.`,
+        });
+        return;
+      }
+
+      autoSelectionRef.current = null;
+      setSelectedLabChoice(null);
+      setListError(null);
+      setListNotice({
+        tone: "success",
+        message: `Added ${additions.length} biomarker${additions.length === 1 ? "" : "s"} from ${packageName}.`,
+      });
+    },
+    [setSelectedLabChoice, setListError, setListNotice, setSelected],
+  );
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -1041,6 +1084,7 @@ export default function Home() {
             error={activeError ?? undefined}
             variant="dark"
             labCards={labCards}
+            onApplyAddon={handleApplyAddon}
           />
         </div>
       </section>

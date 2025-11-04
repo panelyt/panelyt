@@ -17,6 +17,7 @@ export interface OptimizationResultsProps {
   error?: Error | null;
   variant?: "light" | "dark";
   labCards?: LabChoiceCard[];
+  onApplyAddon?: (biomarkers: { code: string; name: string }[], packageName: string) => void;
 }
 
 export function OptimizationResults({
@@ -26,6 +27,7 @@ export function OptimizationResults({
   error,
   variant = "light",
   labCards = [],
+  onApplyAddon,
 }: OptimizationResultsProps) {
   const missingCodes = useMemo(() => {
     if (!result) {
@@ -91,7 +93,11 @@ export function OptimizationResults({
 
   return (
     <div className="space-y-8">
-      <SummarySection viewModel={viewModel} labCards={labCards} />
+      <SummarySection
+        viewModel={viewModel}
+        labCards={labCards}
+        onApplyAddon={onApplyAddon}
+      />
       <PriceBreakdownSection viewModel={viewModel} />
     </div>
   );

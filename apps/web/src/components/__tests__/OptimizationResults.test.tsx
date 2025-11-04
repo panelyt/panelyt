@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Sparkles } from 'lucide-react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
@@ -82,6 +83,7 @@ const makeOptimizeResponse = (
     mode: 'auto',
     lab_options: [],
     lab_selections: [],
+    addon_suggestions: [],
     ...rest,
   }
 }
@@ -663,5 +665,56 @@ describe('OptimizationResults', () => {
     expect(link).toHaveAttribute('href', 'https://diag.pl/sklep/badania/alt-test')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noreferrer')
+  })
+
+  it('displays addon suggestions and applies selections', async () => {
+    const user = userEvent.setup()
+    const mockApply = vi.fn()
+    const mockResult = makeOptimizeResponse({
+      addon_suggestions: [
+        {
+          package: {
+            id: 77,
+            kind: 'package',
+            name: 'Package AB Bonus',
+            slug: 'package-ab',
+            price_now_grosz: 3500,
+            price_min30_grosz: 3300,
+            currency: 'PLN',
+            biomarkers: ['A', 'B', 'E'],
+            url: 'https://diag.pl/sklep/pakiety/package-ab',
+            on_sale: false,
+            lab_code: 'diag',
+            lab_name: 'Diagnostyka',
+          },
+          upgrade_cost_grosz: 1000,
+          upgrade_cost: 10,
+          estimated_total_now_grosz: 11500,
+          estimated_total_now: 115,
+          covers: [
+            { code: 'A', display_name: 'Marker A' },
+            { code: 'B', display_name: 'Marker B' },
+          ],
+          adds: [{ code: 'E', display_name: 'Marker E' }],
+        },
+      ],
+    })
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['A', 'B']}
+        result={mockResult}
+        isLoading={false}
+        error={null}
+        onApplyAddon={mockApply}
+      />
+    )
+
+    expect(screen.getByText('Suggested add-ons')).toBeInTheDocument()
+    expect(screen.getByText('$10.00')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Package AB Bonus/i }))
+
+    expect(mockApply).toHaveBeenCalledWith([{ code: 'E', name: 'Marker E' }], 'Package AB Bonus')
   })
 })

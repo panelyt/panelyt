@@ -42,6 +42,21 @@ class LabSelectionSummary(APIModel):
     items: int
 
 
+class AddonBiomarker(APIModel):
+    code: str
+    display_name: str
+
+
+class AddonSuggestion(APIModel):
+    package: ItemOut
+    upgrade_cost_grosz: int
+    upgrade_cost: float
+    estimated_total_now_grosz: int
+    estimated_total_now: float
+    covers: list[AddonBiomarker] = Field(default_factory=list)
+    adds: list[AddonBiomarker] = Field(default_factory=list)
+
+
 class OptimizeResponse(APIModel):
     total_now: float
     total_min30: float
@@ -57,3 +72,4 @@ class OptimizeResponse(APIModel):
     mode: OptimizeMode = OptimizeMode.AUTO
     lab_options: list[LabAvailability] = Field(default_factory=list)
     lab_selections: list[LabSelectionSummary] = Field(default_factory=list)
+    addon_suggestions: list[AddonSuggestion] = Field(default_factory=list)

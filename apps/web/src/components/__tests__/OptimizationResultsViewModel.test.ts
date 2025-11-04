@@ -60,6 +60,7 @@ function makeOptimizeResponse(overrides: OptimizeResponseOverrides): OptimizeRes
     mode: 'auto',
     lab_options: [],
     lab_selections: [],
+    addon_suggestions: [],
     ...rest,
   }
 }
@@ -135,6 +136,7 @@ describe('buildOptimizationViewModel', () => {
     expect(viewModel.displayNameFor('GLU')).toBe('Glucose')
     expect(viewModel.bonusPricing.totalNowValue).toBeCloseTo(12.5)
     expect(viewModel.bonusPricing.totalNowLabel).toBe(formatCurrency(12.5))
+    expect(viewModel.addons).toHaveLength(0)
   })
 
   it('handles empty selections without crashing', () => {
@@ -159,5 +161,57 @@ describe('buildOptimizationViewModel', () => {
     expect(viewModel.groups[0]?.items).toHaveLength(0)
     expect(viewModel.bonusPricing.totalNowValue).toBe(0)
     expect(viewModel.bonusPricing.totalNowLabel).toBe(formatCurrency(0))
+    expect(viewModel.addons).toHaveLength(0)
+  })
+
+  it('maps addon suggestions onto the view model', () => {
+    const response = makeOptimizeResponse({
+      total_now: 40,
+      addon_suggestions: [
+        {
+          package: {
+            id: 99,
+            kind: 'package',
+            name: 'Expanded Liver Panel',
+            slug: 'expanded-liver',
+            price_now_grosz: 3600,
+            price_min30_grosz: 3400,
+            currency: 'PLN',
+            biomarkers: ['ALT', 'AST', 'CRP'],
+            url: 'https://example.com/panels/expanded-liver',
+            on_sale: false,
+            lab_code: 'diag',
+            lab_name: 'Diagnostyka',
+          },
+          upgrade_cost_grosz: 1200,
+          upgrade_cost: 12,
+          estimated_total_now_grosz: 5200,
+          estimated_total_now: 52,
+          covers: [
+            { code: 'ALT', display_name: 'Alanine aminotransferase' },
+            { code: 'AST', display_name: 'Aspartate aminotransferase' },
+          ],
+          adds: [{ code: 'CRP', display_name: 'C-reactive protein' }],
+        },
+      ],
+      labels: {
+        ALT: 'Alanine aminotransferase',
+        AST: 'Aspartate aminotransferase',
+      },
+    })
+
+    const viewModel = buildOptimizationViewModel({
+      selected: ['ALT', 'AST'],
+      result: response,
+      variant: 'light',
+      biomarkerNames: {},
+    })
+
+    expect(viewModel.addons).toHaveLength(1)
+    const addon = viewModel.addons[0]
+    expect(addon.package.name).toBe('Expanded Liver Panel')
+    expect(addon.upgradeCostLabel).toBe(formatCurrency(12))
+    expect(addon.estimatedTotalLabel).toBe(formatCurrency(52))
+    expect(addon.adds[0]?.code).toBe('CRP')
   })
 })
