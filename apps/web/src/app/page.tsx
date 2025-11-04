@@ -142,40 +142,6 @@ export default function Home() {
     })),
   });
 
-  const handleAddBiomarkers = useCallback(
-    (biomarkers: Array<{ code: string; name: string }>) => {
-      if (!biomarkers || biomarkers.length === 0) {
-        return;
-      }
-      setSelected((current) => {
-        const existing = new Set(current.map((entry) => entry.code.trim().toLowerCase()));
-        const additions: SelectedBiomarker[] = [];
-        for (const biomarker of biomarkers) {
-          const rawCode = biomarker.code ?? "";
-          const normalizedCode = rawCode.trim();
-          if (!normalizedCode) {
-            continue;
-          }
-          const key = normalizedCode.toLowerCase();
-          if (existing.has(key)) {
-            continue;
-          }
-          existing.add(key);
-          const resolvedName = (biomarker.name ?? normalizedCode).trim() || normalizedCode;
-          additions.push({
-            code: normalizedCode,
-            name: resolvedName,
-          });
-        }
-        if (additions.length === 0) {
-          return current;
-        }
-        return [...current, ...additions];
-      });
-    },
-    [],
-  );
-
   const defaultSingleLabCode = (() => {
     if (optimizerInput.length === 0 || primaryLabCodes.length === 0) {
       return null;
@@ -1075,7 +1041,6 @@ export default function Home() {
             error={activeError ?? undefined}
             variant="dark"
             labCards={labCards}
-            onAddBiomarkers={handleAddBiomarkers}
           />
         </div>
       </section>
