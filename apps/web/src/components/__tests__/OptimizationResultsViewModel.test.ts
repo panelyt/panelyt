@@ -154,7 +154,8 @@ describe('buildOptimizationViewModel', () => {
 
     expect(viewModel.coverage.percent).toBe(0)
     expect(viewModel.pricing.highlightSavings).toBe(false)
-    expect(viewModel.maxPrice).toBe(1)
+    expect(viewModel.totalNowGrosz).toBe(0)
+    expect(viewModel.totalMin30Grosz).toBe(0)
     expect(viewModel.groups[0]?.items).toHaveLength(0)
     expect(viewModel.bonusPricing.totalNowValue).toBe(0)
     expect(viewModel.bonusPricing.totalNowLabel).toBe(formatCurrency(0))

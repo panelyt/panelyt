@@ -14,7 +14,8 @@ export interface OptimizationViewModel {
   selectedSet: Set<string>;
   result: OptimizeResponse;
   groups: OptimizationGroup[];
-  maxPrice: number;
+  totalNowGrosz: number;
+  totalMin30Grosz: number;
   displayNameFor: (code: string) => string;
   bonusBiomarkers: string[];
   bonusPricing: {
@@ -87,7 +88,8 @@ export function buildOptimizationViewModel({
   const packagesCount = groups.find((group) => group.kind === "package")?.items.length ?? 0;
   const singlesCount = groups.find((group) => group.kind === "single")?.items.length ?? 0;
   const onSaleCount = result.items.filter((item) => item.on_sale).length;
-  const maxPrice = Math.max(...result.items.map((item) => item.price_now_grosz), 1);
+  const totalNowGrosz = result.items.reduce((sum, item) => sum + item.price_now_grosz, 0);
+  const totalMin30Grosz = result.items.reduce((sum, item) => sum + item.price_min30_grosz, 0);
 
   const exclusiveEntries = Object.entries(result.exclusive ?? {});
   const exclusiveBiomarkers = exclusiveEntries.map(([code]) => ({
@@ -124,7 +126,8 @@ export function buildOptimizationViewModel({
     selectedSet,
     result,
     groups,
-    maxPrice,
+    totalNowGrosz,
+    totalMin30Grosz,
     displayNameFor,
     bonusBiomarkers,
     bonusPricing: {
