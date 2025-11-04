@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
@@ -292,14 +292,6 @@ describe('OptimizationResults', () => {
           },
           matched_tokens: ['FERR', 'IRON'],
           bonus_tokens: ['B9', 'B12'],
-          already_included_tokens: [],
-          removed_bonus_tokens: [],
-          added_bonus_price_now: 0,
-          added_bonus_price_now_grosz: 0,
-          removed_bonus_price_now: 0,
-          removed_bonus_price_now_grosz: 0,
-          net_bonus_price_now: 0,
-          net_bonus_price_now_grosz: 0,
           incremental_now: 17,
           incremental_now_grosz: 1700,
         },
@@ -319,7 +311,7 @@ describe('OptimizationResults', () => {
     expect(screen.getAllByText(/Ferritin/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/B9/)).toBeInTheDocument()
     expect(screen.getByText(/\+\$17\.00/)).toBeInTheDocument()
-    expect(screen.getAllByText(/Net Value/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/≈ \$8\.50 per biomarker/)).toBeInTheDocument()
   })
 
   it('invokes onAddBiomarkers callback when clicking suggestion', async () => {
@@ -360,15 +352,7 @@ describe('OptimizationResults', () => {
             lab_name: 'Diagnostyka',
           },
           matched_tokens: ['FERR'],
-          bonus_tokens: ['B12'],
-          already_included_tokens: ['B9'],
-          removed_bonus_tokens: ['B10'],
-          added_bonus_price_now: 4,
-          added_bonus_price_now_grosz: 400,
-          removed_bonus_price_now: 12,
-          removed_bonus_price_now_grosz: 1200,
-          net_bonus_price_now: -8,
-          net_bonus_price_now_grosz: -800,
+          bonus_tokens: ['B9', 'B12'],
           incremental_now: 17,
           incremental_now_grosz: 1700,
         },
@@ -388,21 +372,13 @@ describe('OptimizationResults', () => {
       />,
     )
 
-    const suggestionCard = screen.getByRole('button', { name: /iron vitality package/i })
-
-    await user.click(suggestionCard)
+    await user.click(screen.getByRole('button', { name: /iron vitality package/i }))
 
     expect(handleAdd).toHaveBeenCalledTimes(1)
     expect(handleAdd).toHaveBeenCalledWith([
+      { code: 'B9', name: 'B9' },
       { code: 'B12', name: 'B12' },
     ])
-
-    const existingBadge = within(suggestionCard).getByText('B9')
-    expect(existingBadge.className).toContain('bg-slate-200')
-    const removedBadge = within(suggestionCard).getByText('B10')
-    expect(removedBadge.className).toMatch(/bg-red/)
-    expect(within(suggestionCard).getAllByText('Net Value')[0]).toBeInTheDocument()
-    expect(within(suggestionCard).getByText(/\u2212\$8\.00/)).toBeInTheDocument()
   })
 
   it('does not show uncovered biomarkers warning when results omit coverage', () => {
