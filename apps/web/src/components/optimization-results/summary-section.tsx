@@ -2,6 +2,7 @@ import { Sparkles } from "lucide-react";
 
 import type { LabChoiceCard } from "./types";
 import type { OptimizationViewModel } from "./view-model";
+import { CoverageSection } from "./coverage-section";
 import { AddOnSuggestionsSection } from "./add-on-section";
 import { ExclusiveSection } from "./exclusive-section";
 import { LabCardGrid } from "./lab-card-grid";
@@ -67,6 +68,8 @@ export function SummarySection({ viewModel, labCards, onAddBiomarkers }: Summary
       <SummaryStatsGrid viewModel={viewModel} />
 
       <LabCardGrid labCards={labCards} isDark={isDark} />
+
+      <CoverageSection viewModel={viewModel} />
 
       <ExclusiveSection viewModel={viewModel} />
 
