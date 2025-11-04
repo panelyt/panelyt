@@ -767,15 +767,17 @@ class OptimizationService:
             if lab_id is not None:
                 allowed_labs.add(lab_id)
         if not allowed_labs:
-            chosen_lab_ids = {item.lab_id for item in chosen_items_list}
-            if len(chosen_lab_ids) == 1:
-                allowed_labs = set(chosen_lab_ids)
+            allowed_labs = {item.lab_id for item in chosen_items_list}
         if not allowed_labs:
             return [], {}
 
         filtered_items = [item for item in chosen_items_list if item.lab_id in allowed_labs]
         if not filtered_items:
             return [], {}
+
+        lab_item_ids: dict[int, list[int]] = {}
+        for item in filtered_items:
+            lab_item_ids.setdefault(item.lab_id, []).append(item.id)
 
         chosen_total_grosz = sum(item.price_now for item in filtered_items)
         chosen_by_id = {item.id: item for item in filtered_items}
@@ -871,11 +873,22 @@ class OptimizationService:
         if not package_ids:
             return [], {}
 
-        biomarkers_map, label_map = await self._get_all_biomarkers_for_items(package_ids)
+        lookup_ids = set(package_ids)
+        lookup_ids.update({item.id for item in filtered_items})
+        biomarkers_map, label_map = await self._get_all_biomarkers_for_items(list(lookup_ids))
         additional_labels: dict[str, str] = {}
 
         resolved_labels = self._token_display_map(context.resolved)
         combined_labels = {**resolved_labels, **response.labels}
+
+        lab_bonus_current: dict[int, set[str]] = {}
+        for lab_id, item_ids in lab_item_ids.items():
+            tokens: set[str] = set()
+            for item_id in item_ids:
+                for token in biomarkers_map.get(item_id, []):
+                    if token not in selected_tokens:
+                        tokens.add(token)
+            lab_bonus_current[lab_id] = tokens
 
         suggestions: list[AddonSuggestion] = []
         for entry in top_candidates:
@@ -887,6 +900,26 @@ class OptimizationService:
                     additional_labels.setdefault(token, label)
 
             upgrade_cost_grosz = entry.estimated_total_grosz - chosen_total_grosz
+
+            lab_bonus_before = lab_bonus_current.get(item.lab_id, set())
+            remaining_ids = [
+                item_id
+                for item_id in lab_item_ids.get(item.lab_id, [])
+                if item_id not in entry.dropped_item_ids
+            ]
+            bonus_remaining = {
+                token
+                for remaining_id in remaining_ids
+                for token in biomarkers_map.get(remaining_id, [])
+                if token not in selected_tokens
+            }
+            candidate_bonus_tokens = {
+                token for token in biomarkers if token not in selected_tokens
+            }
+            bonus_after = bonus_remaining | candidate_bonus_tokens
+            bonus_removed = lab_bonus_before - bonus_after
+            bonus_kept = lab_bonus_before & bonus_after
+            bonus_added = bonus_after - lab_bonus_before
 
             package_payload = ItemOut(
                 id=item.id,
@@ -920,11 +953,20 @@ class OptimizationService:
             ]
             adds = [
                 AddonBiomarker(code=token, display_name=resolve_display(token))
-                for token in sorted(set(biomarkers) - selected_tokens)
+                for token in sorted(bonus_added)
             ]
 
             if not adds:
                 continue
+
+            removes = [
+                AddonBiomarker(code=token, display_name=resolve_display(token))
+                for token in sorted(bonus_removed)
+            ]
+            keeps = [
+                AddonBiomarker(code=token, display_name=resolve_display(token))
+                for token in sorted(bonus_kept)
+            ]
 
             extra_lookup: dict[str, str] = {}
             for addon_entry in adds:
@@ -935,7 +977,7 @@ class OptimizationService:
                     )
             if extra_lookup:
                 singles_price_map = await self._bonus_price_map(extra_lookup, item.lab_id)
-                if singles_price_map:
+                if singles_price_map and len(singles_price_map) == len(extra_lookup):
                     singles_total = sum(int(value) for value in singles_price_map.values())
                     if singles_total and singles_total <= upgrade_cost_grosz:
                         continue
@@ -949,6 +991,8 @@ class OptimizationService:
                     estimated_total_now=round(entry.estimated_total_grosz / 100, 2),
                     covers=covers,
                     adds=adds,
+                    removes=removes,
+                    keeps=keeps,
                 )
             )
 

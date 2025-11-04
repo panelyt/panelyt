@@ -84,6 +84,8 @@ export const AddonSuggestionSchema = z.object({
   estimated_total_now: z.number(),
   covers: z.array(AddonBiomarkerSchema).default([]),
   adds: z.array(AddonBiomarkerSchema).default([]),
+  removes: z.array(AddonBiomarkerSchema).default([]),
+  keeps: z.array(AddonBiomarkerSchema).default([]),
 });
 
 export type AddonSuggestion = z.infer<typeof AddonSuggestionSchema>;

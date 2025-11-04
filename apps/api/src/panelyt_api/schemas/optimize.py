@@ -55,6 +55,8 @@ class AddonSuggestion(APIModel):
     estimated_total_now: float
     covers: list[AddonBiomarker] = Field(default_factory=list)
     adds: list[AddonBiomarker] = Field(default_factory=list)
+    removes: list[AddonBiomarker] = Field(default_factory=list)
+    keeps: list[AddonBiomarker] = Field(default_factory=list)
 
 
 class OptimizeResponse(APIModel):

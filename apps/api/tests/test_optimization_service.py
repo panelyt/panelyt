@@ -845,6 +845,8 @@ class TestOptimizationService:
         assert suggestion.estimated_total_now == 125.0
         assert {entry.code for entry in suggestion.covers} == {"A", "B"}
         assert {entry.code for entry in suggestion.adds} == {"E", "F"}
+        assert suggestion.removes == []
+        assert suggestion.keeps == []
         assert result.labels["E"] == "Marker E"
         assert result.labels["F"] == "Marker F"
 
@@ -979,6 +981,8 @@ class TestOptimizationService:
         assert suggestion.package.name == "Package Z"
         assert pytest.approx(suggestion.upgrade_cost, rel=1e-6) == 75.0
         assert pytest.approx(suggestion.estimated_total_now, rel=1e-6) == 330.0
+        assert suggestion.removes == []
+        assert suggestion.keeps == []
 
     @pytest.mark.asyncio
     async def test_addon_skips_when_single_cheaper(self, service, db_session):
@@ -1069,6 +1073,101 @@ class TestOptimizationService:
         assert result.total_now == 100.0
         assert len(result.items) == 2  # Package X + Single D
         assert result.addon_suggestions == []
+
+    @pytest.mark.asyncio
+    async def test_addon_suggestions_marks_removed_bonus(self, service, db_session):
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarkers = [
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "b"},
+            {"id": 3, "name": "Marker C", "elab_code": "C", "slug": "c"},
+            {"id": 4, "name": "Marker D", "elab_code": "D", "slug": "d"},
+            {"id": 5, "name": "Marker E", "elab_code": "E", "slug": "e"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            {
+                "id": 40,
+                "lab_id": 1,
+                "external_id": "package-base",
+                "kind": "package",
+                "name": "Package Base",
+                "slug": "package-base",
+                "price_now_grosz": 2000,
+                "price_min30_grosz": 2000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 41,
+                "lab_id": 1,
+                "external_id": "single-c",
+                "kind": "single",
+                "name": "Single C",
+                "slug": "single-c",
+                "price_now_grosz": 3000,
+                "price_min30_grosz": 3000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 42,
+                "lab_id": 1,
+                "external_id": "package-upgrade",
+                "kind": "package",
+                "name": "Package Upgrade",
+                "slug": "package-upgrade",
+                "price_now_grosz": 2200,
+                "price_min30_grosz": 2200,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 43,
+                "lab_id": 1,
+                "external_id": "single-e",
+                "kind": "single",
+                "name": "Single E",
+                "slug": "single-e",
+                "price_now_grosz": 600,
+                "price_min30_grosz": 600,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await db_session.execute(insert(models.Item).values(items))
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [
+                    {"item_id": 40, "biomarker_id": 1},
+                    {"item_id": 40, "biomarker_id": 2},
+                    {"item_id": 40, "biomarker_id": 4},
+                    {"item_id": 41, "biomarker_id": 3},
+                    {"item_id": 42, "biomarker_id": 1},
+                    {"item_id": 42, "biomarker_id": 2},
+                    {"item_id": 42, "biomarker_id": 5},
+                    {"item_id": 43, "biomarker_id": 5},
+                ]
+            )
+        )
+        await db_session.commit()
+
+        result = await service.solve(OptimizeRequest(biomarkers=["A", "B", "C"]))
+
+        assert result.total_now == 50.0
+        assert len(result.addon_suggestions) == 1
+        suggestion = result.addon_suggestions[0]
+        assert suggestion.package.name == "Package Upgrade"
+        assert suggestion.adds and suggestion.adds[0].code == "E"
+        assert {entry.code for entry in suggestion.removes} == {"D"}
+        assert suggestion.keeps == []
 
     @pytest.mark.asyncio
     async def test_solver_prefers_biomarker_names(self, service, db_session):

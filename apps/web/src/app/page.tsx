@@ -35,6 +35,7 @@ import { SelectedBiomarkers } from "../components/selected-biomarkers";
 import { AuthModal } from "../components/auth-modal";
 import { SaveListModal } from "../components/save-list-modal";
 import { TemplateModal } from "../components/template-modal";
+import { AddonSuggestionsPanel } from "../components/addon-suggestions-panel";
 import { HttpError, getJson, postJson } from "../lib/http";
 import { formatCurrency } from "../lib/format";
 import { slugify } from "../lib/slug";
@@ -999,6 +1000,12 @@ export default function Home() {
               <div className="mt-6 flex flex-col gap-4">
                 <SearchBox onSelect={handleSelect} onTemplateSelect={handleTemplateSelect} />
                 <SelectedBiomarkers biomarkers={selected} onRemove={handleRemove} />
+                {activeResult && (
+                  <AddonSuggestionsPanel
+                    suggestions={activeResult.addon_suggestions}
+                    onApply={handleApplyAddon}
+                  />
+                )}
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -1084,7 +1091,6 @@ export default function Home() {
             error={activeError ?? undefined}
             variant="dark"
             labCards={labCards}
-            onApplyAddon={handleApplyAddon}
           />
         </div>
       </section>
