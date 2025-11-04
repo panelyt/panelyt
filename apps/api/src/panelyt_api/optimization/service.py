@@ -19,6 +19,11 @@ from panelyt_api.schemas.optimize import (
     OptimizeRequest,
     OptimizeResponse,
 )
+from panelyt_api.utils.normalization import (
+    create_normalized_lookup,
+    normalize_token,
+    normalize_tokens_set,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +201,7 @@ class OptimizationService:
     ) -> list[NormalizedBiomarkerInput]:
         normalized: list[NormalizedBiomarkerInput] = []
         for raw in inputs:
-            token = _normalize_token(raw)
+            token = normalize_token(raw)
             if token:
                 normalized.append(NormalizedBiomarkerInput(raw=raw, normalized=token))
         return normalized
@@ -225,7 +230,7 @@ class OptimizationService:
         match_index: dict[str, list[tuple[int, models.Biomarker]]] = {}
         for row in rows:
             for priority, candidate in enumerate((row.elab_code, row.slug, row.name)):
-                normalized = _normalize_token(candidate)
+                normalized = normalize_token(candidate)
                 if normalized and normalized in search_tokens:
                     match_index.setdefault(normalized, []).append((priority, row))
 
@@ -354,7 +359,7 @@ class OptimizationService:
         for lab_id, lab_candidates in grouped.items():
             if not lab_candidates:
                 continue
-            code = (lab_candidates[0].lab_code or "").strip().lower()
+            code = normalize_token(lab_candidates[0].lab_code)
             if code:
                 lab_index[code] = lab_id
         return OptimizationContext(
@@ -537,8 +542,8 @@ class OptimizationService:
     ) -> LabSolution | None:
         if not lab_code:
             return None
-        normalized = lab_code.strip().lower()
-        lab_id = context.lab_index.get(normalized)
+        normalized = normalize_token(lab_code)
+        lab_id = context.lab_index.get(normalized) if normalized else None
         if lab_id is None:
             return None
         lab_candidates = context.grouped_candidates.get(lab_id)
@@ -828,17 +833,15 @@ class OptimizationService:
         chosen_item_ids = [item.id for item in chosen]
         biomarkers_by_item, labels = await self._get_all_biomarkers_for_items(chosen_item_ids)
 
-        requested_normalized = {
-            token.strip().lower()
-            for token in requested_tokens
-            if isinstance(token, str) and token.strip()
-        }
+        requested_normalized = normalize_tokens_set(
+            [t for t in requested_tokens if isinstance(t, str)]
+        )
         bonus_tokens: dict[str, str] = {}
         for item in chosen:
             for token in biomarkers_by_item.get(item.id, []):
                 if not token:
                     continue
-                normalized = token.strip().lower()
+                normalized = normalize_token(token)
                 if not normalized or normalized in requested_normalized:
                     continue
                 bonus_tokens.setdefault(normalized, token)
@@ -949,11 +952,7 @@ class OptimizationService:
         if not tokens:
             return {}
 
-        normalized_lookup = {
-            value.strip().lower(): key
-            for key, value in tokens.items()
-            if isinstance(value, str) and value.strip()
-        }
+        normalized_lookup = create_normalized_lookup(tokens)
         raw_tokens = {
             value.strip()
             for value in tokens.values()
@@ -997,8 +996,8 @@ class OptimizationService:
             for candidate in (elab_code, slug, name):
                 if not candidate:
                     continue
-                normalized = candidate.strip().lower()
-                key = normalized_lookup.get(normalized)
+                normalized = normalize_token(candidate)
+                key = normalized_lookup.get(normalized) if normalized else None
                 if key is None:
                     continue
                 price_value = int(min_price or 0)
@@ -1024,8 +1023,3 @@ def _item_url(item: CandidateItem) -> str:
     return f"https://diag.pl/sklep/{prefix}/{item.slug}"
 
 
-def _normalize_token(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = value.strip().lower()
-    return normalized or None

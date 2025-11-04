@@ -18,6 +18,7 @@ from panelyt_api.schemas.common import (
     CatalogTemplateResult,
 )
 from panelyt_api.services.list_templates import BiomarkerListTemplateService
+from panelyt_api.utils.normalization import normalize_search_query
 
 
 async def get_catalog_meta(session: AsyncSession) -> CatalogMeta:
@@ -64,7 +65,7 @@ async def get_catalog_meta(session: AsyncSession) -> CatalogMeta:
 async def search_biomarkers(
     session: AsyncSession, query: str, limit: int = 10
 ) -> BiomarkerSearchResponse:
-    normalized = query.strip().lower()
+    normalized = normalize_search_query(query)
     if not normalized:
         return BiomarkerSearchResponse(results=[])
 
