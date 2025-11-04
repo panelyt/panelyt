@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -14,6 +13,7 @@ from panelyt_api.db.models import (
     BiomarkerListTemplate,
     BiomarkerListTemplateEntry,
 )
+from panelyt_api.utils.normalization import create_slug_from_text, normalize_search_query
 
 
 @dataclass(slots=True)
@@ -57,7 +57,7 @@ class BiomarkerListTemplateService:
     async def search_active_matches(
         self, query: str, limit: int = 5
     ) -> list[TemplateSearchMatch]:
-        normalized = query.strip().lower()
+        normalized = normalize_search_query(query)
         if not normalized:
             return []
 
@@ -248,11 +248,7 @@ class BiomarkerListTemplateService:
 
     @staticmethod
     def _normalize_slug(value: str) -> str:
-        normalized = re.sub(r"[^a-z0-9-]+", "-", value.strip().lower())
-        normalized = re.sub(r"-+", "-", normalized).strip("-")
-        if not normalized:
-            raise ValueError("Slug cannot be blank")
-        return normalized
+        return create_slug_from_text(value)
 
     def _prepare_entries(
         self,

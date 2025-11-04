@@ -13,6 +13,7 @@ import httpx
 from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from panelyt_api.ingest.types import LabIngestionResult, RawLabBiomarker, RawLabItem
+from panelyt_api.utils.normalization import normalize_slug
 
 logger = logging.getLogger(__name__)
 
@@ -328,7 +329,7 @@ class AlabClient:
             return None
 
         name = str(entry.get("name") or "Badanie ALAB")
-        slug = _clean_slug(entry.get("slug"))
+        slug = normalize_slug(entry.get("slug"))
         promotion = entry.get("slipOfNotepaperPromotion")
         base_price = _pln_to_grosz(entry.get("price"))
         price_floor = _pln_to_grosz(entry.get("lowest_price"))
@@ -380,7 +381,7 @@ class AlabClient:
             return None
 
         name = str(entry.get("name") or "Pakiet ALAB")
-        slug = _clean_slug(entry.get("slug"))
+        slug = normalize_slug(entry.get("slug"))
         promotion = entry.get("slipOfNotepaperPromotion")
         base_price = _pln_to_grosz(entry.get("price"))
         price_floor = _pln_to_grosz(entry.get("lowest_price"))
@@ -549,13 +550,6 @@ def _decorate_alab_metadata(item_id: Any, promotion: dict[str, Any] | None) -> d
     if promotion:
         metadata["promotion"] = dict(promotion)
     return metadata
-
-
-def _clean_slug(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip().lower()
-    return text or None
 
 
 __all__ = ["AlabClient", "DiagClient"]
