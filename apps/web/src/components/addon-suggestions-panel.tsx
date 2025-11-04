@@ -3,51 +3,6 @@ import { Flame, Sparkles, Workflow } from "lucide-react";
 
 import { formatCurrency } from "../lib/format";
 
-function pillClass(
-  tone: "add" | "replace" | "remove",
-): string {
-  switch (tone) {
-    case "add":
-      return "bg-emerald-500/20 text-emerald-200 border border-emerald-400/40";
-    case "remove":
-      return "bg-rose-500/20 text-rose-200 border border-rose-400/40";
-    default:
-      return "bg-slate-800 text-slate-300 border border-slate-700";
-  }
-}
-
-interface BiomarkerPillListProps {
-  label: string;
-  pills: OptimizeResponse["addon_suggestions"][number]["covers"];
-  tone: "add" | "replace" | "remove";
-  icon: React.ReactNode;
-}
-
-function BiomarkerPillList({ label, pills, tone, icon }: BiomarkerPillListProps) {
-  if (!pills || pills.length === 0) {
-    return null;
-  }
-
-  return (
-    <div>
-      <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-        {icon}
-        {label}
-      </p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {pills.map((pill) => (
-          <span
-            key={`${label}-${pill.code}`}
-            className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold ${pillClass(tone)}`}
-          >
-            {pill.display_name}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 interface AddonSuggestionsPanelProps {
   suggestions?: OptimizeResponse["addon_suggestions"];
   onApply?: (biomarkers: { code: string; name: string }[], packageName: string) => void;
@@ -70,7 +25,7 @@ export function AddonSuggestionsPanel({ suggestions = [], onApply }: AddonSugges
   };
 
   return (
-    <div className="mt-6 space-y-3">
+    <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-black/30">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-emerald-200">
@@ -82,11 +37,13 @@ export function AddonSuggestionsPanel({ suggestions = [], onApply }: AddonSugges
           </p>
         </div>
       </div>
-      <div className="space-y-3">
+      <div className="mt-4 space-y-3">
         {suggestions.map((suggestion) => (
-          <div
+          <button
             key={`addon-${suggestion.package.id}`}
-            className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 shadow-inner shadow-black/20"
+            type="button"
+            onClick={() => handleApply(suggestion)}
+            className="w-full rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left transition hover:border-emerald-400/40 hover:bg-slate-900"
           >
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
@@ -94,25 +51,34 @@ export function AddonSuggestionsPanel({ suggestions = [], onApply }: AddonSugges
                   {suggestion.package.lab_name || suggestion.package.lab_code.toUpperCase()}
                 </p>
                 <p className="text-sm font-semibold text-white">{suggestion.package.name}</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <BiomarkerPillList
-                    label="Adds"
-                    pills={suggestion.adds ?? []}
-                    tone="add"
-                    icon={<Sparkles className="h-3 w-3 text-emerald-300" />}
-                  />
-                  <BiomarkerPillList
-                    label="Keeps bonus"
-                    pills={suggestion.keeps ?? []}
-                    tone="replace"
-                    icon={<Workflow className="h-3 w-3 text-slate-400" />}
-                  />
-                  <BiomarkerPillList
-                    label="Removes bonus"
-                    pills={suggestion.removes ?? []}
-                    tone="remove"
-                    icon={<Flame className="h-3 w-3 text-rose-300" />}
-                  />
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {(suggestion.adds ?? []).map((pill) => (
+                    <span
+                      key={`add-${pill.code}`}
+                      className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200"
+                    >
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      {pill.display_name}
+                    </span>
+                  ))}
+                  {(suggestion.keeps ?? []).map((pill) => (
+                    <span
+                      key={`keep-${pill.code}`}
+                      className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300"
+                    >
+                      <Workflow className="mr-1 h-3 w-3" />
+                      {pill.display_name}
+                    </span>
+                  ))}
+                  {(suggestion.removes ?? []).map((pill) => (
+                    <span
+                      key={`remove-${pill.code}`}
+                      className="inline-flex items-center rounded-full border border-rose-400/40 bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200"
+                    >
+                      <Flame className="mr-1 h-3 w-3" />
+                      {pill.display_name}
+                    </span>
+                  ))}
                 </div>
               </div>
               <div className="space-y-2 text-right text-xs text-slate-300">
@@ -130,18 +96,11 @@ export function AddonSuggestionsPanel({ suggestions = [], onApply }: AddonSugges
                     {formatCurrency(suggestion.estimated_total_now)}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleApply(suggestion)}
-                  className="w-full rounded-full border border-emerald-500/60 px-3 py-1.5 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-                >
-                  Apply suggestion
-                </button>
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

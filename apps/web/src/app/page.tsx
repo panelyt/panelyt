@@ -1000,12 +1000,6 @@ export default function Home() {
               <div className="mt-6 flex flex-col gap-4">
                 <SearchBox onSelect={handleSelect} onTemplateSelect={handleTemplateSelect} />
                 <SelectedBiomarkers biomarkers={selected} onRemove={handleRemove} />
-                {activeResult && (
-                  <AddonSuggestionsPanel
-                    suggestions={activeResult.addon_suggestions}
-                    onApply={handleApplyAddon}
-                  />
-                )}
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -1083,6 +1077,13 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {activeResult && (
+            <AddonSuggestionsPanel
+              suggestions={activeResult.addon_suggestions}
+              onApply={handleApplyAddon}
+            />
+          )}
 
           <OptimizationResults
             selected={optimizerInput}
