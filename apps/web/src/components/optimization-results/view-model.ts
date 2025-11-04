@@ -15,13 +15,6 @@ export interface AddOnSuggestionViewModel {
   bonusTokens: Array<{ code: string; displayName: string }>;
   matchedTokens: Array<{ code: string; displayName: string }>;
   bonusCount: number;
-  alreadyCoveredTokens: Array<{ code: string; displayName: string }>;
-  removedBonusTokens: Array<{ code: string; displayName: string }>;
-  netBonusPricing: {
-    value: number;
-    signedLabel: string;
-    isPositive: boolean;
-  };
 }
 
 export interface OptimizationViewModel {
@@ -134,12 +127,6 @@ export function buildOptimizationViewModel({
       const bonusCount = Math.max(suggestion.bonus_tokens.length, 1);
       const incrementalValue = suggestion.incremental_now ?? 0;
       const perBonusValue = incrementalValue / bonusCount;
-      const addedBonusValue = Math.max(suggestion.added_bonus_price_now ?? 0, 0);
-      const removedBonusValue = Math.max(suggestion.removed_bonus_price_now ?? 0, 0);
-      const netBonusValue =
-        suggestion.net_bonus_price_now ?? addedBonusValue - removedBonusValue;
-      const netPositive = netBonusValue >= 0;
-      const netBonusLabel = `${netPositive ? "+" : "−"}${formatCurrency(Math.abs(netBonusValue))}`;
       return {
         item: suggestion.item,
         incrementalLabel: formatCurrency(incrementalValue),
@@ -154,19 +141,6 @@ export function buildOptimizationViewModel({
           code,
           displayName: displayNameFor(code),
         })),
-        alreadyCoveredTokens: (suggestion.already_included_tokens ?? []).map((code) => ({
-          code,
-          displayName: displayNameFor(code),
-        })),
-        removedBonusTokens: (suggestion.removed_bonus_tokens ?? []).map((code) => ({
-          code,
-          displayName: displayNameFor(code),
-        })),
-        netBonusPricing: {
-          value: netBonusValue,
-          signedLabel: netBonusLabel,
-          isPositive: netPositive,
-        },
       };
     },
   );
