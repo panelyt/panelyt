@@ -237,10 +237,9 @@ describe('OptimizationResults', () => {
     expect(screen.getByText('BOTH LABS')).toBeInTheDocument()
 
     // Check coverage summary
-    expect(screen.getByText('Coverage')).toBeInTheDocument()
   })
 
-  it('shows uncovered biomarkers warning', () => {
+  it('does not render coverage summary when there are uncovered biomarkers', () => {
     const mockResult = makeOptimizeResponse({
       total_now: 10.0,
       total_min30: 9.5,
@@ -273,8 +272,8 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('UNKNOWN_BIOMARKER')).toBeInTheDocument()
-    expect(screen.getByText(/1 uncovered/)).toBeInTheDocument()
+    expect(screen.queryByText('UNKNOWN_BIOMARKER')).not.toBeInTheDocument()
+    expect(screen.queryByText(/1 uncovered/)).not.toBeInTheDocument()
   })
 
   it('highlights bonus biomarkers', () => {
