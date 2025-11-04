@@ -1,4 +1,4 @@
-.PHONY: help install-web install-api install-bot dev-web dev-api dev-bot lint-api test-api migrate-api ingest-api docker-up docker-down fmt-api check typecheck-api lint-web typecheck-web test-web lint-bot typecheck-bot test
+.PHONY: help install-web install-api install-bot dev-web dev-api dev-bot lint-api test-api migrate-api ingest-api docker-up docker-down fmt-api check typecheck-api lint-web typecheck-web test-web lint-bot typecheck-bot
 
 UV ?= uv
 UV_ENV ?= UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache
@@ -67,11 +67,6 @@ typecheck-bot: ## Run type checking on Telegram bot code
 
 test-web: ## Run web frontend test suite
 	cd apps/web && pnpm --filter @panelyt/web test -- --run
-
-test: ## Run backend and frontend test suites
-	cd apps/web && pnpm --filter @panelyt/types build
-	$(MAKE) test-api
-	$(MAKE) test-web
 
 check: ## Run comprehensive code quality checks, tests, and linting for the entire project
 	@echo "🔍 Running comprehensive code quality checks..."

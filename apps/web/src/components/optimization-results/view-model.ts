@@ -7,16 +7,6 @@ export interface OptimizationGroup {
   items: OptimizeResponse["items"];
 }
 
-export interface AddOnSuggestionViewModel {
-  item: OptimizeResponse["items"][number];
-  incrementalLabel: string;
-  incrementalValue: number;
-  perBonusLabel: string;
-  bonusTokens: Array<{ code: string; displayName: string }>;
-  matchedTokens: Array<{ code: string; displayName: string }>;
-  bonusCount: number;
-}
-
 export interface OptimizationViewModel {
   variant: "light" | "dark";
   isDark: boolean;
@@ -57,7 +47,6 @@ export interface OptimizationViewModel {
     displayName: string;
     packages: string[];
   }>;
-  addOnSuggestions: AddOnSuggestionViewModel[];
 }
 
 interface BuildOptimizationViewModelArgs {
@@ -128,29 +117,6 @@ export function buildOptimizationViewModel({
     }))
     .sort((a, b) => b.packages.length - a.packages.length || a.code.localeCompare(b.code));
 
-  const addOnSuggestions: AddOnSuggestionViewModel[] = (result.add_on_suggestions ?? []).map(
-    (suggestion) => {
-      const bonusCount = Math.max(suggestion.bonus_tokens.length, 1);
-      const incrementalValue = suggestion.incremental_now ?? 0;
-      const perBonusValue = incrementalValue / bonusCount;
-      return {
-        item: suggestion.item,
-        incrementalLabel: formatCurrency(incrementalValue),
-        incrementalValue,
-        perBonusLabel: formatCurrency(perBonusValue),
-        bonusCount: suggestion.bonus_tokens.length,
-        bonusTokens: suggestion.bonus_tokens.map((code) => ({
-          code,
-          displayName: displayNameFor(code),
-        })),
-        matchedTokens: suggestion.matched_tokens.map((code) => ({
-          code,
-          displayName: displayNameFor(code),
-        })),
-      };
-    },
-  );
-
   return {
     variant,
     isDark,
@@ -187,7 +153,6 @@ export function buildOptimizationViewModel({
       biomarkers: exclusiveBiomarkers,
     },
     overlaps,
-    addOnSuggestions,
   };
 }
 

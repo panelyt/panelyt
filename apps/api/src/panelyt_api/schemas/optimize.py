@@ -42,14 +42,6 @@ class LabSelectionSummary(APIModel):
     items: int
 
 
-class AddOnSuggestion(APIModel):
-    item: ItemOut
-    matched_tokens: list[str] = Field(default_factory=list)
-    bonus_tokens: list[str] = Field(default_factory=list)
-    incremental_now: float
-    incremental_now_grosz: int
-
-
 class OptimizeResponse(APIModel):
     total_now: float
     total_min30: float
@@ -65,4 +57,3 @@ class OptimizeResponse(APIModel):
     mode: OptimizeMode = OptimizeMode.AUTO
     lab_options: list[LabAvailability] = Field(default_factory=list)
     lab_selections: list[LabSelectionSummary] = Field(default_factory=list)
-    add_on_suggestions: list[AddOnSuggestion] = Field(default_factory=list)
