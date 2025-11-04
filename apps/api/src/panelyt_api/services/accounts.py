@@ -16,6 +16,7 @@ from sqlalchemy.orm import selectinload
 
 from panelyt_api.core.settings import Settings, get_settings
 from panelyt_api.db.models import UserAccount, UserSession
+from panelyt_api.utils.normalization import normalize_username
 
 
 @dataclass
@@ -203,14 +204,7 @@ class AccountService:
         return dt.astimezone(UTC)
 
     def _normalize_username(self, username: str) -> str:
-        normalized = username.strip().lower()
-        if not normalized:
-            raise ValueError("Username cannot be blank")
-        if not self._USERNAME_PATTERN.match(normalized):
-            raise ValueError(
-                "Username must be 3-64 characters of a-z, 0-9, underscores or hyphens"
-            )
-        return normalized
+        return normalize_username(username, self._USERNAME_PATTERN)
 
     def _validate_password(self, password: str) -> None:
         if len(password) < self._PASSWORD_MIN_LENGTH:
