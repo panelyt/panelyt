@@ -83,14 +83,14 @@ export function AddonSuggestionsPanel({ suggestions = [], onApply }: AddonSugges
               </div>
               <div className="space-y-2 text-right text-xs text-slate-300">
                 <div>
-                  <p className="uppercase tracking-wide text-slate-400">Upgrade cost</p>
+                  <p className="uppercase tracking-wide text-slate-400">Cost</p>
                   <p className="text-lg font-semibold text-emerald-200">
                     {formatCurrency(suggestion.upgrade_cost)}
                   </p>
                 </div>
                 <div>
                   <p className="uppercase tracking-wide text-slate-400">
-                    Estimated total after upgrade
+                    New Total
                   </p>
                   <p className="text-sm font-semibold text-slate-100">
                     {formatCurrency(suggestion.estimated_total_now)}
