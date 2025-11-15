@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -13,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from panelyt_api.db import models
 from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import (
+    AddonBiomarker,
+    AddonSuggestion,
     LabAvailability,
     LabSelectionSummary,
     OptimizeMode,
@@ -32,6 +35,7 @@ DEFAULT_CURRENCY = "PLN"
 SOLVER_TIMEOUT_SECONDS = 5.0
 SOLVER_WORKERS = 8
 PRICE_HISTORY_LOOKBACK_DAYS = 30
+MAX_PACKAGE_VARIANTS_PER_COVERAGE = 3
 
 
 @dataclass(slots=True)
@@ -119,6 +123,16 @@ class SolverOutcome:
         return bool(self.chosen_items)
 
 
+@dataclass(slots=True)
+class AddonComputation:
+    candidate: CandidateItem
+    covered_tokens: set[str]
+    drop_cost_grosz: int
+    readd_cost_grosz: int
+    estimated_total_grosz: int
+    dropped_item_ids: set[int]
+
+
 class OptimizationService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -174,7 +188,7 @@ class OptimizationService:
                 else:
                     base_response = self._empty_response(fallback_uncovered)
 
-        return self._finalize_response(base_response, context, chosen_items, mode)
+        return await self._finalize_response(base_response, context, chosen_items, mode)
 
     async def _resolve_biomarkers(
         self, inputs: Sequence[str]
@@ -456,6 +470,7 @@ class OptimizationService:
     def _remove_dominated_candidates(items: Sequence[CandidateItem]) -> list[CandidateItem]:
         retained: dict[int, CandidateItem] = {}
         seen_coverages: dict[int, list[tuple[frozenset[str], int]]] = {}
+        package_variant_counts: dict[tuple[int, frozenset[str]], int] = {}
         ordered = sorted(
             items,
             key=lambda item: (-len(item.coverage), item.price_now, item.id),
@@ -469,10 +484,18 @@ class OptimizationService:
                 and existing_price <= candidate.price_now
                 for existing_coverage, existing_price in lab_seen
             )
+            if dominated and candidate.kind == "package":
+                variant_key = (candidate.lab_id, coverage)
+                variants = package_variant_counts.get(variant_key, 0)
+                if variants < MAX_PACKAGE_VARIANTS_PER_COVERAGE:
+                    dominated = False
             if dominated:
                 continue
             retained[candidate.id] = candidate
             lab_seen.append((coverage, candidate.price_now))
+            if candidate.kind == "package":
+                variant_key = (candidate.lab_id, coverage)
+                package_variant_counts[variant_key] = package_variant_counts.get(variant_key, 0) + 1
 
         return [item for item in items if item.id in retained]
 
@@ -641,7 +664,7 @@ class OptimizationService:
             chosen_items=list(outcome.chosen_items),
         )
 
-    def _finalize_response(
+    async def _finalize_response(
         self,
         response: OptimizeResponse,
         context: OptimizationContext,
@@ -650,11 +673,17 @@ class OptimizationService:
     ) -> OptimizeResponse:
         lab_options = self._build_lab_options(context)
         lab_selections = self._lab_selection_summary(chosen_items)
+        suggestions, suggestion_labels = await self._addon_suggestions(
+            context, chosen_items, response
+        )
+        merged_labels = response.labels | suggestion_labels
         return response.model_copy(
             update={
                 "mode": mode,
                 "lab_options": lab_options,
                 "lab_selections": lab_selections,
+                "addon_suggestions": suggestions,
+                "labels": merged_labels,
             }
         )
 
@@ -718,6 +747,301 @@ class OptimizationService:
             )
             for entry in ordered
         ]
+
+    async def _addon_suggestions(
+        self,
+        context: OptimizationContext,
+        chosen_items: Sequence[CandidateItem],
+        response: OptimizeResponse,
+    ) -> tuple[list[AddonSuggestion], dict[str, str]]:
+        if len(context.resolved) < 2 or not chosen_items:
+            return [], {}
+
+        selected_tokens = {entry.token for entry in context.resolved}
+        chosen_items_list = list(chosen_items)
+
+        allowed_labs: set[int] = set()
+        normalized_lab_code = normalize_token(response.lab_code) if response.lab_code else ""
+        if normalized_lab_code:
+            lab_id = context.lab_index.get(normalized_lab_code)
+            if lab_id is not None:
+                allowed_labs.add(lab_id)
+        if not allowed_labs:
+            allowed_labs = {item.lab_id for item in chosen_items_list}
+        if not allowed_labs:
+            return [], {}
+
+        filtered_items = [item for item in chosen_items_list if item.lab_id in allowed_labs]
+        if not filtered_items:
+            return [], {}
+
+        lab_item_ids: dict[int, list[int]] = {}
+        for item in filtered_items:
+            lab_item_ids.setdefault(item.lab_id, []).append(item.id)
+
+        chosen_total_grosz = sum(item.price_now for item in filtered_items)
+        chosen_by_id = {item.id: item for item in filtered_items}
+        baseline_coverage_by_lab: dict[int, set[str]] = {}
+        for item in filtered_items:
+            lab_tokens = baseline_coverage_by_lab.setdefault(item.lab_id, set())
+            lab_tokens.update(
+                token for token in item.coverage if token in selected_tokens
+            )
+
+        chosen_ids = set(chosen_by_id.keys())
+        all_candidates = [
+            candidate
+            for lab_items in context.grouped_candidates.values()
+            for candidate in lab_items
+        ]
+
+        computations: list[AddonComputation] = []
+        for lab_candidates in context.grouped_candidates.values():
+            for candidate in lab_candidates:
+                if candidate.kind != "package":
+                    continue
+                if candidate.lab_id not in allowed_labs:
+                    continue
+                if candidate.id in chosen_ids:
+                    continue
+                covered_tokens = set(candidate.coverage) & selected_tokens
+                if len(covered_tokens) < 2:
+                    continue
+                lab_items = [item for item in filtered_items if item.lab_id == candidate.lab_id]
+                if not lab_items:
+                    continue
+                drop_cost, drop_ids = self._minimal_cover_subset(
+                    covered_tokens, lab_items
+                )
+                if math.isinf(drop_cost) or not drop_ids:
+                    continue
+
+                remaining_coverage: set[str] = set()
+                for item in lab_items:
+                    if item.id in drop_ids:
+                        continue
+                    remaining_coverage.update(
+                        token for token in item.coverage if token in selected_tokens
+                    )
+
+                candidate_tokens = {
+                    token for token in candidate.coverage if token in selected_tokens
+                }
+                covered_after = remaining_coverage | candidate_tokens
+                lab_baseline = baseline_coverage_by_lab.get(candidate.lab_id)
+                missing_tokens = (
+                    lab_baseline - covered_after if lab_baseline else set()
+                )
+
+                if missing_tokens:
+                    replacement_candidates = [
+                        item
+                        for item in all_candidates
+                        if item.lab_id == candidate.lab_id
+                        and item.id not in drop_ids
+                        and item.id != candidate.id
+                        and item.coverage & missing_tokens
+                    ]
+                    readd_cost, _ = self._minimal_cover_subset(
+                        missing_tokens, replacement_candidates
+                    )
+                    if math.isinf(readd_cost):
+                        continue
+                else:
+                    readd_cost = 0
+
+                estimated_total = (
+                    chosen_total_grosz - drop_cost + candidate.price_now + readd_cost
+                )
+                computations.append(
+                    AddonComputation(
+                        candidate=candidate,
+                        covered_tokens=covered_tokens,
+                        drop_cost_grosz=int(drop_cost),
+                        readd_cost_grosz=int(readd_cost),
+                        estimated_total_grosz=int(estimated_total),
+                        dropped_item_ids=drop_ids,
+                    )
+                )
+
+        if not computations:
+            return [], {}
+
+        computations.sort(
+            key=lambda entry: (
+                entry.estimated_total_grosz - chosen_total_grosz,
+                entry.candidate.price_now,
+                entry.candidate.id,
+            )
+        )
+        top_candidates = computations[:2]
+        package_ids = [entry.candidate.id for entry in top_candidates]
+        if not package_ids:
+            return [], {}
+
+        lookup_ids = set(package_ids)
+        lookup_ids.update({item.id for item in filtered_items})
+        biomarkers_map, label_map = await self._get_all_biomarkers_for_items(list(lookup_ids))
+        additional_labels: dict[str, str] = {}
+
+        resolved_labels = self._token_display_map(context.resolved)
+        combined_labels = {**resolved_labels, **response.labels}
+
+        lab_bonus_current: dict[int, set[str]] = {}
+        for lab_id, item_ids in lab_item_ids.items():
+            tokens: set[str] = set()
+            for item_id in item_ids:
+                for token in biomarkers_map.get(item_id, []):
+                    if token not in selected_tokens:
+                        tokens.add(token)
+            lab_bonus_current[lab_id] = tokens
+
+        suggestions: list[AddonSuggestion] = []
+        for entry in top_candidates:
+            item = entry.candidate
+            biomarkers = sorted(biomarkers_map.get(item.id, []))
+            for token in biomarkers:
+                label = label_map.get(token)
+                if label:
+                    additional_labels.setdefault(token, label)
+
+            upgrade_cost_grosz = entry.estimated_total_grosz - chosen_total_grosz
+
+            lab_bonus_before = lab_bonus_current.get(item.lab_id, set())
+            remaining_ids = [
+                item_id
+                for item_id in lab_item_ids.get(item.lab_id, [])
+                if item_id not in entry.dropped_item_ids
+            ]
+            bonus_remaining = {
+                token
+                for remaining_id in remaining_ids
+                for token in biomarkers_map.get(remaining_id, [])
+                if token not in selected_tokens
+            }
+            candidate_bonus_tokens = {
+                token for token in biomarkers if token not in selected_tokens
+            }
+            bonus_after = bonus_remaining | candidate_bonus_tokens
+            bonus_removed = lab_bonus_before - bonus_after
+            bonus_kept = lab_bonus_before & bonus_after
+            bonus_added = bonus_after - lab_bonus_before
+
+            package_payload = ItemOut(
+                id=item.id,
+                kind=item.kind,
+                name=item.name,
+                slug=item.slug,
+                price_now_grosz=item.price_now,
+                price_min30_grosz=item.price_min30,
+                currency=DEFAULT_CURRENCY,
+                biomarkers=biomarkers,
+                url=_item_url(item),
+                on_sale=item.on_sale,
+                lab_code=item.lab_code,
+                lab_name=item.lab_name,
+            )
+
+            def resolve_display(token: str) -> str:
+                for source in (
+                    label_map.get(token),
+                    combined_labels.get(token),
+                    context.token_to_original.get(token),
+                ):
+                    if source:
+                        return source
+                normalized = token.strip()
+                return normalized or token
+
+            covers = [
+                AddonBiomarker(code=token, display_name=resolve_display(token))
+                for token in sorted(entry.covered_tokens)
+            ]
+            adds = [
+                AddonBiomarker(code=token, display_name=resolve_display(token))
+                for token in sorted(bonus_added)
+            ]
+
+            if not adds:
+                continue
+
+            removes = [
+                AddonBiomarker(code=token, display_name=resolve_display(token))
+                for token in sorted(bonus_removed)
+            ]
+            keeps = [
+                AddonBiomarker(code=token, display_name=resolve_display(token))
+                for token in sorted(bonus_kept)
+            ]
+
+            extra_lookup: dict[str, str] = {}
+            for addon_entry in adds:
+                normalized = normalize_token(addon_entry.code)
+                if normalized:
+                    extra_lookup.setdefault(
+                        normalized, addon_entry.display_name or addon_entry.code
+                    )
+            if extra_lookup:
+                singles_price_map = await self._bonus_price_map(extra_lookup, item.lab_id)
+                if singles_price_map and len(singles_price_map) == len(extra_lookup):
+                    singles_total = sum(int(value) for value in singles_price_map.values())
+                    if singles_total and singles_total <= upgrade_cost_grosz:
+                        continue
+
+            suggestions.append(
+                AddonSuggestion(
+                    package=package_payload,
+                    upgrade_cost_grosz=int(upgrade_cost_grosz),
+                    upgrade_cost=round(upgrade_cost_grosz / 100, 2),
+                    estimated_total_now_grosz=entry.estimated_total_grosz,
+                    estimated_total_now=round(entry.estimated_total_grosz / 100, 2),
+                    covers=covers,
+                    adds=adds,
+                    removes=removes,
+                    keeps=keeps,
+                )
+            )
+
+        return suggestions, additional_labels
+
+    @staticmethod
+    def _minimal_cover_subset(
+        tokens: set[str],
+        items: Sequence[CandidateItem],
+    ) -> tuple[float, set[int]]:
+        if not tokens:
+            return 0, set()
+
+        ordered_tokens = sorted(tokens)
+        token_index = {token: idx for idx, token in enumerate(ordered_tokens)}
+        target_mask = (1 << len(ordered_tokens)) - 1
+
+        dp: dict[int, tuple[int, frozenset[int]]] = {0: (0, frozenset())}
+
+        for item in items:
+            mask = 0
+            for token in item.coverage:
+                idx = token_index.get(token)
+                if idx is not None:
+                    mask |= 1 << idx
+            if mask == 0:
+                continue
+
+            current_states = list(dp.items())
+            for state_mask, (cost, selection) in current_states:
+                new_mask = state_mask | mask
+                new_cost = cost + int(item.price_now)
+                existing = dp.get(new_mask)
+                if existing is not None and existing[0] <= new_cost:
+                    continue
+                dp[new_mask] = (new_cost, selection | frozenset({item.id}))
+
+        result = dp.get(target_mask)
+        if result is None:
+            return math.inf, set()
+
+        cost, selection = result
+        return int(cost), set(selection)
 
     def _global_exclusive_map(self, context: OptimizationContext) -> dict[str, str]:
         exclusive: dict[str, str] = {}
@@ -947,7 +1271,9 @@ class OptimizationService:
 
         return result, labels
 
-    async def _bonus_price_map(self, tokens: Mapping[str, str]) -> dict[str, int]:
+    async def _bonus_price_map(
+        self, tokens: Mapping[str, str], lab_id: int | None = None
+    ) -> dict[str, int]:
         """Return the best-known single-test price (in grosz) for each normalized token."""
         if not tokens:
             return {}
@@ -989,6 +1315,9 @@ class OptimizationService:
             )
         )
 
+        if lab_id is not None:
+            statement = statement.where(models.Item.lab_id == lab_id)
+
         rows = (await self.session.execute(statement)).all()
         price_map: dict[str, int] = {}
 
@@ -1021,5 +1350,3 @@ def _item_url(item: CandidateItem) -> str:
         return f"{base}/{item.slug}"
     prefix = "pakiety" if item.kind == "package" else "badania"
     return f"https://diag.pl/sklep/{prefix}/{item.slug}"
-
-

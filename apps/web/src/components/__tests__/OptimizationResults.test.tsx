@@ -82,6 +82,7 @@ const makeOptimizeResponse = (
     mode: 'auto',
     lab_options: [],
     lab_selections: [],
+    addon_suggestions: [],
     ...rest,
   }
 }
@@ -664,4 +665,5 @@ describe('OptimizationResults', () => {
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noreferrer')
   })
+
 })
