@@ -781,9 +781,12 @@ class OptimizationService:
 
         chosen_total_grosz = sum(item.price_now for item in filtered_items)
         chosen_by_id = {item.id: item for item in filtered_items}
-        baseline_coverage: set[str] = set()
+        baseline_coverage_by_lab: dict[int, set[str]] = {}
         for item in filtered_items:
-            baseline_coverage.update(token for token in item.coverage if token in selected_tokens)
+            lab_tokens = baseline_coverage_by_lab.setdefault(item.lab_id, set())
+            lab_tokens.update(
+                token for token in item.coverage if token in selected_tokens
+            )
 
         chosen_ids = set(chosen_by_id.keys())
         all_candidates = [
@@ -825,7 +828,10 @@ class OptimizationService:
                     token for token in candidate.coverage if token in selected_tokens
                 }
                 covered_after = remaining_coverage | candidate_tokens
-                missing_tokens = baseline_coverage - covered_after
+                lab_baseline = baseline_coverage_by_lab.get(candidate.lab_id)
+                missing_tokens = (
+                    lab_baseline - covered_after if lab_baseline else set()
+                )
 
                 if missing_tokens:
                     replacement_candidates = [
