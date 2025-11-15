@@ -35,6 +35,7 @@ import { SelectedBiomarkers } from "../components/selected-biomarkers";
 import { AuthModal } from "../components/auth-modal";
 import { SaveListModal } from "../components/save-list-modal";
 import { TemplateModal } from "../components/template-modal";
+import { AddonSuggestionsPanel } from "../components/addon-suggestions-panel";
 import { HttpError, getJson, postJson } from "../lib/http";
 import { formatCurrency } from "../lib/format";
 import { slugify } from "../lib/slug";
@@ -509,6 +510,49 @@ export default function Home() {
       }
     },
     [extractErrorMessage, selected, setSelectedLabChoice],
+  );
+
+  const handleApplyAddon = useCallback(
+    (biomarkers: { code: string; name: string }[], packageName: string) => {
+      const normalized = biomarkers
+        .map((entry) => ({
+          code: entry.code.trim(),
+          name: entry.name.trim() || entry.code.trim(),
+        }))
+        .filter((entry) => entry.code.length > 0);
+
+      if (normalized.length === 0) {
+        return;
+      }
+
+      let additions: { code: string; name: string }[] = [];
+      setSelected((current) => {
+        const existing = new Set(current.map((item) => item.code));
+        additions = normalized.filter((entry) => !existing.has(entry.code));
+        if (additions.length === 0) {
+          return current;
+        }
+        return [...current, ...additions];
+      });
+
+      if (additions.length === 0) {
+        setListError(null);
+        setListNotice({
+          tone: "info",
+          message: `All biomarkers from ${packageName} are already selected.`,
+        });
+        return;
+      }
+
+      autoSelectionRef.current = null;
+      setSelectedLabChoice(null);
+      setListError(null);
+      setListNotice({
+        tone: "success",
+        message: `Added ${additions.length} biomarker${additions.length === 1 ? "" : "s"} from ${packageName}.`,
+      });
+    },
+    [setSelectedLabChoice, setListError, setListNotice, setSelected],
   );
 
   useEffect(() => {
@@ -1033,6 +1077,13 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {activeResult && (
+            <AddonSuggestionsPanel
+              suggestions={activeResult.addon_suggestions}
+              onApply={handleApplyAddon}
+            />
+          )}
 
           <OptimizationResults
             selected={optimizerInput}

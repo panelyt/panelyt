@@ -724,6 +724,452 @@ class TestOptimizationService:
         assert "AST" in result.explain
 
     @pytest.mark.asyncio
+    async def test_addon_suggestions_surface_cheapest_packages(self, service, db_session):
+        """Ensure addon suggestions recommend cheapest relevant packages."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarkers = [
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "marker-a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "marker-b"},
+            {"id": 3, "name": "Marker C", "elab_code": "C", "slug": "marker-c"},
+            {"id": 4, "name": "Marker D", "elab_code": "D", "slug": "marker-d"},
+            {"id": 5, "name": "Marker E", "elab_code": "E", "slug": "marker-e"},
+            {"id": 6, "name": "Marker F", "elab_code": "F", "slug": "marker-f"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            {
+                "id": 10,
+                "lab_id": 1,
+                "external_id": "single-a",
+                "kind": "single",
+                "name": "Single A",
+                "slug": "single-a",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 1000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 11,
+                "lab_id": 1,
+                "external_id": "single-b",
+                "kind": "single",
+                "name": "Single B",
+                "slug": "single-b",
+                "price_now_grosz": 1500,
+                "price_min30_grosz": 1500,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 12,
+                "lab_id": 1,
+                "external_id": "single-c",
+                "kind": "single",
+                "name": "Single C",
+                "slug": "single-c",
+                "price_now_grosz": 3000,
+                "price_min30_grosz": 2800,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 13,
+                "lab_id": 1,
+                "external_id": "single-d",
+                "kind": "single",
+                "name": "Single D",
+                "slug": "single-d",
+                "price_now_grosz": 5000,
+                "price_min30_grosz": 4800,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 20,
+                "lab_id": 1,
+                "external_id": "package-ab",
+                "kind": "package",
+                "name": "Package AB Bonus",
+                "slug": "package-ab",
+                "price_now_grosz": 3500,
+                "price_min30_grosz": 3300,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 21,
+                "lab_id": 1,
+                "external_id": "package-ab-extended",
+                "kind": "package",
+                "name": "Package AB Extended",
+                "slug": "package-ab-extended",
+                "price_now_grosz": 4500,
+                "price_min30_grosz": 4400,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await db_session.execute(insert(models.Item).values(items))
+
+        relationships = [
+            {"item_id": 10, "biomarker_id": 1},
+            {"item_id": 11, "biomarker_id": 2},
+            {"item_id": 12, "biomarker_id": 3},
+            {"item_id": 13, "biomarker_id": 4},
+            {"item_id": 20, "biomarker_id": 1},
+            {"item_id": 20, "biomarker_id": 2},
+            {"item_id": 21, "biomarker_id": 1},
+            {"item_id": 21, "biomarker_id": 2},
+            {"item_id": 21, "biomarker_id": 5},
+            {"item_id": 21, "biomarker_id": 6},
+        ]
+        await db_session.execute(insert(models.ItemBiomarker).values(relationships))
+        await db_session.commit()
+
+        request = OptimizeRequest(biomarkers=["A", "B", "C", "D"])
+        result = await service.solve(request)
+
+        assert [item.kind for item in result.items] == ["single", "single", "single", "single"]
+        assert len(result.addon_suggestions) == 1
+
+        suggestion = result.addon_suggestions[0]
+        assert suggestion.package.name == "Package AB Extended"
+        assert suggestion.upgrade_cost == 20.0
+        assert suggestion.estimated_total_now == 125.0
+        assert {entry.code for entry in suggestion.covers} == {"A", "B"}
+        assert {entry.code for entry in suggestion.adds} == {"E", "F"}
+        assert suggestion.removes == []
+        assert suggestion.keeps == []
+        assert result.labels["E"] == "Marker E"
+        assert result.labels["F"] == "Marker F"
+
+    @pytest.mark.asyncio
+    async def test_addon_suggestion_requires_readding_tokens(self, service, db_session):
+        """Addon upgrade cost accounts for re-adding tokens not covered by the new package."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarkers = [
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "b"},
+            {"id": 3, "name": "Marker C", "elab_code": "C", "slug": "c"},
+            {"id": 4, "name": "Marker D", "elab_code": "D", "slug": "d"},
+            {"id": 5, "name": "Marker E", "elab_code": "E", "slug": "e"},
+            {"id": 6, "name": "Marker F", "elab_code": "F", "slug": "f"},
+            {"id": 7, "name": "Marker G", "elab_code": "G", "slug": "g"},
+            {"id": 8, "name": "Marker H", "elab_code": "H", "slug": "h"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            # Singles for re-adding tokens
+            {
+                "id": 10,
+                "lab_id": 1,
+                "external_id": "single-a",
+                "kind": "single",
+                "name": "Single A",
+                "slug": "single-a",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 1000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 11,
+                "lab_id": 1,
+                "external_id": "single-c",
+                "kind": "single",
+                "name": "Single C",
+                "slug": "single-c",
+                "price_now_grosz": 3000,
+                "price_min30_grosz": 3000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 12,
+                "lab_id": 1,
+                "external_id": "single-f",
+                "kind": "single",
+                "name": "Single F",
+                "slug": "single-f",
+                "price_now_grosz": 9000,
+                "price_min30_grosz": 9000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            # Packages selected by optimizer
+            {
+                "id": 20,
+                "lab_id": 1,
+                "external_id": "package-x",
+                "kind": "package",
+                "name": "Package X",
+                "slug": "package-x",
+                "price_now_grosz": 2000,
+                "price_min30_grosz": 2000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 21,
+                "lab_id": 1,
+                "external_id": "package-y",
+                "kind": "package",
+                "name": "Package Y",
+                "slug": "package-y",
+                "price_now_grosz": 14500,
+                "price_min30_grosz": 14500,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            # Candidate package
+            {
+                "id": 22,
+                "lab_id": 1,
+                "external_id": "package-z",
+                "kind": "package",
+                "name": "Package Z",
+                "slug": "package-z",
+                "price_now_grosz": 20000,
+                "price_min30_grosz": 20000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await db_session.execute(insert(models.Item).values(items))
+
+        relationships = [
+            # Singles
+            {"item_id": 10, "biomarker_id": 1},
+            {"item_id": 11, "biomarker_id": 3},
+            {"item_id": 12, "biomarker_id": 6},
+            # Packages
+            {"item_id": 20, "biomarker_id": 1},
+            {"item_id": 20, "biomarker_id": 2},
+            {"item_id": 21, "biomarker_id": 3},
+            {"item_id": 21, "biomarker_id": 4},
+            {"item_id": 21, "biomarker_id": 5},
+            {"item_id": 22, "biomarker_id": 2},
+            {"item_id": 22, "biomarker_id": 4},
+            {"item_id": 22, "biomarker_id": 5},
+            {"item_id": 22, "biomarker_id": 7},
+            {"item_id": 22, "biomarker_id": 8},
+        ]
+        await db_session.execute(insert(models.ItemBiomarker).values(relationships))
+        await db_session.commit()
+
+        request = OptimizeRequest(biomarkers=["A", "B", "C", "D", "E", "F"])
+        result = await service.solve(request)
+
+        assert result.total_now == 255.0
+        assert len(result.items) == 3  # Package X, Package Y, Single F
+        assert len(result.addon_suggestions) >= 1
+
+        suggestion = result.addon_suggestions[0]
+        assert suggestion.package.name == "Package Z"
+        assert pytest.approx(suggestion.upgrade_cost, rel=1e-6) == 75.0
+        assert pytest.approx(suggestion.estimated_total_now, rel=1e-6) == 330.0
+        assert suggestion.removes == []
+        assert suggestion.keeps == []
+
+    @pytest.mark.asyncio
+    async def test_addon_skips_when_single_cheaper(self, service, db_session):
+        """Do not suggest packages when added biomarkers are cheaper purchased separately."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarkers = [
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "b"},
+            {"id": 3, "name": "Marker C", "elab_code": "C", "slug": "c"},
+            {"id": 4, "name": "Marker D", "elab_code": "D", "slug": "d"},
+            {"id": 5, "name": "Marker E", "elab_code": "E", "slug": "e"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            {
+                "id": 30,
+                "lab_id": 1,
+                "external_id": "package-x",
+                "kind": "package",
+                "name": "Package X",
+                "slug": "package-x",
+                "price_now_grosz": 5000,
+                "price_min30_grosz": 5000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 31,
+                "lab_id": 1,
+                "external_id": "single-d",
+                "kind": "single",
+                "name": "Single D",
+                "slug": "single-d",
+                "price_now_grosz": 5000,
+                "price_min30_grosz": 5000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 32,
+                "lab_id": 1,
+                "external_id": "package-y",
+                "kind": "package",
+                "name": "Package Y",
+                "slug": "package-y",
+                "price_now_grosz": 7000,
+                "price_min30_grosz": 7000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 33,
+                "lab_id": 1,
+                "external_id": "single-e",
+                "kind": "single",
+                "name": "Single E",
+                "slug": "single-e",
+                "price_now_grosz": 500,
+                "price_min30_grosz": 500,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await db_session.execute(insert(models.Item).values(items))
+
+        relationships = [
+            {"item_id": 30, "biomarker_id": 1},
+            {"item_id": 30, "biomarker_id": 2},
+            {"item_id": 30, "biomarker_id": 3},
+            {"item_id": 31, "biomarker_id": 4},
+            {"item_id": 32, "biomarker_id": 1},
+            {"item_id": 32, "biomarker_id": 2},
+            {"item_id": 32, "biomarker_id": 3},
+            {"item_id": 32, "biomarker_id": 5},
+            {"item_id": 33, "biomarker_id": 5},
+        ]
+        await db_session.execute(insert(models.ItemBiomarker).values(relationships))
+        await db_session.commit()
+
+        result = await service.solve(OptimizeRequest(biomarkers=["A", "B", "C", "D"]))
+
+        assert result.total_now == 100.0
+        assert len(result.items) == 2  # Package X + Single D
+        assert result.addon_suggestions == []
+
+    @pytest.mark.asyncio
+    async def test_addon_suggestions_marks_removed_bonus(self, service, db_session):
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarkers = [
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "b"},
+            {"id": 3, "name": "Marker C", "elab_code": "C", "slug": "c"},
+            {"id": 4, "name": "Marker D", "elab_code": "D", "slug": "d"},
+            {"id": 5, "name": "Marker E", "elab_code": "E", "slug": "e"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            {
+                "id": 40,
+                "lab_id": 1,
+                "external_id": "package-base",
+                "kind": "package",
+                "name": "Package Base",
+                "slug": "package-base",
+                "price_now_grosz": 2000,
+                "price_min30_grosz": 2000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 41,
+                "lab_id": 1,
+                "external_id": "single-c",
+                "kind": "single",
+                "name": "Single C",
+                "slug": "single-c",
+                "price_now_grosz": 3000,
+                "price_min30_grosz": 3000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 42,
+                "lab_id": 1,
+                "external_id": "package-upgrade",
+                "kind": "package",
+                "name": "Package Upgrade",
+                "slug": "package-upgrade",
+                "price_now_grosz": 2200,
+                "price_min30_grosz": 2200,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 43,
+                "lab_id": 1,
+                "external_id": "single-e",
+                "kind": "single",
+                "name": "Single E",
+                "slug": "single-e",
+                "price_now_grosz": 600,
+                "price_min30_grosz": 600,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await db_session.execute(insert(models.Item).values(items))
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [
+                    {"item_id": 40, "biomarker_id": 1},
+                    {"item_id": 40, "biomarker_id": 2},
+                    {"item_id": 40, "biomarker_id": 4},
+                    {"item_id": 41, "biomarker_id": 3},
+                    {"item_id": 42, "biomarker_id": 1},
+                    {"item_id": 42, "biomarker_id": 2},
+                    {"item_id": 42, "biomarker_id": 5},
+                    {"item_id": 43, "biomarker_id": 5},
+                ]
+            )
+        )
+        await db_session.commit()
+
+        result = await service.solve(OptimizeRequest(biomarkers=["A", "B", "C"]))
+
+        assert result.total_now == 50.0
+        assert len(result.addon_suggestions) == 1
+        suggestion = result.addon_suggestions[0]
+        assert suggestion.package.name == "Package Upgrade"
+        assert suggestion.adds and suggestion.adds[0].code == "E"
+        assert {entry.code for entry in suggestion.removes} == {"D"}
+        assert suggestion.keeps == []
+
+    @pytest.mark.asyncio
     async def test_solver_prefers_biomarker_names(self, service, db_session):
         """Returned payload should expose biomarker display names instead of slugs."""
         await _ensure_default_labs(db_session)

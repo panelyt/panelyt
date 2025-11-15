@@ -60,6 +60,7 @@ function makeOptimizeResponse(overrides: OptimizeResponseOverrides): OptimizeRes
     mode: 'auto',
     lab_options: [],
     lab_selections: [],
+    addon_suggestions: [],
     ...rest,
   }
 }
