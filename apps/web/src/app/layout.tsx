@@ -1,3 +1,4 @@
+import Script from "next/script";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "./providers";
@@ -23,9 +24,18 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isProduction = process.env.NODE_ENV === "production";
+
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {isProduction ? (
+          <Script
+            src="https://analytics.panelyt.com/script.js"
+            data-website-id="204ed337-eb7f-466a-86a9-9f35ec1132ae"
+            strategy="afterInteractive"
+          />
+        ) : null}
         <Providers>{children}</Providers>
       </body>
     </html>
