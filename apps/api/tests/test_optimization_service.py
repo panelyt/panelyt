@@ -11,7 +11,7 @@ from panelyt_api.optimization.service import (
     ResolvedBiomarker,
     _item_url,
 )
-from panelyt_api.schemas.optimize import OptimizeRequest
+from panelyt_api.schemas.optimize import AddonSuggestionsRequest, OptimizeRequest
 
 
 def make_candidate(**overrides) -> CandidateItem:
@@ -948,9 +948,19 @@ class TestOptimizationService:
         result = await service.solve(request)
 
         assert [item.kind for item in result.items] == ["single", "single", "single", "single"]
-        assert len(result.addon_suggestions) == 1
+        # solve() no longer computes addon suggestions - use compute_addons()
+        assert result.addon_suggestions == []
 
-        suggestion = result.addon_suggestions[0]
+        # Get addon suggestions via separate call
+        addon_request = AddonSuggestionsRequest(
+            biomarkers=["A", "B", "C", "D"],
+            selected_item_ids=[item.id for item in result.items],
+            lab_code=result.lab_code,
+        )
+        addon_result = await service.compute_addons(addon_request)
+
+        assert len(addon_result.addon_suggestions) == 1
+        suggestion = addon_result.addon_suggestions[0]
         assert suggestion.package.name == "Package AB Extended"
         assert suggestion.upgrade_cost == 20.0
         assert suggestion.estimated_total_now == 125.0
@@ -958,8 +968,8 @@ class TestOptimizationService:
         assert {entry.code for entry in suggestion.adds} == {"E", "F"}
         assert suggestion.removes == []
         assert suggestion.keeps == []
-        assert result.labels["E"] == "Marker E"
-        assert result.labels["F"] == "Marker F"
+        assert addon_result.labels["E"] == "Marker E"
+        assert addon_result.labels["F"] == "Marker F"
 
     @pytest.mark.asyncio
     async def test_addon_suggestion_requires_readding_tokens(self, service, db_session):
@@ -1086,9 +1096,19 @@ class TestOptimizationService:
 
         assert result.total_now == 255.0
         assert len(result.items) == 3  # Package X, Package Y, Single F
-        assert len(result.addon_suggestions) >= 1
+        # solve() no longer computes addon suggestions - use compute_addons()
+        assert result.addon_suggestions == []
 
-        suggestion = result.addon_suggestions[0]
+        # Get addon suggestions via separate call
+        addon_request = AddonSuggestionsRequest(
+            biomarkers=["A", "B", "C", "D", "E", "F"],
+            selected_item_ids=[item.id for item in result.items],
+            lab_code=result.lab_code,
+        )
+        addon_result = await service.compute_addons(addon_request)
+
+        assert len(addon_result.addon_suggestions) >= 1
+        suggestion = addon_result.addon_suggestions[0]
         assert suggestion.package.name == "Package Z"
         assert pytest.approx(suggestion.upgrade_cost, rel=1e-6) == 75.0
         assert pytest.approx(suggestion.estimated_total_now, rel=1e-6) == 330.0
@@ -1273,8 +1293,19 @@ class TestOptimizationService:
         result = await service.solve(OptimizeRequest(biomarkers=["A", "B", "C"]))
 
         assert result.total_now == 50.0
-        assert len(result.addon_suggestions) == 1
-        suggestion = result.addon_suggestions[0]
+        # solve() no longer computes addon suggestions - use compute_addons()
+        assert result.addon_suggestions == []
+
+        # Get addon suggestions via separate call
+        addon_request = AddonSuggestionsRequest(
+            biomarkers=["A", "B", "C"],
+            selected_item_ids=[item.id for item in result.items],
+            lab_code=result.lab_code,
+        )
+        addon_result = await service.compute_addons(addon_request)
+
+        assert len(addon_result.addon_suggestions) == 1
+        suggestion = addon_result.addon_suggestions[0]
         assert suggestion.package.name == "Package Upgrade"
         assert suggestion.adds and suggestion.adds[0].code == "E"
         assert {entry.code for entry in suggestion.removes} == {"D"}
@@ -1502,6 +1533,282 @@ class TestOptimizationService:
             package_url_template=None,
         )
         assert _item_url(alab_package) == "https://www.alab.pl/pakiet/alab-pakiet"
+
+    @pytest.mark.asyncio
+    async def test_solve_returns_empty_addon_suggestions(self, service, db_session):
+        """solve() should not compute addon suggestions - they are lazy loaded."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarkers = [
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "marker-a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "marker-b"},
+            {"id": 3, "name": "Marker C", "elab_code": "C", "slug": "marker-c"},
+            {"id": 4, "name": "Marker D", "elab_code": "D", "slug": "marker-d"},
+            {"id": 5, "name": "Marker E", "elab_code": "E", "slug": "marker-e"},
+            {"id": 6, "name": "Marker F", "elab_code": "F", "slug": "marker-f"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            {
+                "id": 10,
+                "lab_id": 1,
+                "external_id": "single-a",
+                "kind": "single",
+                "name": "Single A",
+                "slug": "single-a",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 1000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 11,
+                "lab_id": 1,
+                "external_id": "single-b",
+                "kind": "single",
+                "name": "Single B",
+                "slug": "single-b",
+                "price_now_grosz": 1500,
+                "price_min30_grosz": 1500,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 12,
+                "lab_id": 1,
+                "external_id": "single-c",
+                "kind": "single",
+                "name": "Single C",
+                "slug": "single-c",
+                "price_now_grosz": 3000,
+                "price_min30_grosz": 2800,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 13,
+                "lab_id": 1,
+                "external_id": "single-d",
+                "kind": "single",
+                "name": "Single D",
+                "slug": "single-d",
+                "price_now_grosz": 5000,
+                "price_min30_grosz": 4800,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 21,
+                "lab_id": 1,
+                "external_id": "package-ab-extended",
+                "kind": "package",
+                "name": "Package AB Extended",
+                "slug": "package-ab-extended",
+                "price_now_grosz": 4500,
+                "price_min30_grosz": 4400,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await db_session.execute(insert(models.Item).values(items))
+
+        relationships = [
+            {"item_id": 10, "biomarker_id": 1},
+            {"item_id": 11, "biomarker_id": 2},
+            {"item_id": 12, "biomarker_id": 3},
+            {"item_id": 13, "biomarker_id": 4},
+            {"item_id": 21, "biomarker_id": 1},
+            {"item_id": 21, "biomarker_id": 2},
+            {"item_id": 21, "biomarker_id": 5},
+            {"item_id": 21, "biomarker_id": 6},
+        ]
+        await db_session.execute(insert(models.ItemBiomarker).values(relationships))
+        await db_session.commit()
+
+        request = OptimizeRequest(biomarkers=["A", "B", "C", "D"])
+        result = await service.solve(request)
+
+        # solve() should return solution but NOT compute addon suggestions
+        assert len(result.items) == 4
+        assert result.addon_suggestions == []
+
+    @pytest.mark.asyncio
+    async def test_compute_addons_returns_suggestions(self, service, db_session):
+        """compute_addons() should return addon suggestions for given item IDs."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarkers = [
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "marker-a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "marker-b"},
+            {"id": 3, "name": "Marker C", "elab_code": "C", "slug": "marker-c"},
+            {"id": 4, "name": "Marker D", "elab_code": "D", "slug": "marker-d"},
+            {"id": 5, "name": "Marker E", "elab_code": "E", "slug": "marker-e"},
+            {"id": 6, "name": "Marker F", "elab_code": "F", "slug": "marker-f"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            {
+                "id": 10,
+                "lab_id": 1,
+                "external_id": "single-a",
+                "kind": "single",
+                "name": "Single A",
+                "slug": "single-a",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 1000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 11,
+                "lab_id": 1,
+                "external_id": "single-b",
+                "kind": "single",
+                "name": "Single B",
+                "slug": "single-b",
+                "price_now_grosz": 1500,
+                "price_min30_grosz": 1500,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 12,
+                "lab_id": 1,
+                "external_id": "single-c",
+                "kind": "single",
+                "name": "Single C",
+                "slug": "single-c",
+                "price_now_grosz": 3000,
+                "price_min30_grosz": 2800,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 13,
+                "lab_id": 1,
+                "external_id": "single-d",
+                "kind": "single",
+                "name": "Single D",
+                "slug": "single-d",
+                "price_now_grosz": 5000,
+                "price_min30_grosz": 4800,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 21,
+                "lab_id": 1,
+                "external_id": "package-ab-extended",
+                "kind": "package",
+                "name": "Package AB Extended",
+                "slug": "package-ab-extended",
+                "price_now_grosz": 4500,
+                "price_min30_grosz": 4400,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await db_session.execute(insert(models.Item).values(items))
+
+        relationships = [
+            {"item_id": 10, "biomarker_id": 1},
+            {"item_id": 11, "biomarker_id": 2},
+            {"item_id": 12, "biomarker_id": 3},
+            {"item_id": 13, "biomarker_id": 4},
+            {"item_id": 21, "biomarker_id": 1},
+            {"item_id": 21, "biomarker_id": 2},
+            {"item_id": 21, "biomarker_id": 5},
+            {"item_id": 21, "biomarker_id": 6},
+        ]
+        await db_session.execute(insert(models.ItemBiomarker).values(relationships))
+        await db_session.commit()
+
+        # First get the optimization solution
+        opt_request = OptimizeRequest(biomarkers=["A", "B", "C", "D"])
+        opt_result = await service.solve(opt_request)
+        selected_item_ids = [item.id for item in opt_result.items]
+
+        # Now call compute_addons with the selected items
+        addon_request = AddonSuggestionsRequest(
+            biomarkers=["A", "B", "C", "D"],
+            selected_item_ids=selected_item_ids,
+            lab_code=opt_result.lab_code,
+        )
+        addon_result = await service.compute_addons(addon_request)
+
+        assert len(addon_result.addon_suggestions) == 1
+        suggestion = addon_result.addon_suggestions[0]
+        assert suggestion.package.name == "Package AB Extended"
+        assert {entry.code for entry in suggestion.covers} == {"A", "B"}
+        assert {entry.code for entry in suggestion.adds} == {"E", "F"}
+
+    @pytest.mark.asyncio
+    async def test_compute_addons_empty_when_no_suggestions(self, service, db_session):
+        """compute_addons() returns empty list when no addon packages available."""
+        await _ensure_default_labs(db_session)
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        biomarkers = [
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "marker-a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "marker-b"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            {
+                "id": 10,
+                "lab_id": 1,
+                "external_id": "single-a",
+                "kind": "single",
+                "name": "Single A",
+                "slug": "single-a",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 1000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 11,
+                "lab_id": 1,
+                "external_id": "single-b",
+                "kind": "single",
+                "name": "Single B",
+                "slug": "single-b",
+                "price_now_grosz": 1500,
+                "price_min30_grosz": 1500,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await db_session.execute(insert(models.Item).values(items))
+
+        relationships = [
+            {"item_id": 10, "biomarker_id": 1},
+            {"item_id": 11, "biomarker_id": 2},
+        ]
+        await db_session.execute(insert(models.ItemBiomarker).values(relationships))
+        await db_session.commit()
+
+        addon_request = AddonSuggestionsRequest(
+            biomarkers=["A", "B"],
+            selected_item_ids=[10, 11],
+        )
+        addon_result = await service.compute_addons(addon_request)
+
+        assert addon_result.addon_suggestions == []
 
 
 async def _ensure_default_labs(session):

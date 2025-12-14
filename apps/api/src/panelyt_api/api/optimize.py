@@ -9,7 +9,12 @@ from panelyt_api.core.settings import get_settings
 from panelyt_api.ingest.repository import IngestionRepository
 from panelyt_api.ingest.service import IngestionService
 from panelyt_api.optimization.service import OptimizationService
-from panelyt_api.schemas.optimize import OptimizeRequest, OptimizeResponse
+from panelyt_api.schemas.optimize import (
+    AddonSuggestionsRequest,
+    AddonSuggestionsResponse,
+    OptimizeRequest,
+    OptimizeResponse,
+)
 
 router = APIRouter()
 
@@ -25,3 +30,17 @@ async def optimize(
     await ingestion_service.ensure_fresh_data()
     optimizer = OptimizationService(session)
     return await optimizer.solve(payload)
+
+
+@router.post("/optimize/addons", response_model=AddonSuggestionsResponse)
+async def optimize_addons(
+    payload: AddonSuggestionsRequest,
+    session: SessionDep,
+) -> AddonSuggestionsResponse:
+    """Compute addon suggestions for a given optimization solution.
+
+    This endpoint is called after /optimize to lazily load addon suggestions,
+    improving the initial response time of the optimization endpoint.
+    """
+    optimizer = OptimizationService(session)
+    return await optimizer.compute_addons(payload)

@@ -16,6 +16,8 @@ from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import (
     AddonBiomarker,
     AddonSuggestion,
+    AddonSuggestionsRequest,
+    AddonSuggestionsResponse,
     LabAvailability,
     LabSelectionSummary,
     OptimizeMode,
@@ -193,6 +195,49 @@ class OptimizationService:
                     base_response = self._empty_response(fallback_uncovered)
 
         return await self._finalize_response(base_response, context, chosen_items, mode)
+
+    async def compute_addons(
+        self, payload: AddonSuggestionsRequest
+    ) -> AddonSuggestionsResponse:
+        """Compute addon suggestions for a given set of selected items.
+
+        This is called separately from solve() to allow lazy loading of addon
+        suggestions after the main optimization result is displayed.
+        """
+        resolved, _ = await self._resolve_biomarkers(payload.biomarkers)
+        if not resolved:
+            return AddonSuggestionsResponse()
+
+        candidates = await self._collect_candidates(resolved)
+        if not candidates:
+            return AddonSuggestionsResponse()
+
+        context = self._prepare_context(resolved, [], candidates)
+        if context is None:
+            return AddonSuggestionsResponse()
+
+        # Find chosen items from candidates by ID
+        selected_ids = set(payload.selected_item_ids)
+        chosen_items: list[CandidateItem] = []
+        for lab_candidates in context.grouped_candidates.values():
+            for candidate in lab_candidates:
+                if candidate.id in selected_ids:
+                    chosen_items.append(candidate)
+
+        if not chosen_items:
+            return AddonSuggestionsResponse()
+
+        # Build labels from resolved biomarkers
+        existing_labels = self._token_display_map(resolved)
+
+        suggestions, suggestion_labels = await self._addon_suggestions(
+            context, chosen_items, payload.lab_code or "", existing_labels
+        )
+
+        return AddonSuggestionsResponse(
+            addon_suggestions=suggestions,
+            labels={**existing_labels, **suggestion_labels},
+        )
 
     async def _resolve_biomarkers(
         self, inputs: Sequence[str]
@@ -706,17 +751,13 @@ class OptimizationService:
     ) -> OptimizeResponse:
         lab_options = self._build_lab_options(context)
         lab_selections = self._lab_selection_summary(chosen_items)
-        suggestions, suggestion_labels = await self._addon_suggestions(
-            context, chosen_items, response
-        )
-        merged_labels = response.labels | suggestion_labels
+        # Addon suggestions are computed lazily via separate endpoint
         return response.model_copy(
             update={
                 "mode": mode,
                 "lab_options": lab_options,
                 "lab_selections": lab_selections,
-                "addon_suggestions": suggestions,
-                "labels": merged_labels,
+                "addon_suggestions": [],
             }
         )
 
@@ -785,7 +826,8 @@ class OptimizationService:
         self,
         context: OptimizationContext,
         chosen_items: Sequence[CandidateItem],
-        response: OptimizeResponse,
+        lab_code: str,
+        existing_labels: dict[str, str],
     ) -> tuple[list[AddonSuggestion], dict[str, str]]:
         if len(context.resolved) < 2 or not chosen_items:
             return [], {}
@@ -794,7 +836,7 @@ class OptimizationService:
         chosen_items_list = list(chosen_items)
 
         allowed_labs: set[int] = set()
-        normalized_lab_code = normalize_token(response.lab_code) if response.lab_code else ""
+        normalized_lab_code = normalize_token(lab_code) if lab_code else ""
         if normalized_lab_code:
             lab_id = context.lab_index.get(normalized_lab_code)
             if lab_id is not None:
@@ -914,7 +956,7 @@ class OptimizationService:
         additional_labels: dict[str, str] = {}
 
         resolved_labels = self._token_display_map(context.resolved)
-        combined_labels = {**resolved_labels, **response.labels}
+        combined_labels = {**resolved_labels, **existing_labels}
 
         lab_bonus_current: dict[int, set[str]] = {}
         for lab_id, item_ids in lab_item_ids.items():
