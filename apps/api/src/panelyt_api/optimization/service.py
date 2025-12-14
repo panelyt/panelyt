@@ -11,8 +11,8 @@ from ortools.sat.python import cp_model
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from panelyt_api.db import models
 from panelyt_api.core.cache import optimization_cache
+from panelyt_api.db import models
 from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import (
     AddonBiomarker,

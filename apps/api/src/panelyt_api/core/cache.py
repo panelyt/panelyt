@@ -12,9 +12,13 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING
 
 from cachetools import TTLCache
+
+if TYPE_CHECKING:
+    from panelyt_api.schemas.common import CatalogMeta
+    from panelyt_api.schemas.optimize import OptimizeResponse
 
 
 class CatalogMetaCache:
@@ -25,13 +29,13 @@ class CatalogMetaCache:
 
     def __init__(self, ttl_seconds: int = 300) -> None:
         self._ttl_seconds = ttl_seconds
-        self._cache: TTLCache[str, Any] = TTLCache(maxsize=1, ttl=ttl_seconds)
+        self._cache: TTLCache[str, CatalogMeta] = TTLCache(maxsize=1, ttl=ttl_seconds)
         self._key = "meta"
 
-    def get(self) -> Any | None:
+    def get(self) -> CatalogMeta | None:
         return self._cache.get(self._key)
 
-    def set(self, value: Any) -> None:
+    def set(self, value: CatalogMeta) -> None:
         self._cache[self._key] = value
 
     def clear(self) -> None:
@@ -46,12 +50,14 @@ class OptimizationCache:
     """
 
     def __init__(self, maxsize: int = 1000, ttl_seconds: int = 3600) -> None:
-        self._cache: TTLCache[str, Any] = TTLCache(maxsize=maxsize, ttl=ttl_seconds)
+        self._cache: TTLCache[str, OptimizeResponse] = TTLCache(
+            maxsize=maxsize, ttl=ttl_seconds
+        )
 
-    def get(self, key: str) -> Any | None:
+    def get(self, key: str) -> OptimizeResponse | None:
         return self._cache.get(key)
 
-    def set(self, key: str, value: Any) -> None:
+    def set(self, key: str, value: OptimizeResponse) -> None:
         self._cache[key] = value
 
     def make_key(
