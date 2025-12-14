@@ -137,6 +137,9 @@ class AddonComputation:
 class OptimizationService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self._cover_cache: dict[
+            tuple[frozenset[str], frozenset[int]], tuple[float, frozenset[int]]
+        ] = {}
 
     async def solve(self, payload: OptimizeRequest) -> OptimizeResponse:
         resolved, unresolved_inputs = await self._resolve_biomarkers(payload.biomarkers)
@@ -1034,13 +1037,19 @@ class OptimizationService:
 
         return suggestions, additional_labels
 
-    @staticmethod
     def _minimal_cover_subset(
+        self,
         tokens: set[str],
         items: Sequence[CandidateItem],
     ) -> tuple[float, set[int]]:
         if not tokens:
             return 0, set()
+
+        cache_key = (frozenset(tokens), frozenset(item.id for item in items))
+        cached = self._cover_cache.get(cache_key)
+        if cached is not None:
+            cost, selection = cached
+            return cost, set(selection)
 
         ordered_tokens = sorted(tokens)
         token_index = {token: idx for idx, token in enumerate(ordered_tokens)}
@@ -1068,9 +1077,11 @@ class OptimizationService:
 
         result = dp.get(target_mask)
         if result is None:
+            self._cover_cache[cache_key] = (math.inf, frozenset())
             return math.inf, set()
 
         cost, selection = result
+        self._cover_cache[cache_key] = (float(cost), selection)
         return int(cost), set(selection)
 
     def _global_exclusive_map(self, context: OptimizationContext) -> dict[str, str]:
