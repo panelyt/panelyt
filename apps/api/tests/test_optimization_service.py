@@ -260,7 +260,7 @@ class TestOptimizationService:
         assert liver_panel.price_now == 2000
 
     def test_prune_candidates_cheapest_single_only(self, service):
-        """Test pruning keeps only cheapest single tests."""
+        """Pruning keeps up to two cheapest singles and packages."""
         candidates = [
             make_candidate(
                 id=1,
@@ -293,7 +293,43 @@ class TestOptimizationService:
 
         pruned = service._prune_candidates(candidates)
         ids = {item.id for item in pruned}
-        assert ids == {1, 3}  # Cheapest ALT single + package
+        assert ids == {1, 2, 3}  # Both singles (cap 2) + package
+
+    def test_prune_candidates_limits_single_variants(self, service):
+        """Keep only the two cheapest singles per lab/token."""
+        candidates = [
+            make_candidate(
+                id=1,
+                kind="single",
+                name="ALT basic",
+                slug="alt-basic",
+                price_now=900,
+                price_min30=900,
+                coverage={"ALT"},
+            ),
+            make_candidate(
+                id=2,
+                kind="single",
+                name="ALT standard",
+                slug="alt-standard",
+                price_now=950,
+                price_min30=920,
+                coverage={"ALT"},
+            ),
+            make_candidate(
+                id=3,
+                kind="single",
+                name="ALT premium",
+                slug="alt-premium",
+                price_now=950,
+                price_min30=930,
+                coverage={"ALT"},
+            ),
+        ]
+
+        pruned = service._prune_candidates(candidates)
+        ids = {item.id for item in pruned}
+        assert ids == {1, 2}
 
     def test_prune_candidates_dominance_removal(self, service):
         """Test pruning removes dominated candidates."""
@@ -321,6 +357,51 @@ class TestOptimizationService:
         pruned = service._prune_candidates(candidates)
         ids = {item.id for item in pruned}
         assert ids == {2}  # Package dominates single test
+
+    def test_prune_candidates_limits_package_variants(self, service):
+        """Keep only the two cheapest packages per lab/coverage."""
+        candidates = [
+            make_candidate(
+                id=10,
+                kind="package",
+                name="Panel A",
+                slug="panel-a",
+                price_now=1500,
+                price_min30=1500,
+                coverage={"ALT", "AST"},
+            ),
+            make_candidate(
+                id=11,
+                kind="package",
+                name="Panel B",
+                slug="panel-b",
+                price_now=1200,
+                price_min30=1200,
+                coverage={"ALT", "AST"},
+            ),
+            make_candidate(
+                id=12,
+                kind="package",
+                name="Panel C",
+                slug="panel-c",
+                price_now=1300,
+                price_min30=1300,
+                coverage={"ALT", "AST"},
+            ),
+            make_candidate(
+                id=13,
+                kind="package",
+                name="Panel D",
+                slug="panel-d",
+                price_now=1400,
+                price_min30=1400,
+                coverage={"ALT", "AST"},
+            ),
+        ]
+
+        pruned = service._prune_candidates(candidates)
+        ids = {item.id for item in pruned}
+        assert ids == {11, 12}
 
     @pytest.mark.asyncio
     async def test_solve_no_biomarkers(self, service):
