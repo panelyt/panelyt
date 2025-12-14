@@ -36,7 +36,13 @@ def test_init_engine_configures_pool_for_postgres(monkeypatch):
     monkeypatch.setattr(
         session_module,
         "get_settings",
-        lambda: SimpleNamespace(database_url="postgresql://user:pass@localhost:5432/db"),
+        lambda: SimpleNamespace(
+            database_url="postgresql://user:pass@localhost:5432/db",
+            db_pool_size=10,
+            db_pool_max_overflow=20,
+            db_pool_recycle=3600,
+            db_pool_timeout=30,
+        ),
     )
 
     engine = session_module.init_engine()
@@ -45,6 +51,7 @@ def test_init_engine_configures_pool_for_postgres(monkeypatch):
     assert captured["kwargs"]["pool_size"] == 10
     assert captured["kwargs"]["max_overflow"] == 20
     assert captured["kwargs"]["pool_recycle"] == 3600
+    assert captured["kwargs"]["pool_timeout"] == 30
     assert captured["kwargs"]["pool_pre_ping"] is True
     assert captured["kwargs"]["future"] is True
     _reset_engine_state()
@@ -70,7 +77,13 @@ def test_init_engine_skips_pool_for_sqlite(monkeypatch):
     monkeypatch.setattr(
         session_module,
         "get_settings",
-        lambda: SimpleNamespace(database_url="sqlite+aiosqlite:///test.db"),
+        lambda: SimpleNamespace(
+            database_url="sqlite+aiosqlite:///test.db",
+            db_pool_size=10,
+            db_pool_max_overflow=20,
+            db_pool_recycle=3600,
+            db_pool_timeout=30,
+        ),
     )
 
     engine = session_module.init_engine()
@@ -79,6 +92,7 @@ def test_init_engine_skips_pool_for_sqlite(monkeypatch):
     assert "pool_size" not in captured["kwargs"]
     assert "max_overflow" not in captured["kwargs"]
     assert "pool_recycle" not in captured["kwargs"]
+    assert "pool_timeout" not in captured["kwargs"]
     assert captured["kwargs"]["pool_pre_ping"] is True
     assert captured["kwargs"]["future"] is True
     _reset_engine_state()

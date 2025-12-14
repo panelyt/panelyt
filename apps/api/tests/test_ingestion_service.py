@@ -52,7 +52,7 @@ class TestIngestionService:
 
         mock_repo = AsyncMock()
         mock_repo.latest_fetched_at.return_value = datetime.now(UTC)
-        mock_repo.latest_snapshot_date.return_value = datetime.now().date()
+        mock_repo.latest_snapshot_date.return_value = datetime.now(UTC).date()
         mock_repo_class.return_value = mock_repo
 
         with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
@@ -330,7 +330,7 @@ class TestIngestionService:
         # Simulate inactive users (last activity > window)
         old_activity = datetime.now(UTC) - timedelta(hours=25)
         mock_repo.last_user_activity.return_value = old_activity
-        mock_repo.latest_snapshot_date.return_value = datetime.now().date()
+        mock_repo.latest_snapshot_date.return_value = datetime.now(UTC).date()
         mock_repo_class.return_value = mock_repo
 
         result = await ingestion_service._should_skip_scheduled_run()

@@ -10,6 +10,7 @@ This module provides TTL-based caches for:
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -20,6 +21,8 @@ if TYPE_CHECKING:
     from panelyt_api.ingest.repository import IngestionRepository
     from panelyt_api.schemas.common import CatalogMeta
     from panelyt_api.schemas.optimize import OptimizeResponse
+
+logger = logging.getLogger(__name__)
 
 
 class CatalogMetaCache:
@@ -32,15 +35,28 @@ class CatalogMetaCache:
         self._ttl_seconds = ttl_seconds
         self._cache: TTLCache[str, CatalogMeta] = TTLCache(maxsize=1, ttl=ttl_seconds)
         self._key = "meta"
+        self._hits = 0
+        self._misses = 0
 
     def get(self) -> CatalogMeta | None:
-        return self._cache.get(self._key)
+        result = self._cache.get(self._key)
+        if result is not None:
+            self._hits += 1
+            logger.debug("catalog_meta cache hit (hits=%d, misses=%d)", self._hits, self._misses)
+        else:
+            self._misses += 1
+            logger.debug("catalog_meta cache miss (hits=%d, misses=%d)", self._hits, self._misses)
+        return result
 
     def set(self, value: CatalogMeta) -> None:
         self._cache[self._key] = value
 
     def clear(self) -> None:
         self._cache.clear()
+
+    @property
+    def stats(self) -> dict[str, int]:
+        return {"hits": self._hits, "misses": self._misses}
 
 
 class OptimizationCache:
@@ -54,9 +70,30 @@ class OptimizationCache:
         self._cache: TTLCache[str, OptimizeResponse] = TTLCache(
             maxsize=maxsize, ttl=ttl_seconds
         )
+        self._hits = 0
+        self._misses = 0
 
     def get(self, key: str) -> OptimizeResponse | None:
-        return self._cache.get(key)
+        result = self._cache.get(key)
+        if result is not None:
+            self._hits += 1
+            logger.debug(
+                "optimization cache hit key=%s (hits=%d, misses=%d, size=%d)",
+                key[:8],
+                self._hits,
+                self._misses,
+                len(self._cache),
+            )
+        else:
+            self._misses += 1
+            logger.debug(
+                "optimization cache miss key=%s (hits=%d, misses=%d, size=%d)",
+                key[:8],
+                self._hits,
+                self._misses,
+                len(self._cache),
+            )
+        return result
 
     def set(self, key: str, value: OptimizeResponse) -> None:
         self._cache[key] = value
@@ -79,6 +116,10 @@ class OptimizationCache:
 
     def clear(self) -> None:
         self._cache.clear()
+
+    @property
+    def stats(self) -> dict[str, int]:
+        return {"hits": self._hits, "misses": self._misses, "size": len(self._cache)}
 
 
 class FreshnessCache:
@@ -155,10 +196,52 @@ class UserActivityDebouncer:
 # - This is fine for our use case (caches warm up quickly, data is idempotent)
 #
 # For true multi-process shared caching, Redis would be needed.
-catalog_meta_cache = CatalogMetaCache(ttl_seconds=300)
-optimization_cache = OptimizationCache(maxsize=1000, ttl_seconds=3600)
-freshness_cache = FreshnessCache(ttl_seconds=300)
-user_activity_debouncer = UserActivityDebouncer(debounce_seconds=60)
+#
+# TTL values are configurable via environment variables (see Settings class).
+
+
+def _get_cache_settings() -> dict[str, int]:
+    """Get cache settings, with fallback defaults if settings unavailable."""
+    try:
+        from panelyt_api.core.settings import get_settings
+
+        s = get_settings()
+        return {
+            "catalog_meta_ttl": s.cache_catalog_meta_ttl,
+            "optimization_ttl": s.cache_optimization_ttl,
+            "optimization_maxsize": s.cache_optimization_maxsize,
+            "freshness_ttl": s.cache_freshness_ttl,
+            "user_activity_debounce": s.cache_user_activity_debounce,
+        }
+    except Exception:
+        # Fallback defaults if settings can't be loaded (e.g., during testing)
+        return {
+            "catalog_meta_ttl": 300,
+            "optimization_ttl": 3600,
+            "optimization_maxsize": 1000,
+            "freshness_ttl": 300,
+            "user_activity_debounce": 60,
+        }
+
+
+_cfg = _get_cache_settings()
+catalog_meta_cache = CatalogMetaCache(ttl_seconds=_cfg["catalog_meta_ttl"])
+optimization_cache = OptimizationCache(
+    maxsize=_cfg["optimization_maxsize"], ttl_seconds=_cfg["optimization_ttl"]
+)
+freshness_cache = FreshnessCache(ttl_seconds=_cfg["freshness_ttl"])
+user_activity_debouncer = UserActivityDebouncer(
+    debounce_seconds=_cfg["user_activity_debounce"]
+)
+logger.debug(
+    "Caches initialized: catalog_meta_ttl=%d, optimization_ttl=%d, "
+    "optimization_maxsize=%d, freshness_ttl=%d, user_activity_debounce=%d",
+    _cfg["catalog_meta_ttl"],
+    _cfg["optimization_ttl"],
+    _cfg["optimization_maxsize"],
+    _cfg["freshness_ttl"],
+    _cfg["user_activity_debounce"],
+)
 
 
 def clear_all_caches() -> None:
