@@ -809,8 +809,10 @@ class OptimizationService:
             return [], {}
 
         lab_item_ids: dict[int, list[int]] = {}
+        filtered_items_by_lab: dict[int, list[CandidateItem]] = {}
         for item in filtered_items:
             lab_item_ids.setdefault(item.lab_id, []).append(item.id)
+            filtered_items_by_lab.setdefault(item.lab_id, []).append(item)
 
         chosen_total_grosz = sum(item.price_now for item in filtered_items)
         chosen_by_id = {item.id: item for item in filtered_items}
@@ -822,11 +824,6 @@ class OptimizationService:
             )
 
         chosen_ids = set(chosen_by_id.keys())
-        all_candidates = [
-            candidate
-            for lab_items in context.grouped_candidates.values()
-            for candidate in lab_items
-        ]
 
         computations: list[AddonComputation] = []
         for lab_candidates in context.grouped_candidates.values():
@@ -840,7 +837,7 @@ class OptimizationService:
                 covered_tokens = set(candidate.coverage) & selected_tokens
                 if len(covered_tokens) < 2:
                     continue
-                lab_items = [item for item in filtered_items if item.lab_id == candidate.lab_id]
+                lab_items = filtered_items_by_lab.get(candidate.lab_id, [])
                 if not lab_items:
                     continue
                 drop_cost, drop_ids = self._minimal_cover_subset(
@@ -869,9 +866,8 @@ class OptimizationService:
                 if missing_tokens:
                     replacement_candidates = [
                         item
-                        for item in all_candidates
-                        if item.lab_id == candidate.lab_id
-                        and item.id not in drop_ids
+                        for item in context.grouped_candidates.get(candidate.lab_id, [])
+                        if item.id not in drop_ids
                         and item.id != candidate.id
                         and item.coverage & missing_tokens
                     ]
