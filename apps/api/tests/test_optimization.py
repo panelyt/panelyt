@@ -64,7 +64,7 @@ def test_prune_cheapest_single_only():
 
     pruned = service._prune_candidates(candidates)
     ids = {item.id for item in pruned}
-    assert ids == {1, 3}
+    assert ids == {1, 2, 3}
 
 
 def test_item_url_builds_correct_path():

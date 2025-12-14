@@ -1,0 +1,21 @@
+# Python version file (container uses its own Python)
+.python-version
+
+# Development files
+.venv
+.uv-cache
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Test database
+test.db
+
+# IDE
+.idea
+.vscode
