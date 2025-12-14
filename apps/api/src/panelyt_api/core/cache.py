@@ -1,6 +1,6 @@
 """In-memory TTL caching utilities for API performance optimization.
 
-This module provides thread-safe, TTL-based caches for:
+This module provides TTL-based caches for:
 - Catalog metadata (changes only after ingestion)
 - Optimization results (deterministic for same inputs)
 - Freshness check results (avoid repeated DB queries)
@@ -86,6 +86,11 @@ class FreshnessCache:
 
     Avoids hitting the database on every request to check if data is stale.
     Short TTL (5 minutes) ensures we don't serve very stale data.
+
+    Note: There is a benign race condition between should_check() and
+    mark_checked() - concurrent callers may both see should_check()=True
+    before either calls mark_checked(). Worst case is duplicate DB queries,
+    which is wasteful but not incorrect.
     """
 
     def __init__(self, ttl_seconds: int = 300) -> None:
@@ -110,6 +115,11 @@ class UserActivityDebouncer:
 
     Instead of writing on every request, only write if enough time has
     passed since the last write (default: 1 minute).
+
+    Note: There is a benign race condition between should_record() and
+    mark_recorded() - concurrent callers may both see should_record()=True
+    before either calls mark_recorded(). Worst case is duplicate DB writes,
+    which is wasteful but not incorrect.
     """
 
     def __init__(self, debounce_seconds: int = 60) -> None:
@@ -130,8 +140,21 @@ class UserActivityDebouncer:
 
 
 # Global cache instances
-# These are module-level singletons - safe for single-process deployments.
-# For multi-process deployments, consider Redis-based caching.
+#
+# Thread Safety and Concurrency Model:
+#
+# These caches are safe for async single-process deployments (FastAPI/uvicorn default).
+# While cachetools.TTLCache is NOT thread-safe, Python's GIL combined with the async
+# concurrency model makes this safe in practice for single-threaded async execution:
+# - Async tasks yield at await points, not during dict operations
+# - The GIL prevents true parallel execution of Python bytecode
+#
+# Multi-worker deployments (multiple uvicorn workers via --workers N or gunicorn):
+# - Each worker is a separate process with its own cache instance
+# - No cache sharing between workers - each builds its own cache
+# - This is fine for our use case (caches warm up quickly, data is idempotent)
+#
+# For true multi-process shared caching, Redis would be needed.
 catalog_meta_cache = CatalogMetaCache(ttl_seconds=300)
 optimization_cache = OptimizationCache(maxsize=1000, ttl_seconds=3600)
 freshness_cache = FreshnessCache(ttl_seconds=300)
