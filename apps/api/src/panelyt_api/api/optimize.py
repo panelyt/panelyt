@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter
 
 from panelyt_api.api.deps import SessionDep
+from panelyt_api.core.cache import user_activity_debouncer
 from panelyt_api.core.settings import get_settings
 from panelyt_api.ingest.repository import IngestionRepository
 from panelyt_api.ingest.service import IngestionService
@@ -19,13 +20,22 @@ from panelyt_api.schemas.optimize import (
 router = APIRouter()
 
 
+async def record_user_activity_debounced(
+    repo: IngestionRepository, timestamp: datetime
+) -> None:
+    """Record user activity with debouncing to reduce DB writes."""
+    if user_activity_debouncer.should_record():
+        await repo.record_user_activity(timestamp)
+        user_activity_debouncer.mark_recorded()
+
+
 @router.post("/optimize", response_model=OptimizeResponse)
 async def optimize(
     payload: OptimizeRequest,
     session: SessionDep,
 ) -> OptimizeResponse:
     repo = IngestionRepository(session)
-    await repo.record_user_activity(datetime.now(UTC))
+    await record_user_activity_debounced(repo, datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
     await ingestion_service.ensure_fresh_data()
     optimizer = OptimizationService(session)
