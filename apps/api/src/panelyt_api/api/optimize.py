@@ -39,7 +39,7 @@ async def optimize(
     ingestion_service = IngestionService(get_settings())
     await ingestion_service.ensure_fresh_data()
     optimizer = OptimizationService(session)
-    return await optimizer.solve(payload)
+    return await optimizer.solve_cached(payload)
 
 
 @router.post("/optimize/addons", response_model=AddonSuggestionsResponse)

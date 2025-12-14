@@ -86,12 +86,12 @@ class IngestionService:
                 await repo.prune_orphan_biomarkers()
                 await self._dispatch_price_alerts(repo)
                 await repo.finalize_run_log(log_id, status="completed")
+                # Clear caches so fresh ingestion data is served immediately
+                clear_all_caches()
             except Exception as exc:
                 await repo.finalize_run_log(log_id, status="failed", note=str(exc)[:500])
                 logger.exception("Ingestion failed: %s", exc)
                 raise
-            finally:
-                clear_all_caches()
 
     async def _should_skip_scheduled_run(self) -> bool:
         tz = ZoneInfo(self._settings.timezone)

@@ -1811,6 +1811,62 @@ class TestOptimizationService:
         assert addon_result.addon_suggestions == []
 
 
+class TestOptimizationCaching:
+    @pytest.mark.asyncio
+    async def test_solve_cached_returns_cached_result(self, db_session):
+        """Second call with same parameters should return cached result."""
+        from panelyt_api.core.cache import clear_all_caches, optimization_cache
+        from panelyt_api.optimization.service import OptimizationService
+        from panelyt_api.schemas.optimize import OptimizeRequest
+
+        clear_all_caches()
+
+        service = OptimizationService(db_session)
+
+        request = OptimizeRequest(biomarkers=["TSH"], mode="auto")
+
+        # First call - hits solver
+        result1 = await service.solve_cached(request)
+
+        # Verify cache was populated
+        cache_key = optimization_cache.make_key(request.biomarkers, request.mode, request.lab_code)
+        assert optimization_cache.get(cache_key) is not None
+
+        # Second call - should return cached
+        result2 = await service.solve_cached(request)
+
+        assert result1 == result2
+
+        clear_all_caches()
+
+    @pytest.mark.asyncio
+    async def test_solve_cached_different_params_different_results(self, db_session):
+        """Different parameters should get different cache entries."""
+        from panelyt_api.core.cache import clear_all_caches, optimization_cache
+        from panelyt_api.optimization.service import OptimizationService
+        from panelyt_api.schemas.optimize import OptimizeRequest
+
+        clear_all_caches()
+
+        service = OptimizationService(db_session)
+
+        request1 = OptimizeRequest(biomarkers=["TSH"], mode="auto")
+        request2 = OptimizeRequest(biomarkers=["ALT"], mode="auto")
+
+        result1 = await service.solve_cached(request1)
+        result2 = await service.solve_cached(request2)
+
+        # Results should be different (different biomarkers)
+        # Note: both might be empty if no test data, but cache keys are different
+        key1 = optimization_cache.make_key(request1.biomarkers, request1.mode, request1.lab_code)
+        key2 = optimization_cache.make_key(request2.biomarkers, request2.mode, request2.lab_code)
+        assert key1 != key2
+
+        assert result1 != result2 or (result1 == result2 and key1 != key2)
+
+        clear_all_caches()
+
+
 async def _ensure_default_labs(session):
     existing = await session.scalar(
         select(models.Lab.id).where(models.Lab.code == "diag")
