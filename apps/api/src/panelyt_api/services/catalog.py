@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from panelyt_api.core.cache import catalog_meta_cache
 from panelyt_api.core.settings import get_settings
 from panelyt_api.db import models
 from panelyt_api.schemas.common import (
@@ -60,6 +61,21 @@ async def get_catalog_meta(session: AsyncSession) -> CatalogMeta:
         snapshot_days_covered=int(snapshot_days_covered),
         percent_with_today_snapshot=percent_with_today_snapshot,
     )
+
+
+async def get_catalog_meta_cached(session: AsyncSession) -> CatalogMeta:
+    """Get catalog metadata with caching.
+
+    Returns cached value if available and not expired (5 min TTL).
+    Falls back to database query on cache miss.
+    """
+    cached = catalog_meta_cache.get()
+    if cached is not None:
+        return cached
+
+    meta = await get_catalog_meta(session)
+    catalog_meta_cache.set(meta)
+    return meta
 
 
 async def search_biomarkers(

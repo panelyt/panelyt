@@ -25,7 +25,7 @@ async def get_meta(session: SessionDep) -> CatalogMeta:
     await repo.record_user_activity(datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
     await ingestion_service.ensure_fresh_data(background=True)
-    return await catalog.get_catalog_meta(session)
+    return await catalog.get_catalog_meta_cached(session)
 
 
 @router.get("/biomarkers", response_model=BiomarkerSearchResponse)

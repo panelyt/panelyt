@@ -313,3 +313,38 @@ class TestCatalogService:
                 }
             )
         )
+
+
+class TestCatalogMetaCaching:
+    async def test_get_catalog_meta_cached_returns_cached_value(self, db_session):
+        """Second call should return cached value without DB query."""
+        from panelyt_api.core.cache import catalog_meta_cache, clear_all_caches
+
+        clear_all_caches()
+
+        # First call - hits DB
+        meta1 = await catalog.get_catalog_meta_cached(db_session)
+
+        # Second call - should return cached value
+        meta2 = await catalog.get_catalog_meta_cached(db_session)
+
+        assert meta1 == meta2
+        assert catalog_meta_cache.get() is not None
+
+        clear_all_caches()
+
+    async def test_get_catalog_meta_uncached_always_hits_db(self, db_session):
+        """Uncached version should always query the database."""
+        from panelyt_api.core.cache import catalog_meta_cache, clear_all_caches
+
+        clear_all_caches()
+
+        meta1 = await catalog.get_catalog_meta(db_session)
+        meta2 = await catalog.get_catalog_meta(db_session)
+
+        # Both should succeed (no caching)
+        assert meta1.item_count == meta2.item_count
+        # Cache should not be populated
+        assert catalog_meta_cache.get() is None
+
+        clear_all_caches()
