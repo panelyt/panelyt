@@ -90,6 +90,21 @@ export const AddonSuggestionSchema = z.object({
 
 export type AddonSuggestion = z.infer<typeof AddonSuggestionSchema>;
 
+export const AddonSuggestionsRequestSchema = z.object({
+  biomarkers: z.array(z.string().min(1)).min(1),
+  selected_item_ids: z.array(z.number().int().positive()).min(1),
+  lab_code: z.string().min(1).optional(),
+});
+
+export type AddonSuggestionsRequest = z.infer<typeof AddonSuggestionsRequestSchema>;
+
+export const AddonSuggestionsResponseSchema = z.object({
+  addon_suggestions: z.array(AddonSuggestionSchema).default([]),
+  labels: z.record(z.string(), z.string()).default({}),
+});
+
+export type AddonSuggestionsResponse = z.infer<typeof AddonSuggestionsResponseSchema>;
+
 export const OptimizeResponseSchema = z.object({
   total_now: z.number().nonnegative(),
   total_min30: z.number().nonnegative(),

@@ -6,9 +6,62 @@ import { formatCurrency } from "../lib/format";
 interface AddonSuggestionsPanelProps {
   suggestions?: OptimizeResponse["addon_suggestions"];
   onApply?: (biomarkers: { code: string; name: string }[], packageName: string) => void;
+  isLoading?: boolean;
 }
 
-export function AddonSuggestionsPanel({ suggestions = [], onApply }: AddonSuggestionsPanelProps) {
+function LoadingSkeleton() {
+  return (
+    <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-black/30">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-emerald-200">
+            <Sparkles className="h-4 w-4" />
+            Suggested add-ons
+          </h3>
+          <p className="text-xs text-slate-400">
+            Looking for packages that unlock more biomarkers…
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 space-y-3">
+        {[1, 2].map((i) => (
+          <div
+            key={`skeleton-${i}`}
+            className="w-full rounded-2xl border border-slate-800 bg-slate-950/60 p-4 blur-[2px] opacity-50"
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex-1">
+                <div className="h-3 w-16 rounded bg-slate-700 animate-pulse" />
+                <div className="mt-2 h-4 w-48 rounded bg-slate-600 animate-pulse" />
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <span className="inline-flex h-5 w-20 rounded-full bg-emerald-500/20 animate-pulse" />
+                  <span className="inline-flex h-5 w-24 rounded-full bg-emerald-500/20 animate-pulse" />
+                  <span className="inline-flex h-5 w-16 rounded-full bg-slate-800 animate-pulse" />
+                </div>
+              </div>
+              <div className="space-y-2 text-right">
+                <div>
+                  <div className="h-3 w-12 rounded bg-slate-700 animate-pulse ml-auto" />
+                  <div className="mt-1 h-6 w-16 rounded bg-emerald-500/30 animate-pulse ml-auto" />
+                </div>
+                <div>
+                  <div className="h-3 w-16 rounded bg-slate-700 animate-pulse ml-auto" />
+                  <div className="mt-1 h-4 w-14 rounded bg-slate-600 animate-pulse ml-auto" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function AddonSuggestionsPanel({ suggestions = [], onApply, isLoading }: AddonSuggestionsPanelProps) {
+  if (isLoading) {
+    return <LoadingSkeleton />;
+  }
+
   if (!suggestions || suggestions.length === 0) {
     return null;
   }
