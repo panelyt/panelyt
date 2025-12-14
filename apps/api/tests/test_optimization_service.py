@@ -93,6 +93,36 @@ class TestOptimizationService:
             assert r.token == "ALT"
 
     @pytest.mark.asyncio
+    async def test_evaluate_lab_skips_unsatisfiable_labs(self, service, monkeypatch):
+        """Labs that cannot cover all biomarkers are skipped without solving."""
+        resolved = [
+            ResolvedBiomarker(id=1, token="ALT", display_name="ALT", original="ALT"),
+            ResolvedBiomarker(id=2, token="AST", display_name="AST", original="AST"),
+        ]
+        candidates = [
+            make_candidate(
+                id=1,
+                kind="single",
+                name="ALT",
+                slug="alt",
+                price_now=1000,
+                price_min30=1000,
+                coverage={"ALT"},
+            )
+        ]
+
+        context = service._prepare_context(resolved, [], candidates)
+        assert context is not None
+
+        async def _fail_run_solver(*args, **kwargs):
+            raise AssertionError("_run_solver should not be called for unsatisfiable labs")
+
+        monkeypatch.setattr(service, "_run_solver", _fail_run_solver)
+        result = await service._evaluate_lab_solution(1, context.grouped_candidates[1], context)
+
+        assert result is None
+
+    @pytest.mark.asyncio
     async def test_resolve_biomarkers_batches_queries(self, service, db_session, monkeypatch):
         """Ensure biomarker resolution performs a single batched query."""
         await db_session.execute(delete(models.Biomarker))

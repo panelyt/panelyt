@@ -624,13 +624,15 @@ class OptimizationService:
         *,
         allow_partial: bool = False,
     ) -> LabSolution | None:
+        missing_tokens = self._uncovered_tokens(context.resolved, lab_candidates)
+        if missing_tokens and not allow_partial:
+            return None
+
         outcome = await self._run_solver(lab_candidates, context.resolved)
         if not outcome.has_selection:
             return None
 
-        uncovered_tokens = outcome.uncovered_tokens | self._uncovered_tokens(
-            context.resolved, lab_candidates
-        )
+        uncovered_tokens = outcome.uncovered_tokens | missing_tokens
         if uncovered_tokens and not allow_partial:
             return None
 
