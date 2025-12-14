@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from cachetools import TTLCache
 
 if TYPE_CHECKING:
+    from panelyt_api.ingest.repository import IngestionRepository
     from panelyt_api.schemas.common import CatalogMeta
     from panelyt_api.schemas.optimize import OptimizeResponse
 
@@ -143,3 +144,12 @@ def clear_all_caches() -> None:
     optimization_cache.clear()
     freshness_cache.clear()
     user_activity_debouncer.clear()
+
+
+async def record_user_activity_debounced(
+    repo: IngestionRepository, timestamp: datetime
+) -> None:
+    """Record user activity with debouncing to reduce DB writes."""
+    if user_activity_debouncer.should_record():
+        await repo.record_user_activity(timestamp)
+        user_activity_debouncer.mark_recorded()

@@ -25,7 +25,7 @@ class TestUserActivityDebounceIntegration:
 
         # Mock the actual DB write
         with patch.object(repo, "record_user_activity", new_callable=AsyncMock) as mock_record:
-            from panelyt_api.api.catalog import record_user_activity_debounced
+            from panelyt_api.core.cache import record_user_activity_debounced
 
             # First call should record
             await record_user_activity_debounced(repo, datetime.now(UTC))
@@ -44,7 +44,7 @@ class TestUserActivityDebounceIntegration:
         repo = IngestionRepository(db_session)
 
         with patch.object(repo, "record_user_activity", new_callable=AsyncMock) as mock_record:
-            from panelyt_api.api.catalog import record_user_activity_debounced
+            from panelyt_api.core.cache import record_user_activity_debounced
 
             # First call
             await record_user_activity_debounced(repo, datetime.now(UTC))
