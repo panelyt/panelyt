@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.core.settings import Settings
 from panelyt_api.db.session import get_session
 from panelyt_api.ingest.client import AlabClient, DiagClient
@@ -82,6 +83,8 @@ class IngestionService:
                 await repo.finalize_run_log(log_id, status="failed", note=str(exc)[:500])
                 logger.exception("Ingestion failed: %s", exc)
                 raise
+            finally:
+                clear_all_caches()
 
     async def _should_skip_scheduled_run(self) -> bool:
         tz = ZoneInfo(self._settings.timezone)
