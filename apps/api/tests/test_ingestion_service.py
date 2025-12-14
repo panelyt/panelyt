@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.core.settings import Settings
 from panelyt_api.ingest.client import DiagClient, _normalize_identifier, _pln_to_grosz
 from panelyt_api.ingest.service import IngestionService
@@ -15,6 +16,12 @@ from panelyt_api.matching.config import MatchingConfig
 
 
 class TestIngestionService:
+    @pytest.fixture(autouse=True)
+    def reset_caches(self):
+        clear_all_caches()
+        yield
+        clear_all_caches()
+
     @pytest.fixture
     def ingestion_service(self, test_settings):
         return IngestionService(test_settings)

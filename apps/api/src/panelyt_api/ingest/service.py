@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from panelyt_api.core.cache import clear_all_caches
+from panelyt_api.core.cache import clear_all_caches, freshness_cache
 from panelyt_api.core.settings import Settings
 from panelyt_api.db.session import get_session
 from panelyt_api.ingest.client import AlabClient, DiagClient
@@ -27,6 +27,10 @@ class IngestionService:
         self._settings = settings
 
     async def ensure_fresh_data(self, background: bool = False) -> None:
+        # Skip check if freshness was verified recently
+        if not freshness_cache.should_check():
+            return
+
         now_utc = datetime.now(UTC)
         async with get_session() as session:
             repo = IngestionRepository(session)
@@ -41,6 +45,9 @@ class IngestionService:
 
         needs_snapshot = latest_snapshot != today
         is_stale = latest_fetch is None or latest_fetch < stale_threshold
+
+        # Mark freshness as checked regardless of outcome
+        freshness_cache.mark_checked()
 
         if needs_snapshot or is_stale:
             logger.info(
