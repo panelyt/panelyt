@@ -45,9 +45,10 @@ export function useAddonSuggestions(
   biomarkers: string[],
   selectedItemIds: number[],
   labCode?: string | null,
+  enabled: boolean = true,
 ) {
   const key = biomarkers.map((b) => b.toLowerCase()).sort().join("|");
-  const itemsKey = selectedItemIds.sort((a, b) => a - b).join(",");
+  const itemsKey = [...selectedItemIds].sort((a, b) => a - b).join(",");
   const normalizedLab = labCode?.trim().toLowerCase() ?? null;
   return useQuery<AddonSuggestionsResponse, Error>({
     queryKey: ["optimize-addons", key, itemsKey, normalizedLab],
@@ -62,6 +63,6 @@ export function useAddonSuggestions(
         },
       );
     },
-    enabled: biomarkers.length > 0 && selectedItemIds.length > 0,
+    enabled: enabled && biomarkers.length > 0 && selectedItemIds.length > 0,
   });
 }

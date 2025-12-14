@@ -259,6 +259,7 @@ export default function Home() {
     optimizerInput,
     activeItemIds,
     activeResult?.lab_code,
+    !activeLoading, // Only fetch after optimization completes
   );
 
   const labelForLab = useCallback((code: string, name?: string | null) => {
