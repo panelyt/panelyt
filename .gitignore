@@ -30,3 +30,9 @@ coverage/
 # Docker
 *.local
 packages/types/dist/
+
+#AI
+.claude
+CLAUDE.md
+GEMINI.md
+
