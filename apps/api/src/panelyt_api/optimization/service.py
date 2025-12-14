@@ -35,7 +35,8 @@ DEFAULT_CURRENCY = "PLN"
 SOLVER_TIMEOUT_SECONDS = 5.0
 SOLVER_WORKERS = 8
 PRICE_HISTORY_LOOKBACK_DAYS = 30
-MAX_PACKAGE_VARIANTS_PER_COVERAGE = 3
+MAX_PACKAGE_VARIANTS_PER_COVERAGE = 2
+MAX_SINGLE_VARIANTS_PER_TOKEN = 2
 
 
 @dataclass(slots=True)
@@ -400,13 +401,47 @@ class OptimizationService:
         if not items:
             return []
 
-        cheapest_per_token = self._cheapest_single_prices(items)
+        allowed_single_ids = self._select_single_variants(items)
         filtered = [
             item
             for item in items
-            if not self._should_skip_single_candidate(item, cheapest_per_token)
+            if not self._should_skip_single_candidate(item, allowed_single_ids)
         ]
         return self._remove_dominated_candidates(filtered)
+
+    @staticmethod
+    def _select_single_variants(items: Sequence[CandidateItem]) -> set[int]:
+        """Keep only the cheapest few singles per lab/token."""
+        cheapest: dict[tuple[int, str], list[CandidateItem]] = {}
+        for item in items:
+            if item.kind != "single" or len(item.coverage) != 1:
+                continue
+            # coverage has exactly one token here
+            token = next(iter(item.coverage))
+            key = (item.lab_id, token)
+            bucket = cheapest.setdefault(key, [])
+            bucket.append(item)
+
+        allowed: set[int] = set()
+        for bucket in cheapest.values():
+            bucket.sort(
+                key=lambda candidate: (
+                    candidate.price_now,
+                    candidate.price_min30,
+                    candidate.id,
+                )
+            )
+            for candidate in bucket[:MAX_SINGLE_VARIANTS_PER_TOKEN]:
+                allowed.add(candidate.id)
+        return allowed
+
+    @staticmethod
+    def _should_skip_single_candidate(
+        item: CandidateItem, allowed_single_ids: set[int]
+    ) -> bool:
+        if item.kind != "single" or len(item.coverage) != 1:
+            return False
+        return item.id not in allowed_single_ids
 
     @staticmethod
     def _group_candidates_by_lab(
@@ -441,39 +476,19 @@ class OptimizationService:
         return exclusives
 
     @staticmethod
-    def _cheapest_single_prices(items: Sequence[CandidateItem]) -> dict[tuple[int, str], int]:
-        cheapest: dict[tuple[int, str], int] = {}
-        for item in items:
-            if item.kind != "single" or len(item.coverage) != 1:
-                continue
-            # coverage has exactly one token here
-            token = next(iter(item.coverage))
-            key = (item.lab_id, token)
-            current_price = cheapest.get(key)
-            if current_price is None or item.price_now < current_price:
-                cheapest[key] = item.price_now
-        return cheapest
-
-    @staticmethod
-    def _should_skip_single_candidate(
-        item: CandidateItem, cheapest_per_token: Mapping[tuple[int, str], int]
-    ) -> bool:
-        if item.kind != "single" or len(item.coverage) != 1:
-            return False
-        token = next(iter(item.coverage), None)
-        if token is None:
-            return False
-        key = (item.lab_id, token)
-        return cheapest_per_token.get(key, item.price_now) != item.price_now
-
-    @staticmethod
     def _remove_dominated_candidates(items: Sequence[CandidateItem]) -> list[CandidateItem]:
         retained: dict[int, CandidateItem] = {}
         seen_coverages: dict[int, list[tuple[frozenset[str], int]]] = {}
         package_variant_counts: dict[tuple[int, frozenset[str]], int] = {}
+        single_variant_counts: dict[tuple[int, frozenset[str]], int] = {}
         ordered = sorted(
             items,
-            key=lambda item: (-len(item.coverage), item.price_now, item.id),
+            key=lambda item: (
+                -len(item.coverage),
+                item.price_now,
+                item.price_min30,
+                item.id,
+            ),
         )
 
         for candidate in ordered:
@@ -484,6 +499,16 @@ class OptimizationService:
                 and existing_price <= candidate.price_now
                 for existing_coverage, existing_price in lab_seen
             )
+            if dominated and candidate.kind == "single":
+                equal_or_cheaper = any(
+                    existing_coverage == coverage and existing_price <= candidate.price_now
+                    for existing_coverage, existing_price in lab_seen
+                )
+                if equal_or_cheaper:
+                    variant_key = (candidate.lab_id, coverage)
+                    variants = single_variant_counts.get(variant_key, 0)
+                    if variants < MAX_SINGLE_VARIANTS_PER_TOKEN:
+                        dominated = False
             if dominated and candidate.kind == "package":
                 variant_key = (candidate.lab_id, coverage)
                 variants = package_variant_counts.get(variant_key, 0)
@@ -496,6 +521,9 @@ class OptimizationService:
             if candidate.kind == "package":
                 variant_key = (candidate.lab_id, coverage)
                 package_variant_counts[variant_key] = package_variant_counts.get(variant_key, 0) + 1
+            if candidate.kind == "single":
+                variant_key = (candidate.lab_id, coverage)
+                single_variant_counts[variant_key] = single_variant_counts.get(variant_key, 0) + 1
 
         return [item for item in items if item.id in retained]
 
