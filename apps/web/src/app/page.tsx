@@ -23,7 +23,7 @@ import {
 } from "@panelyt/types";
 
 import { useCatalogMeta } from "../hooks/useCatalogMeta";
-import { useOptimization } from "../hooks/useOptimization";
+import { useOptimization, useAddonSuggestions } from "../hooks/useOptimization";
 import { useQueries } from "@tanstack/react-query";
 import { useSavedLists } from "../hooks/useSavedLists";
 import { useUserSession } from "../hooks/useUserSession";
@@ -249,6 +249,17 @@ export default function Home() {
   const activeError = selectedLabChoice === "all"
     ? splitError ?? singleError
     : singleError;
+
+  // Fetch addon suggestions lazily after optimization result is ready
+  const activeItemIds = useMemo(
+    () => activeResult?.items?.map((item) => item.id) ?? [],
+    [activeResult?.items],
+  );
+  const addonSuggestions = useAddonSuggestions(
+    optimizerInput,
+    activeItemIds,
+    activeResult?.lab_code,
+  );
 
   const labelForLab = useCallback((code: string, name?: string | null) => {
     const normalizedCode = (code || "").trim().toLowerCase();
@@ -1080,7 +1091,7 @@ export default function Home() {
 
           {activeResult && (
             <AddonSuggestionsPanel
-              suggestions={activeResult.addon_suggestions}
+              suggestions={addonSuggestions.data?.addon_suggestions ?? []}
               onApply={handleApplyAddon}
             />
           )}
