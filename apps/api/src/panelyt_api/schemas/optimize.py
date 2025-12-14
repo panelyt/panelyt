@@ -28,6 +28,14 @@ class OptimizeRequest(BaseModel):
         return self
 
 
+class AddonSuggestionsRequest(BaseModel):
+    """Request for computing addon suggestions separately from optimization."""
+
+    biomarkers: list[str]
+    selected_item_ids: list[int]
+    lab_code: str | None = None
+
+
 class LabAvailability(APIModel):
     code: str
     name: str
@@ -75,3 +83,10 @@ class OptimizeResponse(APIModel):
     lab_options: list[LabAvailability] = Field(default_factory=list)
     lab_selections: list[LabSelectionSummary] = Field(default_factory=list)
     addon_suggestions: list[AddonSuggestion] = Field(default_factory=list)
+
+
+class AddonSuggestionsResponse(APIModel):
+    """Response for the addon suggestions endpoint."""
+
+    addon_suggestions: list[AddonSuggestion] = Field(default_factory=list)
+    labels: dict[str, str] = Field(default_factory=dict)

@@ -16,6 +16,8 @@ from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import (
     AddonBiomarker,
     AddonSuggestion,
+    AddonSuggestionsRequest,
+    AddonSuggestionsResponse,
     LabAvailability,
     LabSelectionSummary,
     OptimizeMode,
@@ -137,6 +139,9 @@ class AddonComputation:
 class OptimizationService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self._cover_cache: dict[
+            tuple[frozenset[str], frozenset[int]], tuple[float, frozenset[int]]
+        ] = {}
 
     async def solve(self, payload: OptimizeRequest) -> OptimizeResponse:
         resolved, unresolved_inputs = await self._resolve_biomarkers(payload.biomarkers)
@@ -190,6 +195,49 @@ class OptimizationService:
                     base_response = self._empty_response(fallback_uncovered)
 
         return await self._finalize_response(base_response, context, chosen_items, mode)
+
+    async def compute_addons(
+        self, payload: AddonSuggestionsRequest
+    ) -> AddonSuggestionsResponse:
+        """Compute addon suggestions for a given set of selected items.
+
+        This is called separately from solve() to allow lazy loading of addon
+        suggestions after the main optimization result is displayed.
+        """
+        resolved, _ = await self._resolve_biomarkers(payload.biomarkers)
+        if not resolved:
+            return AddonSuggestionsResponse()
+
+        candidates = await self._collect_candidates(resolved)
+        if not candidates:
+            return AddonSuggestionsResponse()
+
+        context = self._prepare_context(resolved, [], candidates)
+        if context is None:
+            return AddonSuggestionsResponse()
+
+        # Find chosen items from candidates by ID
+        selected_ids = set(payload.selected_item_ids)
+        chosen_items: list[CandidateItem] = []
+        for lab_candidates in context.grouped_candidates.values():
+            for candidate in lab_candidates:
+                if candidate.id in selected_ids:
+                    chosen_items.append(candidate)
+
+        if not chosen_items:
+            return AddonSuggestionsResponse()
+
+        # Build labels from resolved biomarkers
+        existing_labels = self._token_display_map(resolved)
+
+        suggestions, suggestion_labels = await self._addon_suggestions(
+            context, chosen_items, payload.lab_code or "", existing_labels
+        )
+
+        return AddonSuggestionsResponse(
+            addon_suggestions=suggestions,
+            labels={**existing_labels, **suggestion_labels},
+        )
 
     async def _resolve_biomarkers(
         self, inputs: Sequence[str]
@@ -703,17 +751,13 @@ class OptimizationService:
     ) -> OptimizeResponse:
         lab_options = self._build_lab_options(context)
         lab_selections = self._lab_selection_summary(chosen_items)
-        suggestions, suggestion_labels = await self._addon_suggestions(
-            context, chosen_items, response
-        )
-        merged_labels = response.labels | suggestion_labels
+        # Addon suggestions are computed lazily via separate endpoint
         return response.model_copy(
             update={
                 "mode": mode,
                 "lab_options": lab_options,
                 "lab_selections": lab_selections,
-                "addon_suggestions": suggestions,
-                "labels": merged_labels,
+                "addon_suggestions": [],
             }
         )
 
@@ -782,7 +826,8 @@ class OptimizationService:
         self,
         context: OptimizationContext,
         chosen_items: Sequence[CandidateItem],
-        response: OptimizeResponse,
+        lab_code: str,
+        existing_labels: dict[str, str],
     ) -> tuple[list[AddonSuggestion], dict[str, str]]:
         if len(context.resolved) < 2 or not chosen_items:
             return [], {}
@@ -791,7 +836,7 @@ class OptimizationService:
         chosen_items_list = list(chosen_items)
 
         allowed_labs: set[int] = set()
-        normalized_lab_code = normalize_token(response.lab_code) if response.lab_code else ""
+        normalized_lab_code = normalize_token(lab_code) if lab_code else ""
         if normalized_lab_code:
             lab_id = context.lab_index.get(normalized_lab_code)
             if lab_id is not None:
@@ -806,8 +851,10 @@ class OptimizationService:
             return [], {}
 
         lab_item_ids: dict[int, list[int]] = {}
+        filtered_items_by_lab: dict[int, list[CandidateItem]] = {}
         for item in filtered_items:
             lab_item_ids.setdefault(item.lab_id, []).append(item.id)
+            filtered_items_by_lab.setdefault(item.lab_id, []).append(item)
 
         chosen_total_grosz = sum(item.price_now for item in filtered_items)
         chosen_by_id = {item.id: item for item in filtered_items}
@@ -819,11 +866,6 @@ class OptimizationService:
             )
 
         chosen_ids = set(chosen_by_id.keys())
-        all_candidates = [
-            candidate
-            for lab_items in context.grouped_candidates.values()
-            for candidate in lab_items
-        ]
 
         computations: list[AddonComputation] = []
         for lab_candidates in context.grouped_candidates.values():
@@ -837,7 +879,7 @@ class OptimizationService:
                 covered_tokens = set(candidate.coverage) & selected_tokens
                 if len(covered_tokens) < 2:
                     continue
-                lab_items = [item for item in filtered_items if item.lab_id == candidate.lab_id]
+                lab_items = filtered_items_by_lab.get(candidate.lab_id, [])
                 if not lab_items:
                     continue
                 drop_cost, drop_ids = self._minimal_cover_subset(
@@ -866,9 +908,8 @@ class OptimizationService:
                 if missing_tokens:
                     replacement_candidates = [
                         item
-                        for item in all_candidates
-                        if item.lab_id == candidate.lab_id
-                        and item.id not in drop_ids
+                        for item in context.grouped_candidates.get(candidate.lab_id, [])
+                        if item.id not in drop_ids
                         and item.id != candidate.id
                         and item.coverage & missing_tokens
                     ]
@@ -915,7 +956,7 @@ class OptimizationService:
         additional_labels: dict[str, str] = {}
 
         resolved_labels = self._token_display_map(context.resolved)
-        combined_labels = {**resolved_labels, **response.labels}
+        combined_labels = {**resolved_labels, **existing_labels}
 
         lab_bonus_current: dict[int, set[str]] = {}
         for lab_id, item_ids in lab_item_ids.items():
@@ -1034,13 +1075,19 @@ class OptimizationService:
 
         return suggestions, additional_labels
 
-    @staticmethod
     def _minimal_cover_subset(
+        self,
         tokens: set[str],
         items: Sequence[CandidateItem],
     ) -> tuple[float, set[int]]:
         if not tokens:
             return 0, set()
+
+        cache_key = (frozenset(tokens), frozenset(item.id for item in items))
+        cached = self._cover_cache.get(cache_key)
+        if cached is not None:
+            cost, selection = cached
+            return cost, set(selection)
 
         ordered_tokens = sorted(tokens)
         token_index = {token: idx for idx, token in enumerate(ordered_tokens)}
@@ -1068,9 +1115,11 @@ class OptimizationService:
 
         result = dp.get(target_mask)
         if result is None:
+            self._cover_cache[cache_key] = (math.inf, frozenset())
             return math.inf, set()
 
         cost, selection = result
+        self._cover_cache[cache_key] = (float(cost), selection)
         return int(cost), set(selection)
 
     def _global_exclusive_map(self, context: OptimizationContext) -> dict[str, str]:
