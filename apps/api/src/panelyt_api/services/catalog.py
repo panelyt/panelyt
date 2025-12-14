@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from panelyt_api.core.cache import catalog_meta_cache
-from panelyt_api.core.settings import get_settings
 from panelyt_api.db import models
 from panelyt_api.schemas.common import (
     BiomarkerOut,
@@ -29,9 +27,7 @@ async def get_catalog_meta(session: AsyncSession) -> CatalogMeta:
     ) or 0
     latest_fetched_at = await session.scalar(select(func.max(models.Item.fetched_at)))
 
-    settings = get_settings()
-    tz = ZoneInfo(settings.timezone)
-    today = datetime.now(tz=tz).date()
+    today = datetime.now(UTC).date()
     window_start = today - timedelta(days=29)
 
     snapshot_days_covered = (

@@ -5,7 +5,6 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from panelyt_api.core.cache import clear_all_caches, freshness_cache
 from panelyt_api.core.settings import Settings
@@ -37,8 +36,7 @@ class IngestionService:
             latest_fetch = await repo.latest_fetched_at()
             latest_snapshot = await repo.latest_snapshot_date()
 
-        tz = ZoneInfo(self._settings.timezone)
-        today = datetime.now(tz=tz).date()
+        today = now_utc.date()
         stale_threshold = now_utc - timedelta(
             hours=self._settings.ingestion_staleness_threshold_hours
         )
@@ -94,8 +92,7 @@ class IngestionService:
                 raise
 
     async def _should_skip_scheduled_run(self) -> bool:
-        tz = ZoneInfo(self._settings.timezone)
-        now_local = datetime.now(tz=tz)
+        now_utc = datetime.now(UTC)
         async with get_session() as session:
             repo = IngestionRepository(session)
             last_activity = await repo.last_user_activity()
@@ -104,12 +101,9 @@ class IngestionService:
         window = timedelta(hours=self._settings.ingestion_user_activity_window_hours)
         inactivity = True
         if last_activity is not None:
-            inactivity = (
-                now_local.astimezone(UTC)
-                - last_activity.astimezone(UTC)
-            ) > window
+            inactivity = (now_utc - last_activity.astimezone(UTC)) > window
 
-        has_today_snapshot = latest_snapshot == now_local.date()
+        has_today_snapshot = latest_snapshot == now_utc.date()
         return inactivity and has_today_snapshot
 
     @asynccontextmanager
