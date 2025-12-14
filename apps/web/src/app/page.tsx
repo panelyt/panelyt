@@ -1093,6 +1093,7 @@ export default function Home() {
             <AddonSuggestionsPanel
               suggestions={addonSuggestions.data?.addon_suggestions ?? []}
               onApply={handleApplyAddon}
+              isLoading={addonSuggestions.isLoading}
             />
           )}
 
