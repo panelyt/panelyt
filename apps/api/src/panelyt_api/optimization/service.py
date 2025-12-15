@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
+from cachetools import LRUCache
 from ortools.sat.python import cp_model
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,14 +51,15 @@ SOLVER_WORKERS = 8
 PRICE_HISTORY_LOOKBACK_DAYS = 30
 MAX_PACKAGE_VARIANTS_PER_COVERAGE = 2
 MAX_SINGLE_VARIANTS_PER_TOKEN = 2
+COVER_CACHE_MAXSIZE = 1000
 
 
 class OptimizationService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
-        self._cover_cache: dict[
+        self._cover_cache: LRUCache[
             tuple[frozenset[str], frozenset[int]], tuple[float, frozenset[int]]
-        ] = {}
+        ] = LRUCache(maxsize=COVER_CACHE_MAXSIZE)
         self._last_context: OptimizationContext | None = None
 
     async def solve(self, payload: OptimizeRequest) -> OptimizeResponse:
@@ -925,6 +927,26 @@ class OptimizationService:
                         tokens.add(token)
             lab_bonus_current[lab_id] = tokens
 
+        # Pre-compute all potential bonus tokens for batched price lookup
+        all_bonus_tokens: dict[str, str] = {}
+        candidate_lab_ids: set[int] = set()
+        for entry in top_candidates:
+            item = entry.candidate
+            candidate_lab_ids.add(item.lab_id)
+            biomarkers = biomarkers_map.get(item.id, [])
+            for token in biomarkers:
+                if token not in selected_tokens:
+                    normalized = normalize_token(token)
+                    if normalized:
+                        all_bonus_tokens.setdefault(normalized, token)
+
+        # Make ONE batched DB query for all bonus prices
+        batched_prices: dict[tuple[str, int], int] = {}
+        if all_bonus_tokens and candidate_lab_ids:
+            batched_prices = await self._bonus_price_map_batched(
+                all_bonus_tokens, candidate_lab_ids
+            )
+
         suggestions: list[AddonSuggestion] = []
         for entry in top_candidates:
             item = entry.candidate
@@ -1003,19 +1025,25 @@ class OptimizationService:
                 for token in sorted(bonus_kept)
             ]
 
-            extra_lookup: dict[str, str] = {}
+            # Use batched prices instead of making individual DB queries
+            extra_tokens: list[str] = []
             for addon_entry in adds:
                 normalized = normalize_token(addon_entry.code)
                 if normalized:
-                    extra_lookup.setdefault(
-                        normalized, addon_entry.display_name or addon_entry.code
-                    )
-            if extra_lookup:
-                singles_price_map = await self._bonus_price_map(extra_lookup, item.lab_id)
-                if singles_price_map and len(singles_price_map) == len(extra_lookup):
-                    singles_total = sum(int(value) for value in singles_price_map.values())
-                    if singles_total and singles_total <= upgrade_cost_grosz:
-                        continue
+                    extra_tokens.append(normalized)
+
+            if extra_tokens:
+                singles_total = 0
+                all_found = True
+                for normalized in extra_tokens:
+                    price = batched_prices.get((normalized, item.lab_id))
+                    if price is None:
+                        all_found = False
+                        break
+                    singles_total += price
+
+                if all_found and singles_total and singles_total <= upgrade_cost_grosz:
+                    continue
 
             suggestions.append(
                 AddonSuggestion(
