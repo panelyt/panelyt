@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BarChart3,
   Clock,
   Layers,
+  Link2,
+  Check,
   Sparkles,
 } from "lucide-react";
 
@@ -15,6 +17,7 @@ import { useUserSession } from "../hooks/useUserSession";
 import { useLabOptimization } from "../hooks/useLabOptimization";
 import { useBiomarkerSelection } from "../hooks/useBiomarkerSelection";
 import { useUrlParamSync } from "../hooks/useUrlParamSync";
+import { useUrlBiomarkerSync } from "../hooks/useUrlBiomarkerSync";
 import { useAuthModal } from "../hooks/useAuthModal";
 import { useSaveListModal } from "../hooks/useSaveListModal";
 import { useTemplateModal } from "../hooks/useTemplateModal";
@@ -67,6 +70,30 @@ export default function Home() {
   const templateModal = useTemplateModal({
     biomarkers: selection.selected,
   });
+
+  // Share URL state
+  const [shareCopied, setShareCopied] = useState(false);
+
+  // URL biomarker sync (two-way)
+  const urlBiomarkerSync = useUrlBiomarkerSync({
+    selected: selection.selected,
+    onLoadFromUrl: useCallback(
+      (biomarkers) => {
+        selection.setSelected(biomarkers);
+        labOptimization.resetLabChoice();
+      },
+      [selection, labOptimization],
+    ),
+  });
+
+  // Handle share button click
+  const handleSharePanel = useCallback(async () => {
+    const success = await urlBiomarkerSync.copyShareUrl();
+    if (success) {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }
+  }, [urlBiomarkerSync]);
 
   // URL parameter sync
   useUrlParamSync({
@@ -306,6 +333,24 @@ export default function Home() {
                     className="rounded-full border border-emerald-500/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                   >
                     Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSharePanel()}
+                    disabled={selection.selected.length === 0}
+                    className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {shareCopied ? (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="h-3.5 w-3.5" />
+                        Share
+                      </>
+                    )}
                   </button>
                   {isAdmin && (
                     <button
