@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 
+import { Header } from "../../components/header";
 import { TemplateModal } from "../../components/template-modal";
 import { TemplatePriceSummary } from "../../components/template-price-summary";
 import { useTemplateCatalog } from "../../hooks/useBiomarkerListTemplates";
@@ -121,31 +122,20 @@ export default function CollectionsPage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/90">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Panelyt</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">Curated Templates</h1>
-              <p className="mt-2 max-w-xl text-sm text-slate-400">
-                Start with science-backed biomarker bundles. Load a template into the optimizer
-                or inspect the details before running price comparisons.
-              </p>
-            </div>
-            <Link
-              href="/"
-              className="rounded-full border border-emerald-500/60 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-            >
-              Back to optimizer
-            </Link>
-          </div>
-          {adminError && (
-            <p className="text-sm text-red-300">{adminError}</p>
-          )}
-        </div>
-      </header>
+      <Header />
 
-      <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10">
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <h1 className="text-3xl font-semibold text-white">Curated Templates</h1>
+        <p className="mt-2 max-w-xl text-sm text-slate-400">
+          Start with science-backed biomarker bundles. Load a template into the optimizer
+          or inspect the details before running price comparisons.
+        </p>
+        {adminError && (
+          <p className="mt-4 text-sm text-red-300">{adminError}</p>
+        )}
+      </div>
+
+      <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
         {templatesQuery.isLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
             <Loader2 className="h-5 w-5 animate-spin" /> Loading curated templates…
