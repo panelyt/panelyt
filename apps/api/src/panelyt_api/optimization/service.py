@@ -11,6 +11,7 @@ from ortools.sat.python import cp_model
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from panelyt_api.core.cache import optimization_cache
 from panelyt_api.db import models
 from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import (
@@ -195,6 +196,24 @@ class OptimizationService:
                     base_response = self._empty_response(fallback_uncovered)
 
         return await self._finalize_response(base_response, context, chosen_items, mode)
+
+    async def solve_cached(self, payload: OptimizeRequest) -> OptimizeResponse:
+        """Solve optimization with caching.
+
+        Returns cached result if available for the same biomarkers + mode + lab_code.
+        Cache has 1-hour TTL since prices change at most once daily.
+        """
+        cache_key = optimization_cache.make_key(
+            payload.biomarkers, payload.mode, payload.lab_code
+        )
+
+        cached = optimization_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        result = await self.solve(payload)
+        optimization_cache.set(cache_key, result)
+        return result
 
     async def compute_addons(
         self, payload: AddonSuggestionsRequest
