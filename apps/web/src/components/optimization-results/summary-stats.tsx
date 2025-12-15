@@ -1,4 +1,4 @@
-import { ArrowDownRight, Boxes, Layers3 } from "lucide-react";
+import { Boxes, Layers3 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { OptimizationViewModel } from "./view-model";
@@ -22,7 +22,7 @@ export function SummaryStatsGrid({ viewModel }: SummaryStatsGridProps) {
   const summaryStats = buildSummaryStats(viewModel);
 
   return (
-    <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-3">
       {summaryStats.map((stat) => (
         <div
           key={stat.label}
@@ -88,24 +88,12 @@ function buildSummaryStats(viewModel: OptimizationViewModel): SummaryStat[] {
 
   return [
     {
-      label: "30-day minimum",
+      label: "30-day floor",
       value: pricing.totalMin30Label,
       hint: "Lowest basket seen this month",
       icon: <Layers3 className="h-4 w-4" />,
       accentLight: "bg-indigo-500/10 text-indigo-500",
       accentDark: "bg-indigo-500/20 text-indigo-200",
-    },
-    {
-      label: pricing.highlightSavings ? "Potential savings" : "Locked price",
-      value: pricing.highlightSavings ? pricing.potentialSavingsLabel : "At the floor",
-      hint: pricing.highlightSavings ? "Seen within the last 30 days" : "Matches historic low",
-      icon: <ArrowDownRight className="h-4 w-4" />,
-      accentLight: pricing.highlightSavings
-        ? "bg-emerald-500/10 text-emerald-500"
-        : "bg-slate-500/10 text-slate-500",
-      accentDark: pricing.highlightSavings
-        ? "bg-emerald-500/20 text-emerald-200"
-        : "bg-slate-500/20 text-slate-300",
     },
     {
       label: "Items in basket",
