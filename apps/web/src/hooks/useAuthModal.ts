@@ -11,6 +11,8 @@ export type AuthMode = "login" | "register";
 export interface UseAuthModalOptions {
   /** Called after successful login or register */
   onAuthSuccess?: () => void;
+  /** Called when logout fails */
+  onLogoutError?: (error: string) => void;
 }
 
 export interface UseAuthModalResult {
@@ -31,7 +33,7 @@ export interface UseAuthModalResult {
 export function useAuthModal(
   options: UseAuthModalOptions = {},
 ): UseAuthModalResult {
-  const { onAuthSuccess } = options;
+  const { onAuthSuccess, onLogoutError } = options;
 
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AuthMode>("login");
@@ -87,9 +89,10 @@ export function useAuthModal(
       await sessionQuery.refetch();
       onAuthSuccess?.();
     } catch (err) {
-      setError(extractErrorMessage(err));
+      const message = extractErrorMessage(err);
+      onLogoutError?.(message);
     }
-  }, [auth.logoutMutation, sessionQuery, onAuthSuccess]);
+  }, [auth.logoutMutation, sessionQuery, onAuthSuccess, onLogoutError]);
 
   return {
     isOpen,

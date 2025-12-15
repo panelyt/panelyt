@@ -53,6 +53,7 @@ export default function Home() {
       selection.setSelected([]);
       selection.setError(null);
     },
+    onLogoutError: selection.setError,
   });
 
   // Save list modal
