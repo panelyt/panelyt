@@ -1,6 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@source "../../src/**/*.{ts,tsx}";
+
+@theme {
+  --color-brand: #2563eb;
+  --color-brand-muted: #dbeafe;
+}
 
 :root {
   color-scheme: light;
