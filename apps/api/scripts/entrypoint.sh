@@ -34,6 +34,7 @@ echo "✅ Migrations completed"
 echo "🔍 Checking if initial data ingestion is needed..."
 BIOMARKER_COUNT=$(uv run python -c "
 import asyncio
+import sys
 from sqlalchemy import func, select
 from panelyt_api.db.session import get_session
 from panelyt_api.db.models import Biomarker
@@ -43,8 +44,11 @@ async def check():
         async with get_session() as session:
             result = await session.scalar(select(func.count()).select_from(Biomarker))
             print(result or 0)
-    except Exception:
-        print(0)
+    except Exception as e:
+        # Log the error to stderr so we can see what went wrong
+        print(f'Error checking biomarker count: {type(e).__name__}: {e}', file=sys.stderr)
+        # Return -1 to indicate error, not empty database
+        print(-1)
 
 asyncio.run(check())
 ")
@@ -53,6 +57,9 @@ if [ "$BIOMARKER_COUNT" = "0" ]; then
     echo "📥 Database is empty. Running initial data ingestion..."
     uv run scripts/run_ingestion.py
     echo "✅ Initial ingestion completed"
+elif [ "$BIOMARKER_COUNT" = "-1" ]; then
+    echo "⚠️ Could not check biomarker count (see error above). Skipping initial ingestion."
+    echo "   If this is a fresh deployment, you may need to run ingestion manually."
 else
     echo "✅ Database already contains $BIOMARKER_COUNT biomarkers"
 fi
