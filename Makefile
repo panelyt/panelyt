@@ -21,7 +21,7 @@ dev-web: ## Start web frontend development server
 	cd apps/web && corepack enable && pnpm --filter @panelyt/types build && pnpm dev
 
 dev-api: ## Start API backend development server
-	cd apps/api && $(UV_ENV) $(UV) run uvicorn panelyt_api.main:app --reload --host 0.0.0.0 --port 8000
+	cd apps/api && $(UV_ENV) $(UV) run uvicorn panelyt_api.main:app --reload --host 0.0.0.0 --port 8000 --reload-dir src
 
 dev-bot: ## Run Telegram bot locally with long polling
 	cd apps/telegram-bot && $(UV_ENV) $(UV) run panelyt-telegram-bot

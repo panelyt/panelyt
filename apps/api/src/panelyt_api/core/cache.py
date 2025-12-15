@@ -19,6 +19,7 @@ from cachetools import TTLCache
 
 if TYPE_CHECKING:
     from panelyt_api.ingest.repository import IngestionRepository
+    from panelyt_api.optimization.context import OptimizationContext
     from panelyt_api.schemas.common import CatalogMeta
     from panelyt_api.schemas.optimize import OptimizeResponse
 
@@ -109,6 +110,68 @@ class OptimizationCache:
         key_parts = [
             ",".join(sorted_biomarkers),
             mode,
+            lab_code or "",
+        ]
+        key_string = "|".join(key_parts)
+        return hashlib.sha256(key_string.encode()).hexdigest()[:32]
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+    @property
+    def stats(self) -> dict[str, int]:
+        return {"hits": self._hits, "misses": self._misses, "size": len(self._cache)}
+
+
+class OptimizationContextCache:
+    """Cache for OptimizationContext used by addon suggestions.
+
+    Stores the context computed during solve() so that compute_addons()
+    can reuse it instead of recomputing candidates from scratch.
+
+    Uses the same TTL as OptimizationCache since they're invalidated together.
+    """
+
+    def __init__(self, maxsize: int = 1000, ttl_seconds: int = 3600) -> None:
+        self._cache: TTLCache[str, OptimizationContext] = TTLCache(
+            maxsize=maxsize, ttl=ttl_seconds
+        )
+        self._hits = 0
+        self._misses = 0
+
+    def get(self, key: str) -> OptimizationContext | None:
+        result = self._cache.get(key)
+        if result is not None:
+            self._hits += 1
+            logger.debug(
+                "context cache hit key=%s (hits=%d, misses=%d, size=%d)",
+                key[:8],
+                self._hits,
+                self._misses,
+                len(self._cache),
+            )
+        else:
+            self._misses += 1
+            logger.debug(
+                "context cache miss key=%s (hits=%d, misses=%d, size=%d)",
+                key[:8],
+                self._hits,
+                self._misses,
+                len(self._cache),
+            )
+        return result
+
+    def set(self, key: str, value: OptimizationContext) -> None:
+        self._cache[key] = value
+
+    def make_key(self, biomarkers: Sequence[str], lab_code: str | None) -> str:
+        """Create a cache key for context lookup.
+
+        Uses only biomarkers + lab_code (not mode) since context is mode-independent.
+        """
+        sorted_biomarkers = sorted(b.lower().strip() for b in biomarkers)
+        key_parts = [
+            ",".join(sorted_biomarkers),
             lab_code or "",
         ]
         key_string = "|".join(key_parts)
@@ -229,6 +292,9 @@ catalog_meta_cache = CatalogMetaCache(ttl_seconds=_cfg["catalog_meta_ttl"])
 optimization_cache = OptimizationCache(
     maxsize=_cfg["optimization_maxsize"], ttl_seconds=_cfg["optimization_ttl"]
 )
+optimization_context_cache = OptimizationContextCache(
+    maxsize=_cfg["optimization_maxsize"], ttl_seconds=_cfg["optimization_ttl"]
+)
 freshness_cache = FreshnessCache(ttl_seconds=_cfg["freshness_ttl"])
 user_activity_debouncer = UserActivityDebouncer(
     debounce_seconds=_cfg["user_activity_debounce"]
@@ -248,6 +314,7 @@ def clear_all_caches() -> None:
     """Clear all caches. Useful for testing and after ingestion."""
     catalog_meta_cache.clear()
     optimization_cache.clear()
+    optimization_context_cache.clear()
     freshness_cache.clear()
     user_activity_debouncer.clear()
 
