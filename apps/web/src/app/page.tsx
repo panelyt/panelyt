@@ -1,30 +1,20 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  BarChart3,
-  Clock,
-  Layers,
-  Link2,
-  Check,
-  Sparkles,
-} from "lucide-react";
+import { Link2, Check } from "lucide-react";
 
-import { useCatalogMeta } from "../hooks/useCatalogMeta";
 import { useSavedLists } from "../hooks/useSavedLists";
 import { useUserSession } from "../hooks/useUserSession";
 import { useLabOptimization } from "../hooks/useLabOptimization";
 import { useBiomarkerSelection } from "../hooks/useBiomarkerSelection";
 import { useUrlParamSync } from "../hooks/useUrlParamSync";
 import { useUrlBiomarkerSync } from "../hooks/useUrlBiomarkerSync";
-import { useAuthModal } from "../hooks/useAuthModal";
 import { useSaveListModal } from "../hooks/useSaveListModal";
 import { useTemplateModal } from "../hooks/useTemplateModal";
+import { Header } from "../components/header";
 import { OptimizationResults } from "../components/optimization-results";
 import { SearchBox } from "../components/search-box";
 import { SelectedBiomarkers } from "../components/selected-biomarkers";
-import { AuthModal } from "../components/auth-modal";
 import { SaveListModal } from "../components/save-list-modal";
 import { TemplateModal } from "../components/template-modal";
 import { AddonSuggestionsPanel } from "../components/addon-suggestions-panel";
@@ -32,7 +22,6 @@ import { LoadMenu } from "../components/load-menu";
 
 export default function Home() {
   // Core data hooks
-  const { data: meta } = useCatalogMeta();
   const sessionQuery = useUserSession();
   const userSession = sessionQuery.data;
   const isAdmin = Boolean(userSession?.is_admin);
@@ -50,14 +39,11 @@ export default function Home() {
     [savedLists.listsQuery.data],
   );
 
-  // Auth modal
-  const authModal = useAuthModal({
-    onAuthSuccess: () => {
-      selection.setSelected([]);
-      selection.setError(null);
-    },
-    onLogoutError: selection.setError,
-  });
+  // Auth callbacks for Header
+  const handleAuthSuccess = useCallback(() => {
+    selection.setSelected([]);
+    selection.setError(null);
+  }, [selection]);
 
   // Save list modal
   const saveListModal = useSaveListModal({
@@ -141,94 +127,11 @@ export default function Home() {
     [selection, labOptimization],
   );
 
-  const heroStats = [
-    {
-      label: "Catalog items",
-      value: meta ? meta.item_count.toLocaleString() : "—",
-      hint: "Available tests right now",
-      icon: <Layers className="h-4 w-4" />,
-    },
-    {
-      label: "Biomarkers tracked",
-      value: meta ? meta.biomarker_count.toLocaleString() : "—",
-      hint: "Unique biomarkers in database",
-      icon: <BarChart3 className="h-4 w-4" />,
-    },
-    {
-      label: "Snapshot coverage",
-      value: meta ? `${Math.round(meta.percent_with_today_snapshot)}%` : "—",
-      hint: "Items with today's prices",
-      icon: <Sparkles className="h-4 w-4" />,
-    },
-    {
-      label: "Last refreshed",
-      value: meta?.latest_fetched_at
-        ? new Date(meta.latest_fetched_at).toLocaleString()
-        : "—",
-      hint: "Diag.pl sync timestamp",
-      icon: <Clock className="h-4 w-4" />,
-    },
-  ];
-
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-        <Link
-          href="/collections"
-          className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-        >
-          Templates
-        </Link>
-        <Link
-          href="/lists"
-          className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-        >
-          My Lists
-        </Link>
-        {userSession?.registered ? (
-          <>
-            <span className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200">
-              {userSession.username}
-            </span>
-            <button
-              type="button"
-              onClick={() => void authModal.handleLogout()}
-              className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-red-500 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={authModal.isLoggingOut}
-            >
-              {authModal.isLoggingOut ? "Signing out…" : "Sign out"}
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => authModal.open("login")}
-              className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-            >
-              Sign in
-            </button>
-            <button
-              type="button"
-              onClick={() => authModal.open("register")}
-              className="rounded-full border border-emerald-500/60 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-            >
-              Register
-            </button>
-          </>
-        )}
-      </div>
-
-      <AuthModal
-        open={authModal.isOpen}
-        mode={authModal.mode}
-        onModeChange={authModal.setMode}
-        onClose={authModal.close}
-        onLogin={authModal.handleLogin}
-        onRegister={authModal.handleRegister}
-        isLoggingIn={authModal.isLoggingIn}
-        isRegistering={authModal.isRegistering}
-        error={authModal.error}
+      <Header
+        onAuthSuccess={handleAuthSuccess}
+        onLogoutError={selection.setError}
       />
 
       <SaveListModal
@@ -384,33 +287,6 @@ export default function Home() {
           />
         </div>
       </section>
-
-      <footer className="border-t border-white/10 bg-slate-950/80 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {heroStats.map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-slate-200 backdrop-blur-sm"
-              >
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-white/80">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white">
-                    {stat.icon}
-                  </span>
-                  {stat.label}
-                </div>
-                <p className="mt-3 text-lg font-semibold text-white">
-                  {stat.value}
-                </p>
-                <p className="text-xs text-slate-300">{stat.hint}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-slate-500">
-            Panelyt • Pricing intelligence for diagnostic panels
-          </p>
-        </div>
-      </footer>
     </main>
   );
 }
