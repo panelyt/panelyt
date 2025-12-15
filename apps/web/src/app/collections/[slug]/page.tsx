@@ -1,10 +1,10 @@
 "use client";
 
 import { use, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
+import { Header } from "../../../components/header";
 import { OptimizationResults } from "../../../components/optimization-results";
 import { useTemplateDetail } from "../../../hooks/useBiomarkerListTemplates";
 import { useOptimization } from "../../../hooks/useOptimization";
@@ -27,40 +27,33 @@ export default function TemplateDetailPage({ params }: TemplateDetailPageProps) 
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/90">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Link
-              href="/collections"
-              className="flex items-center gap-1 rounded-full border border-slate-700 px-3 py-1 font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-            >
-              <ArrowLeft className="h-3 w-3" /> Back to templates
-            </Link>
-            <span className="text-slate-600">/</span>
-            <span className="font-mono">{slug}</span>
-          </div>
-          {template ? (
-            <div className="space-y-3">
-              <h1 className="text-3xl font-semibold text-white">{template.name}</h1>
-              {template.description && (
-                <p className="max-w-2xl text-sm text-slate-300">{template.description}</p>
-              )}
-              <p className="text-xs text-slate-500">
-                {template.biomarkers.length} biomarker
-                {template.biomarkers.length === 1 ? "" : "s"} • Updated {new Date(template.updated_at).toLocaleString()}
-              </p>
-            </div>
-          ) : templateQuery.isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-300">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading template…
-            </div>
-          ) : templateQuery.isError ? (
-            <p className="text-sm text-red-200">Failed to load template.</p>
-          ) : null}
-        </div>
-      </header>
+      <Header />
 
-      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        {template ? (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500">
+              <span className="font-mono">{slug}</span>
+            </p>
+            <h1 className="text-3xl font-semibold text-white">{template.name}</h1>
+            {template.description && (
+              <p className="max-w-2xl text-sm text-slate-300">{template.description}</p>
+            )}
+            <p className="text-xs text-slate-500">
+              {template.biomarkers.length} biomarker
+              {template.biomarkers.length === 1 ? "" : "s"} • Updated {new Date(template.updated_at).toLocaleString()}
+            </p>
+          </div>
+        ) : templateQuery.isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-300">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading template...
+          </div>
+        ) : templateQuery.isError ? (
+          <p className="text-sm text-red-200">Failed to load template.</p>
+        ) : null}
+      </div>
+
+      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pb-10">
         {templateQuery.isLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
             <Loader2 className="h-5 w-5 animate-spin" /> Fetching template definition…

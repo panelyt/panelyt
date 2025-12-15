@@ -1,10 +1,10 @@
 "use client";
 
 import { use, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, Loader2 } from "lucide-react";
+import { CalendarDays, Loader2 } from "lucide-react";
 
+import { Header } from "../../../../components/header";
 import { OptimizationResults } from "../../../../components/optimization-results";
 import { useSharedList } from "../../../../hooks/useSharedList";
 import { useOptimization } from "../../../../hooks/useOptimization";
@@ -27,37 +27,30 @@ export default function SharedListPage({ params }: SharedListPageProps) {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/90">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-8">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Link
-              href="/collections"
-              className="flex items-center gap-1 rounded-full border border-slate-700 px-3 py-1 font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-            >
-              <ArrowLeft className="h-3 w-3" /> Back to templates
-            </Link>
-            <span className="text-slate-600">/</span>
-            <span className="font-mono">shared/{shareToken}</span>
-          </div>
-          {sharedList ? (
-            <div className="space-y-3">
-              <h1 className="text-3xl font-semibold text-white">{sharedList.name}</h1>
-              <p className="text-xs text-slate-500">
-                <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-                Shared {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString() : "recently"}
-              </p>
-            </div>
-          ) : sharedQuery.isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-slate-300">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading shared list…
-            </div>
-          ) : sharedQuery.isError ? (
-            <p className="text-sm text-red-200">Unable to find this shared list.</p>
-          ) : null}
-        </div>
-      </header>
+      <Header />
 
-      <section className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
+      <div className="mx-auto max-w-5xl px-6 py-8">
+        {sharedList ? (
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500">
+              <span className="font-mono">shared/{shareToken}</span>
+            </p>
+            <h1 className="text-3xl font-semibold text-white">{sharedList.name}</h1>
+            <p className="text-xs text-slate-500">
+              <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
+              Shared {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString() : "recently"}
+            </p>
+          </div>
+        ) : sharedQuery.isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-300">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading shared list...
+          </div>
+        ) : sharedQuery.isError ? (
+          <p className="text-sm text-red-200">Unable to find this shared list.</p>
+        ) : null}
+      </div>
+
+      <section className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pb-10">
         {sharedQuery.isLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
             <Loader2 className="h-5 w-5 animate-spin" /> Fetching shared list…

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { SavedList } from "@panelyt/types";
 
+import { Header } from "../../components/header";
 import { useSavedLists } from "../../hooks/useSavedLists";
 import { useUserSession } from "../../hooks/useUserSession";
 import { useAccountSettings } from "../../hooks/useAccountSettings";
@@ -286,55 +287,40 @@ export default function ListsPage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/90">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Panelyt</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">My Lists</h1>
-              <p className="mt-2 text-sm text-slate-400">
-                Manage every saved biomarker set, load it into the optimizer, or clean up old entries.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => handleToggleAllAlerts(!allNotificationsEnabled)}
-                className="flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={!hasLists || bulkNotifyPending}
-              >
-                {bulkNotifyPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : allNotificationsEnabled ? (
-                  <BellOff className="h-4 w-4" />
-                ) : (
-                  <Bell className="h-4 w-4" />
-                )}
-                {bulkNotifyPending
-                  ? "Saving…"
-                  : allNotificationsEnabled
-                    ? "Disable all alerts"
-                    : "Enable all alerts"}
-              </button>
-              <Link
-                href="/account"
-                className="rounded-full border border-sky-500/60 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20"
-              >
-                Account settings
-              </Link>
-              <Link
-                href="/"
-                className="rounded-full border border-emerald-500/60 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-              >
-                Back to optimizer
-              </Link>
-            </div>
-          </div>
-          {error && <p className="text-sm text-red-300">{error}</p>}
-        </div>
-      </header>
+      <Header />
 
-      <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10">
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold text-white">My Lists</h1>
+            <p className="mt-2 text-sm text-slate-400">
+              Manage every saved biomarker set, load it into the optimizer, or clean up old entries.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleToggleAllAlerts(!allNotificationsEnabled)}
+            className="flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!hasLists || bulkNotifyPending}
+          >
+            {bulkNotifyPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : allNotificationsEnabled ? (
+              <BellOff className="h-4 w-4" />
+            ) : (
+              <Bell className="h-4 w-4" />
+            )}
+            {bulkNotifyPending
+              ? "Saving…"
+              : allNotificationsEnabled
+                ? "Disable all alerts"
+                : "Enable all alerts"}
+          </button>
+        </div>
+        {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+      </div>
+
+      <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
         {savedLists.listsQuery.isLoading || loadingTotals ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
             <Loader2 className="h-5 w-5 animate-spin" /> Loading lists…

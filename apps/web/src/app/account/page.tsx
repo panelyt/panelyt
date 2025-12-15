@@ -1,10 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   Check,
   Copy,
   ExternalLink,
@@ -14,6 +11,7 @@ import {
   Unplug,
 } from "lucide-react";
 
+import { Header } from "../../components/header";
 import { useAccountSettings } from "../../hooks/useAccountSettings";
 import { useUserSession } from "../../hooks/useUserSession";
 
@@ -29,7 +27,6 @@ function formatDate(value: string | null | undefined) {
 export default function AccountPage() {
   const session = useUserSession();
   const account = useAccountSettings(Boolean(session.data));
-  const router = useRouter();
   const [chatIdInput, setChatIdInput] = useState("");
   const [copiedToken, setCopiedToken] = useState(false);
   const settings = account.settingsQuery.data;
@@ -116,41 +113,17 @@ export default function AccountPage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/90">
-        <div className="mx-auto flex max-w-4xl flex-col gap-4 px-6 py-10">
-          <div className="flex items-center gap-3 text-sm text-slate-300">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 transition hover:border-emerald-400 hover:text-emerald-200"
-            >
-              <ArrowLeft className="h-4 w-4" /> Back
-            </button>
-            <Link
-              href="/"
-              className="flex items-center gap-2 rounded-full border border-emerald-500/60 px-4 py-2 font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-            >
-              Optimizer
-            </Link>
-            <Link
-              href="/lists"
-              className="flex items-center gap-2 rounded-full border border-sky-500/60 px-4 py-2 font-semibold text-sky-200 transition hover:bg-sky-500/20"
-            >
-              Lists
-            </Link>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-300">Panelyt</p>
-            <h1 className="mt-2 text-3xl font-semibold text-white">Account Settings</h1>
-            <p className="mt-2 text-sm text-slate-400">
-              Link your Telegram chat to receive alerts when any saved list gets cheaper.
-            </p>
-          </div>
-          {mutationError && <p className="text-sm text-red-300">{mutationError}</p>}
-        </div>
-      </header>
+      <Header />
 
-      <section className="mx-auto flex max-w-4xl flex-col gap-4 px-6 py-10">
+      <div className="mx-auto max-w-4xl px-6 py-8">
+        <h1 className="text-3xl font-semibold text-white">Account Settings</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          Link your Telegram chat to receive alerts when any saved list gets cheaper.
+        </p>
+        {mutationError && <p className="mt-4 text-sm text-red-300">{mutationError}</p>}
+      </div>
+
+      <section className="mx-auto flex max-w-4xl flex-col gap-4 px-6 pb-10">
         {isLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
             <Loader2 className="h-5 w-5 animate-spin" /> Loading account settings…
