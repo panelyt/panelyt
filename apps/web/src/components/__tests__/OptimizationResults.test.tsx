@@ -223,8 +223,8 @@ describe('OptimizationResults', () => {
     // Check header information
     expect(screen.getByText('Optimization summary')).toBeInTheDocument()
     expect(screen.getByText(/Covering 3 biomarkers/)).toBeInTheDocument()
-    expect(screen.getByText('30-day minimum')).toBeInTheDocument()
-    expect(screen.getAllByText('$23.50')[0]).toBeInTheDocument()
+    // Price sparkline card shows price position relative to 30-day floor
+    expect(screen.getByText('Price position')).toBeInTheDocument()
     expect(screen.queryByText('Current total')).not.toBeInTheDocument()
 
     // Check items are displayed
