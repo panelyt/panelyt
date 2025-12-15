@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import secrets
 from collections.abc import AsyncIterator
-from contextlib import AbstractAsyncContextManager
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, Response, status
@@ -12,27 +11,15 @@ from panelyt_api.core.settings import Settings, get_settings
 from panelyt_api.db.session import get_session
 from panelyt_api.services.accounts import AccountService, SessionState
 
-SessionDependency = Annotated[
-    AbstractAsyncContextManager[AsyncSession] | AsyncSession,
-    Depends(get_session),
-]
 
-
-async def get_db_session(
-    session_or_context: SessionDependency,
-) -> AsyncIterator[AsyncSession]:
+async def get_db_session() -> AsyncIterator[AsyncSession]:
     """Yield a database session for request handlers.
 
-    Supports both the default async context manager returned by
-    ``get_session`` and direct session instances provided by tests via
-    dependency overrides.
+    Uses the get_session context manager internally to handle
+    commit/rollback/close lifecycle.
     """
-
-    if isinstance(session_or_context, AsyncSession):
-        yield session_or_context
-    else:
-        async with session_or_context as session:
-            yield session
+    async with get_session() as session:
+        yield session
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
