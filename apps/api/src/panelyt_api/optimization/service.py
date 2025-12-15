@@ -3,16 +3,27 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
+from cachetools import LRUCache
 from ortools.sat.python import cp_model
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from panelyt_api.core.cache import optimization_cache
+from panelyt_api.core.cache import optimization_cache, optimization_context_cache
 from panelyt_api.db import models
+from panelyt_api.optimization.context import (
+    AddonComputation,
+    CandidateItem,
+    LabSelectionAccumulator,
+    LabSolution,
+    MultiLabSolution,
+    NormalizedBiomarkerInput,
+    OptimizationContext,
+    ResolvedBiomarker,
+    SolverOutcome,
+)
 from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import (
     AddonBiomarker,
@@ -40,109 +51,16 @@ SOLVER_WORKERS = 8
 PRICE_HISTORY_LOOKBACK_DAYS = 30
 MAX_PACKAGE_VARIANTS_PER_COVERAGE = 2
 MAX_SINGLE_VARIANTS_PER_TOKEN = 2
-
-
-@dataclass(slots=True)
-class ResolvedBiomarker:
-    id: int
-    token: str
-    display_name: str
-    original: str
-
-
-@dataclass(slots=True)
-class CandidateItem:
-    id: int
-    kind: str
-    name: str
-    slug: str
-    external_id: str
-    lab_id: int
-    lab_code: str
-    lab_name: str
-    single_url_template: str | None
-    package_url_template: str | None
-    price_now: int
-    price_min30: int
-    sale_price: int | None
-    regular_price: int | None
-    coverage: set[str] = field(default_factory=set)
-
-    @property
-    def on_sale(self) -> bool:
-        if self.sale_price is None or self.regular_price is None:
-            return False
-        return self.sale_price < self.regular_price
-
-
-@dataclass(slots=True)
-class NormalizedBiomarkerInput:
-    raw: str
-    normalized: str
-
-
-@dataclass(slots=True)
-class OptimizationContext:
-    resolved: list[ResolvedBiomarker]
-    unresolved_inputs: list[str]
-    grouped_candidates: dict[int, list[CandidateItem]]
-    availability_map: dict[str, set[int]]
-    token_to_original: dict[str, str]
-    lab_index: dict[str, int]
-
-
-@dataclass(slots=True)
-class LabSolution:
-    lab_id: int
-    total_now_grosz: int
-    response: OptimizeResponse
-    chosen_items: list[CandidateItem]
-
-
-@dataclass(slots=True)
-class MultiLabSolution:
-    total_now_grosz: int
-    response: OptimizeResponse
-    chosen_items: list[CandidateItem]
-
-
-@dataclass(slots=True)
-class LabSelectionAccumulator:
-    code: str
-    name: str
-    total_now_grosz: int = 0
-    items: int = 0
-
-
-@dataclass(slots=True)
-class SolverOutcome:
-    response: OptimizeResponse
-    chosen_items: list[CandidateItem]
-    uncovered_tokens: set[str]
-    total_now_grosz: int
-    labels: dict[str, str]
-
-    @property
-    def has_selection(self) -> bool:
-        return bool(self.chosen_items)
-
-
-@dataclass(slots=True)
-class AddonComputation:
-    candidate: CandidateItem
-    covered_tokens: set[str]
-    drop_cost_grosz: int
-    readd_cost_grosz: int
-    estimated_total_grosz: int
-    dropped_item_ids: set[int]
+COVER_CACHE_MAXSIZE = 1000
 
 
 class OptimizationService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
-        self._cover_cache: dict[
+        self._cover_cache: LRUCache[
             tuple[frozenset[str], frozenset[int]], tuple[float, frozenset[int]]
-        ] = {}
+        ] = LRUCache(maxsize=COVER_CACHE_MAXSIZE)
+        self._last_context: OptimizationContext | None = None
 
     async def solve(self, payload: OptimizeRequest) -> OptimizeResponse:
         resolved, unresolved_inputs = await self._resolve_biomarkers(payload.biomarkers)
@@ -165,6 +83,7 @@ class OptimizationService:
             empty = self._empty_response(fallback_uncovered)
             return empty.model_copy(update={"mode": mode})
 
+        self._last_context = context
         fallback_uncovered = self._fallback_uncovered_tokens(resolved, unresolved_inputs)
         chosen_items: list[CandidateItem] = []
 
@@ -202,6 +121,7 @@ class OptimizationService:
 
         Returns cached result if available for the same biomarkers + mode + lab_code.
         Cache has 1-hour TTL since prices change at most once daily.
+        Also caches the OptimizationContext for faster addon computation.
         """
         cache_key = optimization_cache.make_key(
             payload.biomarkers, payload.mode, payload.lab_code
@@ -213,6 +133,13 @@ class OptimizationService:
 
         result = await self.solve(payload)
         optimization_cache.set(cache_key, result)
+
+        if self._last_context is not None:
+            context_key = optimization_context_cache.make_key(
+                payload.biomarkers, payload.lab_code
+            )
+            optimization_context_cache.set(context_key, self._last_context)
+
         return result
 
     async def compute_addons(
@@ -222,18 +149,32 @@ class OptimizationService:
 
         This is called separately from solve() to allow lazy loading of addon
         suggestions after the main optimization result is displayed.
+
+        Uses cached OptimizationContext from prior solve() call when available,
+        avoiding expensive re-computation of candidates.
         """
-        resolved, _ = await self._resolve_biomarkers(payload.biomarkers)
-        if not resolved:
-            return AddonSuggestionsResponse()
+        context_key = optimization_context_cache.make_key(
+            payload.biomarkers, payload.lab_code
+        )
+        context = optimization_context_cache.get(context_key)
 
-        candidates = await self._collect_candidates(resolved)
-        if not candidates:
-            return AddonSuggestionsResponse()
+        if context is not None:
+            logger.debug("Using cached context for addon computation")
+        else:
+            logger.debug("Cache miss - computing context for addons")
+            resolved, _ = await self._resolve_biomarkers(payload.biomarkers)
+            if not resolved:
+                return AddonSuggestionsResponse()
 
-        context = self._prepare_context(resolved, [], candidates)
-        if context is None:
-            return AddonSuggestionsResponse()
+            candidates = await self._collect_candidates(resolved)
+            if not candidates:
+                return AddonSuggestionsResponse()
+
+            context = self._prepare_context(resolved, [], candidates)
+            if context is None:
+                return AddonSuggestionsResponse()
+
+            optimization_context_cache.set(context_key, context)
 
         # Find chosen items from candidates by ID
         selected_ids = set(payload.selected_item_ids)
@@ -247,7 +188,7 @@ class OptimizationService:
             return AddonSuggestionsResponse()
 
         # Build labels from resolved biomarkers
-        existing_labels = self._token_display_map(resolved)
+        existing_labels = self._token_display_map(context.resolved)
 
         suggestions, suggestion_labels = await self._addon_suggestions(
             context, chosen_items, payload.lab_code or "", existing_labels
@@ -986,6 +927,26 @@ class OptimizationService:
                         tokens.add(token)
             lab_bonus_current[lab_id] = tokens
 
+        # Pre-compute all potential bonus tokens for batched price lookup
+        all_bonus_tokens: dict[str, str] = {}
+        candidate_lab_ids: set[int] = set()
+        for entry in top_candidates:
+            item = entry.candidate
+            candidate_lab_ids.add(item.lab_id)
+            biomarkers = biomarkers_map.get(item.id, [])
+            for token in biomarkers:
+                if token not in selected_tokens:
+                    normalized = normalize_token(token)
+                    if normalized:
+                        all_bonus_tokens.setdefault(normalized, token)
+
+        # Make ONE batched DB query for all bonus prices
+        batched_prices: dict[tuple[str, int], int] = {}
+        if all_bonus_tokens and candidate_lab_ids:
+            batched_prices = await self._bonus_price_map_batched(
+                all_bonus_tokens, candidate_lab_ids
+            )
+
         suggestions: list[AddonSuggestion] = []
         for entry in top_candidates:
             item = entry.candidate
@@ -1064,19 +1025,25 @@ class OptimizationService:
                 for token in sorted(bonus_kept)
             ]
 
-            extra_lookup: dict[str, str] = {}
+            # Use batched prices instead of making individual DB queries
+            extra_tokens: list[str] = []
             for addon_entry in adds:
                 normalized = normalize_token(addon_entry.code)
                 if normalized:
-                    extra_lookup.setdefault(
-                        normalized, addon_entry.display_name or addon_entry.code
-                    )
-            if extra_lookup:
-                singles_price_map = await self._bonus_price_map(extra_lookup, item.lab_id)
-                if singles_price_map and len(singles_price_map) == len(extra_lookup):
-                    singles_total = sum(int(value) for value in singles_price_map.values())
-                    if singles_total and singles_total <= upgrade_cost_grosz:
-                        continue
+                    extra_tokens.append(normalized)
+
+            if extra_tokens:
+                singles_total = 0
+                all_found = True
+                for normalized in extra_tokens:
+                    price = batched_prices.get((normalized, item.lab_id))
+                    if price is None:
+                        all_found = False
+                        break
+                    singles_total += price
+
+                if all_found and singles_total and singles_total <= upgrade_cost_grosz:
+                    continue
 
             suggestions.append(
                 AddonSuggestion(
@@ -1431,6 +1398,78 @@ class OptimizationService:
                 existing = price_map.get(key)
                 if existing is None or price_value < existing:
                     price_map[key] = price_value
+                break
+
+        return price_map
+
+    async def _bonus_price_map_batched(
+        self, tokens: Mapping[str, str], lab_ids: set[int]
+    ) -> dict[tuple[str, int], int]:
+        """Return single-test prices keyed by (normalized_token, lab_id).
+
+        This batched version queries all lab_ids in ONE query, returning
+        prices grouped by lab. More efficient than calling _bonus_price_map
+        multiple times for different labs.
+        """
+        if not tokens or not lab_ids:
+            return {}
+
+        normalized_lookup = create_normalized_lookup(tokens)
+        raw_tokens = {
+            value.strip()
+            for value in tokens.values()
+            if isinstance(value, str) and value.strip()
+        }
+        if not raw_tokens or not normalized_lookup:
+            return {}
+
+        statement = (
+            select(
+                models.Biomarker.elab_code,
+                models.Biomarker.slug,
+                models.Biomarker.name,
+                models.Item.lab_id,
+                func.min(models.Item.price_now_grosz).label("min_price"),
+            )
+            .select_from(models.Biomarker)
+            .join(models.ItemBiomarker, models.ItemBiomarker.biomarker_id == models.Biomarker.id)
+            .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
+            .where(models.Item.kind == "single")
+            .where(models.Item.is_available.is_(True))
+            .where(models.Item.price_now_grosz > 0)
+            .where(models.Item.lab_id.in_(lab_ids))
+            .where(
+                or_(
+                    models.Biomarker.elab_code.in_(raw_tokens),
+                    models.Biomarker.slug.in_(raw_tokens),
+                    models.Biomarker.name.in_(raw_tokens),
+                )
+            )
+            .group_by(
+                models.Biomarker.id,
+                models.Biomarker.elab_code,
+                models.Biomarker.slug,
+                models.Biomarker.name,
+                models.Item.lab_id,
+            )
+        )
+
+        rows = (await self.session.execute(statement)).all()
+        price_map: dict[tuple[str, int], int] = {}
+
+        for elab_code, slug, name, lab_id, min_price in rows:
+            for candidate in (elab_code, slug, name):
+                if not candidate:
+                    continue
+                normalized = normalize_token(candidate)
+                key = normalized_lookup.get(normalized) if normalized else None
+                if key is None:
+                    continue
+                price_value = int(min_price or 0)
+                cache_key = (key, lab_id)
+                existing = price_map.get(cache_key)
+                if existing is None or price_value < existing:
+                    price_map[cache_key] = price_value
                 break
 
         return price_map
