@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { Link2, Check } from "lucide-react";
 
 import { useSavedLists } from "../hooks/useSavedLists";
@@ -20,7 +20,7 @@ import { TemplateModal } from "../components/template-modal";
 import { AddonSuggestionsPanel } from "../components/addon-suggestions-panel";
 import { LoadMenu } from "../components/load-menu";
 
-export default function Home() {
+function HomeContent() {
   // Core data hooks
   const sessionQuery = useUserSession();
   const userSession = sessionQuery.data;
@@ -288,5 +288,13 @@ export default function Home() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }
