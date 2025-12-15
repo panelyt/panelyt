@@ -14,7 +14,6 @@ from sqlalchemy import insert, select
 from panelyt_api.core.settings import Settings, get_settings
 from panelyt_api.db.base import Base
 from panelyt_api.db import models
-from panelyt_api.db.session import get_session
 from panelyt_api.main import create_app
 
 
@@ -122,19 +121,20 @@ def override_get_settings(test_settings: Settings):
 
 
 @pytest.fixture
-def override_get_session(db_session: AsyncSession):
-    """Override session dependency for testing."""
-    async def _override_get_session():
+def override_get_db_session(db_session: AsyncSession):
+    """Override database session dependency for testing."""
+    async def _override_get_db_session():
         yield db_session
-    return _override_get_session
+    return _override_get_db_session
 
 
 @pytest.fixture
-def app(override_get_settings, override_get_session):
+def app(override_get_settings, override_get_db_session):
     """Create FastAPI app for testing."""
+    from panelyt_api.api.deps import get_db_session
     app = create_app()
     app.dependency_overrides[get_settings] = override_get_settings
-    app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_db_session] = override_get_db_session
     return app
 
 
