@@ -6,7 +6,7 @@ import {
   type SavedList,
 } from "@panelyt/types";
 
-import { getJson, HttpError } from "../lib/http";
+import { getJson, extractErrorMessage } from "../lib/http";
 
 export interface SelectedBiomarker {
   code: string;
@@ -68,26 +68,6 @@ export function useBiomarkerSelection(
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const extractErrorMessage = useCallback((err: unknown): string => {
-    if (err instanceof HttpError) {
-      if (err.body) {
-        try {
-          const parsed = JSON.parse(err.body);
-          if (typeof parsed.detail === "string") {
-            return parsed.detail;
-          }
-        } catch {
-          // ignore parse failures
-        }
-      }
-      return err.message;
-    }
-    if (err instanceof Error) {
-      return err.message;
-    }
-    return "Something went wrong";
-  }, []);
-
   const handleSelect = useCallback((biomarker: SelectedBiomarker) => {
     setSelected((current) => {
       const normalized = biomarker.code.trim();
@@ -144,7 +124,7 @@ export function useBiomarkerSelection(
         setError(extractErrorMessage(err));
       }
     },
-    [extractErrorMessage, onSelectionChange],
+    [onSelectionChange],
   );
 
   const handleApplyAddon = useCallback(

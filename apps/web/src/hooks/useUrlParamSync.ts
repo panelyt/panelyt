@@ -8,7 +8,7 @@ import {
   type SavedList,
 } from "@panelyt/types";
 
-import { getJson, HttpError } from "../lib/http";
+import { getJson, extractErrorMessage } from "../lib/http";
 
 export interface SelectedBiomarker {
   code: string;
@@ -28,26 +28,6 @@ export interface UseUrlParamSyncOptions {
   savedLists: SavedList[];
   /** Whether saved lists are still loading */
   isFetchingSavedLists: boolean;
-}
-
-function extractErrorMessage(err: unknown): string {
-  if (err instanceof HttpError) {
-    if (err.body) {
-      try {
-        const parsed = JSON.parse(err.body);
-        if (typeof parsed.detail === "string") {
-          return parsed.detail;
-        }
-      } catch {
-        // ignore parse failures
-      }
-    }
-    return err.message;
-  }
-  if (err instanceof Error) {
-    return err.message;
-  }
-  return "Something went wrong";
 }
 
 /**

@@ -26,7 +26,7 @@ import { AuthModal } from "../components/auth-modal";
 import { SaveListModal } from "../components/save-list-modal";
 import { TemplateModal } from "../components/template-modal";
 import { AddonSuggestionsPanel } from "../components/addon-suggestions-panel";
-import { HttpError } from "../lib/http";
+import { extractErrorMessage } from "../lib/http";
 import { slugify } from "../lib/slug";
 
 export default function Home() {
@@ -106,26 +106,6 @@ export default function Home() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isLoadMenuOpen]);
-
-  const extractErrorMessage = useCallback((error: unknown) => {
-    if (error instanceof HttpError) {
-      if (error.body) {
-        try {
-          const parsed = JSON.parse(error.body);
-          if (typeof parsed.detail === "string") {
-            return parsed.detail;
-          }
-        } catch {
-          // ignore parse failures
-        }
-      }
-      return error.message;
-    }
-    if (error instanceof Error) {
-      return error.message;
-    }
-    return "Something went wrong";
-  }, []);
 
   const handleLoadFromMenu = (list: SavedList) => {
     selection.handleLoadList(list);
