@@ -1,3 +1,6 @@
+import { TrendingDown, TrendingUp, Check } from "lucide-react";
+import type { ReactNode } from "react";
+
 import { formatGroszToPln } from "../../lib/format";
 
 interface PriceRangeSparklineProps {
@@ -7,8 +10,8 @@ interface PriceRangeSparklineProps {
 }
 
 /**
- * A visual indicator showing potential savings - the difference between
- * current basket price and the 30-day floor price.
+ * A card showing the price position relative to the 30-day floor.
+ * Designed to match the layout of other summary stat cards.
  */
 export function PriceRangeSparkline({
   currentPrice,
@@ -23,100 +26,99 @@ export function PriceRangeSparkline({
   const gaugePercent = Math.min(savingsPercent, 30);
   const gaugePosition = (gaugePercent / 30) * 100;
 
+  // Determine accent colors and icon based on status
+  const { icon, accentLight, accentDark } = getStatusStyle(atFloor, savingsPercent);
+
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header - matches other cards */}
+      <div
+        className={`flex items-center gap-3 text-sm ${
+          isDark ? "text-slate-400" : "text-slate-500"
+        }`}
+      >
         <span
-          className={`text-xs font-medium uppercase tracking-wide ${
-            isDark ? "text-slate-400" : "text-slate-500"
+          className={`flex h-9 w-9 items-center justify-center rounded-full ${
+            isDark ? accentDark : accentLight
+          }`}
+        >
+          {icon}
+        </span>
+        <span
+          className={`font-semibold uppercase tracking-wide text-[11px] ${
+            isDark ? "text-slate-200" : ""
           }`}
         >
           Price position
         </span>
-        <StatusBadge atFloor={atFloor} savingsPercent={savingsPercent} isDark={isDark} />
       </div>
 
-      {/* Main content */}
-      <div className="mt-3 flex flex-1 flex-col justify-between">
-        {atFloor ? (
-          <AtFloorDisplay isDark={isDark} />
-        ) : (
-          <SavingsDisplay
-            savingsGrosz={savingsGrosz}
-            savingsPercent={savingsPercent}
-            isDark={isDark}
-          />
-        )}
+      {/* Content - matches other cards */}
+      <div className="mt-4 flex flex-1 flex-col justify-between">
+        <div>
+          <p
+            className={`text-2xl font-semibold ${
+              atFloor
+                ? isDark
+                  ? "text-emerald-300"
+                  : "text-emerald-600"
+                : isDark
+                  ? "text-white"
+                  : "text-slate-900"
+            }`}
+          >
+            {atFloor ? "At floor" : `+${formatGroszToPln(savingsGrosz)}`}
+          </p>
+          <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            {atFloor
+              ? "Matching the 30-day low"
+              : `${savingsPercent.toFixed(1)}% above the floor`}
+          </p>
+        </div>
 
-        {/* Gauge */}
+        {/* Compact gauge visualization */}
         <div className="mt-3">
           <PriceGauge position={gaugePosition} atFloor={atFloor} isDark={isDark} />
-          <div className="mt-1.5 flex items-center justify-between text-[10px]">
-            <span className={isDark ? "text-emerald-300" : "text-emerald-600"}>
-              Floor
-            </span>
-            <span className={isDark ? "text-slate-500" : "text-slate-400"}>
-              +30%
-            </span>
-          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function AtFloorDisplay({ isDark }: { isDark: boolean }) {
-  return (
-    <div className="flex flex-col">
-      <span
-        className={`text-lg font-semibold ${
-          isDark ? "text-emerald-300" : "text-emerald-600"
-        }`}
-      >
-        Best price
-      </span>
-      <span className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-        At 30-day floor
-      </span>
-    </div>
-  );
-}
+function getStatusStyle(atFloor: boolean, savingsPercent: number): {
+  icon: ReactNode;
+  accentLight: string;
+  accentDark: string;
+} {
+  if (atFloor) {
+    return {
+      icon: <Check className="h-4 w-4" />,
+      accentLight: "bg-emerald-500/10 text-emerald-500",
+      accentDark: "bg-emerald-500/20 text-emerald-200",
+    };
+  }
 
-function SavingsDisplay({
-  savingsGrosz,
-  savingsPercent,
-  isDark,
-}: {
-  savingsGrosz: number;
-  savingsPercent: number;
-  isDark: boolean;
-}) {
-  const formattedSavings = formatGroszToPln(savingsGrosz);
+  if (savingsPercent <= 10) {
+    return {
+      icon: <TrendingDown className="h-4 w-4" />,
+      accentLight: "bg-emerald-500/10 text-emerald-500",
+      accentDark: "bg-emerald-500/20 text-emerald-200",
+    };
+  }
 
-  return (
-    <div className="flex flex-col">
-      <div className="flex items-baseline gap-2">
-        <span
-          className={`text-lg font-semibold ${
-            isDark ? "text-white" : "text-slate-900"
-          }`}
-        >
-          {formattedSavings}
-        </span>
-        <span
-          className={`text-xs ${
-            isDark ? "text-slate-400" : "text-slate-500"
-          }`}
-        >
-          above floor
-        </span>
-      </div>
-      <span className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-        {savingsPercent.toFixed(1)}% potential savings
-      </span>
-    </div>
-  );
+  if (savingsPercent <= 20) {
+    return {
+      icon: <TrendingUp className="h-4 w-4" />,
+      accentLight: "bg-amber-500/10 text-amber-500",
+      accentDark: "bg-amber-500/20 text-amber-200",
+    };
+  }
+
+  return {
+    icon: <TrendingUp className="h-4 w-4" />,
+    accentLight: "bg-rose-500/10 text-rose-500",
+    accentDark: "bg-rose-500/20 text-rose-200",
+  };
 }
 
 function PriceGauge({
@@ -130,119 +132,42 @@ function PriceGauge({
 }) {
   return (
     <div
-      className={`relative h-2 overflow-hidden rounded-full ${
+      className={`relative h-1.5 overflow-hidden rounded-full ${
         isDark ? "bg-slate-800" : "bg-slate-200"
       }`}
     >
-      {/* Floor zone (green) */}
+      {/* Gradient background */}
       <div
-        className={`absolute inset-y-0 left-0 w-[10%] ${
-          isDark ? "bg-emerald-500/40" : "bg-emerald-200"
-        }`}
-      />
-
-      {/* Good zone gradient */}
-      <div
-        className="absolute inset-y-0 left-[10%] w-[30%]"
+        className="absolute inset-0"
         style={{
           background: isDark
-            ? "linear-gradient(to right, rgba(52, 211, 153, 0.3), rgba(251, 191, 36, 0.2))"
-            : "linear-gradient(to right, rgba(167, 243, 208, 1), rgba(254, 243, 199, 1))",
-        }}
-      />
-
-      {/* Warning zone gradient */}
-      <div
-        className="absolute inset-y-0 left-[40%] w-[60%]"
-        style={{
-          background: isDark
-            ? "linear-gradient(to right, rgba(251, 191, 36, 0.2), rgba(239, 68, 68, 0.2))"
-            : "linear-gradient(to right, rgba(254, 243, 199, 1), rgba(254, 202, 202, 1))",
+            ? "linear-gradient(to right, rgba(52, 211, 153, 0.4), rgba(251, 191, 36, 0.3), rgba(239, 68, 68, 0.3))"
+            : "linear-gradient(to right, rgba(167, 243, 208, 1), rgba(254, 243, 199, 1), rgba(254, 202, 202, 1))",
         }}
       />
 
       {/* Position marker */}
       <div
-        className="absolute top-1/2 h-4 w-1 -translate-y-1/2 rounded-full shadow-sm transition-all duration-500"
+        className="absolute top-1/2 h-3 w-1 -translate-y-1/2 rounded-full shadow-sm transition-all duration-500"
         style={{
-          left: `${Math.max(2, Math.min(position, 98))}%`,
+          left: `${Math.max(1, Math.min(position, 99))}%`,
           backgroundColor: atFloor
             ? isDark
               ? "#34d399"
               : "#10b981"
             : position < 33
               ? isDark
-                ? "#fbbf24"
-                : "#f59e0b"
-              : isDark
-                ? "#f87171"
-                : "#ef4444",
+                ? "#34d399"
+                : "#10b981"
+              : position < 66
+                ? isDark
+                  ? "#fbbf24"
+                  : "#f59e0b"
+                : isDark
+                  ? "#f87171"
+                  : "#ef4444",
         }}
       />
     </div>
-  );
-}
-
-function StatusBadge({
-  atFloor,
-  savingsPercent,
-  isDark,
-}: {
-  atFloor: boolean;
-  savingsPercent: number;
-  isDark: boolean;
-}) {
-  if (atFloor) {
-    return (
-      <span
-        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-          isDark
-            ? "bg-emerald-500/20 text-emerald-200"
-            : "bg-emerald-100 text-emerald-700"
-        }`}
-      >
-        Optimal
-      </span>
-    );
-  }
-
-  if (savingsPercent <= 5) {
-    return (
-      <span
-        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-          isDark
-            ? "bg-emerald-500/20 text-emerald-200"
-            : "bg-emerald-100 text-emerald-700"
-        }`}
-      >
-        Good
-      </span>
-    );
-  }
-
-  if (savingsPercent <= 15) {
-    return (
-      <span
-        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-          isDark
-            ? "bg-amber-500/20 text-amber-200"
-            : "bg-amber-100 text-amber-700"
-        }`}
-      >
-        Fair
-      </span>
-    );
-  }
-
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-        isDark
-          ? "bg-rose-500/20 text-rose-200"
-          : "bg-rose-100 text-rose-700"
-      }`}
-    >
-      High
-    </span>
   );
 }
