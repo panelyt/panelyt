@@ -1,24 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   BarChart3,
   Clock,
   Layers,
-  Loader2,
   Sparkles,
 } from "lucide-react";
-import type { SavedList } from "@panelyt/types";
 
 import { useCatalogMeta } from "../hooks/useCatalogMeta";
 import { useSavedLists } from "../hooks/useSavedLists";
 import { useUserSession } from "../hooks/useUserSession";
-import { useAuth } from "../hooks/useAuth";
-import { useTemplateAdmin } from "../hooks/useTemplateAdmin";
 import { useLabOptimization } from "../hooks/useLabOptimization";
 import { useBiomarkerSelection } from "../hooks/useBiomarkerSelection";
 import { useUrlParamSync } from "../hooks/useUrlParamSync";
+import { useAuthModal } from "../hooks/useAuthModal";
+import { useSaveListModal } from "../hooks/useSaveListModal";
+import { useTemplateModal } from "../hooks/useTemplateModal";
 import { OptimizationResults } from "../components/optimization-results";
 import { SearchBox } from "../components/search-box";
 import { SelectedBiomarkers } from "../components/selected-biomarkers";
@@ -26,52 +25,49 @@ import { AuthModal } from "../components/auth-modal";
 import { SaveListModal } from "../components/save-list-modal";
 import { TemplateModal } from "../components/template-modal";
 import { AddonSuggestionsPanel } from "../components/addon-suggestions-panel";
-import { extractErrorMessage } from "../lib/http";
-import { slugify } from "../lib/slug";
+import { LoadMenu } from "../components/load-menu";
 
 export default function Home() {
-  // Auth state
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-
-  // Save list modal state
-  const [isSavingList, setIsSavingList] = useState(false);
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [saveName, setSaveName] = useState("");
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  // Load menu state
-  const [isLoadMenuOpen, setIsLoadMenuOpen] = useState(false);
-
-  // Template modal state
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [templateName, setTemplateName] = useState("");
-  const [templateSlug, setTemplateSlug] = useState("");
-  const [templateDescription, setTemplateDescription] = useState("");
-  const [templateIsActive, setTemplateIsActive] = useState(true);
-  const [templateError, setTemplateError] = useState<string | null>(null);
-  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
-  const [templateSlugTouched, setTemplateSlugTouched] = useState(false);
-
   // Core data hooks
   const { data: meta } = useCatalogMeta();
   const sessionQuery = useUserSession();
-  const auth = useAuth();
   const userSession = sessionQuery.data;
-  const savedLists = useSavedLists(Boolean(userSession));
-  const savedListsData = useMemo(() => savedLists.listsQuery.data ?? [], [savedLists.listsQuery.data]);
-  const templateAdmin = useTemplateAdmin();
   const isAdmin = Boolean(userSession?.is_admin);
 
-  // Biomarker selection (extracted hook)
-  // Note: onSelectionChange is wired up below after lab optimization hook
+  // Biomarker selection
   const selection = useBiomarkerSelection();
 
-  // Lab optimization with current biomarker codes
+  // Lab optimization
   const labOptimization = useLabOptimization(selection.biomarkerCodes);
 
-  // URL parameter sync (extracted hook)
+  // Saved lists
+  const savedLists = useSavedLists(Boolean(userSession));
+  const savedListsData = useMemo(
+    () => savedLists.listsQuery.data ?? [],
+    [savedLists.listsQuery.data],
+  );
+
+  // Auth modal
+  const authModal = useAuthModal({
+    onAuthSuccess: () => {
+      selection.setSelected([]);
+      selection.setError(null);
+    },
+  });
+
+  // Save list modal
+  const saveListModal = useSaveListModal({
+    isAuthenticated: Boolean(userSession),
+    biomarkers: selection.selectionPayload,
+    onExternalError: selection.setError,
+  });
+
+  // Template modal
+  const templateModal = useTemplateModal({
+    biomarkers: selection.selected,
+  });
+
+  // URL parameter sync
   useUrlParamSync({
     onLoadTemplate: (biomarkers) => {
       selection.setSelected(biomarkers);
@@ -89,29 +85,6 @@ export default function Home() {
     savedLists: savedListsData,
     isFetchingSavedLists: savedLists.listsQuery.isFetching,
   });
-
-  // Load menu click-outside handler
-  const loadMenuRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!isLoadMenuOpen) {
-      return;
-    }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (loadMenuRef.current && !loadMenuRef.current.contains(event.target as Node)) {
-        setIsLoadMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isLoadMenuOpen]);
-
-  const handleLoadFromMenu = (list: SavedList) => {
-    selection.handleLoadList(list);
-    labOptimization.resetLabChoice();
-    setIsLoadMenuOpen(false);
-  };
 
   // Wrap template select to reset lab choice
   const handleTemplateSelect = useCallback(
@@ -131,162 +104,14 @@ export default function Home() {
     [selection, labOptimization],
   );
 
-  // Auth handlers
-  const closeAuthModal = () => {
-    setIsAuthOpen(false);
-    setAuthError(null);
-  };
-
-  const openAuthModal = (mode: "login" | "register") => {
-    setAuthMode(mode);
-    setIsAuthOpen(true);
-    setAuthError(null);
-  };
-
-  const handleLogin = async (credentials: { username: string; password: string }) => {
-    try {
-      setAuthError(null);
-      await auth.loginMutation.mutateAsync(credentials);
-      selection.setSelected([]);
-      await sessionQuery.refetch();
-      closeAuthModal();
-    } catch (error) {
-      setAuthError(extractErrorMessage(error));
-    }
-  };
-
-  const handleRegister = async (credentials: { username: string; password: string }) => {
-    try {
-      setAuthError(null);
-      await auth.registerMutation.mutateAsync(credentials);
-      selection.setSelected([]);
-      await sessionQuery.refetch();
-      closeAuthModal();
-    } catch (error) {
-      setAuthError(extractErrorMessage(error));
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await auth.logoutMutation.mutateAsync();
-      selection.setSelected([]);
-      selection.setError(null);
-      await sessionQuery.refetch();
-      setAuthError(null);
-    } catch (error) {
-      selection.setError(extractErrorMessage(error));
-    }
-  };
-
-  // Save list handler
-  const saveList = async (name: string) => {
-    if (selection.selected.length === 0) {
-      const message = "Add biomarkers before saving a list.";
-      selection.setError(message);
-      setSaveError(message);
-      return;
-    }
-    setIsSavingList(true);
-    try {
-      await savedLists.createMutation.mutateAsync({
-        name,
-        biomarkers: selection.selectionPayload,
-      });
-      selection.setError(null);
-      setSaveError(null);
-    } catch (error) {
-      const message = extractErrorMessage(error);
-      selection.setError(message);
-      setSaveError(message);
-      throw error;
-    } finally {
-      setIsSavingList(false);
-    }
-  };
-
-  const handleSaveConfirm = async () => {
-    const trimmed = saveName.trim();
-    if (!trimmed) {
-      setSaveError("Name cannot be empty");
-      return;
-    }
-    try {
-      await saveList(trimmed);
-      setIsSaveModalOpen(false);
-      setSaveName("");
-    } catch {
-      // error state already set
-    }
-  };
-
-  // Template handlers
-  const openTemplateModal = () => {
-    const defaultName = selection.selected.length
-      ? `Template ${new Date().toLocaleDateString()}`
-      : "";
-    const initialSlug = defaultName ? slugify(defaultName) : "";
-    setTemplateName(defaultName);
-    setTemplateSlug(initialSlug);
-    setTemplateDescription("");
-    setTemplateIsActive(true);
-    setTemplateError(null);
-    setTemplateSlugTouched(Boolean(initialSlug));
-    setIsTemplateModalOpen(true);
-  };
-
-  const handleTemplateNameChange = (value: string) => {
-    setTemplateName(value);
-    if (!templateSlugTouched) {
-      setTemplateSlug(slugify(value));
-    }
-  };
-
-  const handleTemplateSlugChange = (value: string) => {
-    setTemplateSlug(value);
-    setTemplateSlugTouched(true);
-  };
-
-  const handleTemplateConfirm = async () => {
-    if (selection.selected.length === 0) {
-      const message = "Add biomarkers before saving a template.";
-      setTemplateError(message);
-      return;
-    }
-
-    const trimmedName = templateName.trim();
-    const normalizedSlug = slugify(templateSlug || templateName);
-    if (!trimmedName) {
-      setTemplateError("Template name cannot be empty");
-      return;
-    }
-    if (!normalizedSlug) {
-      setTemplateError("Template slug cannot be empty");
-      return;
-    }
-
-    setIsSavingTemplate(true);
-    try {
-      await templateAdmin.createMutation.mutateAsync({
-        slug: normalizedSlug,
-        name: trimmedName,
-        description: templateDescription.trim() || null,
-        is_active: templateIsActive,
-        biomarkers: selection.selected.map((entry) => ({
-          code: entry.code,
-          display_name: entry.name,
-          notes: null,
-        })),
-      });
-      setTemplateError(null);
-      setIsTemplateModalOpen(false);
-      setTemplateSlugTouched(false);
-    } catch (error) {
-      setTemplateError(extractErrorMessage(error));
-    } finally {
-      setIsSavingTemplate(false);
-    }
-  };
+  // Handle list selection from menu
+  const handleLoadFromMenu = useCallback(
+    (list: { biomarkers: { code: string; display_name: string }[] }) => {
+      selection.handleLoadList(list as Parameters<typeof selection.handleLoadList>[0]);
+      labOptimization.resetLabChoice();
+    },
+    [selection, labOptimization],
+  );
 
   const heroStats = [
     {
@@ -339,25 +164,25 @@ export default function Home() {
             </span>
             <button
               type="button"
-              onClick={() => void handleLogout()}
+              onClick={() => void authModal.handleLogout()}
               className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-red-500 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={auth.logoutMutation.isPending}
+              disabled={authModal.isLoggingOut}
             >
-              {auth.logoutMutation.isPending ? "Signing out…" : "Sign out"}
+              {authModal.isLoggingOut ? "Signing out…" : "Sign out"}
             </button>
           </>
         ) : (
           <>
             <button
               type="button"
-              onClick={() => openAuthModal("login")}
+              onClick={() => authModal.open("login")}
               className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
             >
               Sign in
             </button>
             <button
               type="button"
-              onClick={() => openAuthModal("register")}
+              onClick={() => authModal.open("register")}
               className="rounded-full border border-emerald-500/60 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
             >
               Register
@@ -367,50 +192,43 @@ export default function Home() {
       </div>
 
       <AuthModal
-        open={isAuthOpen}
-        mode={authMode}
-        onModeChange={(mode) => setAuthMode(mode)}
-        onClose={closeAuthModal}
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-        isLoggingIn={auth.loginMutation.isPending}
-        isRegistering={auth.registerMutation.isPending}
-        error={authError}
+        open={authModal.isOpen}
+        mode={authModal.mode}
+        onModeChange={authModal.setMode}
+        onClose={authModal.close}
+        onLogin={authModal.handleLogin}
+        onRegister={authModal.handleRegister}
+        isLoggingIn={authModal.isLoggingIn}
+        isRegistering={authModal.isRegistering}
+        error={authModal.error}
       />
 
       <SaveListModal
-        open={isSaveModalOpen}
-        name={saveName}
-        error={saveError}
-        isSaving={isSavingList}
-        onNameChange={setSaveName}
-        onClose={() => {
-          setIsSaveModalOpen(false);
-          setSaveError(null);
-        }}
-        onConfirm={handleSaveConfirm}
+        open={saveListModal.isOpen}
+        name={saveListModal.name}
+        error={saveListModal.error}
+        isSaving={saveListModal.isSaving}
+        onNameChange={saveListModal.setName}
+        onClose={saveListModal.close}
+        onConfirm={saveListModal.handleConfirm}
       />
 
       <TemplateModal
-        open={isTemplateModalOpen}
+        open={templateModal.isOpen}
         title="Publish curated template"
-        submitLabel={isSavingTemplate ? "Saving…" : "Save template"}
-        name={templateName}
-        slug={templateSlug}
-        description={templateDescription}
-        isActive={templateIsActive}
-        error={templateError}
-        isSubmitting={isSavingTemplate}
-        onNameChange={handleTemplateNameChange}
-        onSlugChange={handleTemplateSlugChange}
-        onDescriptionChange={setTemplateDescription}
-        onIsActiveChange={setTemplateIsActive}
-        onClose={() => {
-          setIsTemplateModalOpen(false);
-          setTemplateError(null);
-          setTemplateSlugTouched(false);
-        }}
-        onConfirm={handleTemplateConfirm}
+        submitLabel={templateModal.isSaving ? "Saving…" : "Save template"}
+        name={templateModal.name}
+        slug={templateModal.slug}
+        description={templateModal.description}
+        isActive={templateModal.isActive}
+        error={templateModal.error}
+        isSubmitting={templateModal.isSaving}
+        onNameChange={templateModal.setName}
+        onSlugChange={templateModal.setSlug}
+        onDescriptionChange={templateModal.setDescription}
+        onIsActiveChange={templateModal.setIsActive}
+        onClose={templateModal.close}
+        onConfirm={templateModal.handleConfirm}
       />
 
       <section className="relative isolate overflow-hidden bg-gradient-to-br from-blue-900 via-slate-900 to-slate-950">
@@ -422,12 +240,15 @@ export default function Home() {
           }}
         />
         <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-6 py-16">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-200">Panelyt</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-200">
+            Panelyt
+          </p>
           <h1 className="text-4xl font-semibold leading-tight text-white md:text-5xl">
             Optimize biomarkers testing
           </h1>
           <p className="max-w-2xl text-sm leading-relaxed text-slate-200 md:text-base">
-            Panelyt optimizes biomarker selection for testing. It finds the best prices and combines tests into packages.
+            Panelyt optimizes biomarker selection for testing. It finds the best
+            prices and combines tests into packages.
           </p>
         </div>
       </section>
@@ -436,7 +257,9 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6">
           <div className="grid gap-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-900/30">
-              <h2 className="text-lg font-semibold text-white">Build your biomarker set</h2>
+              <h2 className="text-lg font-semibold text-white">
+                Build your biomarker set
+              </h2>
               <div className="mt-6 flex flex-col gap-4">
                 <SearchBox
                   onSelect={selection.handleSelect}
@@ -452,60 +275,33 @@ export default function Home() {
                 {selection.notice && (
                   <p
                     className={`text-sm ${
-                      selection.notice.tone === "success" ? "text-emerald-300" : "text-slate-300"
+                      selection.notice.tone === "success"
+                        ? "text-emerald-300"
+                        : "text-slate-300"
                     }`}
                   >
                     {selection.notice.message}
                   </p>
                 )}
-                {selection.error && <p className="text-sm text-red-300">{selection.error}</p>}
+                {selection.error && (
+                  <p className="text-sm text-red-300">{selection.error}</p>
+                )}
                 <div className="ml-auto flex items-center gap-2">
-                  <div className="relative" ref={loadMenuRef}>
-                    <button
-                      type="button"
-                      onClick={() => setIsLoadMenuOpen((open) => !open)}
-                      className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-                    >
-                      Load
-                    </button>
-                    {isLoadMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-800 bg-slate-900/95 p-3 shadow-xl shadow-slate-900/50">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Saved lists</p>
-                        {savedLists.listsQuery.isFetching && (
-                          <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-300">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            Loading…
-                          </div>
-                        )}
-                        {!savedLists.listsQuery.isFetching && savedListsData.length === 0 && (
-                          <p className="mt-3 text-xs text-slate-400">No saved lists yet.</p>
-                        )}
-                        <div className="mt-3 space-y-2">
-                          {savedListsData.map((list) => (
-                            <button
-                              key={list.id}
-                              type="button"
-                              onClick={() => handleLoadFromMenu(list)}
-                              className="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-left text-xs text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-                            >
-                              <span className="font-semibold">{list.name}</span>
-                              <span className="text-[11px] text-slate-400">
-                                {list.biomarkers.length} biomarker{list.biomarkers.length === 1 ? "" : "s"}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <LoadMenu
+                    lists={savedListsData}
+                    isLoading={savedLists.listsQuery.isFetching}
+                    onSelect={handleLoadFromMenu}
+                  />
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setSaveName(selection.selected.length ? `List ${new Date().toLocaleDateString()}` : "");
-                      setSaveError(null);
-                      setIsSaveModalOpen(true);
-                    }}
+                    onClick={() =>
+                      saveListModal.open(
+                        selection.selected.length
+                          ? `List ${new Date().toLocaleDateString()}`
+                          : "",
+                      )
+                    }
                     className="rounded-full border border-emerald-500/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                   >
                     Save
@@ -513,7 +309,7 @@ export default function Home() {
                   {isAdmin && (
                     <button
                       type="button"
-                      onClick={openTemplateModal}
+                      onClick={templateModal.open}
                       className="rounded-full border border-sky-500/60 px-3 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20"
                     >
                       Save as template
@@ -557,12 +353,16 @@ export default function Home() {
                   </span>
                   {stat.label}
                 </div>
-                <p className="mt-3 text-lg font-semibold text-white">{stat.value}</p>
+                <p className="mt-3 text-lg font-semibold text-white">
+                  {stat.value}
+                </p>
                 <p className="text-xs text-slate-300">{stat.hint}</p>
               </div>
             ))}
           </div>
-          <p className="text-xs text-slate-500">Panelyt • Pricing intelligence for diagnostic panels</p>
+          <p className="text-xs text-slate-500">
+            Panelyt • Pricing intelligence for diagnostic panels
+          </p>
         </div>
       </footer>
     </main>
