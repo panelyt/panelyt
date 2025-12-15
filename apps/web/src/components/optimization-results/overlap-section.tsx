@@ -1,3 +1,8 @@
+"use client";
+
+import { useState } from "react";
+import { ChevronDown, ChevronUp, Layers } from "lucide-react";
+
 import type { OptimizationViewModel } from "./view-model";
 
 interface OverlapSectionProps {
@@ -6,6 +11,7 @@ interface OverlapSectionProps {
 
 export function OverlapSection({ viewModel }: OverlapSectionProps) {
   const { overlaps, isDark } = viewModel;
+  const [isExpanded, setIsExpanded] = useState(false); // Collapsed by default
 
   if (overlaps.length === 0) {
     return null;
@@ -17,22 +23,56 @@ export function OverlapSection({ viewModel }: OverlapSectionProps) {
         isDark ? "border-amber-400/40 bg-amber-500/10" : "border-amber-200 bg-amber-50"
       }`}
     >
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3
-            className={`text-sm font-semibold uppercase tracking-wide ${
-              isDark ? "text-amber-200" : "text-amber-700"
-            }`}
-          >
-            Package overlaps
-          </h3>
-          <p className={`text-xs ${isDark ? "text-amber-100/80" : "text-amber-700/80"}`}>
-            These biomarkers appear in multiple packages. Consider staggering them to avoid redundant
-            testing.
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-2"
+      >
+        <div className="flex flex-col gap-1 text-left sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex items-center gap-2">
+            <Layers className={`h-4 w-4 ${isDark ? "text-amber-200" : "text-amber-600"}`} />
+            <h3
+              className={`text-sm font-semibold ${
+                isDark ? "text-amber-200" : "text-amber-700"
+              }`}
+            >
+              Package overlaps
+            </h3>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                isDark ? "bg-amber-500/20 text-amber-200" : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {overlaps.length}
+            </span>
+          </div>
+          <p className={`text-xs ${isDark ? "text-amber-100/70" : "text-amber-600/70"}`}>
+            {isExpanded
+              ? "Biomarkers appearing in multiple packages"
+              : "Click to see biomarkers in multiple packages"}
           </p>
         </div>
-      </div>
-      <ul className="mt-4 space-y-3">
+        <span
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+            isDark
+              ? "bg-amber-500/20 text-amber-200"
+              : "bg-amber-100 text-amber-600"
+          }`}
+        >
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </span>
+      </button>
+
+      <div
+        className={`overflow-hidden transition-all duration-300 ${
+          isExpanded ? "mt-4 max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        <ul className="space-y-3">
         {overlaps.map((entry) => (
           <li
             key={entry.code}
@@ -78,7 +118,8 @@ export function OverlapSection({ viewModel }: OverlapSectionProps) {
             </div>
           </li>
         ))}
-      </ul>
+        </ul>
+      </div>
     </div>
   );
 }

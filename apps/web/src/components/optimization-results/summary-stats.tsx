@@ -1,7 +1,8 @@
-import { ArrowDownRight, Boxes, Layers3 } from "lucide-react";
+import { Gift, PiggyBank } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { OptimizationViewModel } from "./view-model";
+import { PriceRangeSparkline } from "./price-range-sparkline";
 
 interface SummaryStat {
   label: string;
@@ -10,6 +11,8 @@ interface SummaryStat {
   icon: ReactNode;
   accentLight: string;
   accentDark: string;
+  /** Optional: use success styling when condition is positive */
+  isPositive?: boolean;
 }
 
 interface SummaryStatsGridProps {
@@ -17,11 +20,11 @@ interface SummaryStatsGridProps {
 }
 
 export function SummaryStatsGrid({ viewModel }: SummaryStatsGridProps) {
-  const { isDark } = viewModel;
+  const { isDark, totalNowGrosz, totalMin30Grosz } = viewModel;
   const summaryStats = buildSummaryStats(viewModel);
 
   return (
-    <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-3">
       {summaryStats.map((stat) => (
         <div
           key={stat.label}
@@ -63,41 +66,61 @@ export function SummaryStatsGrid({ viewModel }: SummaryStatsGridProps) {
           </div>
         </div>
       ))}
+
+      {/* Price Range Sparkline Card */}
+      <div
+        className={`flex h-full flex-col rounded-2xl border px-4 py-5 shadow-sm ${
+          isDark
+            ? "border-slate-800 bg-slate-950/60 text-slate-100 shadow-black/20"
+            : "border-slate-100 bg-slate-50 text-slate-900"
+        }`}
+      >
+        <PriceRangeSparkline
+          currentPrice={totalNowGrosz}
+          minPrice={totalMin30Grosz}
+          isDark={isDark}
+        />
+      </div>
     </div>
   );
 }
 
 function buildSummaryStats(viewModel: OptimizationViewModel): SummaryStat[] {
-  const { pricing, counts } = viewModel;
+  const { pricing, bonusPricing, bonusBiomarkers } = viewModel;
+
+  const atFloor = !pricing.highlightSavings;
+  const hasBonus = bonusBiomarkers.length > 0;
 
   return [
     {
-      label: "30-day minimum",
-      value: pricing.totalMin30Label,
-      hint: "Lowest basket seen this month",
-      icon: <Layers3 className="h-4 w-4" />,
-      accentLight: "bg-indigo-500/10 text-indigo-500",
-      accentDark: "bg-indigo-500/20 text-indigo-200",
-    },
-    {
-      label: pricing.highlightSavings ? "Potential savings" : "Locked price",
-      value: pricing.highlightSavings ? pricing.potentialSavingsLabel : "At the floor",
-      hint: pricing.highlightSavings ? "Seen within the last 30 days" : "Matches historic low",
-      icon: <ArrowDownRight className="h-4 w-4" />,
-      accentLight: pricing.highlightSavings
-        ? "bg-emerald-500/10 text-emerald-500"
-        : "bg-slate-500/10 text-slate-500",
-      accentDark: pricing.highlightSavings
+      label: "Potential savings",
+      value: atFloor ? "—" : pricing.potentialSavingsLabel,
+      hint: atFloor
+        ? "You're at the best price"
+        : "Current premium over 30-day floor",
+      icon: <PiggyBank className="h-4 w-4" />,
+      accentLight: atFloor
+        ? "bg-emerald-500/10 text-emerald-600"
+        : "bg-amber-500/10 text-amber-600",
+      accentDark: atFloor
         ? "bg-emerald-500/20 text-emerald-200"
-        : "bg-slate-500/20 text-slate-300",
+        : "bg-amber-500/20 text-amber-200",
+      isPositive: atFloor,
     },
     {
-      label: "Items in basket",
-      value: `${counts.items}`,
-      hint: `${counts.packages} packages · ${counts.singles} singles`,
-      icon: <Boxes className="h-4 w-4" />,
-      accentLight: "bg-violet-500/10 text-violet-500",
-      accentDark: "bg-violet-500/20 text-violet-200",
+      label: "Bonus value",
+      value: hasBonus ? bonusPricing.totalNowLabel : "—",
+      hint: hasBonus
+        ? `${bonusBiomarkers.length} extra biomarker${bonusBiomarkers.length === 1 ? "" : "s"} included`
+        : "No extra biomarkers in basket",
+      icon: <Gift className="h-4 w-4" />,
+      accentLight: hasBonus
+        ? "bg-violet-500/10 text-violet-600"
+        : "bg-slate-500/10 text-slate-500",
+      accentDark: hasBonus
+        ? "bg-violet-500/20 text-violet-200"
+        : "bg-slate-500/20 text-slate-400",
+      isPositive: hasBonus,
     },
   ];
 }
