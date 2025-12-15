@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from cachetools import TTLCache
@@ -141,11 +141,11 @@ class FreshnessCache:
     def should_check(self) -> bool:
         if self._last_check is None:
             return True
-        elapsed = datetime.now() - self._last_check
+        elapsed = datetime.now(UTC) - self._last_check
         return elapsed > timedelta(seconds=self._ttl_seconds)
 
     def mark_checked(self) -> None:
-        self._last_check = datetime.now()
+        self._last_check = datetime.now(UTC)
 
     def clear(self) -> None:
         self._last_check = None
@@ -170,11 +170,11 @@ class UserActivityDebouncer:
     def should_record(self) -> bool:
         if self._last_record is None:
             return True
-        elapsed = datetime.now() - self._last_record
+        elapsed = datetime.now(UTC) - self._last_record
         return elapsed > timedelta(seconds=self._debounce_seconds)
 
     def mark_recorded(self) -> None:
-        self._last_record = datetime.now()
+        self._last_record = datetime.now(UTC)
 
     def clear(self) -> None:
         self._last_record = None
@@ -213,8 +213,8 @@ def _get_cache_settings() -> dict[str, int]:
             "freshness_ttl": s.cache_freshness_ttl,
             "user_activity_debounce": s.cache_user_activity_debounce,
         }
-    except Exception:
-        # Fallback defaults if settings can't be loaded (e.g., during testing)
+    except Exception as e:
+        logger.warning("Failed to load cache settings, using defaults: %s", e)
         return {
             "catalog_meta_ttl": 300,
             "optimization_ttl": 3600,
