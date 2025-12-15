@@ -9,6 +9,31 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * Extracts a user-friendly error message from an error object.
+ * Handles HttpError with JSON body containing `detail` field,
+ * standard Error objects, and unknown error types.
+ */
+export function extractErrorMessage(error: unknown): string {
+  if (error instanceof HttpError) {
+    if (error.body) {
+      try {
+        const parsed = JSON.parse(error.body);
+        if (typeof parsed.detail === "string") {
+          return parsed.detail;
+        }
+      } catch {
+        // ignore parse failures
+      }
+    }
+    return error.message;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Something went wrong";
+}
+
 async function parseResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) {
     return undefined as T;
