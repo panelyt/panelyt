@@ -1,8 +1,9 @@
-import { Sparkles } from "lucide-react";
+import { Receipt, Sparkles } from "lucide-react";
 
 import { formatGroszToPln } from "../../lib/format";
 
 import type { OptimizationViewModel } from "./view-model";
+import { CollapsibleCard, CountBadge } from "./collapsible-section";
 
 interface PriceBreakdownSectionProps {
   viewModel: OptimizationViewModel;
@@ -17,27 +18,19 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
     displayNameFor,
     totalNowGrosz,
     totalMin30Grosz,
+    counts,
   } = viewModel;
 
   return (
-    <section
-      className={`rounded-3xl border p-6 shadow-xl ${
-        isDark ? "border-slate-800 bg-slate-900/80 shadow-black/30" : "border-slate-200 bg-white"
-      }`}
+    <CollapsibleCard
+      title="Price breakdown"
+      subtitle="Each bar shows the current price against the best price observed in the last month."
+      icon={<Receipt className="h-5 w-5" />}
+      defaultExpanded={true}
+      isDark={isDark}
+      badge={<CountBadge count={counts.items} label="items" isDark={isDark} />}
     >
-      <div className="flex flex-col gap-1">
-        <h3
-          className={`text-lg font-semibold ${
-            isDark ? "text-white" : "text-slate-900"
-          }`}
-        >
-          Price breakdown
-        </h3>
-        <p className={`text-sm ${isDark ? "text-slate-300" : "text-slate-500"}`}>
-          Each bar shows the current price against the best price observed in the last month.
-        </p>
-      </div>
-      <div className="mt-6 space-y-6">
+      <div className="space-y-6">
         {groups.map((group) => (
           <div key={group.kind} className="space-y-3">
             <div
@@ -154,7 +147,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
           </div>
         ))}
       </div>
-    </section>
+    </CollapsibleCard>
   );
 }
 
