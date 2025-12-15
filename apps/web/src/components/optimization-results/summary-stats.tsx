@@ -2,6 +2,7 @@ import { ArrowDownRight, Boxes, Layers3 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { OptimizationViewModel } from "./view-model";
+import { PriceRangeSparkline } from "./price-range-sparkline";
 
 interface SummaryStat {
   label: string;
@@ -17,11 +18,11 @@ interface SummaryStatsGridProps {
 }
 
 export function SummaryStatsGrid({ viewModel }: SummaryStatsGridProps) {
-  const { isDark } = viewModel;
+  const { isDark, totalNowGrosz, totalMin30Grosz } = viewModel;
   const summaryStats = buildSummaryStats(viewModel);
 
   return (
-    <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
       {summaryStats.map((stat) => (
         <div
           key={stat.label}
@@ -63,6 +64,21 @@ export function SummaryStatsGrid({ viewModel }: SummaryStatsGridProps) {
           </div>
         </div>
       ))}
+
+      {/* Price Range Sparkline Card */}
+      <div
+        className={`flex h-full flex-col rounded-2xl border px-4 py-5 shadow-sm ${
+          isDark
+            ? "border-slate-800 bg-slate-950/60 text-slate-100 shadow-black/20"
+            : "border-slate-100 bg-slate-50 text-slate-900"
+        }`}
+      >
+        <PriceRangeSparkline
+          currentPrice={totalNowGrosz}
+          minPrice={totalMin30Grosz}
+          isDark={isDark}
+        />
+      </div>
     </div>
   );
 }
