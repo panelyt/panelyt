@@ -6,14 +6,22 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.core.settings import Settings
 from panelyt_api.ingest.client import DiagClient, _normalize_identifier, _pln_to_grosz
 from panelyt_api.ingest.service import IngestionService
 from panelyt_api.ingest.types import LabIngestionResult, RawLabBiomarker, RawLabItem
+from panelyt_api.schemas.common import CatalogMeta
 from panelyt_api.matching.config import MatchingConfig
 
 
 class TestIngestionService:
+    @pytest.fixture(autouse=True)
+    def reset_caches(self):
+        clear_all_caches()
+        yield
+        clear_all_caches()
+
     @pytest.fixture
     def ingestion_service(self, test_settings):
         return IngestionService(test_settings)
@@ -44,7 +52,7 @@ class TestIngestionService:
 
         mock_repo = AsyncMock()
         mock_repo.latest_fetched_at.return_value = datetime.now(UTC)
-        mock_repo.latest_snapshot_date.return_value = datetime.now().date()
+        mock_repo.latest_snapshot_date.return_value = datetime.now(UTC).date()
         mock_repo_class.return_value = mock_repo
 
         with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
@@ -182,6 +190,55 @@ class TestIngestionService:
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.IngestionRepository")
+    async def test_run_clears_catalog_cache_after_ingestion(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        """Catalog meta cache should be cleared so post-ingestion requests see fresh data."""
+        from panelyt_api.core.cache import catalog_meta_cache, clear_all_caches
+
+        clear_all_caches()
+        cached_meta = CatalogMeta(
+            item_count=1,
+            biomarker_count=1,
+            latest_fetched_at=datetime.now(UTC),
+            snapshot_days_covered=1,
+            percent_with_today_snapshot=100.0,
+        )
+        catalog_meta_cache.set(cached_meta)
+        assert catalog_meta_cache.get() is not None
+
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo.stage_lab_items.return_value = MagicMock()
+        mock_repo.synchronize_catalog.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        lab_result = LabIngestionResult(
+            lab_code="diag",
+            fetched_at=datetime.now(UTC),
+            items=[],
+            raw_payload={"sample": "payload"},
+        )
+
+        with patch.object(
+            ingestion_service, "_fetch_all_labs", new_callable=AsyncMock
+        ) as mock_fetch:
+            mock_fetch.return_value = [lab_result]
+            await ingestion_service.run(reason="test-cache-clear")
+
+        assert catalog_meta_cache.get() is None
+        clear_all_caches()
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.IngestionRepository")
     async def test_run_failed_ingestion(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -273,7 +330,7 @@ class TestIngestionService:
         # Simulate inactive users (last activity > window)
         old_activity = datetime.now(UTC) - timedelta(hours=25)
         mock_repo.last_user_activity.return_value = old_activity
-        mock_repo.latest_snapshot_date.return_value = datetime.now().date()
+        mock_repo.latest_snapshot_date.return_value = datetime.now(UTC).date()
         mock_repo_class.return_value = mock_repo
 
         result = await ingestion_service._should_skip_scheduled_run()
@@ -352,6 +409,81 @@ class TestIngestionService:
         finally:
             ingestion_service.__class__._scheduled_task = None
 
+
+class TestIngestionCacheClearing:
+    @pytest.fixture(autouse=True)
+    def reset_caches(self):
+        clear_all_caches()
+        yield
+        clear_all_caches()
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.IngestionRepository")
+    async def test_run_clears_caches_after_successful_ingestion(
+        self, mock_repo_class, mock_get_session, test_settings
+    ):
+        """Successful ingestion should clear all performance caches."""
+        from panelyt_api.core.cache import catalog_meta_cache, optimization_cache
+        from panelyt_api.ingest.service import IngestionService
+
+        catalog_meta_cache.set({"item_count": 999})
+        optimization_cache.set("test_key", {"total": 123})
+
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo.stage_lab_items.return_value = MagicMock()
+        mock_repo.synchronize_catalog.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        service = IngestionService(test_settings)
+
+        with patch.object(service, "_fetch_all_labs", new_callable=AsyncMock) as mock_fetch, patch.object(
+            service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ):
+            mock_fetch.return_value = []
+            await service.run(reason="test")
+
+        assert catalog_meta_cache.get() is None
+        assert optimization_cache.get("test_key") is None
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.IngestionRepository")
+    async def test_run_does_not_clear_caches_on_failure(
+        self, mock_repo_class, mock_get_session, test_settings
+    ):
+        """Failed ingestion should not clear caches so existing data remains available."""
+        from panelyt_api.core.cache import catalog_meta_cache, optimization_cache
+        from panelyt_api.ingest.service import IngestionService
+
+        catalog_meta_cache.set({"item_count": 999})
+        optimization_cache.set("test_key", {"total": 123})
+
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        service = IngestionService(test_settings)
+
+        with patch.object(service, "_fetch_all_labs", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.side_effect = RuntimeError("boom")
+            with pytest.raises(RuntimeError, match="boom"):
+                await service.run(reason="test-failure")
+
+        assert catalog_meta_cache.get() == {"item_count": 999}
+        assert optimization_cache.get("test_key") == {"total": 123}
 
 class TestDiagClient:
     @pytest.fixture

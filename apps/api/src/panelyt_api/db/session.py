@@ -31,7 +31,23 @@ def init_engine() -> AsyncEngine:
     if _engine is None:
         settings = get_settings()
         async_url = _to_async_url(settings.database_url)
-        _engine = create_async_engine(async_url, pool_pre_ping=True, future=True)
+
+        # Configure connection pool for production workloads (PostgreSQL only)
+        pool_kwargs: dict[str, int] = {}
+        if "postgresql" in async_url:
+            pool_kwargs = {
+                "pool_size": settings.db_pool_size,
+                "max_overflow": settings.db_pool_max_overflow,
+                "pool_recycle": settings.db_pool_recycle,
+                "pool_timeout": settings.db_pool_timeout,
+            }
+
+        _engine = create_async_engine(
+            async_url,
+            pool_pre_ping=True,
+            future=True,
+            **pool_kwargs,
+        )
         _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
 

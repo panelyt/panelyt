@@ -11,6 +11,15 @@ from sqlalchemy import insert, select
 from panelyt_api.db import models
 
 
+@pytest.fixture(autouse=True)
+def clear_user_activity_debouncer():
+    from panelyt_api.core.cache import user_activity_debouncer
+
+    user_activity_debouncer.clear()
+    yield
+    user_activity_debouncer.clear()
+
+
 @pytest.fixture
 def activity_spy(monkeypatch) -> AsyncMock:
     spy = AsyncMock(return_value=None)

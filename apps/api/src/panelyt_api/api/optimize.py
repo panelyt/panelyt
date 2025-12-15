@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter
 
 from panelyt_api.api.deps import SessionDep
+from panelyt_api.core.cache import record_user_activity_debounced
 from panelyt_api.core.settings import get_settings
 from panelyt_api.ingest.repository import IngestionRepository
 from panelyt_api.ingest.service import IngestionService
@@ -25,11 +26,11 @@ async def optimize(
     session: SessionDep,
 ) -> OptimizeResponse:
     repo = IngestionRepository(session)
-    await repo.record_user_activity(datetime.now(UTC))
+    await record_user_activity_debounced(repo, datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
     await ingestion_service.ensure_fresh_data()
     optimizer = OptimizationService(session)
-    return await optimizer.solve(payload)
+    return await optimizer.solve_cached(payload)
 
 
 @router.post("/optimize/addons", response_model=AddonSuggestionsResponse)

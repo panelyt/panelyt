@@ -36,6 +36,19 @@ class Settings(BaseSettings):
         alias="TELEGRAM_LINK_TOKEN_TTL_MINUTES",
     )
 
+    # Cache TTL settings (seconds)
+    cache_catalog_meta_ttl: int = Field(default=300, alias="CACHE_CATALOG_META_TTL")
+    cache_optimization_ttl: int = Field(default=3600, alias="CACHE_OPTIMIZATION_TTL")
+    cache_optimization_maxsize: int = Field(default=1000, alias="CACHE_OPTIMIZATION_MAXSIZE")
+    cache_freshness_ttl: int = Field(default=300, alias="CACHE_FRESHNESS_TTL")
+    cache_user_activity_debounce: int = Field(default=60, alias="CACHE_USER_ACTIVITY_DEBOUNCE")
+
+    # Database pool settings (PostgreSQL only)
+    db_pool_size: int = Field(default=10, alias="DB_POOL_SIZE")
+    db_pool_max_overflow: int = Field(default=20, alias="DB_POOL_MAX_OVERFLOW")
+    db_pool_recycle: int = Field(default=3600, alias="DB_POOL_RECYCLE")
+    db_pool_timeout: int = Field(default=30, alias="DB_POOL_TIMEOUT")
+
     @field_validator("cors_origins_raw", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: str | list[str]) -> list[str]:
