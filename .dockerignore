@@ -1,0 +1,26 @@
+# VCS and OS noise
+.git
+.gitignore
+.DS_Store
+
+# Dependency directories
+node_modules
+**/node_modules
+.pnpm-store
+.pnpm
+
+# Build outputs
+**/.next
+**/dist
+**/out
+**/coverage
+**/*.tsbuildinfo
+**/.turbo
+**/.cache
+
+# Virtual environments
+**/.venv
+
+# Environment files
+.env
+.env.*
