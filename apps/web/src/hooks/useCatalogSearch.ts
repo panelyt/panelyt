@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   CatalogSearchResponseSchema,
   type CatalogSearchResponse,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { getParsedJson } from "../lib/http";
 

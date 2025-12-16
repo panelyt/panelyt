@@ -47,8 +47,8 @@ services:
 
   web:
     build:
-      context: ..
-      dockerfile: apps/web/Dockerfile
+      context: ../apps/web
+      dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${PANELYT_PUBLIC_API_URL:-http://localhost:${PANELYT_API_PORT:-8002}}
     environment:

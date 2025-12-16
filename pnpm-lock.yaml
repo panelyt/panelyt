@@ -10,9 +10,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@panelyt/types':
-        specifier: workspace:*
-        version: link:../../packages/types
       '@tanstack/react-query':
         specifier: ^5.89.0
         version: 5.90.12(react@19.2.3)

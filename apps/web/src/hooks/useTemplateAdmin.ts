@@ -6,7 +6,7 @@ import {
   BiomarkerListTemplateUpsertSchema,
   type BiomarkerListTemplate,
   type BiomarkerListTemplateUpsert,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { deleteRequest, postJson, putJson } from "../lib/http";
 

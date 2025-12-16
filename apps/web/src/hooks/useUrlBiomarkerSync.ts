@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BiomarkerSearchResponseSchema } from "@panelyt/types";
+import { BiomarkerSearchResponseSchema } from "@/lib/types";
 
 import { getJson } from "../lib/http";
 

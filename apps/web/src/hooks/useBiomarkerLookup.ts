@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { BiomarkerSearchResponseSchema } from "@panelyt/types";
+import { BiomarkerSearchResponseSchema } from "@/lib/types";
 
 import { getJson } from "../lib/http";
 

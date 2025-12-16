@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CatalogMetaSchema, type CatalogMeta } from "@panelyt/types";
+import { CatalogMetaSchema, type CatalogMeta } from "@/lib/types";
 
 import { getParsedJson } from "../lib/http";
 

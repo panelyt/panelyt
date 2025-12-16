@@ -15,7 +15,7 @@ import {
   type SavedListUpsert,
   type SavedListNotificationResponse,
   type SavedListNotificationsBulkResponse,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { deleteRequest, getParsedJson, postParsedJson, putParsedJson } from "../lib/http";
 

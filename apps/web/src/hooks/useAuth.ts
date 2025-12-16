@@ -6,7 +6,7 @@ import {
   SessionResponseSchema,
   type Credentials,
   type SessionResponse,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { postJson, postParsedJson } from "../lib/http";
 

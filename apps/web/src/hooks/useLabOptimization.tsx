@@ -14,7 +14,7 @@ import {
   type LabAvailability,
   type OptimizeResponse,
   type AddonSuggestionsResponse,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { useOptimization, useAddonSuggestions } from "./useOptimization";
 import { postJson } from "../lib/http";

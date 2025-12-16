@@ -1,4 +1,4 @@
-import type { OptimizeResponse } from "@panelyt/types";
+import type { OptimizeResponse } from "@/lib/types";
 
 import { formatCurrency } from "../../lib/format";
 

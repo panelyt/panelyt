@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   BiomarkerListTemplateSchema,
   type SavedList,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { getJson, extractErrorMessage } from "../lib/http";
 

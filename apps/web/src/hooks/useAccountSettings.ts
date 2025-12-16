@@ -6,7 +6,7 @@ import {
   TelegramLinkTokenResponseSchema,
   type AccountSettings,
   type TelegramLinkTokenResponse,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { getParsedJson, postParsedJson, postJson } from "../lib/http";
 

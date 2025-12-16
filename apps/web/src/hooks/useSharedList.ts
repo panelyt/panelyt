@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { SavedListSchema, type SavedList } from "@panelyt/types";
+import { SavedListSchema, type SavedList } from "@/lib/types";
 
 import { getParsedJson } from "../lib/http";
 

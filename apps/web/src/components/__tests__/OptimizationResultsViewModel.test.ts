@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { OptimizeResponse } from '@panelyt/types'
+import type { OptimizeResponse } from '@/lib/types'
 
 import { buildOptimizationViewModel } from '../optimization-results/view-model'
 import { formatCurrency } from '../../lib/format'

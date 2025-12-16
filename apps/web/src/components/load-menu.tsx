@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import type { SavedList } from "@panelyt/types";
+import type { SavedList } from "@/lib/types";
 
 export interface LoadMenuProps {
   lists: SavedList[];

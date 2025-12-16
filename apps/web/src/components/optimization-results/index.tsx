@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { OptimizeResponse } from "@panelyt/types";
+import type { OptimizeResponse } from "@/lib/types";
 import { CircleAlert, Loader2 } from "lucide-react";
 
 import { useBiomarkerLookup } from "../../hooks/useBiomarkerLookup";

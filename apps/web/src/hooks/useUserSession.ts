@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { SessionResponseSchema, type SessionResponse } from "@panelyt/types";
+import { SessionResponseSchema, type SessionResponse } from "@/lib/types";
 
 import { HttpError, postParsedJson } from "../lib/http";
 

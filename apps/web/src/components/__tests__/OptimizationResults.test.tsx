@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
-import type { OptimizeResponse } from '@panelyt/types'
+import type { OptimizeResponse } from '@/lib/types'
 import type { ReactNode } from 'react'
 import { renderWithQueryClient } from '../../test/utils'
 

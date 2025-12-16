@@ -13,7 +13,6 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@panelyt/types": "workspace:*",
     "@tanstack/react-query": "^5.89.0",
     "axios": "^1.12.2",
     "clsx": "^2.1.1",

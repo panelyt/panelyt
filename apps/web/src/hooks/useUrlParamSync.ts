@@ -6,7 +6,7 @@ import {
   BiomarkerListTemplateSchema,
   SavedListSchema,
   type SavedList,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { getJson, extractErrorMessage } from "../lib/http";
 

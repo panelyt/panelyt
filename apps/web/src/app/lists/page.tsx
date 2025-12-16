@@ -12,14 +12,14 @@ import {
   Trash2,
   Link as LinkIcon,
 } from "lucide-react";
-import type { SavedList } from "@panelyt/types";
+import type { SavedList } from "@/lib/types";
 
 import { Header } from "../../components/header";
 import { useSavedLists } from "../../hooks/useSavedLists";
 import { useUserSession } from "../../hooks/useUserSession";
 import { useAccountSettings } from "../../hooks/useAccountSettings";
 import { postJson } from "../../lib/http";
-import { OptimizeResponseSchema } from "@panelyt/types";
+import { OptimizeResponseSchema } from "@/lib/types";
 
 interface ListWithTotals {
   list: SavedList;

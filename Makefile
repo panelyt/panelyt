@@ -18,7 +18,7 @@ install-bot: ## Install Telegram bot dependencies
 	cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev
 
 dev-web: ## Start web frontend development server
-	cd apps/web && corepack enable && pnpm --filter @panelyt/types build && pnpm dev
+	cd apps/web && corepack enable && pnpm dev
 
 dev-api: ## Start API backend development server
 	cd apps/api && $(UV_ENV) $(UV) run uvicorn panelyt_api.main:app --reload --host 0.0.0.0 --port 8000 --reload-dir src
@@ -73,33 +73,30 @@ test: ## Run all test suites
 	$(MAKE) test-web
 
 check: ## Run comprehensive code quality checks, tests, and linting for the entire project
-	@echo "🔍 Running comprehensive code quality checks..."
+	@echo "Running comprehensive code quality checks..."
 	@echo ""
-	@echo "📦 Building shared types..."
-	cd apps/web && pnpm --filter @panelyt/types build
-	@echo ""
-	@echo "🔧 API: Type checking..."
+	@echo "API: Type checking..."
 	$(MAKE) typecheck-api
 	@echo ""
-	@echo "🔧 API: Linting..."
+	@echo "API: Linting..."
 	$(MAKE) lint-api
 	@echo ""
-	@echo "🧪 API: Running tests..."
+	@echo "API: Running tests..."
 	$(MAKE) test-api
 	@echo ""
-	@echo "🤖 Bot: Type checking..."
+	@echo "Bot: Type checking..."
 	$(MAKE) typecheck-bot
 	@echo ""
-	@echo "🤖 Bot: Linting..."
+	@echo "Bot: Linting..."
 	$(MAKE) lint-bot
 	@echo ""
-	@echo "🌐 Web: Type checking..."
+	@echo "Web: Type checking..."
 	$(MAKE) typecheck-web
 	@echo ""
-	@echo "🌐 Web: Linting..."
+	@echo "Web: Linting..."
 	$(MAKE) lint-web
 	@echo ""
-	@echo "🌐 Web: Running tests..."
+	@echo "Web: Running tests..."
 	$(MAKE) test-web
 	@echo ""
-	@echo "✅ All checks completed successfully!"
+	@echo "All checks completed successfully!"

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search as SearchIcon } from "lucide-react";
-import { type CatalogSearchResult } from "@panelyt/types";
+import { type CatalogSearchResult } from "@/lib/types";
 
 import { useDebounce } from "../hooks/useDebounce";
 import { useCatalogSearch } from "../hooks/useCatalogSearch";

@@ -5,7 +5,7 @@ import {
   BiomarkerListTemplateCollectionSchema,
   BiomarkerListTemplateSchema,
   type BiomarkerListTemplate,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { getParsedJson } from "../lib/http";
 

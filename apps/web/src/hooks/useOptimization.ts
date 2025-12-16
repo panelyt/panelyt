@@ -8,7 +8,7 @@ import {
   type OptimizeResponse,
   AddonSuggestionsResponseSchema,
   type AddonSuggestionsResponse,
-} from "@panelyt/types";
+} from "@/lib/types";
 
 import { postParsedJson } from "../lib/http";
 
