@@ -6,12 +6,25 @@ const sampleLists = [
   {
     id: '1',
     name: 'Metabolic panel',
-    biomarkers: [{ code: 'ALT', display_name: 'Alanine aminotransferase' }],
+    biomarkers: [
+      {
+        id: 'entry-1',
+        code: 'ALT',
+        display_name: 'Alanine aminotransferase',
+        sort_order: 0,
+        biomarker_id: null,
+        created_at: '',
+      },
+    ],
     created_at: '',
     updated_at: '',
-    is_public: false,
     share_token: null,
-    owner_id: 'user-1',
+    shared_at: null,
+    notify_on_price_drop: false,
+    last_known_total_grosz: null,
+    last_total_updated_at: null,
+    last_notified_total_grosz: null,
+    last_notified_at: null,
   },
 ]
 

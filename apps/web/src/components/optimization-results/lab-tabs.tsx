@@ -161,7 +161,7 @@ function LabSegment({ card, isDark }: LabSegmentProps) {
                     : "border-slate-200 bg-white text-slate-600"
                 }`}
               >
-                +{card.bonus.count} bonus
+                +{card.bonus?.count} bonus
               </span>
             )}
           </>
