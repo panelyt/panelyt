@@ -34,6 +34,20 @@ export interface LabCard {
   icon: ReactNode;
   accentLight: string;
   accentDark: string;
+  /** Structured data for compact display */
+  savings?: {
+    amount: number;
+    label: string;
+  };
+  bonus?: {
+    count: number;
+    valueLabel?: string;
+  };
+  missing?: {
+    count: number;
+    tokens?: string[];
+  };
+  coversAll?: boolean;
 }
 
 export interface UseLabOptimizationResult {
@@ -308,6 +322,15 @@ export function useLabOptimization(
 
       const preset = getLabPreset(labShort);
 
+      // Compute savings
+      const totalNow = query.data?.total_now ?? 0;
+      const totalMin30 = query.data?.total_min30 ?? 0;
+      const savingsAmount = Math.max(totalNow - totalMin30, 0);
+      const savingsLabel = savingsAmount > 0 ? formatCurrency(savingsAmount) : "";
+
+      // Determine if lab covers all
+      const coversAll = option?.covers_all ?? (missingCount === 0);
+
       return {
         key: code || `lab-${index}`,
         title: labTitle,
@@ -322,6 +345,10 @@ export function useLabOptimization(
         icon: preset.icon,
         accentLight: preset.accentLight,
         accentDark: preset.accentDark,
+        savings: savingsAmount > 0 ? { amount: savingsAmount, label: savingsLabel } : undefined,
+        bonus: bonusCount > 0 ? { count: bonusCount, valueLabel: bonusValueLabel ?? undefined } : undefined,
+        missing: missingCount > 0 ? { count: missingCount, tokens: option?.missing_tokens } : undefined,
+        coversAll,
       };
     });
 
@@ -357,6 +384,12 @@ export function useLabOptimization(
           .filter(Boolean)
           .join(" · ");
 
+    // Compute savings for split
+    const splitTotalNow = splitResult?.total_now ?? 0;
+    const splitTotalMin30 = splitResult?.total_min30 ?? 0;
+    const splitSavingsAmount = Math.max(splitTotalNow - splitTotalMin30, 0);
+    const splitSavingsLabel = splitSavingsAmount > 0 ? formatCurrency(splitSavingsAmount) : "";
+
     cards.push({
       key: "all",
       title: "BOTH LABS",
@@ -371,6 +404,10 @@ export function useLabOptimization(
       icon: <Workflow className="h-4 w-4" />,
       accentLight: "bg-indigo-500/10 text-indigo-500",
       accentDark: "bg-indigo-500/20 text-indigo-200",
+      savings: splitSavingsAmount > 0 ? { amount: splitSavingsAmount, label: splitSavingsLabel } : undefined,
+      bonus: splitBonusCount > 0 ? { count: splitBonusCount, valueLabel: splitBonusValue > 0 ? formatCurrency(splitBonusValue) : undefined } : undefined,
+      missing: splitMissingCount > 0 ? { count: splitMissingCount } : undefined,
+      coversAll: splitMissingCount === 0,
     });
 
     // Mark cheapest card with badge

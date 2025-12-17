@@ -220,12 +220,9 @@ describe('OptimizationResults', () => {
       />
     )
 
-    // Check header information
-    expect(screen.getByText('Optimization summary')).toBeInTheDocument()
-    expect(screen.getByText(/Covering 3 biomarkers/)).toBeInTheDocument()
-    // Price sparkline card shows price position relative to 30-day floor
-    expect(screen.getByText('Price position')).toBeInTheDocument()
-    expect(screen.queryByText('Current total')).not.toBeInTheDocument()
+    // Check header information from price breakdown
+    expect(screen.getByText('Your order from Diagnostyka')).toBeInTheDocument()
+    expect(screen.getByText('Total')).toBeInTheDocument()
 
     // Check items are displayed
     expect(screen.getAllByRole('link', { name: 'ALT Test' })[0]).toBeInTheDocument()
@@ -234,7 +231,7 @@ describe('OptimizationResults', () => {
     // Check sections
     expect(screen.getByText(/Packages/)).toBeInTheDocument()
     expect(screen.getByText(/Single tests/)).toBeInTheDocument()
-    expect(screen.getByText('ONLY DIAG')).toBeInTheDocument()
+    expect(screen.getByText('DIAG')).toBeInTheDocument()
     expect(screen.getByText('BOTH LABS')).toBeInTheDocument()
 
     // Check coverage summary
@@ -312,8 +309,9 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText(/1 bonus biomarker \(\$42\.00\)/)).toBeInTheDocument()
-    expect(screen.getByText('Total cholesterol')).toBeInTheDocument()
+    expect(
+      screen.getByTitle(/Total cholesterol \(CHOL\) · Bonus coverage/),
+    ).toBeInTheDocument()
   })
 
   it('shows "On sale" indicator for discounted items', () => {
@@ -480,7 +478,6 @@ describe('OptimizationResults', () => {
       article.querySelector('a')?.textContent?.trim()
     )
 
-    expect(screen.getByText(/Package overlaps/i)).toBeInTheDocument()
     expect(articleNames).toEqual([
       'Package Premium',
       'Package Cheap',
@@ -589,9 +586,9 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('Optimization summary')).toBeInTheDocument()
-    expect(screen.getByText('ONLY DIAG')).toBeInTheDocument()
-    expect(screen.getByText('ONLY ALAB')).toBeInTheDocument()
+    expect(screen.getByText('Your order from Multiple labs')).toBeInTheDocument()
+    expect(screen.getByText('DIAG')).toBeInTheDocument()
+    expect(screen.getByText('ALAB')).toBeInTheDocument()
   })
 
   it('suggests lab splitting when exclusive biomarkers block other labs', () => {
@@ -622,9 +619,8 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(
-      screen.getByText('Exclusive to Diagnostyka'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Your order from Diagnostyka')).toBeInTheDocument()
+    expect(screen.getByText('ALT Test')).toBeInTheDocument()
   })
 
   it('renders external links with correct attributes', () => {

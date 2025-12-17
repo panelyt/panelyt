@@ -152,7 +152,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
               }
             }}
             className="w-full rounded-xl border border-slate-700 bg-slate-950/60 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            placeholder="Search biomarkers"
+            placeholder="Search biomarkers to add..."
           />
         </div>
         <button
