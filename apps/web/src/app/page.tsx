@@ -17,7 +17,6 @@ import { SearchBox } from "../components/search-box";
 import { SelectedBiomarkers } from "../components/selected-biomarkers";
 import { SaveListModal } from "../components/save-list-modal";
 import { TemplateModal } from "../components/template-modal";
-import { AddonSuggestionsPanel } from "../components/addon-suggestions-panel";
 import { LoadMenu } from "../components/load-menu";
 
 function HomeContent() {
@@ -162,34 +161,12 @@ function HomeContent() {
         onConfirm={templateModal.handleConfirm}
       />
 
-      <section className="relative isolate overflow-hidden bg-gradient-to-br from-blue-900 via-slate-900 to-slate-950">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-40"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 20% 20%, rgba(56,189,248,0.35), transparent 45%), radial-gradient(circle at 80% 10%, rgba(99,102,241,0.4), transparent 50%), radial-gradient(circle at 50% 80%, rgba(45,212,191,0.3), transparent 45%)",
-          }}
-        />
-        <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-6 py-16">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-200">
-            Panelyt
-          </p>
-          <h1 className="text-4xl font-semibold leading-tight text-white md:text-5xl">
-            Optimize biomarkers testing
-          </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-slate-200 md:text-base">
-            Panelyt optimizes biomarker selection for testing. It finds the best
-            prices and combines tests into packages.
-          </p>
-        </div>
-      </section>
-
-      <section className="relative z-10 -mt-12 pb-16">
+      <section className="relative z-10 pb-16 pt-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6">
           <div className="grid gap-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-900/30">
               <h2 className="text-lg font-semibold text-white">
-                Build your biomarker set
+                Build your test panel
               </h2>
               <div className="mt-6 flex flex-col gap-4">
                 <SearchBox
@@ -200,6 +177,11 @@ function HomeContent() {
                   biomarkers={selection.selected}
                   onRemove={selection.handleRemove}
                 />
+                {selection.selected.length > 0 && (
+                  <p className="text-sm text-slate-400">
+                    We compare prices across labs
+                  </p>
+                )}
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -269,14 +251,6 @@ function HomeContent() {
             </div>
           </div>
 
-          {labOptimization.activeResult && (
-            <AddonSuggestionsPanel
-              suggestions={labOptimization.addonSuggestions}
-              onApply={handleApplyAddon}
-              isLoading={labOptimization.addonSuggestionsLoading}
-            />
-          )}
-
           <OptimizationResults
             selected={selection.biomarkerCodes}
             result={labOptimization.activeResult}
@@ -284,6 +258,9 @@ function HomeContent() {
             error={labOptimization.activeError ?? undefined}
             variant="dark"
             labCards={labOptimization.labCards}
+            addonSuggestions={labOptimization.addonSuggestions}
+            addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
+            onApplyAddon={handleApplyAddon}
           />
         </div>
       </section>

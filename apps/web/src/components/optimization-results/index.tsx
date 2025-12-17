@@ -7,7 +7,8 @@ import { CircleAlert, Loader2 } from "lucide-react";
 import { useBiomarkerLookup } from "../../hooks/useBiomarkerLookup";
 import type { LabChoiceCard } from "./types";
 import { PriceBreakdownSection } from "./price-breakdown";
-import { SummarySection } from "./summary-section";
+import { LabTabs } from "./lab-tabs";
+import { AddonSuggestionsCollapsible } from "./addon-suggestions-collapsible";
 import { buildOptimizationViewModel } from "./view-model";
 
 export interface OptimizationResultsProps {
@@ -17,6 +18,9 @@ export interface OptimizationResultsProps {
   error?: Error | null;
   variant?: "light" | "dark";
   labCards?: LabChoiceCard[];
+  addonSuggestions?: OptimizeResponse["addon_suggestions"];
+  addonSuggestionsLoading?: boolean;
+  onApplyAddon?: (biomarkers: { code: string; name: string }[], packageName: string) => void;
 }
 
 export function OptimizationResults({
@@ -26,6 +30,9 @@ export function OptimizationResults({
   error,
   variant = "light",
   labCards = [],
+  addonSuggestions = [],
+  addonSuggestionsLoading = false,
+  onApplyAddon,
 }: OptimizationResultsProps) {
   const missingCodes = useMemo(() => {
     if (!result) {
@@ -90,8 +97,14 @@ export function OptimizationResults({
   }
 
   return (
-    <div className="space-y-8">
-      <SummarySection viewModel={viewModel} labCards={labCards} />
+    <div className="space-y-6">
+      <LabTabs labCards={labCards} isDark={viewModel.isDark} />
+      <AddonSuggestionsCollapsible
+        suggestions={addonSuggestions}
+        isLoading={addonSuggestionsLoading}
+        onApply={onApplyAddon}
+        isDark={viewModel.isDark}
+      />
       <PriceBreakdownSection viewModel={viewModel} />
     </div>
   );
