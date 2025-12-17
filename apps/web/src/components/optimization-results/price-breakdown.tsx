@@ -1,9 +1,8 @@
-import { Receipt, Sparkles } from "lucide-react";
+import { Sparkles, Layers } from "lucide-react";
 
-import { formatGroszToPln } from "../../lib/format";
+import { formatGroszToPln, formatCurrency } from "../../lib/format";
 
 import type { OptimizationViewModel } from "./view-model";
-import { CollapsibleCard, CountBadge } from "./collapsible-section";
 
 interface PriceBreakdownSectionProps {
   viewModel: OptimizationViewModel;
@@ -19,18 +18,47 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
     totalNowGrosz,
     totalMin30Grosz,
     counts,
+    result,
+    pricing,
+    overlaps,
   } = viewModel;
 
+  // Create a map of biomarker code -> other packages it appears in
+  const overlapMap = new Map<string, string[]>();
+  for (const overlap of overlaps) {
+    overlapMap.set(overlap.code, overlap.packages);
+  }
+
+  // Get lab name from result
+  const labName = result.lab_name || result.lab_code.toUpperCase();
+
   return (
-    <CollapsibleCard
-      title="Price breakdown"
-      subtitle="Each bar shows the current price against the best price observed in the last month."
-      icon={<Receipt className="h-5 w-5" />}
-      defaultExpanded={true}
-      isDark={isDark}
-      badge={<CountBadge count={counts.items} label="items" isDark={isDark} />}
+    <section
+      className={`rounded-2xl border p-4 ${
+        isDark
+          ? "border-slate-800 bg-slate-900/80"
+          : "border-slate-200 bg-white"
+      }`}
     >
-      <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2
+            className={`text-lg font-semibold ${
+              isDark ? "text-white" : "text-slate-900"
+            }`}
+          >
+            Your order from {labName}
+          </h2>
+          <p
+            className={`mt-1 text-sm ${
+              isDark ? "text-slate-400" : "text-slate-500"
+            }`}
+          >
+            {counts.items} item{counts.items === 1 ? "" : "s"}
+          </p>
+        </div>
+      </div>
+      <div className="mt-6 space-y-6">
         {groups.map((group) => (
           <div key={group.kind} className="space-y-3">
             <div
@@ -105,6 +133,32 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                             );
                           })}
                         </div>
+                        {/* Overlap notes */}
+                        {item.biomarkers.some((b) => {
+                          const otherPackages = overlapMap.get(b);
+                          return otherPackages && otherPackages.some((p) => p !== item.name);
+                        }) && (
+                          <div
+                            className={`mt-2 flex items-center gap-1.5 text-xs ${
+                              isDark ? "text-amber-300/80" : "text-amber-600/80"
+                            }`}
+                          >
+                            <Layers className="h-3 w-3" />
+                            <span>
+                              {(() => {
+                                const overlappingBiomarkers = item.biomarkers.filter((b) => {
+                                  const otherPackages = overlapMap.get(b);
+                                  return otherPackages && otherPackages.some((p) => p !== item.name);
+                                });
+                                if (overlappingBiomarkers.length === 0) return null;
+                                const firstBiomarker = overlappingBiomarkers[0];
+                                const otherPackages = overlapMap.get(firstBiomarker) ?? [];
+                                const otherPackage = otherPackages.find((p) => p !== item.name);
+                                return `${displayNameFor(firstBiomarker)} also in ${otherPackage} (no extra cost)`;
+                              })()}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div
                         className={`text-right text-xs ${
@@ -147,7 +201,40 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
           </div>
         ))}
       </div>
-    </CollapsibleCard>
+
+      {/* Total and savings footer */}
+      <div
+        className={`mt-6 border-t pt-4 ${
+          isDark ? "border-slate-700" : "border-slate-200"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <span
+            className={`text-sm font-semibold uppercase tracking-wide ${
+              isDark ? "text-slate-400" : "text-slate-500"
+            }`}
+          >
+            Total
+          </span>
+          <span
+            className={`text-2xl font-semibold ${
+              isDark ? "text-white" : "text-slate-900"
+            }`}
+          >
+            {formatCurrency(result.total_now)}
+          </span>
+        </div>
+        {pricing.highlightSavings && (
+          <p
+            className={`mt-1 text-right text-sm ${
+              isDark ? "text-emerald-300" : "text-emerald-600"
+            }`}
+          >
+            You&apos;re saving {pricing.potentialSavingsLabel} vs. 30-day floor
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
