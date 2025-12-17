@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
 import { ChevronDown, ChevronUp, Plus, Sparkles, Loader2 } from "lucide-react";
 
 import { formatCurrency } from "../../lib/format";
+
+const STORAGE_KEY = "panelyt:addons-expanded";
 
 interface AddonSuggestionsCollapsibleProps {
   suggestions?: OptimizeResponse["addon_suggestions"];
@@ -19,25 +21,33 @@ export function AddonSuggestionsCollapsible({
   onApply,
   isDark = true,
 }: AddonSuggestionsCollapsibleProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(STORAGE_KEY) === "true";
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, String(isExpanded));
+  }, [isExpanded]);
 
   // Don't render if no suggestions and not loading
   if (!isLoading && (!suggestions || suggestions.length === 0)) {
     return null;
   }
 
-  // Calculate summary for collapsed state
-  const totalAddCount = suggestions.reduce(
-    (sum, s) => sum + (s.adds?.length ?? 0),
-    0
+  // Calculate summary for collapsed state - show the cheapest single addon
+  const cheapestAddon = suggestions.reduce<OptimizeResponse["addon_suggestions"][number] | null>(
+    (best, s) => {
+      if (best === null) return s;
+      return (s.upgrade_cost ?? Infinity) < (best.upgrade_cost ?? Infinity) ? s : best;
+    },
+    null
   );
-  const lowestCost = suggestions.reduce(
-    (min, s) => Math.min(min, s.upgrade_cost ?? Infinity),
-    Infinity
-  );
+  const addonCount = cheapestAddon?.adds?.length ?? 0;
+  const addonCost = cheapestAddon?.upgrade_cost ?? Infinity;
   const summaryText =
-    totalAddCount > 0 && lowestCost < Infinity
-      ? `${totalAddCount} biomarker${totalAddCount === 1 ? "" : "s"} for +${formatCurrency(lowestCost)}`
+    addonCount > 0 && addonCost < Infinity
+      ? `${addonCount} biomarker${addonCount === 1 ? "" : "s"} for +${formatCurrency(addonCost)}`
       : "Loading...";
 
   const handleApply = (suggestion: OptimizeResponse["addon_suggestions"][number]) => {
