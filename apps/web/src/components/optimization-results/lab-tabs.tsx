@@ -1,4 +1,4 @@
-import { Check, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 import type { LabChoiceCard } from "./types";
 
@@ -12,148 +12,161 @@ export function LabTabs({ labCards, isDark }: LabTabsProps) {
     return null;
   }
 
+  const headingId = "best-prices-heading";
+  const cardTone = isDark
+    ? "border-slate-800 bg-slate-900/70"
+    : "border-slate-200 bg-white";
+
   return (
     <section
-      className={`rounded-2xl border p-4 ${
-        isDark
-          ? "border-slate-800 bg-slate-900/80"
-          : "border-slate-200 bg-white"
-      }`}
+      aria-labelledby={headingId}
+      role="region"
+      className={`rounded-2xl border p-4 shadow-sm ${cardTone}`}
     >
-      <h2
-        className={`text-sm font-semibold uppercase tracking-wide ${
-          isDark ? "text-slate-400" : "text-slate-500"
-        }`}
-      >
-        Best prices
-      </h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2
+          id={headingId}
+          className={`text-xs font-semibold uppercase tracking-wide ${
+            isDark ? "text-slate-400" : "text-slate-500"
+          }`}
+        >
+          Best prices
+        </h2>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
         {labCards.map((card) => (
-          <LabTab key={card.key} card={card} isDark={isDark} />
+          <LabSegment key={card.key} card={card} isDark={isDark} />
         ))}
       </div>
     </section>
   );
 }
 
-interface LabTabProps {
+interface LabSegmentProps {
   card: LabChoiceCard;
   isDark: boolean;
 }
 
-function LabTab({ card, isDark }: LabTabProps) {
+function LabSegment({ card, isDark }: LabSegmentProps) {
   const isActive = card.active;
   const isDisabled = card.disabled || card.loading;
   const isUnavailable = !card.coversAll && card.missing && card.missing.count > 0;
+  const hasSavings = Boolean(card.savings && card.savings.amount > 0);
+  const hasBonus = Boolean(card.bonus && card.bonus.count > 0);
 
-  // Extract lab name from title (remove "ONLY " prefix if present)
   const labName = card.title.replace(/^ONLY\s+/i, "");
+
+  const segmentTone = isDark
+    ? "border-slate-800/80 bg-slate-950/40 hover:border-slate-700 hover:bg-slate-900/60"
+    : "border-slate-200 bg-white/70 hover:border-emerald-100 hover:bg-white";
+
+  const activeTone = isDark
+    ? "border-emerald-400/70 bg-slate-900 shadow-[0_10px_30px_-18px_rgba(16,185,129,0.65)] ring-1 ring-emerald-300/50"
+    : "border-emerald-200 bg-white shadow-[0_10px_30px_-18px_rgba(16,185,129,0.65)] ring-1 ring-emerald-200";
+
+  const labelTone = isActive
+    ? isDark
+      ? "text-emerald-200"
+      : "text-emerald-700"
+    : isDark
+      ? "text-slate-400"
+      : "text-slate-500";
+
+  const priceTone = isActive
+    ? isDark
+      ? "text-emerald-200"
+      : "text-emerald-700"
+    : isDark
+      ? "text-white"
+      : "text-slate-900";
 
   return (
     <button
       type="button"
       onClick={card.onSelect}
       disabled={isDisabled}
-      className={`group relative flex flex-col rounded-xl border p-4 text-left transition ${
-        isDark
-          ? `${
-              isActive
-                ? "border-emerald-400/80 bg-slate-800/80"
-                : "border-slate-700 bg-slate-900/60 hover:border-emerald-300/50 hover:bg-slate-800/60"
-            }`
-          : `${
-              isActive
-                ? "border-emerald-400 bg-emerald-50/50"
-                : "border-slate-200 bg-slate-50 hover:border-emerald-300 hover:bg-emerald-50/30"
-            }`
-      } ${isDisabled ? "cursor-not-allowed opacity-60" : ""}`}
+      aria-pressed={isActive}
+      className={`group relative flex flex-1 flex-col rounded-lg border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 ${
+        isActive ? activeTone : segmentTone
+      } ${isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
     >
-      {/* Active indicator */}
-      {isActive && (
-        <span
-          className={`absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full ${
-            isDark ? "bg-emerald-500 text-white" : "bg-emerald-500 text-white"
-          }`}
-        >
-          <Check className="h-3 w-3" />
-        </span>
-      )}
+      <div className="flex w-full items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <span
+            className={`text-[11px] font-semibold uppercase tracking-wide ${labelTone}`}
+          >
+            {labName}
+          </span>
+          {card.meta && (
+            <span
+              className={`text-[11px] ${
+                isDark ? "text-slate-500" : "text-slate-500"
+              }`}
+            >
+              {card.meta}
+            </span>
+          )}
+        </div>
 
-      {/* Lab name */}
-      <span
-        className={`text-xs font-semibold uppercase tracking-wide ${
-          isDark ? "text-slate-400" : "text-slate-500"
-        }`}
-      >
-        {labName}
-      </span>
-
-      {/* Price or unavailable state */}
-      {isUnavailable ? (
-        <div className="mt-2">
+        {isUnavailable ? (
           <span
             className={`text-sm font-medium ${
               isDark ? "text-amber-300" : "text-amber-600"
             }`}
           >
-            unavailable
+            N/A
           </span>
-          <div
-            className={`mt-1 flex items-center gap-1 text-xs ${
-              isDark ? "text-amber-300/80" : "text-amber-600/80"
-            }`}
-          >
-            <AlertTriangle className="h-3 w-3" />
-            <span>missing {card.missing?.count}</span>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Price */}
+        ) : (
           <span
-            className={`mt-2 text-2xl font-semibold ${
-              isDark ? "text-white" : "text-slate-900"
-            }`}
+            className={`flex items-baseline gap-1 text-lg font-semibold ${priceTone}`}
           >
             {card.loading ? "—" : card.priceLabel}
           </span>
+        )}
+      </div>
 
-          {/* Savings */}
-          {card.savings && card.savings.amount > 0 && (
+      <div className="mt-3 flex w-full flex-wrap items-center gap-2 text-xs">
+        {isUnavailable ? (
+          <div
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 ${
+              isDark
+                ? "border-amber-300/50 bg-amber-500/10 text-amber-200"
+                : "border-amber-200 bg-amber-50 text-amber-700"
+            }`}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            <span>Missing {card.missing?.count}</span>
+          </div>
+        ) : (
+          <>
             <span
-              className={`mt-1 text-sm ${
-                isDark ? "text-emerald-300" : "text-emerald-600"
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium ${
+                hasSavings
+                  ? isDark
+                    ? "border-emerald-400/60 bg-emerald-500/10 text-emerald-200"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : isDark
+                    ? "border-slate-700 bg-slate-800 text-slate-400"
+                    : "border-slate-200 bg-slate-100 text-slate-500"
               }`}
             >
-              ↓{card.savings.label} saved
+              {hasSavings ? `Save ${card.savings?.label}` : "No savings"}
             </span>
-          )}
 
-          {/* Bonus */}
-          {card.bonus && card.bonus.count > 0 && (
-            <span
-              className={`mt-1 text-xs ${
-                isDark ? "text-slate-400" : "text-slate-500"
-              }`}
-            >
-              +{card.bonus.count} bonus
-            </span>
-          )}
-        </>
-      )}
-
-      {/* Cheapest badge */}
-      {card.badge && (
-        <span
-          className={`mt-2 inline-flex self-start rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-            isDark
-              ? "bg-emerald-500/20 text-emerald-200"
-              : "bg-emerald-100 text-emerald-700"
-          }`}
-        >
-          {card.badge}
-        </span>
-      )}
+            {hasBonus && (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium ${
+                  isDark
+                    ? "border-slate-700 bg-slate-900 text-slate-300"
+                    : "border-slate-200 bg-white text-slate-600"
+                }`}
+              >
+                +{card.bonus.count} bonus
+              </span>
+            )}
+          </>
+        )}
+      </div>
     </button>
   );
 }

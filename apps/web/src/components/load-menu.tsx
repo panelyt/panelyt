@@ -36,16 +36,22 @@ export function LoadMenu({ lists, isLoading, onSelect }: LoadMenuProps) {
   };
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative z-30" ref={menuRef}>
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
         className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
       >
         Load
       </button>
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-800 bg-slate-900/95 p-3 shadow-xl shadow-slate-900/50">
+        <div
+          role="menu"
+          aria-label="Saved lists"
+          className="absolute right-0 z-30 mt-2 w-56 rounded-xl border border-slate-800 bg-slate-900/95 p-3 shadow-xl shadow-slate-900/50"
+        >
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Saved lists
           </p>

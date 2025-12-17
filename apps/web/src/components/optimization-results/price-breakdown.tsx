@@ -34,7 +34,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
 
   return (
     <section
-      className={`rounded-2xl border p-6 ${
+      className={`rounded-2xl border p-4 ${
         isDark
           ? "border-slate-800 bg-slate-900/80"
           : "border-slate-200 bg-white"

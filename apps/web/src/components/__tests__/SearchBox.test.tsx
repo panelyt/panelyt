@@ -65,7 +65,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    expect(screen.getByPlaceholderText('Search biomarkers')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search biomarkers to add...')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add to panel' })).toBeInTheDocument()
   })
 
@@ -75,7 +75,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers')
+    const input = screen.getByPlaceholderText('Search biomarkers to add...')
     await user.type(input, 'ALT')
 
     expect(input).toHaveValue('ALT')
@@ -90,7 +90,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers'), {
+    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
       target: { value: 'AL' },
     })
 
@@ -109,7 +109,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers'), {
+    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
       target: { value: 'ALT' },
     })
 
@@ -132,7 +132,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers'), {
+    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
       target: { value: 'Liver' },
     })
 
@@ -154,7 +154,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers')
+    const input = screen.getByPlaceholderText('Search biomarkers to add...')
     fireEvent.change(input, { target: { value: 'ALT' } })
 
     await screen.findByText('Alanine aminotransferase')
@@ -173,7 +173,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers')
+    const input = screen.getByPlaceholderText('Search biomarkers to add...')
     await user.type(input, 'custom')
     await user.click(screen.getByRole('button', { name: 'Add to panel' }))
 
