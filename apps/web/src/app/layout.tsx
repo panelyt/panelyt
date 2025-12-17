@@ -32,7 +32,7 @@ export default function RootLayout({
         {isProduction ? (
           <Script
             src="https://analytics.panelyt.com/script.js"
-            data-website-id="204ed337-eb7f-466a-86a9-9f35ec1132ae"
+            data-website-id="e8071713-1cf1-44c7-8674-909d128c9507"
             strategy="afterInteractive"
           />
         ) : null}
