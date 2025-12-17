@@ -17,6 +17,7 @@ import {
 } from "@panelyt/types";
 
 import { useOptimization, useAddonSuggestions } from "./useOptimization";
+import { useDebounce } from "./useDebounce";
 import { postJson } from "../lib/http";
 import { formatCurrency } from "../lib/format";
 
@@ -62,6 +63,9 @@ export interface UseLabOptimizationResult {
   addonSuggestionsLoading: boolean;
 }
 
+/** Debounce delay for optimization requests (ms) */
+const OPTIMIZATION_DEBOUNCE_MS = 400;
+
 export function useLabOptimization(
   biomarkerCodes: string[],
 ): UseLabOptimizationResult {
@@ -69,28 +73,36 @@ export function useLabOptimization(
   const [cachedLabOptions, setCachedLabOptions] = useState<LabAvailability[]>([]);
   const autoSelectionRef = useRef<string | null>(null);
 
+  // Debounce biomarker changes to prevent excessive server requests during rapid selection.
+  // We intentionally use:
+  // - biomarkerCodes (immediate) for UI states like "disabled" to provide instant feedback
+  // - debouncedBiomarkerCodes for API calls and cache management to stay synchronized
+  const debouncedBiomarkerCodes = useDebounce(biomarkerCodes, OPTIMIZATION_DEBOUNCE_MS);
+
   const optimizationKey = useMemo(
-    () => biomarkerCodes.map((item) => item.toLowerCase()).sort().join("|"),
-    [biomarkerCodes],
+    () => debouncedBiomarkerCodes.map((item) => item.toLowerCase()).sort().join("|"),
+    [debouncedBiomarkerCodes],
   );
 
-  const autoOptimization = useOptimization(biomarkerCodes, "auto");
-  const splitOptimization = useOptimization(biomarkerCodes, "split");
+  const autoOptimization = useOptimization(debouncedBiomarkerCodes, "auto");
+  const splitOptimization = useOptimization(debouncedBiomarkerCodes, "split");
 
   const latestLabOptions = autoOptimization.data?.lab_options;
   const labOptions = latestLabOptions ?? cachedLabOptions;
 
-  // Cache lab options and reset when selection clears
+  // Cache lab options and reset when selection clears.
+  // Uses debouncedBiomarkerCodes.length to stay synchronized with query data and avoid
+  // race conditions where stale query results could overwrite a cleared cache.
   useEffect(() => {
     if (latestLabOptions !== undefined) {
       setCachedLabOptions(latestLabOptions);
     }
-    if (biomarkerCodes.length === 0) {
+    if (debouncedBiomarkerCodes.length === 0) {
       setCachedLabOptions([]);
       setSelectedLabChoice(null);
       autoSelectionRef.current = null;
     }
-  }, [latestLabOptions, biomarkerCodes.length]);
+  }, [latestLabOptions, debouncedBiomarkerCodes.length]);
 
   const autoLabCode = autoOptimization.data?.lab_code ?? null;
 
@@ -115,21 +127,21 @@ export function useLabOptimization(
   const labComparisons = useQueries({
     queries: primaryLabCodes.map((code) => ({
       queryKey: ["optimize", optimizationKey, "single_lab", code],
-      queryFn: async () => {
+      queryFn: async ({ signal }) => {
         const payload = await postJson("/optimize", {
-          biomarkers: biomarkerCodes,
+          biomarkers: debouncedBiomarkerCodes,
           mode: "single_lab",
           lab_code: code,
-        });
+        }, { signal });
         return OptimizeResponseSchema.parse(payload);
       },
-      enabled: biomarkerCodes.length > 0 && Boolean(code),
+      enabled: debouncedBiomarkerCodes.length > 0 && Boolean(code),
     })),
   });
 
   // Compute the default lab to select based on coverage and price
   const defaultSingleLabCode = useMemo(() => {
-    if (biomarkerCodes.length === 0 || primaryLabCodes.length === 0) {
+    if (debouncedBiomarkerCodes.length === 0 || primaryLabCodes.length === 0) {
       return null;
     }
 
@@ -138,8 +150,8 @@ export function useLabOptimization(
     for (let index = 0; index < primaryLabCodes.length; index += 1) {
       const code = primaryLabCodes[index];
       const option = labOptions.find((lab) => lab.code === code);
-      const missingCount = option?.missing_tokens?.length ?? biomarkerCodes.length;
-      const covered = Math.max(biomarkerCodes.length - missingCount, 0);
+      const missingCount = option?.missing_tokens?.length ?? debouncedBiomarkerCodes.length;
+      const covered = Math.max(debouncedBiomarkerCodes.length - missingCount, 0);
       const query = labComparisons[index];
       const price = query?.data?.total_now ?? Number.POSITIVE_INFINITY;
       const candidate = { code, covered, price };
@@ -160,11 +172,11 @@ export function useLabOptimization(
     }
 
     return best?.code ?? null;
-  }, [biomarkerCodes.length, labComparisons, labOptions, primaryLabCodes]);
+  }, [debouncedBiomarkerCodes.length, labComparisons, labOptions, primaryLabCodes]);
 
   // Auto-select best lab, but preserve user overrides
   useEffect(() => {
-    if (biomarkerCodes.length === 0 || primaryLabCodes.length === 0) {
+    if (debouncedBiomarkerCodes.length === 0 || primaryLabCodes.length === 0) {
       setSelectedLabChoice(null);
       autoSelectionRef.current = null;
       return;
@@ -200,7 +212,7 @@ export function useLabOptimization(
       autoSelectionRef.current = nextChoice;
       return nextChoice;
     });
-  }, [defaultSingleLabCode, biomarkerCodes.length, primaryLabCodes]);
+  }, [defaultSingleLabCode, debouncedBiomarkerCodes.length, primaryLabCodes]);
 
   // Derive loading/error states
   const splitResult = splitOptimization.data;
@@ -247,7 +259,7 @@ export function useLabOptimization(
     [activeResult?.items],
   );
   const addonSuggestionsQuery = useAddonSuggestions(
-    biomarkerCodes,
+    debouncedBiomarkerCodes,
     activeItemIds,
     activeResult?.lab_code,
     !activeLoading,
@@ -298,7 +310,7 @@ export function useLabOptimization(
       const bonusTokens = query.data
         ? new Set(
             query.data.items.flatMap((item) =>
-              item.biomarkers.filter((token) => !biomarkerCodes.includes(token)),
+              item.biomarkers.filter((token) => !debouncedBiomarkerCodes.includes(token)),
             ),
           )
         : new Set<string>();
@@ -306,7 +318,7 @@ export function useLabOptimization(
       const bonusValue = query.data?.bonus_total_now ?? 0;
       const bonusValueLabel = bonusValue > 0 ? formatCurrency(bonusValue) : null;
       const hasCounts =
-        biomarkerCodes.length > 0 &&
+        debouncedBiomarkerCodes.length > 0 &&
         (query.data || missingTokensCount > 0 || bonusCount > 0 || bonusValue > 0);
       const shouldShowBonusLabel = !!query.data || bonusCount > 0;
       const bonusLabel = shouldShowBonusLabel
@@ -315,7 +327,7 @@ export function useLabOptimization(
           : "0 Bonus"
         : null;
       const coverageLabel = !hasCounts
-        ? biomarkerCodes.length === 0
+        ? debouncedBiomarkerCodes.length === 0
           ? "Add biomarkers to compare labs"
           : "—"
         : [`${missingCount} Missing`, bonusLabel].filter(Boolean).join(" · ");
@@ -356,7 +368,7 @@ export function useLabOptimization(
     const splitBonusCount = splitResult
       ? new Set(
           splitResult.items.flatMap((item) =>
-            item.biomarkers.filter((token) => !biomarkerCodes.includes(token)),
+            item.biomarkers.filter((token) => !debouncedBiomarkerCodes.includes(token)),
           ),
         ).size
       : 0;
@@ -371,10 +383,10 @@ export function useLabOptimization(
           : "0 Bonus"
         : null;
     const splitHasCounts =
-      biomarkerCodes.length > 0 &&
+      debouncedBiomarkerCodes.length > 0 &&
       (splitResult || splitBonusCount > 0 || splitMissingCount > 0 || !!splitBonusLabel);
     const splitMeta = !splitHasCounts
-      ? biomarkerCodes.length === 0
+      ? debouncedBiomarkerCodes.length === 0
         ? "Add biomarkers to compare labs"
         : "—"
       : [
@@ -426,7 +438,8 @@ export function useLabOptimization(
 
     return cards;
   }, [
-    biomarkerCodes,
+    biomarkerCodes.length,
+    debouncedBiomarkerCodes,
     labComparisons,
     labOptions,
     labelForLab,

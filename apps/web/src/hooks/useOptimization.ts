@@ -22,7 +22,7 @@ export function useOptimization(
   const resolvedMode = OptimizeModeSchema.parse(mode ?? "auto");
   return useQuery<OptimizeResponse, Error>({
     queryKey: ["optimize", key, resolvedMode, normalizedLab],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       return postParsedJson(
         "/optimize",
         OptimizeResponseSchema,
@@ -33,6 +33,7 @@ export function useOptimization(
             ? { lab_code: normalizedLab }
             : {}),
         },
+        { signal },
       );
     },
     enabled:
@@ -52,7 +53,7 @@ export function useAddonSuggestions(
   const normalizedLab = labCode?.trim().toLowerCase() ?? null;
   return useQuery<AddonSuggestionsResponse, Error>({
     queryKey: ["optimize-addons", key, itemsKey, normalizedLab],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       return postParsedJson(
         "/optimize/addons",
         AddonSuggestionsResponseSchema,
@@ -61,6 +62,7 @@ export function useAddonSuggestions(
           selected_item_ids: selectedItemIds,
           ...(normalizedLab ? { lab_code: normalizedLab } : {}),
         },
+        { signal },
       );
     },
     enabled: enabled && biomarkers.length > 0 && selectedItemIds.length > 0,
