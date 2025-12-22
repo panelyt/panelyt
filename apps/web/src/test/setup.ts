@@ -21,14 +21,21 @@ vi.mock('../i18n/navigation', async () => {
     return query ? `${pathname}?${query}` : pathname
   }
 
-  const Link = React.forwardRef(({ href, ...rest }: any, ref) =>
-    React.createElement('a', { ...rest, href: toPath(href), ref }),
-  )
+  const Link = React.forwardRef(({ href, locale, ...rest }: any, ref) => {
+    const path = toPath(href)
+    const localizedPath = !locale || locale === 'pl' ? path : `/${locale}${path}`
+    return React.createElement('a', {
+      ...rest,
+      href: localizedPath,
+      ref,
+      'data-locale': locale,
+    })
+  })
   Link.displayName = 'MockLink'
 
   return {
     Link,
-    usePathname: () => '/',
+    usePathname: vi.fn(() => '/'),
     useRouter: () => ({
       push: vi.fn(),
       replace: vi.fn(),

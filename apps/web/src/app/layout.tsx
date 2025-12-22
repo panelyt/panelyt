@@ -1,8 +1,7 @@
 import Script from "next/script";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale } from "next-intl/server";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -28,7 +27,6 @@ export default async function RootLayout({
 }>) {
   const isProduction = process.env.NODE_ENV === "production";
   const locale = await getLocale();
-  const messages = await getMessages();
 
   return (
     <html lang={locale}>
@@ -40,9 +38,7 @@ export default async function RootLayout({
             strategy="afterInteractive"
           />
         ) : null}
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          <Providers>{children}</Providers>
-        </NextIntlClientProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
