@@ -42,7 +42,7 @@ export default function TemplateDetailContent({ params }: TemplateDetailContentP
               <p className="max-w-2xl text-sm text-slate-300">{template.description}</p>
             )}
             <p className="text-xs text-slate-500">
-              {template.biomarkers.length} {template.biomarkers.length === 1 ? t("common.biomarker") : t("common.biomarkers")} • {t("common.updated")} {new Date(template.updated_at).toLocaleString()}
+              {template.biomarkers.length} {template.biomarkers.length === 1 ? t("common.biomarker") : t("common.biomarkers")} • {t("common.updated")} {new Date(template.updated_at).toLocaleString("pl-PL")}
             </p>
           </div>
         ) : templateQuery.isLoading ? (

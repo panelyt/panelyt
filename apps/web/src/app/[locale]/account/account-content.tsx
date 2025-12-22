@@ -19,7 +19,7 @@ import { useUserSession } from "../../../hooks/useUserSession";
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleString();
+    return new Date(value).toLocaleString("pl-PL");
   } catch {
     return value;
   }

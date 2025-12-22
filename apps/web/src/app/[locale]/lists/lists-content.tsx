@@ -418,7 +418,7 @@ export default function ListsContent() {
                           <span className="truncate font-mono text-sm text-slate-200">{shareLink}</span>
                           {sharedTimestamp && (
                             <span className="text-[11px] text-slate-500">
-                              {t("common.updated")} {new Date(sharedTimestamp).toLocaleString()}
+                              {t("common.updated")} {new Date(sharedTimestamp).toLocaleString("pl-PL")}
                             </span>
                           )}
                         </div>

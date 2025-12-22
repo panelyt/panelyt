@@ -40,7 +40,7 @@ export default function SharedContent({ params }: SharedContentProps) {
             <h1 className="text-3xl font-semibold text-white">{sharedList.name}</h1>
             <p className="text-xs text-slate-500">
               <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-              {t("sharedList.shared")} {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString() : ""}
+              {t("sharedList.shared")} {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString("pl-PL") : ""}
             </p>
           </div>
         ) : sharedQuery.isLoading ? (
