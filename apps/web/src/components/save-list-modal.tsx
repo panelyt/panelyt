@@ -2,6 +2,7 @@
 
 import { FormEvent } from "react";
 import { Loader2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface SaveListModalProps {
   open: boolean;
@@ -22,6 +23,8 @@ export function SaveListModal({
   onClose,
   onConfirm,
 }: SaveListModalProps) {
+  const t = useTranslations();
+
   if (!open) {
     return null;
   }
@@ -44,21 +47,21 @@ export function SaveListModal({
         </button>
 
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Panelyt</p>
-        <h2 className="mt-2 text-2xl font-semibold text-white">Save current selection</h2>
+        <h2 className="mt-2 text-2xl font-semibold text-white">{t("saveList.title")}</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Give this set a name so you can reload it or compare prices later.
+          {t("saveList.description")}
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="save-list-name" className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              List name
+              {t("saveList.listName")}
             </label>
             <input
               id="save-list-name"
               value={name}
               onChange={(event) => onNameChange(event.target.value)}
-              placeholder="e.g. Annual checkup"
+              placeholder={t("saveList.listNamePlaceholder")}
               autoFocus
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
@@ -72,7 +75,7 @@ export function SaveListModal({
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 via-sky-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-md shadow-emerald-500/30 transition focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Save list
+            {t("saveList.saveList")}
           </button>
         </form>
       </div>

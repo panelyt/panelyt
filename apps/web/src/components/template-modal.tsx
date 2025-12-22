@@ -2,6 +2,7 @@
 
 import { FormEvent } from "react";
 import { Loader2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface TemplateModalProps {
   open: boolean;
@@ -38,6 +39,8 @@ export function TemplateModal({
   onClose,
   onConfirm,
 }: TemplateModalProps) {
+  const t = useTranslations();
+
   if (!open) {
     return null;
   }
@@ -62,8 +65,7 @@ export function TemplateModal({
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Panelyt</p>
         <h2 className="mt-2 text-2xl font-semibold text-white">{title}</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Templates appear on the public collections page. Provide a clear slug and description so
-          others understand the intent.
+          {t("templateModal.modalDescription")}
         </p>
 
         <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
@@ -73,13 +75,13 @@ export function TemplateModal({
                 htmlFor="template-name"
                 className="text-xs font-semibold uppercase tracking-wide text-slate-400"
               >
-                Template name
+                {t("templateModal.templateName")}
               </label>
               <input
                 id="template-name"
                 value={name}
                 onChange={(event) => onNameChange(event.target.value)}
-                placeholder="e.g. Cardiovascular Basic"
+                placeholder={t("templateModal.templateNamePlaceholder")}
                 autoFocus
                 className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               />
@@ -89,13 +91,13 @@ export function TemplateModal({
                 htmlFor="template-slug"
                 className="text-xs font-semibold uppercase tracking-wide text-slate-400"
               >
-                Slug
+                {t("templateModal.slug")}
               </label>
               <input
                 id="template-slug"
                 value={slug}
                 onChange={(event) => onSlugChange(event.target.value)}
-                placeholder="cardiovascular-basic"
+                placeholder={t("templateModal.slugPlaceholder")}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               />
             </div>
@@ -106,20 +108,20 @@ export function TemplateModal({
               htmlFor="template-description"
               className="text-xs font-semibold uppercase tracking-wide text-slate-400"
             >
-              Description
+              {t("templateModal.description")}
             </label>
             <textarea
               id="template-description"
               value={description}
               onChange={(event) => onDescriptionChange(event.target.value)}
-              placeholder="Short description shown on the collections page"
+              placeholder={t("templateModal.descriptionPlaceholder")}
               rows={3}
               className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
           </div>
 
           <label className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-200">
-            <span className="font-semibold">Publish template</span>
+            <span className="font-semibold">{t("templateModal.isActive")}</span>
             <input
               type="checkbox"
               checked={isActive}

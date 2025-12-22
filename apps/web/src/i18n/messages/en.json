@@ -30,7 +30,8 @@
     "biomarkers": "biomarkers",
     "biomarkersGenitive": "biomarkers",
     "updated": "Updated",
-    "template": "Template"
+    "template": "Template",
+    "remove": "Remove {name}"
   },
   "auth": {
     "signIn": "Sign in",
@@ -55,10 +56,11 @@
     "searchPlaceholder": "Search biomarkers to add...",
     "addToPanel": "Add to panel",
     "comparePrices": "We compare prices across labs",
-    "searchTip": "Tip: press {key} to add the top match instantly.",
+    "searchTip": "Tip: press <key>Enter</key> to add the top match instantly.",
     "noMatches": "No direct matches yet. Try typing the biomarker name.",
     "searching": "Searching...",
-    "saveAsTemplate": "Save as template"
+    "saveAsTemplate": "Save as template",
+    "emptyBiomarkers": "Add biomarkers to compare prices across single tests and bundles. We'll highlight packages that introduce bonus coverage along the way."
   },
   "results": {
     "emptyState": "Start by adding biomarkers above. Panelyt will run the solver instantly and suggest the cheapest combination of single tests and packages, highlighting any bonus biomarkers you pick up along the way.",
@@ -172,7 +174,8 @@
     "isActive": "Active (publicly visible)",
     "saving": "Saving...",
     "saveTemplate": "Save template",
-    "saveChanges": "Save changes"
+    "saveChanges": "Save changes",
+    "modalDescription": "Templates appear on the public collections page. Provide a clear slug and description so others understand the intent."
   },
   "errors": {
     "failedToLoad": "Failed to load. Please try again.",

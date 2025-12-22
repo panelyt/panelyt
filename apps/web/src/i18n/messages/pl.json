@@ -30,7 +30,8 @@
     "biomarkers": "biomarkery",
     "biomarkersGenitive": "biomarkerów",
     "updated": "Zaktualizowano",
-    "template": "Szablon"
+    "template": "Szablon",
+    "remove": "Usuń {name}"
   },
   "auth": {
     "signIn": "Zaloguj się",
@@ -55,10 +56,11 @@
     "searchPlaceholder": "Szukaj biomarkerów do dodania...",
     "addToPanel": "Dodaj do panelu",
     "comparePrices": "Porównujemy ceny w różnych laboratoriach",
-    "searchTip": "Wskazówka: naciśnij {key}, aby dodać pierwszy wynik.",
+    "searchTip": "Wskazówka: naciśnij <key>Enter</key>, aby dodać pierwszy wynik.",
     "noMatches": "Brak bezpośrednich dopasowań. Spróbuj wpisać nazwę biomarkera.",
     "searching": "Szukanie...",
-    "saveAsTemplate": "Zapisz jako szablon"
+    "saveAsTemplate": "Zapisz jako szablon",
+    "emptyBiomarkers": "Dodaj biomarkery, aby porównać ceny pojedynczych badań i pakietów. Podświetlimy pakiety, które oferują dodatkowe badania w cenie."
   },
   "results": {
     "emptyState": "Zacznij od dodania biomarkerów powyżej. Panelyt natychmiast uruchomi solver i zasugeruje najtańszą kombinację pojedynczych badań i pakietów, podświetlając bonusowe biomarkery, które otrzymasz w pakiecie.",
@@ -172,7 +174,8 @@
     "isActive": "Aktywny (widoczny publicznie)",
     "saving": "Zapisywanie...",
     "saveTemplate": "Zapisz szablon",
-    "saveChanges": "Zapisz zmiany"
+    "saveChanges": "Zapisz zmiany",
+    "modalDescription": "Szablony pojawiają się na publicznej stronie kolekcji. Podaj czytelny slug i opis, aby inni zrozumieli przeznaczenie."
   },
   "errors": {
     "failedToLoad": "Nie udało się załadować. Spróbuj ponownie.",

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Search as SearchIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { type CatalogSearchResult } from "@panelyt/types";
 
 import { useDebounce } from "../hooks/useDebounce";
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function SearchBox({ onSelect, onTemplateSelect }: Props) {
+  const t = useTranslations();
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const debounced = useDebounce(query, 200);
@@ -152,7 +154,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
               }
             }}
             className="w-full rounded-xl border border-slate-700 bg-slate-950/60 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            placeholder="Search biomarkers to add..."
+            placeholder={t("home.searchPlaceholder")}
           />
         </div>
         <button
@@ -161,7 +163,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
           className="rounded-xl bg-gradient-to-r from-emerald-400 via-sky-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-md shadow-emerald-500/30 transition focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={(isFetching && suggestions.length === 0) || pendingQuery !== null}
         >
-          Add to panel
+          {t("home.addToPanel")}
         </button>
       </div>
       {query.length >= 2 && (
@@ -189,8 +191,8 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                     }`}
                   >
                     {templateDescription ||
-                      `Template · ${item.biomarker_count} biomarker${
-                        item.biomarker_count === 1 ? "" : "s"
+                      `${t("common.template")} · ${item.biomarker_count} ${
+                        item.biomarker_count === 1 ? t("common.biomarker") : t("common.biomarkers")
                       }`}
                   </span>
                 ) : (
@@ -238,8 +240,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                           <span className={`text-[11px] uppercase tracking-wide ${
                             isHighlighted ? "text-white/80" : "text-amber-300"
                           }`}>
-                            Template · {item.biomarker_count} biomarker
-                            {item.biomarker_count === 1 ? "" : "s"}
+                            {t("common.template")} · {item.biomarker_count} {item.biomarker_count === 1 ? t("common.biomarker") : t("common.biomarkers")}
                           </span>
                         )}
                       </div>
@@ -252,7 +253,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
           ) : (
             <div className="flex items-center gap-3 px-4 py-3 text-xs text-slate-300">
               <SparklesNote />
-              <span>No direct matches yet. Try typing the biomarker name.</span>
+              <span>{t("home.noMatches")}</span>
             </div>
           )}
         </div>
@@ -260,12 +261,13 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
       {isFetching && (
         <div className="absolute right-4 top-2.5 flex items-center gap-2 text-xs text-slate-400">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          <span>Searching…</span>
+          <span>{t("home.searching")}</span>
         </div>
       )}
       <p className="mt-2 text-xs text-slate-400">
-        Tip: press <span className="rounded bg-slate-800 px-1 py-0.5 font-mono text-[10px]">Enter</span>
-        to add the top match instantly.
+        {t.rich("home.searchTip", {
+          key: (chunks) => <span className="rounded bg-slate-800 px-1 py-0.5 font-mono text-[10px]">{chunks}</span>,
+        })}
       </p>
     </div>
   );
