@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://panelyt.com";
+import { BASE_URL } from "@/lib/config";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = [
@@ -24,6 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         languages: {
           pl: `${BASE_URL}${route.path}`,
           en: `${BASE_URL}/en${route.path}`,
+          "x-default": `${BASE_URL}${route.path}`,
         },
       },
     });
@@ -38,6 +39,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         languages: {
           pl: `${BASE_URL}${route.path}`,
           en: `${BASE_URL}/en${route.path}`,
+          "x-default": `${BASE_URL}${route.path}`,
         },
       },
     });

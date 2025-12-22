@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 
+import { BASE_URL } from "@/lib/config";
 import Home from "./home-content";
 
 interface PageProps {
@@ -30,8 +31,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://panelyt.com";
-
 export default async function Page({ params }: PageProps) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "meta" });
@@ -44,12 +43,13 @@ export default async function Page({ params }: PageProps) {
     description: t("description"),
     inLanguage: locale === "pl" ? "pl-PL" : "en-US",
   };
+  const safeJsonLd = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd }}
       />
       <Home />
     </>
