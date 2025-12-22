@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   BiomarkerListTemplateSchema,
@@ -45,6 +45,7 @@ export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
   } = options;
 
   const router = useRouter();
+  const handledListIdRef = useRef<string | null>(null);
 
   // Handle ?template= parameter
   useEffect(() => {
@@ -151,7 +152,11 @@ export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
     if (isFetchingSavedLists) {
       return;
     }
+    if (handledListIdRef.current === listId) {
+      return;
+    }
     const match = savedLists.find((item) => item.id === listId);
+    handledListIdRef.current = listId;
     if (match) {
       onLoadList(match);
     }

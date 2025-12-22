@@ -42,7 +42,7 @@
     "jsdom": "^27.3.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.15"
   }
 }
