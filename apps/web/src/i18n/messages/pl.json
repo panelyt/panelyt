@@ -4,6 +4,8 @@
     "description": "Zoptymalizuj koszt paneli badań krwi korzystając z aktualnych cen i minimów z 30 dni.",
     "templatesTitle": "Szablony | Panelyt",
     "templatesDescription": "Przeglądaj gotowe szablony badań krwi oparte na nauce.",
+    "templateDetailTitle": "{name} | Panelyt",
+    "templateDetailDescription": "Zobacz biomarkery i ceny dla szablonu {name}.",
     "listsTitle": "Moje listy | Panelyt",
     "listsDescription": "Zarządzaj zapisanymi zestawami biomarkerów.",
     "accountTitle": "Ustawienia konta | Panelyt",

@@ -4,6 +4,8 @@
     "description": "Optimize blood test panel costs using current prices and 30-day minimums.",
     "templatesTitle": "Templates | Panelyt",
     "templatesDescription": "Browse science-backed blood test templates.",
+    "templateDetailTitle": "{name} | Panelyt",
+    "templateDetailDescription": "View biomarkers and pricing for the {name} template.",
     "listsTitle": "My Lists | Panelyt",
     "listsDescription": "Manage your saved biomarker sets.",
     "accountTitle": "Account Settings | Panelyt",
