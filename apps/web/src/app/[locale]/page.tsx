@@ -30,6 +30,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default function Page() {
-  return <Home />;
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://panelyt.com";
+
+export default async function Page({ params }: PageProps) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "meta" });
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Panelyt",
+    url: BASE_URL,
+    description: t("description"),
+    inLanguage: locale === "pl" ? "pl-PL" : "en-US",
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <Home />
+    </>
+  );
 }
