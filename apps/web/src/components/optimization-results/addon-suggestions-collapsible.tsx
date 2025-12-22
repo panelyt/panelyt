@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
 import { ChevronDown, ChevronUp, Plus, Sparkles, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { formatCurrency } from "../../lib/format";
 
@@ -21,6 +22,7 @@ export function AddonSuggestionsCollapsible({
   onApply,
   isDark = true,
 }: AddonSuggestionsCollapsibleProps) {
+  const t = useTranslations();
   const [isExpanded, setIsExpanded] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(STORAGE_KEY) === "true";
@@ -45,10 +47,15 @@ export function AddonSuggestionsCollapsible({
   );
   const addonCount = cheapestAddon?.adds?.length ?? 0;
   const addonCost = cheapestAddon?.upgrade_cost ?? Infinity;
+  const biomarkerLabel = addonCount === 1 ? t("common.biomarker") : t("common.biomarkers");
   const summaryText =
     addonCount > 0 && addonCost < Infinity
-      ? `${addonCount} biomarker${addonCount === 1 ? "" : "s"} for +${formatCurrency(addonCost)}`
-      : "Loading...";
+      ? t("optimization.biomarkersForPrice", {
+          count: addonCount,
+          label: biomarkerLabel,
+          price: formatCurrency(addonCost),
+        })
+      : t("common.loading");
 
   const handleApply = (suggestion: OptimizeResponse["addon_suggestions"][number]) => {
     if (!onApply) return;
@@ -94,14 +101,14 @@ export function AddonSuggestionsCollapsible({
                 isDark ? "text-white" : "text-slate-900"
               }`}
             >
-              Add more for less
+              {t("optimization.addMoreForLess")}
             </span>
             <span
               className={`text-xs ${
                 isDark ? "text-slate-400" : "text-slate-500"
               }`}
             >
-              {isLoading ? "Looking for suggestions..." : summaryText}
+              {isLoading ? t("optimization.lookingForSuggestions") : summaryText}
             </span>
           </div>
         </div>
@@ -153,8 +160,14 @@ export function AddonSuggestionsCollapsible({
                     }`}
                   >
                     {suggestion.adds && suggestion.adds.length > 0
-                      ? `Adds ${suggestion.adds.length} biomarker${suggestion.adds.length === 1 ? "" : "s"}`
-                      : "Package upgrade"}
+                      ? t("optimization.addsBiomarkers", {
+                          count: suggestion.adds.length,
+                          label:
+                            suggestion.adds.length === 1
+                              ? t("common.biomarker")
+                              : t("common.biomarkers"),
+                        })
+                      : t("optimization.packageUpgrade")}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {(suggestion.adds ?? []).map((biomarker) => (

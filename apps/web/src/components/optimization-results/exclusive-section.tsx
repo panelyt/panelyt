@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp, CircleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { OptimizationViewModel } from "./view-model";
 
@@ -10,6 +11,7 @@ interface ExclusiveSectionProps {
 }
 
 export function ExclusiveSection({ viewModel }: ExclusiveSectionProps) {
+  const t = useTranslations();
   const { exclusive, isDark } = viewModel;
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -30,7 +32,7 @@ export function ExclusiveSection({ viewModel }: ExclusiveSectionProps) {
       >
         <div className="flex items-center gap-2 text-sm font-semibold text-amber-100">
           <CircleAlert className="h-4 w-4" />
-          <span>Exclusive to {exclusive.labTitle}</span>
+          <span>{t("optimization.exclusiveToLab", { lab: exclusive.labTitle })}</span>
           <span
             className={`rounded-full px-2 py-0.5 text-xs ${
               isDark ? "bg-amber-500/20 text-amber-200" : "bg-amber-100 text-amber-700"

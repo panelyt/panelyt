@@ -57,7 +57,7 @@ export function TemplateModal({
           type="button"
           onClick={onClose}
           className="absolute right-4 top-4 rounded-full border border-slate-700/70 bg-slate-900/70 p-1 text-slate-300 transition hover:border-slate-500 hover:text-white"
-          aria-label="Close template dialog"
+          aria-label={t("templateModal.closeDialog")}
         >
           <X className="h-4 w-4" />
         </button>

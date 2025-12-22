@@ -148,8 +148,8 @@ function HomeContent() {
 
       <TemplateModal
         open={templateModal.isOpen}
-        title="Publish curated template"
-        submitLabel={templateModal.isSaving ? "Saving…" : "Save template"}
+        title={t("templateModal.publishTemplate")}
+        submitLabel={templateModal.isSaving ? t("templateModal.saving") : t("templateModal.saveTemplate")}
         name={templateModal.name}
         slug={templateModal.slug}
         description={templateModal.description}
@@ -214,7 +214,9 @@ function HomeContent() {
                     onClick={() =>
                       saveListModal.open(
                         selection.selected.length
-                          ? `List ${new Date().toLocaleDateString()}`
+                          ? t("saveList.defaultName", {
+                              date: new Date().toLocaleDateString(),
+                            })
                           : "",
                       )
                     }

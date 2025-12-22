@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 
 import { useAuth } from "./useAuth";
 import { useUserSession } from "./useUserSession";
@@ -33,6 +34,7 @@ export interface UseAuthModalResult {
 export function useAuthModal(
   options: UseAuthModalOptions = {},
 ): UseAuthModalResult {
+  const t = useTranslations();
   const { onAuthSuccess, onLogoutError } = options;
 
   const [isOpen, setIsOpen] = useState(false);
@@ -62,10 +64,10 @@ export function useAuthModal(
         onAuthSuccess?.();
         close();
       } catch (err) {
-        setError(extractErrorMessage(err));
+        setError(extractErrorMessage(err, t("errors.generic")));
       }
     },
-    [auth.loginMutation, sessionQuery, onAuthSuccess, close],
+    [auth.loginMutation, sessionQuery, onAuthSuccess, close, t],
   );
 
   const handleRegister = useCallback(
@@ -77,10 +79,10 @@ export function useAuthModal(
         onAuthSuccess?.();
         close();
       } catch (err) {
-        setError(extractErrorMessage(err));
+        setError(extractErrorMessage(err, t("errors.generic")));
       }
     },
-    [auth.registerMutation, sessionQuery, onAuthSuccess, close],
+    [auth.registerMutation, sessionQuery, onAuthSuccess, close, t],
   );
 
   const handleLogout = useCallback(async () => {
@@ -89,10 +91,10 @@ export function useAuthModal(
       await sessionQuery.refetch();
       onAuthSuccess?.();
     } catch (err) {
-      const message = extractErrorMessage(err);
+      const message = extractErrorMessage(err, t("errors.generic"));
       onLogoutError?.(message);
     }
-  }, [auth.logoutMutation, sessionQuery, onAuthSuccess, onLogoutError]);
+  }, [auth.logoutMutation, sessionQuery, onAuthSuccess, onLogoutError, t]);
 
   return {
     isOpen,

@@ -14,7 +14,10 @@ export class HttpError extends Error {
  * Handles HttpError with JSON body containing `detail` field,
  * standard Error objects, and unknown error types.
  */
-export function extractErrorMessage(error: unknown): string {
+export function extractErrorMessage(
+  error: unknown,
+  fallback = "Something went wrong",
+): string {
   if (error instanceof HttpError) {
     if (error.body) {
       try {
@@ -31,7 +34,7 @@ export function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Something went wrong";
+  return fallback;
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {

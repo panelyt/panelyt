@@ -5,6 +5,7 @@ import {
   BiomarkerListTemplateSchema,
   type SavedList,
 } from "@panelyt/types";
+import { useTranslations } from "next-intl";
 
 import { getJson, extractErrorMessage } from "../lib/http";
 
@@ -49,6 +50,7 @@ export interface UseBiomarkerSelectionResult {
 export function useBiomarkerSelection(
   options: UseBiomarkerSelectionOptions = {},
 ): UseBiomarkerSelectionResult {
+  const t = useTranslations();
   const { onSelectionChange } = options;
 
   const [selected, setSelected] = useState<SelectedBiomarker[]>([]);
@@ -94,14 +96,20 @@ export function useBiomarkerSelection(
           const existing = new Set(current.map((item) => item.code));
           const additions = template.biomarkers.filter((entry) => !existing.has(entry.code));
 
+          const label =
+            additions.length === 1 ? t("common.biomarker") : t("common.biomarkers");
           const resultNotice: SelectionNotice = additions.length === 0
             ? {
                 tone: "info",
-                message: `All biomarkers from ${template.name} are already selected.`,
+                message: t("selection.alreadySelected", { name: template.name }),
               }
             : {
                 tone: "success",
-                message: `Added ${additions.length} biomarker${additions.length === 1 ? "" : "s"} from ${template.name}.`,
+                message: t("selection.addedFrom", {
+                  count: additions.length,
+                  label,
+                  name: template.name,
+                }),
               };
 
           setError(null);
@@ -121,10 +129,10 @@ export function useBiomarkerSelection(
         });
       } catch (err) {
         setNotice(null);
-        setError(extractErrorMessage(err));
+        setError(extractErrorMessage(err, t("errors.generic")));
       }
     },
-    [onSelectionChange],
+    [onSelectionChange, t],
   );
 
   const handleApplyAddon = useCallback(
@@ -154,7 +162,7 @@ export function useBiomarkerSelection(
         setError(null);
         setNotice({
           tone: "info",
-          message: `All biomarkers from ${packageName} are already selected.`,
+          message: t("selection.alreadySelected", { name: packageName }),
         });
         return;
       }
@@ -164,10 +172,14 @@ export function useBiomarkerSelection(
       setError(null);
       setNotice({
         tone: "success",
-        message: `Added ${additions.length} biomarker${additions.length === 1 ? "" : "s"} from ${packageName}.`,
+        message: t("selection.addedFrom", {
+          count: additions.length,
+          label: additions.length === 1 ? t("common.biomarker") : t("common.biomarkers"),
+          name: packageName,
+        }),
       });
     },
-    [onSelectionChange],
+    [onSelectionChange, t],
   );
 
   const handleLoadList = useCallback(

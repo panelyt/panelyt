@@ -1,10 +1,11 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { vi } from 'vitest'
 import { LabTabs } from '../lab-tabs'
+import { renderWithIntl } from '../../../test/utils'
 
 describe('LabTabs', () => {
   const renderTabs = () =>
-    render(<LabTabs labCards={baseCards} isDark={false} />)
+    renderWithIntl(<LabTabs labCards={baseCards} isDark={false} />)
 
   const baseCards = [
     {

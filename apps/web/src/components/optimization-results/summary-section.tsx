@@ -1,4 +1,7 @@
+"use client";
+
 import { Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { LabChoiceCard } from "./types";
 import type { OptimizationViewModel } from "./view-model";
@@ -13,7 +16,14 @@ interface SummarySectionProps {
 }
 
 export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
+  const t = useTranslations();
   const { isDark, selected, bonusBiomarkers, bonusPricing } = viewModel;
+  const biomarkerLabel =
+    selected.length === 1 ? t("common.biomarker") : t("common.biomarkers");
+  const bonusBiomarkerLabel =
+    bonusBiomarkers.length === 1
+      ? t("optimization.bonusBiomarkerSingular")
+      : t("optimization.bonusBiomarkerPlural");
 
   return (
     <section
@@ -30,16 +40,17 @@ export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
               isDark ? "text-white" : "text-slate-900"
             }`}
           >
-            Optimization summary
+            {t("optimization.optimizationSummaryTitle")}
           </h2>
           <p
             className={`mt-2 max-w-2xl text-sm ${
               isDark ? "text-slate-300" : "text-slate-600"
             }`}
           >
-            Covering {selected.length} biomarker{selected.length === 1 ? "" : "s"} with the most
-            cost-efficient mix available right now. Compare current pricing against the recent
-            30-day floor to understand potential savings.
+            {t("optimization.optimizationSummaryDescription", {
+              count: selected.length,
+              label: biomarkerLabel,
+            })}
           </p>
         </div>
         {bonusBiomarkers.length > 0 && (
@@ -52,9 +63,11 @@ export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
           >
             <Sparkles className="h-4 w-4 flex-shrink-0" />
             <span className="font-medium">
-              {`${bonusBiomarkers.length} bonus biomarker${
-                bonusBiomarkers.length === 1 ? "" : "s"
-              } (${bonusPricing.totalNowLabel})`}
+              {t("optimization.bonusBiomarkersSummary", {
+                count: bonusBiomarkers.length,
+                label: bonusBiomarkerLabel,
+                total: bonusPricing.totalNowLabel,
+              })}
             </span>
           </span>
         )}

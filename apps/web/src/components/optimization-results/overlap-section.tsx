@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Layers } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { OptimizationViewModel } from "./view-model";
 
@@ -10,6 +11,7 @@ interface OverlapSectionProps {
 }
 
 export function OverlapSection({ viewModel }: OverlapSectionProps) {
+  const t = useTranslations();
   const { overlaps, isDark } = viewModel;
   const [isExpanded, setIsExpanded] = useState(false); // Collapsed by default
 
@@ -36,7 +38,7 @@ export function OverlapSection({ viewModel }: OverlapSectionProps) {
                 isDark ? "text-amber-200" : "text-amber-700"
               }`}
             >
-              Package overlaps
+              {t("optimization.packageOverlaps")}
             </h3>
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${
@@ -48,8 +50,8 @@ export function OverlapSection({ viewModel }: OverlapSectionProps) {
           </div>
           <p className={`text-xs ${isDark ? "text-amber-100/70" : "text-amber-600/70"}`}>
             {isExpanded
-              ? "Biomarkers appearing in multiple packages"
-              : "Click to see biomarkers in multiple packages"}
+              ? t("optimization.packageOverlapsExpanded")
+              : t("optimization.packageOverlapsCollapsed")}
           </p>
         </div>
         <span
@@ -98,7 +100,13 @@ export function OverlapSection({ viewModel }: OverlapSectionProps) {
                     isDark ? "text-amber-200/70" : "text-amber-600/70"
                   }`}
                 >
-                  {entry.packages.length} packages
+                  {t("optimization.packagesCount", {
+                    count: entry.packages.length,
+                    label:
+                      entry.packages.length === 1
+                        ? t("optimization.packageLabel")
+                        : t("optimization.packagesLabel"),
+                  })}
                 </span>
               </div>
             </div>

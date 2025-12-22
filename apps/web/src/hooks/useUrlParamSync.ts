@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   BiomarkerListTemplateSchema,
   SavedListSchema,
@@ -35,6 +36,7 @@ export interface UseUrlParamSyncOptions {
  * Cleans up the URL after loading.
  */
 export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
+  const t = useTranslations();
   const {
     onLoadTemplate,
     onLoadShared,
@@ -75,7 +77,7 @@ export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
         );
       } catch (err) {
         if (!cancelled) {
-          onError(extractErrorMessage(err));
+          onError(extractErrorMessage(err, t("errors.generic")));
         }
       } finally {
         if (!cancelled) {
@@ -91,7 +93,7 @@ export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
     return () => {
       cancelled = true;
     };
-  }, [router, onLoadTemplate, onError]);
+  }, [router, onLoadTemplate, onError, t]);
 
   // Handle ?shared= parameter
   useEffect(() => {
@@ -121,7 +123,7 @@ export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
         );
       } catch (err) {
         if (!cancelled) {
-          onError(extractErrorMessage(err));
+          onError(extractErrorMessage(err, t("errors.generic")));
         }
       } finally {
         if (!cancelled) {
@@ -137,7 +139,7 @@ export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
     return () => {
       cancelled = true;
     };
-  }, [router, onLoadShared, onError]);
+  }, [router, onLoadShared, onError, t]);
 
   // Handle ?list= parameter (requires savedLists to be loaded first)
   useEffect(() => {

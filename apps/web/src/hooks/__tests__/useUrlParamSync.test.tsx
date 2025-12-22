@@ -1,6 +1,9 @@
 import { renderHook, waitFor } from '@testing-library/react'
+import { NextIntlClientProvider } from 'next-intl'
+import type { ReactNode } from 'react'
 import { useUrlParamSync } from '../useUrlParamSync'
 import { useRouter } from 'next/navigation'
+import enMessages from '../../i18n/messages/en.json'
 
 vi.mock('../lib/http', () => ({
   getJson: vi.fn(),
@@ -8,6 +11,16 @@ vi.mock('../lib/http', () => ({
 }))
 
 const useRouterMock = vi.mocked(useRouter)
+
+const createWrapper = () => {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        {children}
+      </NextIntlClientProvider>
+    )
+  }
+}
 
 describe('useUrlParamSync', () => {
   beforeEach(() => {
@@ -32,10 +45,29 @@ describe('useUrlParamSync', () => {
       {
         id: 'list-1',
         name: 'My list',
-        biomarkers: [{ code: 'A1C', display_name: 'A1C' }],
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+        biomarkers: [
+          {
+            id: 'entry-1',
+            code: 'A1C',
+            display_name: 'A1C',
+            sort_order: 1,
+            biomarker_id: 1,
+            created_at: '2025-01-01T00:00:00Z',
+          },
+        ],
       },
     ]
 
+    const wrapper = createWrapper()
     const { rerender } = renderHook(
       ({ onLoadList }) =>
         useUrlParamSync({
@@ -46,7 +78,7 @@ describe('useUrlParamSync', () => {
           savedLists,
           isFetchingSavedLists: false,
         }),
-      { initialProps: { onLoadList: initialOnLoadList } },
+      { initialProps: { onLoadList: initialOnLoadList }, wrapper },
     )
 
     await waitFor(() => {

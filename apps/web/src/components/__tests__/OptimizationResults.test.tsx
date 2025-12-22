@@ -5,6 +5,7 @@ import { OptimizationResults } from '../optimization-results'
 import type { OptimizeResponse } from '@panelyt/types'
 import type { ReactNode } from 'react'
 import { renderWithQueryClient } from '../../test/utils'
+import plMessages from '../../i18n/messages/pl.json'
 
 // Mock the hooks
 vi.mock('../../hooks/useBiomarkerLookup', () => ({
@@ -660,6 +661,80 @@ describe('OptimizationResults', () => {
     expect(link).toHaveAttribute('href', 'https://diag.pl/sklep/badania/alt-test')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noreferrer')
+  })
+
+  it('renders Polish translations for optimization UI', () => {
+    const mockResult = makeOptimizeResponse({
+      total_now: 25.00,
+      total_min30: 23.50,
+      items: [
+        {
+          id: 1,
+          kind: 'single',
+          name: 'ALT Test',
+          slug: 'alt-test',
+          price_now_grosz: 1000,
+          price_min30_grosz: 950,
+          currency: 'PLN',
+          biomarkers: ['ALT'],
+          url: 'https://diag.pl/sklep/badania/alt-test',
+          on_sale: false,
+        },
+        {
+          id: 2,
+          kind: 'package',
+          name: 'Liver Panel',
+          slug: 'liver-panel',
+          price_now_grosz: 1500,
+          price_min30_grosz: 1400,
+          currency: 'PLN',
+          biomarkers: ['AST', 'CHOL'],
+          url: 'https://diag.pl/sklep/pakiety/liver-panel',
+          on_sale: false,
+        },
+      ],
+      explain: {
+        'ALT': ['ALT Test'],
+        'AST': ['Liver Panel'],
+        'CHOL': ['Liver Panel'],
+      },
+      uncovered: [],
+    })
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT', 'AST', 'CHOL']}
+        result={mockResult}
+        isLoading={false}
+        error={null}
+        labCards={[
+          {
+            key: 'diag',
+            title: 'Tylko DIAG',
+            priceLabel: '$25.00',
+            meta: '0 Brakuje · 0 Bonus',
+            badge: 'Najtaniej',
+            active: true,
+            loading: false,
+            disabled: false,
+            onSelect: vi.fn(),
+            priceValue: 25,
+            icon: <Sparkles className="h-4 w-4" />,
+            accentLight: 'bg-emerald-500/10 text-emerald-600',
+            accentDark: 'bg-emerald-500/20 text-emerald-200',
+          },
+        ]}
+        addonSuggestionsLoading={true}
+      />,
+      { locale: 'pl', messages: plMessages }
+    )
+
+    expect(screen.getByText('Twoje zamówienie: Diagnostyka')).toBeInTheDocument()
+    expect(screen.getByText('Suma')).toBeInTheDocument()
+    expect(screen.getByText('Najlepsze ceny')).toBeInTheDocument()
+    expect(screen.getByText('Szukamy sugestii...')).toBeInTheDocument()
+    expect(screen.getByText(/Pakiety/)).toBeInTheDocument()
+    expect(screen.getByText(/Badania pojedyncze/)).toBeInTheDocument()
   })
 
 })

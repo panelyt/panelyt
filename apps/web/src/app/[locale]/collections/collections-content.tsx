@@ -74,11 +74,11 @@ export default function CollectionsContent() {
     const trimmedName = modalName.trim();
     const normalizedSlug = slugify(modalSlug || modalName);
     if (!trimmedName) {
-      setModalError("Template name cannot be empty");
+      setModalError(t("errors.templateNameEmpty"));
       return;
     }
     if (!normalizedSlug) {
-      setModalError("Template slug cannot be empty");
+      setModalError(t("errors.templateSlugEmpty"));
       return;
     }
 
@@ -101,7 +101,7 @@ export default function CollectionsContent() {
       setModalSourceSlug(null);
       setModalBiomarkers([]);
     } catch (error) {
-      setModalError(error instanceof Error ? error.message : "Failed to update template");
+      setModalError(error instanceof Error ? error.message : t("errors.failedToUpdate"));
     } finally {
       setModalSubmitting(false);
     }
@@ -109,7 +109,7 @@ export default function CollectionsContent() {
 
   const handleDeleteTemplate = async (slug: string, name: string) => {
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(`Delete template "${name}"?`);
+      const confirmed = window.confirm(t("templateModal.deleteConfirm", { name }));
       if (!confirmed) {
         return;
       }
@@ -118,7 +118,7 @@ export default function CollectionsContent() {
       await templateAdmin.deleteMutation.mutateAsync(slug);
       setAdminError(null);
     } catch (error) {
-      setAdminError(error instanceof Error ? error.message : "Failed to delete template");
+      setAdminError(error instanceof Error ? error.message : t("errors.failedToDelete"));
     }
   };
 
@@ -221,8 +221,8 @@ export default function CollectionsContent() {
 
       <TemplateModal
         open={isAdmin && isModalOpen}
-        title="Edit template"
-        submitLabel={modalSubmitting ? "Saving…" : "Save changes"}
+        title={t("templateModal.editTemplate")}
+        submitLabel={modalSubmitting ? t("templateModal.saving") : t("templateModal.saveChanges")}
         name={modalName}
         slug={modalSlug}
         description={modalDescription}
