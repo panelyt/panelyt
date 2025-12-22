@@ -14,11 +14,11 @@ import {
 } from "lucide-react";
 import type { SavedList } from "@panelyt/types";
 
-import { Header } from "../../components/header";
-import { useSavedLists } from "../../hooks/useSavedLists";
-import { useUserSession } from "../../hooks/useUserSession";
-import { useAccountSettings } from "../../hooks/useAccountSettings";
-import { postJson } from "../../lib/http";
+import { Header } from "../../../components/header";
+import { useSavedLists } from "../../../hooks/useSavedLists";
+import { useUserSession } from "../../../hooks/useUserSession";
+import { useAccountSettings } from "../../../hooks/useAccountSettings";
+import { postJson } from "../../../lib/http";
 import { OptimizeResponseSchema } from "@panelyt/types";
 
 interface ListWithTotals {

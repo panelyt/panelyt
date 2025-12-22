@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 
-import { Header } from "../../components/header";
-import { TemplateModal } from "../../components/template-modal";
-import { TemplatePriceSummary } from "../../components/template-price-summary";
-import { useTemplateCatalog } from "../../hooks/useBiomarkerListTemplates";
-import { useTemplateAdmin } from "../../hooks/useTemplateAdmin";
-import { useUserSession } from "../../hooks/useUserSession";
-import { slugify } from "../../lib/slug";
+import { Header } from "../../../components/header";
+import { TemplateModal } from "../../../components/template-modal";
+import { TemplatePriceSummary } from "../../../components/template-price-summary";
+import { useTemplateCatalog } from "../../../hooks/useBiomarkerListTemplates";
+import { useTemplateAdmin } from "../../../hooks/useTemplateAdmin";
+import { useUserSession } from "../../../hooks/useUserSession";
+import { slugify } from "../../../lib/slug";
 
 export default function CollectionsPage() {
   const router = useRouter();

@@ -11,9 +11,9 @@ import {
   Unplug,
 } from "lucide-react";
 
-import { Header } from "../../components/header";
-import { useAccountSettings } from "../../hooks/useAccountSettings";
-import { useUserSession } from "../../hooks/useUserSession";
+import { Header } from "../../../components/header";
+import { useAccountSettings } from "../../../hooks/useAccountSettings";
+import { useUserSession } from "../../../hooks/useUserSession";
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";

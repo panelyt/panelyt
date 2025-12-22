@@ -3,21 +3,21 @@
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { Link2, Check } from "lucide-react";
 
-import { useSavedLists } from "../hooks/useSavedLists";
-import { useUserSession } from "../hooks/useUserSession";
-import { useLabOptimization } from "../hooks/useLabOptimization";
-import { useBiomarkerSelection } from "../hooks/useBiomarkerSelection";
-import { useUrlParamSync } from "../hooks/useUrlParamSync";
-import { useUrlBiomarkerSync } from "../hooks/useUrlBiomarkerSync";
-import { useSaveListModal } from "../hooks/useSaveListModal";
-import { useTemplateModal } from "../hooks/useTemplateModal";
-import { Header } from "../components/header";
-import { OptimizationResults } from "../components/optimization-results";
-import { SearchBox } from "../components/search-box";
-import { SelectedBiomarkers } from "../components/selected-biomarkers";
-import { SaveListModal } from "../components/save-list-modal";
-import { TemplateModal } from "../components/template-modal";
-import { LoadMenu } from "../components/load-menu";
+import { useSavedLists } from "../../hooks/useSavedLists";
+import { useUserSession } from "../../hooks/useUserSession";
+import { useLabOptimization } from "../../hooks/useLabOptimization";
+import { useBiomarkerSelection } from "../../hooks/useBiomarkerSelection";
+import { useUrlParamSync } from "../../hooks/useUrlParamSync";
+import { useUrlBiomarkerSync } from "../../hooks/useUrlBiomarkerSync";
+import { useSaveListModal } from "../../hooks/useSaveListModal";
+import { useTemplateModal } from "../../hooks/useTemplateModal";
+import { Header } from "../../components/header";
+import { OptimizationResults } from "../../components/optimization-results";
+import { SearchBox } from "../../components/search-box";
+import { SelectedBiomarkers } from "../../components/selected-biomarkers";
+import { SaveListModal } from "../../components/save-list-modal";
+import { TemplateModal } from "../../components/template-modal";
+import { LoadMenu } from "../../components/load-menu";
 
 function HomeContent() {
   // Core data hooks

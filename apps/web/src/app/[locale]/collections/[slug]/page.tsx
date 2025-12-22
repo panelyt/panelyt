@@ -2,26 +2,26 @@
 
 import { use, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { Header } from "../../../../components/header";
 import { OptimizationResults } from "../../../../components/optimization-results";
-import { useSharedList } from "../../../../hooks/useSharedList";
+import { useTemplateDetail } from "../../../../hooks/useBiomarkerListTemplates";
 import { useOptimization } from "../../../../hooks/useOptimization";
 
-interface SharedListPageProps {
-  params: Promise<{ shareToken: string }>;
+interface TemplateDetailPageProps {
+  params: Promise<{ slug: string }>;
 }
 
-export default function SharedListPage({ params }: SharedListPageProps) {
-  const { shareToken } = use(params);
+export default function TemplateDetailPage({ params }: TemplateDetailPageProps) {
+  const { slug } = use(params);
   const router = useRouter();
-  const sharedQuery = useSharedList(shareToken, Boolean(shareToken));
-  const sharedList = sharedQuery.data;
+  const templateQuery = useTemplateDetail(slug, Boolean(slug));
+  const template = templateQuery.data;
 
   const biomarkerCodes = useMemo(
-    () => sharedList?.biomarkers.map((entry) => entry.code) ?? [],
-    [sharedList],
+    () => template?.biomarkers.map((entry) => entry.code) ?? [],
+    [template],
   );
   const optimization = useOptimization(biomarkerCodes, 'auto');
 
@@ -29,56 +29,59 @@ export default function SharedListPage({ params }: SharedListPageProps) {
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <Header />
 
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        {sharedList ? (
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        {template ? (
           <div className="space-y-3">
             <p className="text-xs text-slate-500">
-              <span className="font-mono">shared/{shareToken}</span>
+              <span className="font-mono">{slug}</span>
             </p>
-            <h1 className="text-3xl font-semibold text-white">{sharedList.name}</h1>
+            <h1 className="text-3xl font-semibold text-white">{template.name}</h1>
+            {template.description && (
+              <p className="max-w-2xl text-sm text-slate-300">{template.description}</p>
+            )}
             <p className="text-xs text-slate-500">
-              <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-              Shared {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString() : "recently"}
+              {template.biomarkers.length} biomarker
+              {template.biomarkers.length === 1 ? "" : "s"} • Updated {new Date(template.updated_at).toLocaleString()}
             </p>
           </div>
-        ) : sharedQuery.isLoading ? (
+        ) : templateQuery.isLoading ? (
           <div className="flex items-center gap-2 text-sm text-slate-300">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading shared list...
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading template...
           </div>
-        ) : sharedQuery.isError ? (
-          <p className="text-sm text-red-200">Unable to find this shared list.</p>
+        ) : templateQuery.isError ? (
+          <p className="text-sm text-red-200">Failed to load template.</p>
         ) : null}
       </div>
 
-      <section className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pb-10">
-        {sharedQuery.isLoading ? (
+      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pb-10">
+        {templateQuery.isLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
-            <Loader2 className="h-5 w-5 animate-spin" /> Fetching shared list…
+            <Loader2 className="h-5 w-5 animate-spin" /> Fetching template definition…
           </div>
-        ) : sharedQuery.isError || !sharedList ? (
+        ) : templateQuery.isError || !template ? (
           <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-6 text-sm text-red-200">
-            This share link is no longer valid or has been revoked by its owner.
+            We couldn&apos;t find that biomarker list. It may have been unpublished.
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
-            <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,_2fr)_minmax(0,_3fr)]">
+            <section className="flex flex-col gap-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-                    Shared biomarkers
+                    Biomarkers
                   </p>
-                  <h2 className="text-xl font-semibold text-white">Selection overview</h2>
+                  <h2 className="text-xl font-semibold text-white">Included markers</h2>
                 </div>
                 <button
                   type="button"
-                  onClick={() => router.push(`/?shared=${shareToken}`)}
+                  onClick={() => router.push(`/?template=${template.slug}`)}
                   className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                 >
                   Load in optimizer
                 </button>
               </div>
               <ul className="space-y-3 text-sm text-slate-200">
-                {sharedList.biomarkers.map((entry) => (
+                {template.biomarkers.map((entry) => (
                   <li
                     key={entry.id}
                     className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3"
@@ -86,19 +89,22 @@ export default function SharedListPage({ params }: SharedListPageProps) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-white">{entry.display_name}</span>
                     </div>
-                    {entry.biomarker_id && (
-                      <p className="text-xs text-slate-400">Mapped biomarker ID: {entry.biomarker_id}</p>
+                    {entry.biomarker && (
+                      <p className="text-xs text-slate-400">
+                        Matched biomarker: {entry.biomarker.name}
+                      </p>
                     )}
+                    {entry.notes && <p className="text-xs text-slate-400">{entry.notes}</p>}
                   </li>
                 ))}
               </ul>
             </section>
 
             <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-xl font-semibold text-white">Live pricing</h2>
+              <h2 className="text-xl font-semibold text-white">Latest pricing</h2>
               <p className="mt-2 text-sm text-slate-300">
-                Panelyt computes the cheapest basket for this shared list using the latest diag.pl
-                prices.
+                The optimizer runs automatically against diag.pl prices. Adjust the template in the
+                main app to explore alternatives.
               </p>
               <div className="mt-6">
                 <OptimizationResults
