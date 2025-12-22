@@ -72,7 +72,7 @@
     "title": "My Lists",
     "description": "Manage every saved biomarker set, load it into the optimizer, or clean up old entries.",
     "loadingLists": "Loading lists...",
-    "noLists": "No lists yet. Build a selection on the home page and press {saveButton} to store it here.",
+    "noLists": "No lists yet. Build a selection on the home page and press <saveButton>Save</saveButton> to store it here.",
     "enableAllAlerts": "Enable all alerts",
     "disableAllAlerts": "Disable all alerts",
     "enableAlerts": "Enable alerts",
@@ -87,7 +87,7 @@
     "enableShare": "Enable share",
     "generating": "Generating...",
     "shareDescription": "Generate a shareable link to let others view this list without editing rights.",
-    "linkTelegramFirst": "Link your Telegram chat in {link} before enabling alerts.",
+    "linkTelegramFirst": "Link your Telegram chat in <link>Account settings</link> before enabling alerts.",
     "accountSettings": "Account settings"
   },
   "saveList": {
@@ -141,7 +141,7 @@
     "telegramConnection": "Telegram connection",
     "telegramDescription": "Start the bot in Telegram, then either tap the deep-link button or send the command shown below. You can also paste the chat ID manually if the bot replies with it.",
     "linkToken": "Link token",
-    "sendCommand": "Send {command} to the bot or tap below.",
+    "sendCommand": "Send <command></command> to the bot or tap below.",
     "copyCommand": "Copy command",
     "openBot": "Open bot",
     "expires": "Expires",
@@ -157,8 +157,8 @@
     "disconnectChat": "Disconnect chat",
     "disconnecting": "Disconnecting...",
     "howItWorks": "How it works",
-    "step1": "Tap the bot link or search for your Panelyt bot in Telegram and press {start}.",
-    "step2": "The bot replies with your chat ID and the {link} command.",
+    "step1": "Tap the bot link or search for your Panelyt bot in Telegram and press <start>Start</start>.",
+    "step2": "The bot replies with your chat ID and the <link>/link</link> command.",
     "step3": "Either use the command or paste the chat ID above to connect your account.",
     "step4": "Enable alerts on any saved list from the Lists page. We will ping you when the price drops."
   },

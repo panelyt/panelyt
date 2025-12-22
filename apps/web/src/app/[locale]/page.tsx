@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { Link2, Check } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { useSavedLists } from "../../hooks/useSavedLists";
 import { useUserSession } from "../../hooks/useUserSession";
@@ -20,6 +21,8 @@ import { TemplateModal } from "../../components/template-modal";
 import { LoadMenu } from "../../components/load-menu";
 
 function HomeContent() {
+  const t = useTranslations();
+
   // Core data hooks
   const sessionQuery = useUserSession();
   const userSession = sessionQuery.data;
@@ -166,7 +169,7 @@ function HomeContent() {
           <div className="grid gap-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-900/30">
               <h2 className="text-lg font-semibold text-white">
-                Build your test panel
+                {t("home.buildPanel")}
               </h2>
               <div className="mt-6 flex flex-col gap-4">
                 <SearchBox
@@ -179,7 +182,7 @@ function HomeContent() {
                 />
                 {selection.selected.length > 0 && (
                   <p className="text-sm text-slate-400">
-                    We compare prices across labs
+                    {t("home.comparePrices")}
                   </p>
                 )}
               </div>
@@ -217,7 +220,7 @@ function HomeContent() {
                     }
                     className="rounded-full border border-emerald-500/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                   >
-                    Save
+                    {t("common.save")}
                   </button>
                   <button
                     type="button"
@@ -228,12 +231,12 @@ function HomeContent() {
                     {shareCopied ? (
                       <>
                         <Check className="h-3.5 w-3.5" />
-                        Copied!
+                        {t("common.copied")}
                       </>
                     ) : (
                       <>
                         <Link2 className="h-3.5 w-3.5" />
-                        Share
+                        {t("common.share")}
                       </>
                     )}
                   </button>
@@ -243,7 +246,7 @@ function HomeContent() {
                       onClick={templateModal.open}
                       className="rounded-full border border-sky-500/60 px-3 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20"
                     >
-                      Save as template
+                      {t("home.saveAsTemplate")}
                     </button>
                   )}
                 </div>

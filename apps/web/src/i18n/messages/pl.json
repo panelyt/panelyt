@@ -72,7 +72,7 @@
     "title": "Moje listy",
     "description": "Zarządzaj zapisanymi zestawami biomarkerów, wczytuj je do optymalizatora lub usuwaj stare wpisy.",
     "loadingLists": "Ładowanie list...",
-    "noLists": "Brak list. Zbuduj selekcję na stronie głównej i naciśnij {saveButton}, aby zapisać ją tutaj.",
+    "noLists": "Brak list. Zbuduj selekcję na stronie głównej i naciśnij <saveButton>Zapisz</saveButton>, aby zapisać ją tutaj.",
     "enableAllAlerts": "Włącz wszystkie alerty",
     "disableAllAlerts": "Wyłącz wszystkie alerty",
     "enableAlerts": "Włącz alerty",
@@ -87,7 +87,7 @@
     "enableShare": "Włącz udostępnianie",
     "generating": "Generowanie...",
     "shareDescription": "Wygeneruj link do udostępnienia, aby inni mogli zobaczyć tę listę bez możliwości edycji.",
-    "linkTelegramFirst": "Połącz swój czat Telegram w {link}, aby włączyć alerty.",
+    "linkTelegramFirst": "Połącz swój czat Telegram w <link>Ustawieniach konta</link>, aby włączyć alerty.",
     "accountSettings": "Ustawienia konta"
   },
   "saveList": {
@@ -141,7 +141,7 @@
     "telegramConnection": "Połączenie z Telegram",
     "telegramDescription": "Uruchom bota w Telegram, a następnie kliknij przycisk deep-link lub wyślij komendę pokazaną poniżej. Możesz też wkleić ID czatu ręcznie, jeśli bot je poda.",
     "linkToken": "Token połączenia",
-    "sendCommand": "Wyślij {command} do bota lub kliknij poniżej.",
+    "sendCommand": "Wyślij <command></command> do bota lub kliknij poniżej.",
     "copyCommand": "Kopiuj komendę",
     "openBot": "Otwórz bota",
     "expires": "Wygasa",
@@ -157,8 +157,8 @@
     "disconnectChat": "Rozłącz czat",
     "disconnecting": "Rozłączanie...",
     "howItWorks": "Jak to działa",
-    "step1": "Kliknij link do bota lub wyszukaj bota Panelyt w Telegram i naciśnij {start}.",
-    "step2": "Bot odpowie z Twoim ID czatu i komendą {link}.",
+    "step1": "Kliknij link do bota lub wyszukaj bota Panelyt w Telegram i naciśnij <start>Start</start>.",
+    "step2": "Bot odpowie z Twoim ID czatu i komendą <link>/link</link>.",
     "step3": "Użyj komendy lub wklej ID czatu powyżej, aby połączyć konto.",
     "step4": "Włącz alerty dla dowolnej zapisanej listy na stronie List. Powiadomimy Cię, gdy cena spadnie."
   },
