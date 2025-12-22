@@ -124,7 +124,7 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('Crunching the optimal basket…')).toBeInTheDocument()
+    expect(screen.getByText('Crunching the optimal basket...')).toBeInTheDocument()
   })
 
   it('shows error state', () => {

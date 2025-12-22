@@ -9,7 +9,9 @@
     "listsTitle": "My Lists | Panelyt",
     "listsDescription": "Manage your saved biomarker sets.",
     "accountTitle": "Account Settings | Panelyt",
-    "accountDescription": "Connect Telegram to receive price drop notifications."
+    "accountDescription": "Connect Telegram to receive price drop notifications.",
+    "sharedListTitle": "{name} | Panelyt",
+    "sharedListDescription": "View biomarkers and live pricing for the shared list {name}."
   },
   "nav": {
     "optimizer": "Optimizer",

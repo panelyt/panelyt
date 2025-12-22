@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Bell,
   BellOff,
@@ -12,9 +10,10 @@ import {
   Trash2,
   Link as LinkIcon,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { SavedList } from "@panelyt/types";
 
+import { Link, getPathname, useRouter } from "../../../i18n/navigation";
 import { Header } from "../../../components/header";
 import { useSavedLists } from "../../../hooks/useSavedLists";
 import { useUserSession } from "../../../hooks/useUserSession";
@@ -41,6 +40,7 @@ export default function ListsContent() {
   const { shareMutation, unshareMutation, notificationsMutation, notificationsBulkMutation } =
     savedLists;
   const rawLists = savedLists.listsQuery.data;
+  const locale = useLocale();
   const router = useRouter();
   const [listTotals, setListTotals] = useState<Record<string, ListTotalsValue>>({});
   const [loadingTotals, setLoadingTotals] = useState(false);
@@ -115,7 +115,7 @@ export default function ListsContent() {
         }
       } catch {
         if (!cancelled) {
-          setError("Failed to calculate totals for saved lists.");
+          setError(t("errors.failedToCalculateTotals"));
         }
       } finally {
         if (!cancelled) {
@@ -128,7 +128,7 @@ export default function ListsContent() {
     return () => {
       cancelled = true;
     };
-  }, [rawLists]);
+  }, [rawLists, t]);
 
   const formattedLists = useMemo(() => {
     const lists = rawLists ?? [];
@@ -210,7 +210,10 @@ export default function ListsContent() {
     await savedLists.deleteMutation.mutateAsync(id);
   };
 
-  const sharePath = useCallback((token: string) => `/collections/shared/${token}`, []);
+  const sharePath = useCallback(
+    (token: string) => getPathname({ href: `/collections/shared/${token}`, locale }),
+    [locale],
+  );
 
   const buildShareUrl = useCallback(
     (token: string) => (shareOrigin ? `${shareOrigin}${sharePath(token)}` : sharePath(token)),
@@ -388,7 +391,7 @@ export default function ListsContent() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => router.push(`/?list=${item.list.id}`)}
+                          onClick={() => router.push({ pathname: "/", query: { list: item.list.id } })}
                           className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                         >
                           {t("lists.loadInOptimizer")}

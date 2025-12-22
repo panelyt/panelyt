@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+
+import { Link, usePathname } from "../i18n/navigation";
 
 import { useUserSession } from "../hooks/useUserSession";
 import { useAuthModal } from "../hooks/useAuthModal";

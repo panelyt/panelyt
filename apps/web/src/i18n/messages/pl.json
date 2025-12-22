@@ -9,7 +9,9 @@
     "listsTitle": "Moje listy | Panelyt",
     "listsDescription": "Zarządzaj zapisanymi zestawami biomarkerów.",
     "accountTitle": "Ustawienia konta | Panelyt",
-    "accountDescription": "Połącz Telegram, aby otrzymywać powiadomienia o spadkach cen."
+    "accountDescription": "Połącz Telegram, aby otrzymywać powiadomienia o spadkach cen.",
+    "sharedListTitle": "{name} | Panelyt",
+    "sharedListDescription": "Zobacz biomarkery i aktualne ceny dla udostępnionej listy {name}."
   },
   "nav": {
     "optimizer": "Optymalizator",
