@@ -1,6 +1,8 @@
 import Script from "next/script";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -19,15 +21,17 @@ export const metadata: Metadata = {
   description: "Optimize blood test panels using current and 30-day minimum prices.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const isProduction = process.env.NODE_ENV === "production";
+  const locale = await getLocale();
+  const messages = await getMessages();
 
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {isProduction ? (
           <Script
@@ -36,7 +40,9 @@ export default function RootLayout({
             strategy="afterInteractive"
           />
         ) : null}
-        <Providers>{children}</Providers>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <Providers>{children}</Providers>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
