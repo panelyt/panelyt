@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "../../../i18n/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-import { Header } from "../../components/header";
-import { TemplateModal } from "../../components/template-modal";
-import { TemplatePriceSummary } from "../../components/template-price-summary";
-import { useTemplateCatalog } from "../../hooks/useBiomarkerListTemplates";
-import { useTemplateAdmin } from "../../hooks/useTemplateAdmin";
-import { useUserSession } from "../../hooks/useUserSession";
-import { slugify } from "../../lib/slug";
+import { Header } from "../../../components/header";
+import { TemplateModal } from "../../../components/template-modal";
+import { TemplatePriceSummary } from "../../../components/template-price-summary";
+import { useTemplateCatalog } from "../../../hooks/useBiomarkerListTemplates";
+import { useTemplateAdmin } from "../../../hooks/useTemplateAdmin";
+import { useUserSession } from "../../../hooks/useUserSession";
+import { slugify } from "../../../lib/slug";
 
-export default function CollectionsPage() {
+export default function CollectionsContent() {
+  const t = useTranslations();
   const router = useRouter();
   const session = useUserSession();
   const isAdmin = Boolean(session.data?.is_admin);
@@ -72,11 +74,11 @@ export default function CollectionsPage() {
     const trimmedName = modalName.trim();
     const normalizedSlug = slugify(modalSlug || modalName);
     if (!trimmedName) {
-      setModalError("Template name cannot be empty");
+      setModalError(t("errors.templateNameEmpty"));
       return;
     }
     if (!normalizedSlug) {
-      setModalError("Template slug cannot be empty");
+      setModalError(t("errors.templateSlugEmpty"));
       return;
     }
 
@@ -99,7 +101,7 @@ export default function CollectionsPage() {
       setModalSourceSlug(null);
       setModalBiomarkers([]);
     } catch (error) {
-      setModalError(error instanceof Error ? error.message : "Failed to update template");
+      setModalError(error instanceof Error ? error.message : t("errors.failedToUpdate"));
     } finally {
       setModalSubmitting(false);
     }
@@ -107,7 +109,7 @@ export default function CollectionsPage() {
 
   const handleDeleteTemplate = async (slug: string, name: string) => {
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(`Delete template "${name}"?`);
+      const confirmed = window.confirm(t("templateModal.deleteConfirm", { name }));
       if (!confirmed) {
         return;
       }
@@ -116,7 +118,7 @@ export default function CollectionsPage() {
       await templateAdmin.deleteMutation.mutateAsync(slug);
       setAdminError(null);
     } catch (error) {
-      setAdminError(error instanceof Error ? error.message : "Failed to delete template");
+      setAdminError(error instanceof Error ? error.message : t("errors.failedToDelete"));
     }
   };
 
@@ -125,10 +127,9 @@ export default function CollectionsPage() {
       <Header />
 
       <div className="mx-auto max-w-6xl px-6 py-8">
-        <h1 className="text-3xl font-semibold text-white">Curated Templates</h1>
+        <h1 className="text-3xl font-semibold text-white">{t("collections.title")}</h1>
         <p className="mt-2 max-w-xl text-sm text-slate-400">
-          Start with science-backed biomarker bundles. Load a template into the optimizer
-          or inspect the details before running price comparisons.
+          {t("collections.description")}
         </p>
         {adminError && (
           <p className="mt-4 text-sm text-red-300">{adminError}</p>
@@ -138,15 +139,15 @@ export default function CollectionsPage() {
       <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
         {templatesQuery.isLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
-            <Loader2 className="h-5 w-5 animate-spin" /> Loading curated templates…
+            <Loader2 className="h-5 w-5 animate-spin" /> {t("collections.loadingTemplates")}
           </div>
         ) : templatesQuery.isError ? (
           <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-6 text-sm text-red-200">
-            Failed to load templates. Please try again.
+            {t("collections.failedToLoad")}
           </div>
         ) : templates.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/70 px-6 py-8 text-center text-sm text-slate-400">
-            No templates published yet. Check back soon!
+            {t("collections.noTemplates")}
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
@@ -161,7 +162,7 @@ export default function CollectionsPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-                        Template
+                        {t("common.template")}
                       </p>
                       <h2 className="mt-2 text-2xl font-semibold text-white">{template.name}</h2>
                     </div>
@@ -169,13 +170,12 @@ export default function CollectionsPage() {
                       codes={template.biomarkers.map((entry) => entry.code)}
                     />
                   </div>
-                  <p className="text-sm text-slate-300">{template.description ?? "No description provided."}</p>
+                  <p className="text-sm text-slate-300">{template.description ?? t("collections.noDescription")}</p>
                   <p className="text-xs text-slate-500">
-                    {template.biomarkers.length} biomarker
-                    {template.biomarkers.length === 1 ? "" : "s"} • Updated {new Date(template.updated_at).toLocaleDateString()}
+                    {t("common.biomarkersCount", { count: template.biomarkers.length })} • {t("common.updated")} {new Date(template.updated_at).toLocaleDateString()}
                     {!template.is_active && (
                       <span className="ml-2 inline-flex items-center rounded-full border border-slate-600 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                        Unpublished
+                        {t("collections.unpublished")}
                       </span>
                     )}
                   </p>
@@ -186,13 +186,13 @@ export default function CollectionsPage() {
                     onClick={() => router.push(`/?template=${template.slug}`)}
                     className="flex items-center gap-2 rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                   >
-                    Load in optimizer
+                    {t("lists.loadInOptimizer")}
                   </button>
                   <Link
                     href={`/collections/${template.slug}`}
                     className="flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
                   >
-                    View details <ArrowRight className="h-3.5 w-3.5" />
+                    {t("collections.viewDetails")} <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                   {isAdmin && (
                     <>
@@ -201,14 +201,14 @@ export default function CollectionsPage() {
                         onClick={() => openModalForTemplate(template)}
                         className="rounded-lg border border-sky-500/60 px-4 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20"
                       >
-                        Edit
+                        {t("common.edit")}
                       </button>
                       <button
                         type="button"
                         onClick={() => void handleDeleteTemplate(template.slug, template.name)}
                         className="rounded-lg border border-red-500/60 px-4 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/20"
                       >
-                        Delete
+                        {t("common.delete")}
                       </button>
                     </>
                   )}
@@ -221,8 +221,8 @@ export default function CollectionsPage() {
 
       <TemplateModal
         open={isAdmin && isModalOpen}
-        title="Edit template"
-        submitLabel={modalSubmitting ? "Saving…" : "Save changes"}
+        title={t("templateModal.editTemplate")}
+        submitLabel={modalSubmitting ? t("templateModal.saving") : t("templateModal.saveChanges")}
         name={modalName}
         slug={modalSlug}
         description={modalDescription}

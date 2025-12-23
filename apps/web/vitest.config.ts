@@ -12,8 +12,10 @@ export default defineConfig({
     css: true,
   },
   resolve: {
+    preserveSymlinks: true,
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'next/navigation': path.resolve(__dirname, './node_modules/next/navigation.js'),
     },
   },
 })

@@ -15,6 +15,7 @@ import {
   type OptimizeResponse,
   type AddonSuggestionsResponse,
 } from "@panelyt/types";
+import { useTranslations } from "next-intl";
 
 import { useOptimization, useAddonSuggestions } from "./useOptimization";
 import { useDebounce } from "./useDebounce";
@@ -24,6 +25,7 @@ import { formatCurrency } from "../lib/format";
 export interface LabCard {
   key: string;
   title: string;
+  shortLabel?: string;
   priceLabel: string;
   priceValue: number | null;
   meta: string;
@@ -69,6 +71,7 @@ const OPTIMIZATION_DEBOUNCE_MS = 400;
 export function useLabOptimization(
   biomarkerCodes: string[],
 ): UseLabOptimizationResult {
+  const t = useTranslations();
   const [selectedLabChoice, setSelectedLabChoice] = useState<string | "all" | null>(null);
   const [cachedLabOptions, setCachedLabOptions] = useState<LabAvailability[]>([]);
   const autoSelectionRef = useRef<string | null>(null);
@@ -275,9 +278,9 @@ export function useLabOptimization(
     if (normalizedCode === "alab" || normalizedName.includes("alab")) {
       return "ALAB";
     }
-    const fallback = (code || name || "Lab").trim();
+    const fallback = (code || name || t("optimization.labFallback")).trim();
     return fallback ? fallback.toUpperCase() : "LAB";
-  }, []);
+  }, [t]);
 
   // User action: select a lab (clears auto-selection tracking)
   const selectLab = useCallback((code: string | "all") => {
@@ -301,7 +304,7 @@ export function useLabOptimization(
       const query = labComparisons[index];
       const option = labOptions.find((lab) => lab.code === code);
       const labShort = labelForLab(code, option?.name ?? query.data?.lab_name);
-      const labTitle = `ONLY ${labShort}`;
+      const labTitle = t("optimization.labOnly", { lab: labShort });
       const priceLabel = query.data ? formatCurrency(query.data.total_now) : "—";
       const missingTokensCount = option?.missing_tokens?.length ?? 0;
       const hasGaps = option ? !option.covers_all && missingTokensCount > 0 : false;
@@ -322,15 +325,23 @@ export function useLabOptimization(
         (query.data || missingTokensCount > 0 || bonusCount > 0 || bonusValue > 0);
       const shouldShowBonusLabel = !!query.data || bonusCount > 0;
       const bonusLabel = shouldShowBonusLabel
-        ? bonusCount > 0
-          ? `${bonusCount} Bonus${bonusValueLabel ? ` (${bonusValueLabel})` : ""}`
-          : "0 Bonus"
+        ? bonusValueLabel
+          ? t("optimization.bonusShortWithValue", {
+              count: bonusCount,
+              value: bonusValueLabel,
+            })
+          : t("optimization.bonusShort", { count: bonusCount })
         : null;
       const coverageLabel = !hasCounts
         ? debouncedBiomarkerCodes.length === 0
-          ? "Add biomarkers to compare labs"
+          ? t("optimization.addBiomarkersToCompare")
           : "—"
-        : [`${missingCount} Missing`, bonusLabel].filter(Boolean).join(" · ");
+        : [
+            t("optimization.missingShort", { count: missingCount }),
+            bonusLabel,
+          ]
+            .filter(Boolean)
+            .join(" · ");
 
       const preset = getLabPreset(labShort);
 
@@ -346,6 +357,7 @@ export function useLabOptimization(
       return {
         key: code || `lab-${index}`,
         title: labTitle,
+        shortLabel: labShort,
         priceLabel,
         priceValue: query.data?.total_now ?? null,
         meta: coverageLabel,
@@ -374,23 +386,26 @@ export function useLabOptimization(
       : 0;
     const splitMissingCount = splitResult?.uncovered?.length ?? 0;
     const splitBonusValue = splitResult?.bonus_total_now ?? 0;
+    const splitBonusValueLabel =
+      splitBonusValue > 0 ? formatCurrency(splitBonusValue) : null;
     const splitBonusLabel =
       splitResult || splitBonusCount > 0
-        ? splitBonusCount > 0
-          ? `${splitBonusCount} Bonus${
-              splitBonusValue > 0 ? ` (${formatCurrency(splitBonusValue)})` : ""
-            }`
-          : "0 Bonus"
+        ? splitBonusValueLabel
+          ? t("optimization.bonusShortWithValue", {
+              count: splitBonusCount,
+              value: splitBonusValueLabel,
+            })
+          : t("optimization.bonusShort", { count: splitBonusCount })
         : null;
     const splitHasCounts =
       debouncedBiomarkerCodes.length > 0 &&
       (splitResult || splitBonusCount > 0 || splitMissingCount > 0 || !!splitBonusLabel);
     const splitMeta = !splitHasCounts
       ? debouncedBiomarkerCodes.length === 0
-        ? "Add biomarkers to compare labs"
+        ? t("optimization.addBiomarkersToCompare")
         : "—"
       : [
-          `${splitMissingCount} Missing`,
+          t("optimization.missingShort", { count: splitMissingCount }),
           splitBonusLabel,
         ]
           .filter(Boolean)
@@ -404,7 +419,8 @@ export function useLabOptimization(
 
     cards.push({
       key: "all",
-      title: "BOTH LABS",
+      title: t("optimization.bothLabs"),
+      shortLabel: t("optimization.bothLabs"),
       priceLabel: splitResult ? formatCurrency(splitResult.total_now) : "—",
       priceValue: splitResult?.total_now ?? null,
       meta: splitMeta,
@@ -417,7 +433,7 @@ export function useLabOptimization(
       accentLight: "bg-indigo-500/10 text-indigo-500",
       accentDark: "bg-indigo-500/20 text-indigo-200",
       savings: splitSavingsAmount > 0 ? { amount: splitSavingsAmount, label: splitSavingsLabel } : undefined,
-      bonus: splitBonusCount > 0 ? { count: splitBonusCount, valueLabel: splitBonusValue > 0 ? formatCurrency(splitBonusValue) : undefined } : undefined,
+      bonus: splitBonusCount > 0 ? { count: splitBonusCount, valueLabel: splitBonusValueLabel ?? undefined } : undefined,
       missing: splitMissingCount > 0 ? { count: splitMissingCount } : undefined,
       coversAll: splitMissingCount === 0,
     });
@@ -432,7 +448,7 @@ export function useLabOptimization(
       priceCandidates[0]);
       cards = cards.map((card, index) => ({
         ...card,
-        badge: index === cheapest.index ? "Cheapest" : undefined,
+        badge: index === cheapest.index ? t("optimization.cheapestBadge") : undefined,
       }));
     }
 
@@ -448,6 +464,7 @@ export function useLabOptimization(
     selectedLabChoice,
     splitLoading,
     splitResult,
+    t,
   ]);
 
   return {

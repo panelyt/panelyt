@@ -10,21 +10,23 @@ import {
   RefreshCcw,
   Unplug,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-import { Header } from "../../components/header";
-import { useAccountSettings } from "../../hooks/useAccountSettings";
-import { useUserSession } from "../../hooks/useUserSession";
+import { Header } from "../../../components/header";
+import { useAccountSettings } from "../../../hooks/useAccountSettings";
+import { useUserSession } from "../../../hooks/useUserSession";
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleString();
+    return new Date(value).toLocaleString("pl-PL");
   } catch {
     return value;
   }
 }
 
-export default function AccountPage() {
+export default function AccountContent() {
+  const t = useTranslations();
   const session = useUserSession();
   const account = useAccountSettings(Boolean(session.data));
   const [chatIdInput, setChatIdInput] = useState("");
@@ -57,7 +59,7 @@ export default function AccountPage() {
       setCopiedToken(true);
       setTimeout(() => setCopiedToken(false), 2000);
     } catch {
-      setFormError("Clipboard is unavailable. Copy the token manually.");
+      setFormError(t("errors.clipboardUnavailable"));
     }
   };
 
@@ -65,7 +67,7 @@ export default function AccountPage() {
     event.preventDefault();
     const trimmed = chatIdInput.trim();
     if (!trimmed) {
-      setFormError("Chat ID cannot be blank.");
+      setFormError(t("errors.chatIdBlank"));
       return;
     }
     setFormError(null);
@@ -76,7 +78,7 @@ export default function AccountPage() {
       if (error instanceof Error) {
         setFormError(error.message);
       } else {
-        setFormError("Failed to store chat ID.");
+        setFormError(t("errors.failedToStoreChatId"));
       }
     }
   };
@@ -89,7 +91,7 @@ export default function AccountPage() {
       if (error instanceof Error) {
         setFormError(error.message);
       } else {
-        setFormError("Failed to generate link token.");
+        setFormError(t("errors.failedToGenerateToken"));
       }
     }
   };
@@ -102,7 +104,7 @@ export default function AccountPage() {
       if (error instanceof Error) {
         setFormError(error.message);
       } else {
-        setFormError("Unable to disconnect Telegram chat.");
+        setFormError(t("errors.failedToDisconnect"));
       }
     }
   };
@@ -116,9 +118,9 @@ export default function AccountPage() {
       <Header />
 
       <div className="mx-auto max-w-4xl px-6 py-8">
-        <h1 className="text-3xl font-semibold text-white">Account Settings</h1>
+        <h1 className="text-3xl font-semibold text-white">{t("account.title")}</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Link your Telegram chat to receive alerts when any saved list gets cheaper.
+          {t("account.description")}
         </p>
         {mutationError && <p className="mt-4 text-sm text-red-300">{mutationError}</p>}
       </div>
@@ -126,37 +128,36 @@ export default function AccountPage() {
       <section className="mx-auto flex max-w-4xl flex-col gap-4 px-6 pb-10">
         {isLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
-            <Loader2 className="h-5 w-5 animate-spin" /> Loading account settings…
+            <Loader2 className="h-5 w-5 animate-spin" /> {t("common.loading")}
           </div>
         ) : !session.data ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-6 py-8 text-center text-sm text-slate-300">
-            Sign in to manage Telegram alerts and saved lists.
+            {t("account.signInRequired")}
           </div>
         ) : !telegram ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-6 py-8 text-center text-sm text-slate-300">
-            Telegram integration is currently unavailable. Try again later.
+            {t("account.telegramUnavailable")}
           </div>
         ) : (
           <div className="flex flex-col gap-6">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-6 py-6">
               <div className="flex items-center gap-3 text-sky-200">
                 <PlugZap className="h-5 w-5" />
-                <h2 className="text-lg font-semibold">Telegram connection</h2>
+                <h2 className="text-lg font-semibold">{t("account.telegramConnection")}</h2>
               </div>
               <p className="mt-2 text-sm text-slate-300">
-                Start the bot in Telegram, then either tap the deep-link button or send the command shown
-                below. You can also paste the chat ID manually if the bot replies with it.
+                {t("account.telegramDescription")}
               </p>
 
               <div className="mt-6 grid gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-5 py-4">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-                    <RefreshCcw className="h-4 w-4" /> Link token
+                    <RefreshCcw className="h-4 w-4" /> {t("account.linkToken")}
                   </h3>
                   {telegram.link_token ? (
                     <>
                       <p className="mt-2 text-xs text-slate-300">
-                        Send <span className="font-mono text-emerald-200">/link {telegram.link_token}</span> to the bot or tap below.
+                        {t.rich("account.sendCommand", { command: () => <span className="font-mono text-emerald-200">/link {telegram.link_token}</span> })}
                       </p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <button
@@ -164,7 +165,7 @@ export default function AccountPage() {
                           onClick={() => handleCopyToken(telegram.link_token ?? "")}
                           className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
                         >
-                          {copiedToken ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} Copy command
+                          {copiedToken ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {t("account.copyCommand")}
                         </button>
                         {linkUrl && (
                           <a
@@ -173,17 +174,17 @@ export default function AccountPage() {
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
                           >
-                            <ExternalLink className="h-3.5 w-3.5" /> Open bot
+                            <ExternalLink className="h-3.5 w-3.5" /> {t("account.openBot")}
                           </a>
                         )}
                       </div>
                       <p className="mt-3 text-[11px] text-slate-500">
-                        Expires {formatDate(telegram.link_token_expires_at)}
+                        {t("account.expires")} {formatDate(telegram.link_token_expires_at)}
                       </p>
                     </>
                   ) : (
                     <p className="mt-2 text-xs text-slate-400">
-                      Generate a token to link a new chat or refresh the connection.
+                      {t("account.generateTokenHint")}
                     </p>
                   )}
                   <button
@@ -197,28 +198,28 @@ export default function AccountPage() {
                     ) : (
                       <RefreshCcw className="h-4 w-4" />
                     )}
-                    {account.linkTokenMutation.isPending ? "Generating…" : "New link token"}
+                    {account.linkTokenMutation.isPending ? t("account.generatingToken") : t("account.newLinkToken")}
                   </button>
                 </div>
 
                 <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-5 py-4">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-                    <Unplug className="h-4 w-4" /> Chat status
+                    <Unplug className="h-4 w-4" /> {t("account.chatStatus")}
                   </h3>
                   <dl className="mt-3 space-y-2 text-xs text-slate-300">
                     <div className="flex justify-between gap-3">
-                      <dt className="text-slate-400">Chat ID</dt>
+                      <dt className="text-slate-400">{t("account.chatId")}</dt>
                       <dd className="font-mono text-slate-100">{telegram.chat_id ?? "—"}</dd>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <dt className="text-slate-400">Linked at</dt>
+                      <dt className="text-slate-400">{t("account.linkedAt")}</dt>
                       <dd>{formatDate(telegram.linked_at)}</dd>
                     </div>
                   </dl>
                   <div className="mt-4 flex flex-col gap-3">
                     <form onSubmit={handleManualLink} className="flex flex-col gap-2">
                       <label className="text-xs font-semibold text-slate-400" htmlFor="chat-id">
-                        Paste chat ID to link manually
+                        {t("account.pasteChatId")}
                       </label>
                       <div className="flex gap-2">
                         <input
@@ -226,7 +227,7 @@ export default function AccountPage() {
                           name="chat-id"
                           value={chatIdInput}
                           onChange={(event) => setChatIdInput(event.target.value)}
-                          placeholder="e.g. 123456789"
+                          placeholder={t("account.chatIdPlaceholder")}
                           className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-emerald-400 focus:outline-none"
                         />
                         <button
@@ -234,7 +235,7 @@ export default function AccountPage() {
                           className="rounded-lg border border-sky-500/60 px-4 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                           disabled={account.manualLinkMutation.isPending}
                         >
-                          {account.manualLinkMutation.isPending ? "Linking…" : "Save"}
+                          {account.manualLinkMutation.isPending ? t("account.linking") : t("common.save")}
                         </button>
                       </div>
                     </form>
@@ -249,7 +250,7 @@ export default function AccountPage() {
                       ) : (
                         <Unplug className="h-4 w-4" />
                       )}
-                      {account.unlinkMutation.isPending ? "Disconnecting…" : "Disconnect chat"}
+                      {account.unlinkMutation.isPending ? t("account.disconnecting") : t("account.disconnectChat")}
                     </button>
                   </div>
                 </div>
@@ -257,12 +258,12 @@ export default function AccountPage() {
             </div>
 
             <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/60 px-6 py-5 text-sm text-slate-300">
-              <h3 className="text-sm font-semibold text-slate-200">How it works</h3>
+              <h3 className="text-sm font-semibold text-slate-200">{t("account.howItWorks")}</h3>
               <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs text-slate-300">
-                <li>Tap the bot link or search for your Panelyt bot in Telegram and press <span className="font-semibold text-emerald-200">Start</span>.</li>
-                <li>The bot replies with your chat ID and the <span className="font-mono text-emerald-200">/link</span> command.</li>
-                <li>Either use the command or paste the chat ID above to connect your account.</li>
-                <li>Enable alerts on any saved list from the Lists page. We will ping you when the price drops.</li>
+                <li>{t.rich("account.step1", { start: (chunks) => <span className="font-semibold text-emerald-200">{chunks}</span> })}</li>
+                <li>{t.rich("account.step2", { link: (chunks) => <span className="font-mono text-emerald-200">{chunks}</span> })}</li>
+                <li>{t("account.step3")}</li>
+                <li>{t("account.step4")}</li>
               </ol>
             </div>
           </div>

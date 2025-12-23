@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 
 import { useTemplateAdmin } from "./useTemplateAdmin";
 import { extractErrorMessage } from "../lib/http";
@@ -38,6 +39,7 @@ export interface UseTemplateModalResult {
 export function useTemplateModal(
   options: UseTemplateModalOptions,
 ): UseTemplateModalResult {
+  const t = useTranslations();
   const { biomarkers, onSuccess } = options;
 
   const [isOpen, setIsOpen] = useState(false);
@@ -53,7 +55,9 @@ export function useTemplateModal(
 
   const open = useCallback(() => {
     const defaultName = biomarkers.length
-      ? `Template ${new Date().toLocaleDateString()}`
+      ? t("templateModal.defaultName", {
+          date: new Date().toLocaleDateString(),
+        })
       : "";
     const initialSlug = defaultName ? slugify(defaultName) : "";
     setNameState(defaultName);
@@ -63,7 +67,7 @@ export function useTemplateModal(
     setError(null);
     setSlugTouched(Boolean(initialSlug));
     setIsOpen(true);
-  }, [biomarkers.length]);
+  }, [biomarkers.length, t]);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -85,7 +89,7 @@ export function useTemplateModal(
 
   const handleConfirm = useCallback(async () => {
     if (biomarkers.length === 0) {
-      setError("Add biomarkers before saving a template.");
+      setError(t("errors.templateNeedsBiomarkers"));
       return;
     }
 
@@ -93,11 +97,11 @@ export function useTemplateModal(
     const normalizedSlug = slugify(slug || name);
 
     if (!trimmedName) {
-      setError("Template name cannot be empty");
+      setError(t("errors.templateNameEmpty"));
       return;
     }
     if (!normalizedSlug) {
-      setError("Template slug cannot be empty");
+      setError(t("errors.templateSlugEmpty"));
       return;
     }
 
@@ -118,11 +122,21 @@ export function useTemplateModal(
       onSuccess?.();
       close();
     } catch (err) {
-      setError(extractErrorMessage(err));
+      setError(extractErrorMessage(err, t("errors.generic")));
     } finally {
       setIsSaving(false);
     }
-  }, [biomarkers, name, slug, description, isActive, templateAdmin.createMutation, onSuccess, close]);
+  }, [
+    biomarkers,
+    name,
+    slug,
+    description,
+    isActive,
+    templateAdmin.createMutation,
+    onSuccess,
+    close,
+    t,
+  ]);
 
   return {
     isOpen,

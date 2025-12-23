@@ -1,4 +1,7 @@
+"use client";
+
 import { Sparkles, Layers } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { formatGroszToPln, formatCurrency } from "../../lib/format";
 
@@ -9,6 +12,7 @@ interface PriceBreakdownSectionProps {
 }
 
 export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps) {
+  const t = useTranslations();
   const {
     isDark,
     variant,
@@ -47,19 +51,25 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
               isDark ? "text-white" : "text-slate-900"
             }`}
           >
-            Your order from {labName}
+            {t("optimization.orderFrom", { lab: labName })}
           </h2>
           <p
             className={`mt-1 text-sm ${
               isDark ? "text-slate-400" : "text-slate-500"
             }`}
           >
-            {counts.items} item{counts.items === 1 ? "" : "s"}
+            {t("optimization.itemsCount", { count: counts.items })}
           </p>
         </div>
       </div>
       <div className="mt-6 space-y-6">
-        {groups.map((group) => (
+        {groups.map((group) => {
+          const groupLabel =
+            group.kind === "package"
+              ? t("optimization.packages")
+              : t("optimization.singleTests");
+
+          return (
           <div key={group.kind} className="space-y-3">
             <div
               className={`flex items-center justify-between text-xs uppercase tracking-wide ${
@@ -67,8 +77,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
               }`}
             >
               <span>
-                {group.kind === "package" ? "Packages" : "Single tests"} · {group.items.length}{" "}
-                item{group.items.length === 1 ? "" : "s"}
+                {groupLabel} · {t("optimization.itemsCount", { count: group.items.length })}
               </span>
             </div>
             <div className="space-y-3">
@@ -80,8 +89,9 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                       : "border-slate-200 bg-white text-slate-500"
                   }`}
                 >
-                  No {group.kind === "package" ? "packages" : "single tests"} selected in the optimal
-                  basket.
+                  {group.kind === "package"
+                    ? t("optimization.noPackagesSelected")
+                    : t("optimization.noSinglesSelected")}
                 </p>
               ) : (
                 group.items.map((item) => (
@@ -124,7 +134,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                                       : "bg-slate-200 text-slate-700"
                                 }`}
                                 title={`${displayName} (${biomarker})${
-                                  isBonus ? " · Bonus coverage" : ""
+                                  isBonus ? ` · ${t("optimization.bonusCoverage")}` : ""
                                 }`}
                               >
                                 {displayName}
@@ -154,7 +164,13 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                                 const firstBiomarker = overlappingBiomarkers[0];
                                 const otherPackages = overlapMap.get(firstBiomarker) ?? [];
                                 const otherPackage = otherPackages.find((p) => p !== item.name);
-                                return `${displayNameFor(firstBiomarker)} also in ${otherPackage} (no extra cost)`;
+                                if (!otherPackage) {
+                                  return null;
+                                }
+                                return t("optimization.alsoInPackage", {
+                                  biomarker: displayNameFor(firstBiomarker),
+                                  package: otherPackage,
+                                });
                               })()}
                             </span>
                           </div>
@@ -166,7 +182,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                         }`}
                       >
                         <p className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-700"}`}>
-                          Current
+                          {t("optimization.currentLabel")}
                         </p>
                         <p
                           className={`text-sm font-semibold ${
@@ -178,12 +194,12 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                         <p
                           className={`mt-2 font-semibold ${
                             isDark ? "text-emerald-300" : "text-emerald-600"
-                          }`}
-                        >
-                          30-day min
-                        </p>
-                        <p>{formatGroszToPln(item.price_min30_grosz)}</p>
-                      </div>
+                        }`}
+                      >
+                        {t("optimization.min30Label")}
+                      </p>
+                      <p>{formatGroszToPln(item.price_min30_grosz)}</p>
+                    </div>
                     </div>
                     <div className="mt-3">
                       <PriceComparisonBar
@@ -199,7 +215,8 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Total and savings footer */}
@@ -214,7 +231,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
               isDark ? "text-slate-400" : "text-slate-500"
             }`}
           >
-            Total
+            {t("optimization.totalLabel")}
           </span>
           <span
             className={`text-2xl font-semibold ${
@@ -230,7 +247,9 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
               isDark ? "text-emerald-300" : "text-emerald-600"
             }`}
           >
-            You&apos;re saving {pricing.potentialSavingsLabel} vs. 30-day floor
+            {t("optimization.savingVsFloor", {
+              amount: pricing.potentialSavingsLabel,
+            })}
           </p>
         )}
       </div>

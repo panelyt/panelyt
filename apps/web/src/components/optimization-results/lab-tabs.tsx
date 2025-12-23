@@ -1,4 +1,7 @@
+"use client";
+
 import { AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import type { LabChoiceCard } from "./types";
 
@@ -8,6 +11,7 @@ interface LabTabsProps {
 }
 
 export function LabTabs({ labCards, isDark }: LabTabsProps) {
+  const t = useTranslations();
   if (labCards.length === 0) {
     return null;
   }
@@ -30,7 +34,7 @@ export function LabTabs({ labCards, isDark }: LabTabsProps) {
             isDark ? "text-slate-400" : "text-slate-500"
           }`}
         >
-          Best prices
+          {t("optimization.bestPrices")}
         </h2>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -48,13 +52,17 @@ interface LabSegmentProps {
 }
 
 function LabSegment({ card, isDark }: LabSegmentProps) {
+  const t = useTranslations();
   const isActive = card.active;
   const isDisabled = card.disabled || card.loading;
   const isUnavailable = !card.coversAll && card.missing && card.missing.count > 0;
   const hasSavings = Boolean(card.savings && card.savings.amount > 0);
   const hasBonus = Boolean(card.bonus && card.bonus.count > 0);
+  const missingCount = card.missing?.count ?? 0;
+  const savingsLabel = card.savings?.label ?? "";
+  const bonusCount = card.bonus?.count ?? 0;
 
-  const labName = card.title.replace(/^ONLY\s+/i, "");
+  const labName = card.shortLabel ?? card.title.replace(/^ONLY\s+/i, "");
 
   const segmentTone = isDark
     ? "border-slate-800/80 bg-slate-950/40 hover:border-slate-700 hover:bg-slate-900/60"
@@ -114,7 +122,7 @@ function LabSegment({ card, isDark }: LabSegmentProps) {
               isDark ? "text-amber-300" : "text-amber-600"
             }`}
           >
-            N/A
+            {t("common.notAvailable")}
           </span>
         ) : (
           <span
@@ -135,7 +143,7 @@ function LabSegment({ card, isDark }: LabSegmentProps) {
             }`}
           >
             <AlertTriangle className="h-3 w-3" />
-            <span>Missing {card.missing?.count}</span>
+            <span>{t("optimization.missingCount", { count: missingCount })}</span>
           </div>
         ) : (
           <>
@@ -150,7 +158,9 @@ function LabSegment({ card, isDark }: LabSegmentProps) {
                     : "border-slate-200 bg-slate-100 text-slate-500"
               }`}
             >
-              {hasSavings ? `Save ${card.savings?.label}` : "No savings"}
+              {hasSavings
+                ? t("optimization.saveLabel", { amount: savingsLabel })
+                : t("optimization.noSavings")}
             </span>
 
             {hasBonus && (
@@ -161,7 +171,7 @@ function LabSegment({ card, isDark }: LabSegmentProps) {
                     : "border-slate-200 bg-white text-slate-600"
                 }`}
               >
-                +{card.bonus?.count} bonus
+                {t("optimization.bonusCountShort", { count: bonusCount })}
               </span>
             )}
           </>

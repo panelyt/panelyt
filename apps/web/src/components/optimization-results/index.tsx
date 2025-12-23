@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
 import { CircleAlert, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { useBiomarkerLookup } from "../../hooks/useBiomarkerLookup";
 import type { LabChoiceCard } from "./types";
@@ -34,6 +35,7 @@ export function OptimizationResults({
   addonSuggestionsLoading = false,
   onApplyAddon,
 }: OptimizationResultsProps) {
+  const t = useTranslations();
   const missingCodes = useMemo(() => {
     if (!result) {
       return [] as string[];
@@ -64,9 +66,7 @@ export function OptimizationResults({
   if (selected.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/70 p-8 text-sm text-slate-200">
-        Start by adding biomarkers above. Panelyt will run the solver instantly and suggest the
-        cheapest combination of single tests and packages, highlighting any bonus biomarkers you pick
-        up along the way.
+        {t("results.emptyState")}
       </div>
     );
   }
@@ -75,7 +75,7 @@ export function OptimizationResults({
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-200">
         <Loader2 className="h-4 w-4 animate-spin" />
-        <span>Crunching the optimal basket…</span>
+        <span>{t("results.optimizing")}</span>
       </div>
     );
   }
@@ -85,7 +85,7 @@ export function OptimizationResults({
       <div className="flex items-start gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-100">
         <CircleAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <div>
-          <p className="font-semibold">Optimization failed</p>
+          <p className="font-semibold">{t("results.optimizationFailed")}</p>
           <p className="text-xs text-red-200/80">{error.message}</p>
         </div>
       </div>

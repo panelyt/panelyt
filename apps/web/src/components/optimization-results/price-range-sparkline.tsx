@@ -1,5 +1,8 @@
+"use client";
+
 import { TrendingDown, TrendingUp, Check } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 import { formatGroszToPln } from "../../lib/format";
 
@@ -18,6 +21,7 @@ export function PriceRangeSparkline({
   minPrice,
   isDark = true,
 }: PriceRangeSparklineProps) {
+  const t = useTranslations();
   const atFloor = currentPrice <= minPrice;
   const savingsGrosz = Math.max(0, currentPrice - minPrice);
   const savingsPercent = minPrice > 0 ? (savingsGrosz / minPrice) * 100 : 0;
@@ -49,7 +53,7 @@ export function PriceRangeSparkline({
             isDark ? "text-slate-200" : ""
           }`}
         >
-          Price position
+          {t("optimization.pricePosition")}
         </span>
       </div>
 
@@ -67,12 +71,14 @@ export function PriceRangeSparkline({
                   : "text-slate-900"
             }`}
           >
-            {atFloor ? "At floor" : `+${formatGroszToPln(savingsGrosz)}`}
+            {atFloor ? t("optimization.atFloor") : `+${formatGroszToPln(savingsGrosz)}`}
           </p>
           <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
             {atFloor
-              ? "Matching the 30-day low"
-              : `${savingsPercent.toFixed(1)}% above the floor`}
+              ? t("optimization.matchingFloor")
+              : t("optimization.percentAboveFloor", {
+                  percent: savingsPercent.toFixed(1),
+                })}
           </p>
         </div>
 

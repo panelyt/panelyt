@@ -1,5 +1,6 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 import { useDebounce } from '../useDebounce'
+import { vi } from 'vitest'
 
 describe('useDebounce', () => {
   it('returns initial value immediately', () => {
@@ -100,6 +101,7 @@ describe('useDebounce', () => {
   })
 
   it('works with different data types', async () => {
+    vi.useFakeTimers()
     const { result, rerender } = renderHook(
       (value) => useDebounce(value, 50),
       {
@@ -111,12 +113,12 @@ describe('useDebounce', () => {
 
     rerender(100)
 
-    await waitFor(
-      () => {
-        expect(result.current).toBe(100)
-      },
-      { timeout: 200 }
-    )
+    await act(async () => {
+      vi.advanceTimersByTime(60)
+    })
+
+    expect(result.current).toBe(100)
+    vi.useRealTimers()
   })
 
   it('handles object values', async () => {

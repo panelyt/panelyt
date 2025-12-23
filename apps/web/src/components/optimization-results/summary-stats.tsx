@@ -1,5 +1,8 @@
+"use client";
+
 import { Gift, PiggyBank } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 import type { OptimizationViewModel } from "./view-model";
 import { PriceRangeSparkline } from "./price-range-sparkline";
@@ -20,8 +23,9 @@ interface SummaryStatsGridProps {
 }
 
 export function SummaryStatsGrid({ viewModel }: SummaryStatsGridProps) {
+  const t = useTranslations();
   const { isDark, totalNowGrosz, totalMin30Grosz } = viewModel;
-  const summaryStats = buildSummaryStats(viewModel);
+  const summaryStats = buildSummaryStats(viewModel, t);
 
   return (
     <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-3">
@@ -85,7 +89,10 @@ export function SummaryStatsGrid({ viewModel }: SummaryStatsGridProps) {
   );
 }
 
-function buildSummaryStats(viewModel: OptimizationViewModel): SummaryStat[] {
+function buildSummaryStats(
+  viewModel: OptimizationViewModel,
+  t: ReturnType<typeof useTranslations>,
+): SummaryStat[] {
   const { pricing, bonusPricing, bonusBiomarkers } = viewModel;
 
   const atFloor = !pricing.highlightSavings;
@@ -93,11 +100,11 @@ function buildSummaryStats(viewModel: OptimizationViewModel): SummaryStat[] {
 
   return [
     {
-      label: "Potential savings",
+      label: t("optimization.potentialSavings"),
       value: atFloor ? "—" : pricing.potentialSavingsLabel,
       hint: atFloor
-        ? "You're at the best price"
-        : "Current premium over 30-day floor",
+        ? t("optimization.bestPrice")
+        : t("optimization.premiumOverFloor"),
       icon: <PiggyBank className="h-4 w-4" />,
       accentLight: atFloor
         ? "bg-emerald-500/10 text-emerald-600"
@@ -108,11 +115,13 @@ function buildSummaryStats(viewModel: OptimizationViewModel): SummaryStat[] {
       isPositive: atFloor,
     },
     {
-      label: "Bonus value",
+      label: t("optimization.bonusValue"),
       value: hasBonus ? bonusPricing.totalNowLabel : "—",
       hint: hasBonus
-        ? `${bonusBiomarkers.length} extra biomarker${bonusBiomarkers.length === 1 ? "" : "s"} included`
-        : "No extra biomarkers in basket",
+        ? t("optimization.extraBiomarkersIncluded", {
+            count: bonusBiomarkers.length,
+          })
+        : t("optimization.noExtraBiomarkers"),
       icon: <Gift className="h-4 w-4" />,
       accentLight: hasBonus
         ? "bg-violet-500/10 text-violet-600"
