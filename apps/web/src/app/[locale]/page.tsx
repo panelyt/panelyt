@@ -20,6 +20,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       languages: {
         pl: "/",
         en: "/en",
+        "x-default": "/",
       },
     },
     openGraph: {
