@@ -102,10 +102,6 @@ export function OverlapSection({ viewModel }: OverlapSectionProps) {
                 >
                   {t("optimization.packagesCount", {
                     count: entry.packages.length,
-                    label:
-                      entry.packages.length === 1
-                        ? t("optimization.packageLabel")
-                        : t("optimization.packagesLabel"),
                   })}
                 </span>
               </div>

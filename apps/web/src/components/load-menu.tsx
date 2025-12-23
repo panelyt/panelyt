@@ -76,7 +76,7 @@ export function LoadMenu({ lists, isLoading, onSelect }: LoadMenuProps) {
               >
                 <span className="font-semibold">{list.name}</span>
                 <span className="text-[11px] text-slate-400">
-                  {list.biomarkers.length} {list.biomarkers.length === 1 ? t("common.biomarker") : t("common.biomarkers")}
+                  {t("common.biomarkersCount", { count: list.biomarkers.length })}
                 </span>
               </button>
             ))}

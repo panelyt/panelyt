@@ -191,9 +191,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                     }`}
                   >
                     {templateDescription ||
-                      `${t("common.template")} · ${item.biomarker_count} ${
-                        item.biomarker_count === 1 ? t("common.biomarker") : t("common.biomarkers")
-                      }`}
+                      `${t("common.template")} · ${t("common.biomarkersCount", { count: item.biomarker_count })}`}
                   </span>
                 ) : (
                   <div className="flex flex-col items-end gap-0.5 text-xs">
@@ -240,7 +238,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
                           <span className={`text-[11px] uppercase tracking-wide ${
                             isHighlighted ? "text-white/80" : "text-amber-300"
                           }`}>
-                            {t("common.template")} · {item.biomarker_count} {item.biomarker_count === 1 ? t("common.biomarker") : t("common.biomarkers")}
+                            {t("common.template")} · {t("common.biomarkersCount", { count: item.biomarker_count })}
                           </span>
                         )}
                       </div>

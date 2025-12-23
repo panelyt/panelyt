@@ -172,7 +172,7 @@ export default function CollectionsContent() {
                   </div>
                   <p className="text-sm text-slate-300">{template.description ?? t("collections.noDescription")}</p>
                   <p className="text-xs text-slate-500">
-                    {template.biomarkers.length} {template.biomarkers.length === 1 ? t("common.biomarker") : t("common.biomarkers")} • {t("common.updated")} {new Date(template.updated_at).toLocaleDateString()}
+                    {t("common.biomarkersCount", { count: template.biomarkers.length })} • {t("common.updated")} {new Date(template.updated_at).toLocaleDateString()}
                     {!template.is_active && (
                       <span className="ml-2 inline-flex items-center rounded-full border border-slate-600 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
                         {t("collections.unpublished")}

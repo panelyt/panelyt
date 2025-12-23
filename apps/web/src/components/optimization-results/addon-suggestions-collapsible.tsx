@@ -47,12 +47,10 @@ export function AddonSuggestionsCollapsible({
   );
   const addonCount = cheapestAddon?.adds?.length ?? 0;
   const addonCost = cheapestAddon?.upgrade_cost ?? Infinity;
-  const biomarkerLabel = addonCount === 1 ? t("common.biomarker") : t("common.biomarkers");
   const summaryText =
     addonCount > 0 && addonCost < Infinity
       ? t("optimization.biomarkersForPrice", {
           count: addonCount,
-          label: biomarkerLabel,
           price: formatCurrency(addonCost),
         })
       : t("common.loading");
@@ -162,10 +160,6 @@ export function AddonSuggestionsCollapsible({
                     {suggestion.adds && suggestion.adds.length > 0
                       ? t("optimization.addsBiomarkers", {
                           count: suggestion.adds.length,
-                          label:
-                            suggestion.adds.length === 1
-                              ? t("common.biomarker")
-                              : t("common.biomarkers"),
                         })
                       : t("optimization.packageUpgrade")}
                   </p>

@@ -139,8 +139,6 @@ export function useBiomarkerSelection(
           const existing = new Set(current.map((item) => item.code));
           const additions = template.biomarkers.filter((entry) => !existing.has(entry.code));
 
-          const label =
-            additions.length === 1 ? t("common.biomarker") : t("common.biomarkers");
           const resultNotice: SelectionNotice = additions.length === 0
             ? {
                 tone: "info",
@@ -150,7 +148,6 @@ export function useBiomarkerSelection(
                 tone: "success",
                 message: t("selection.addedFrom", {
                   count: additions.length,
-                  label,
                   name: template.name,
                 }),
               };
@@ -217,7 +214,6 @@ export function useBiomarkerSelection(
         tone: "success",
         message: t("selection.addedFrom", {
           count: additions.length,
-          label: additions.length === 1 ? t("common.biomarker") : t("common.biomarkers"),
           name: packageName,
         }),
       });

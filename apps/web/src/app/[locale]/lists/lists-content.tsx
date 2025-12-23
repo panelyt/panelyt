@@ -361,7 +361,7 @@ export default function ListsContent() {
                     <div>
                       <p className="text-lg font-semibold text-white">{item.list.name}</p>
                       <p className="text-xs text-slate-400">
-                        {item.list.biomarkers.length} {item.list.biomarkers.length === 1 ? t("common.biomarker") : t("common.biomarkers")}
+                        {t("common.biomarkersCount", { count: item.list.biomarkers.length })}
                       </p>
                     </div>
                     <div className="flex flex-col items-start gap-2 text-sm text-slate-300 md:flex-row md:items-center md:gap-6">

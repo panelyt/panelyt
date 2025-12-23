@@ -18,12 +18,6 @@ interface SummarySectionProps {
 export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
   const t = useTranslations();
   const { isDark, selected, bonusBiomarkers, bonusPricing } = viewModel;
-  const biomarkerLabel =
-    selected.length === 1 ? t("common.biomarker") : t("common.biomarkers");
-  const bonusBiomarkerLabel =
-    bonusBiomarkers.length === 1
-      ? t("optimization.bonusBiomarkerSingular")
-      : t("optimization.bonusBiomarkerPlural");
 
   return (
     <section
@@ -49,7 +43,6 @@ export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
           >
             {t("optimization.optimizationSummaryDescription", {
               count: selected.length,
-              label: biomarkerLabel,
             })}
           </p>
         </div>
@@ -65,7 +58,6 @@ export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
             <span className="font-medium">
               {t("optimization.bonusBiomarkersSummary", {
                 count: bonusBiomarkers.length,
-                label: bonusBiomarkerLabel,
                 total: bonusPricing.totalNowLabel,
               })}
             </span>

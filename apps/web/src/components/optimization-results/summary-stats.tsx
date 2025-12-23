@@ -97,10 +97,6 @@ function buildSummaryStats(
 
   const atFloor = !pricing.highlightSavings;
   const hasBonus = bonusBiomarkers.length > 0;
-  const extraBiomarkerLabel =
-    bonusBiomarkers.length === 1
-      ? t("optimization.extraBiomarkerSingular")
-      : t("optimization.extraBiomarkerPlural");
 
   return [
     {
@@ -124,7 +120,6 @@ function buildSummaryStats(
       hint: hasBonus
         ? t("optimization.extraBiomarkersIncluded", {
             count: bonusBiomarkers.length,
-            label: extraBiomarkerLabel,
           })
         : t("optimization.noExtraBiomarkers"),
       icon: <Gift className="h-4 w-4" />,

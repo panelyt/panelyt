@@ -35,7 +35,6 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
 
   // Get lab name from result
   const labName = result.lab_name || result.lab_code.toUpperCase();
-  const itemLabel = counts.items === 1 ? t("optimization.item") : t("optimization.items");
 
   return (
     <section
@@ -59,7 +58,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
               isDark ? "text-slate-400" : "text-slate-500"
             }`}
           >
-            {counts.items} {itemLabel}
+            {t("optimization.itemsCount", { count: counts.items })}
           </p>
         </div>
       </div>
@@ -69,10 +68,6 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
             group.kind === "package"
               ? t("optimization.packages")
               : t("optimization.singleTests");
-          const groupItemLabel =
-            group.items.length === 1
-              ? t("optimization.item")
-              : t("optimization.items");
 
           return (
           <div key={group.kind} className="space-y-3">
@@ -82,7 +77,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
               }`}
             >
               <span>
-                {groupLabel} · {group.items.length} {groupItemLabel}
+                {groupLabel} · {t("optimization.itemsCount", { count: group.items.length })}
               </span>
             </div>
             <div className="space-y-3">
