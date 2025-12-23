@@ -1,12 +1,44 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BiomarkerListTemplateSchema,
   type SavedList,
 } from "@panelyt/types";
+import { useTranslations } from "next-intl";
 
 import { getJson, extractErrorMessage } from "../lib/http";
+
+const STORAGE_KEY = "panelyt:selected-biomarkers";
+
+function loadFromStorage(): SelectedBiomarker[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+    // Validate structure
+    return parsed.filter(
+      (item): item is SelectedBiomarker =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof item.code === "string" &&
+        typeof item.name === "string"
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveToStorage(biomarkers: SelectedBiomarker[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(biomarkers));
+  } catch {
+    // Ignore storage errors (quota exceeded, etc.)
+  }
+}
 
 export interface SelectedBiomarker {
   code: string;
@@ -49,11 +81,24 @@ export interface UseBiomarkerSelectionResult {
 export function useBiomarkerSelection(
   options: UseBiomarkerSelectionOptions = {},
 ): UseBiomarkerSelectionResult {
+  const t = useTranslations();
   const { onSelectionChange } = options;
 
-  const [selected, setSelected] = useState<SelectedBiomarker[]>([]);
+  const [selected, setSelected] = useState<SelectedBiomarker[]>(loadFromStorage);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<SelectionNotice | null>(null);
+
+  // Track if this is the initial mount to avoid saving on hydration
+  const isInitialMount = useRef(true);
+
+  // Persist selection to sessionStorage whenever it changes
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    saveToStorage(selected);
+  }, [selected]);
 
   // Derived values
   const biomarkerCodes = selected.map((b) => b.code);
@@ -97,11 +142,14 @@ export function useBiomarkerSelection(
           const resultNotice: SelectionNotice = additions.length === 0
             ? {
                 tone: "info",
-                message: `All biomarkers from ${template.name} are already selected.`,
+                message: t("selection.alreadySelected", { name: template.name }),
               }
             : {
                 tone: "success",
-                message: `Added ${additions.length} biomarker${additions.length === 1 ? "" : "s"} from ${template.name}.`,
+                message: t("selection.addedFrom", {
+                  count: additions.length,
+                  name: template.name,
+                }),
               };
 
           setError(null);
@@ -121,10 +169,10 @@ export function useBiomarkerSelection(
         });
       } catch (err) {
         setNotice(null);
-        setError(extractErrorMessage(err));
+        setError(extractErrorMessage(err, t("errors.generic")));
       }
     },
-    [onSelectionChange],
+    [onSelectionChange, t],
   );
 
   const handleApplyAddon = useCallback(
@@ -154,7 +202,7 @@ export function useBiomarkerSelection(
         setError(null);
         setNotice({
           tone: "info",
-          message: `All biomarkers from ${packageName} are already selected.`,
+          message: t("selection.alreadySelected", { name: packageName }),
         });
         return;
       }
@@ -164,10 +212,13 @@ export function useBiomarkerSelection(
       setError(null);
       setNotice({
         tone: "success",
-        message: `Added ${additions.length} biomarker${additions.length === 1 ? "" : "s"} from ${packageName}.`,
+        message: t("selection.addedFrom", {
+          count: additions.length,
+          name: packageName,
+        }),
       });
     },
-    [onSelectionChange],
+    [onSelectionChange, t],
   );
 
   const handleLoadList = useCallback(

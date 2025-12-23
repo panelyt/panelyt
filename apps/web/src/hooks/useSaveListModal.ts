@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useTranslations } from "next-intl";
 
 import { useSavedLists } from "./useSavedLists";
 import { extractErrorMessage } from "../lib/http";
@@ -30,6 +31,7 @@ export interface UseSaveListModalResult {
 export function useSaveListModal(
   options: UseSaveListModalOptions,
 ): UseSaveListModalResult {
+  const t = useTranslations();
   const { isAuthenticated, biomarkers, onSuccess, onExternalError } = options;
 
   const [isOpen, setIsOpen] = useState(false);
@@ -53,12 +55,12 @@ export function useSaveListModal(
   const handleConfirm = useCallback(async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError("Name cannot be empty");
+      setError(t("errors.listNameEmpty"));
       return;
     }
 
     if (biomarkers.length === 0) {
-      const message = "Add biomarkers before saving a list.";
+      const message = t("errors.listNeedsBiomarkers");
       setError(message);
       onExternalError?.(message);
       return;
@@ -74,13 +76,21 @@ export function useSaveListModal(
       onSuccess?.();
       close();
     } catch (err) {
-      const message = extractErrorMessage(err);
+      const message = extractErrorMessage(err, t("errors.generic"));
       setError(message);
       onExternalError?.(message);
     } finally {
       setIsSaving(false);
     }
-  }, [name, biomarkers, savedLists.createMutation, onSuccess, onExternalError, close]);
+  }, [
+    name,
+    biomarkers,
+    savedLists.createMutation,
+    onSuccess,
+    onExternalError,
+    close,
+    t,
+  ]);
 
   return {
     isOpen,

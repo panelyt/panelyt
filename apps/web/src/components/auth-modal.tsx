@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface Props {
   open: boolean;
@@ -26,6 +27,7 @@ export function AuthModal({
   isRegistering,
   error,
 }: Props) {
+  const t = useTranslations();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -72,46 +74,46 @@ export function AuthModal({
           type="button"
           onClick={onClose}
           className="absolute right-4 top-4 rounded-full border border-slate-700/70 bg-slate-900/70 p-1 text-slate-300 transition hover:border-slate-500 hover:text-white"
-          aria-label="Close auth dialog"
+          aria-label={t("auth.closeDialog")}
         >
           <X className="h-4 w-4" />
         </button>
 
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Panelyt</p>
         <h2 className="mt-2 text-2xl font-semibold text-white">
-          {mode === "login" ? "Sign in" : "Create account"}
+          {mode === "login" ? t("auth.signIn") : t("auth.createAccount")}
         </h2>
         <p className="mt-2 text-sm text-slate-400">
           {mode === "login"
-            ? "Enter your credentials to sync saved lists and notifications."
-            : "Pick a username and password to secure your selections and future alerts."}
+            ? t("auth.signInDescription")
+            : t("auth.registerDescription")}
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="auth-username" className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Username
+              {t("auth.username")}
             </label>
             <input
               id="auth-username"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="e.g. panelyt-user"
+              placeholder={t("auth.usernamePlaceholder")}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
-            <p className="mt-1 text-[11px] text-slate-500">3-64 characters, lowercase letters, digits, hyphen, underscore.</p>
+            <p className="mt-1 text-[11px] text-slate-500">{t("auth.usernameHint")}</p>
           </div>
 
           <div>
             <label htmlFor="auth-password" className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Password
+              {t("auth.password")}
             </label>
             <input
               id="auth-password"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Minimum 8 characters"
+              placeholder={t("auth.passwordPlaceholder")}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
           </div>
@@ -119,14 +121,14 @@ export function AuthModal({
           {mode === "register" && (
             <div>
               <label htmlFor="auth-confirm" className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Confirm password
+                {t("auth.confirmPassword")}
               </label>
               <input
                 id="auth-confirm"
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="Repeat your password"
+                placeholder={t("auth.confirmPasswordPlaceholder")}
                 className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               />
             </div>
@@ -140,7 +142,7 @@ export function AuthModal({
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 via-sky-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-md shadow-emerald-500/30 transition focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {mode === "login" ? "Sign in" : "Create account"}
+            {mode === "login" ? t("auth.signIn") : t("auth.createAccount")}
           </button>
         </form>
 
@@ -151,7 +153,7 @@ export function AuthModal({
               onClick={() => onModeChange("register")}
               className="text-emerald-300 underline-offset-4 transition hover:text-emerald-200 hover:underline"
             >
-              Need an account? Register instead
+              {t("auth.needAccount")}
             </button>
           ) : (
             <button
@@ -159,7 +161,7 @@ export function AuthModal({
               onClick={() => onModeChange("login")}
               className="text-emerald-300 underline-offset-4 transition hover:text-emerald-200 hover:underline"
             >
-              Already registered? Sign in
+              {t("auth.alreadyRegistered")}
             </button>
           )}
         </div>

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 export interface LabChoiceCard {
   key: string;
   title: string;
+  shortLabel?: string;
   priceLabel: string;
   priceValue?: number | null;
   meta?: string;

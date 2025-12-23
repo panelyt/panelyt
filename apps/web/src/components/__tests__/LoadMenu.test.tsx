@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 import { LoadMenu } from '../load-menu'
+import { renderWithIntl } from '../../test/utils'
 
 const sampleLists = [
   {
@@ -30,7 +31,9 @@ const sampleLists = [
 
 describe('LoadMenu', () => {
   it('opens with saved lists and keeps the menu layered above content', () => {
-    render(<LoadMenu lists={sampleLists} isLoading={false} onSelect={vi.fn()} />)
+    renderWithIntl(
+      <LoadMenu lists={sampleLists} isLoading={false} onSelect={vi.fn()} />,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /load/i }))
 

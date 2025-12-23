@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { SelectedBiomarkers } from '../selected-biomarkers'
+import { renderWithIntl } from '../../test/utils'
 
 describe('SelectedBiomarkers', () => {
   const mockOnRemove = vi.fn()
@@ -11,7 +12,7 @@ describe('SelectedBiomarkers', () => {
   })
 
   it('shows empty state when no biomarkers are selected', () => {
-    render(<SelectedBiomarkers biomarkers={[]} onRemove={mockOnRemove} />)
+    renderWithIntl(<SelectedBiomarkers biomarkers={[]} onRemove={mockOnRemove} />)
 
     expect(
       screen.getByText(
@@ -27,7 +28,9 @@ describe('SelectedBiomarkers', () => {
       { code: 'CHOL', name: 'Total cholesterol' },
     ]
 
-    render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
+    renderWithIntl(
+      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+    )
 
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
     expect(screen.getByText('Aspartate aminotransferase')).toBeInTheDocument()
@@ -44,7 +47,9 @@ describe('SelectedBiomarkers', () => {
       { code: 'AST', name: 'Aspartate aminotransferase' },
     ]
 
-    render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
+    renderWithIntl(
+      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+    )
 
     const altButton = screen.getByRole('button', { name: /Alanine aminotransferase/ })
     await user.click(altButton)
@@ -57,7 +62,9 @@ describe('SelectedBiomarkers', () => {
       { code: 'ALT', name: 'Alanine aminotransferase' },
     ]
 
-    render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
+    renderWithIntl(
+      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+    )
 
     const button = screen.getByRole('button', { name: /Alanine aminotransferase/ })
     expect(button).toHaveAttribute('title', 'Remove Alanine aminotransferase')
@@ -68,7 +75,9 @@ describe('SelectedBiomarkers', () => {
       { code: 'ALT', name: 'Alanine aminotransferase' },
     ]
 
-    render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
+    renderWithIntl(
+      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+    )
 
     const button = screen.getByRole('button', { name: /Alanine aminotransferase/ })
     expect(button).toHaveClass(
@@ -96,7 +105,9 @@ describe('SelectedBiomarkers', () => {
       { code: 'ALT', name: 'ALT (duplicate)' },
     ]
 
-    render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
+    renderWithIntl(
+      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+    )
 
     // Both should be rendered
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
@@ -115,7 +126,9 @@ describe('SelectedBiomarkers', () => {
       { code: 'AST', name: 'Aspartate aminotransferase' },
     ]
 
-    render(<SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />)
+    renderWithIntl(
+      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+    )
 
     const container = screen.getByRole('button', { name: /Alanine aminotransferase/ }).closest('div')
     expect(container).toHaveClass('flex', 'flex-wrap', 'gap-2')

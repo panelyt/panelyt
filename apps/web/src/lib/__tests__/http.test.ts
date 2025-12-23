@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getJson, postJson, postParsedJson, putJson, deleteRequest } from "../http";
+import { getJson, postJson, postParsedJson, putJson, deleteRequest, extractErrorMessage } from "../http";
 import { z } from "zod";
 
 describe("http utilities abort signal support", () => {
@@ -136,6 +136,12 @@ describe("http utilities abort signal support", () => {
         expect.any(String),
         expect.objectContaining({ signal: controller.signal })
       );
+    });
+  });
+
+  describe("extractErrorMessage", () => {
+    it("returns the provided fallback for unknown errors", () => {
+      expect(extractErrorMessage(null, "Fallback message")).toBe("Fallback message");
     });
   });
 });

@@ -1,19 +1,21 @@
 "use client";
 
 import { use, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { CalendarDays, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-import { Header } from "../../../../components/header";
-import { OptimizationResults } from "../../../../components/optimization-results";
-import { useSharedList } from "../../../../hooks/useSharedList";
-import { useOptimization } from "../../../../hooks/useOptimization";
+import { Header } from "../../../../../components/header";
+import { useRouter } from "../../../../../i18n/navigation";
+import { OptimizationResults } from "../../../../../components/optimization-results";
+import { useSharedList } from "../../../../../hooks/useSharedList";
+import { useOptimization } from "../../../../../hooks/useOptimization";
 
-interface SharedListPageProps {
+interface SharedContentProps {
   params: Promise<{ shareToken: string }>;
 }
 
-export default function SharedListPage({ params }: SharedListPageProps) {
+export default function SharedContent({ params }: SharedContentProps) {
+  const t = useTranslations();
   const { shareToken } = use(params);
   const router = useRouter();
   const sharedQuery = useSharedList(shareToken, Boolean(shareToken));
@@ -38,26 +40,26 @@ export default function SharedListPage({ params }: SharedListPageProps) {
             <h1 className="text-3xl font-semibold text-white">{sharedList.name}</h1>
             <p className="text-xs text-slate-500">
               <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-              Shared {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString() : "recently"}
+              {t("sharedList.shared")} {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString("pl-PL") : ""}
             </p>
           </div>
         ) : sharedQuery.isLoading ? (
           <div className="flex items-center gap-2 text-sm text-slate-300">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading shared list...
+            <Loader2 className="h-4 w-4 animate-spin" /> {t("sharedList.loadingList")}
           </div>
         ) : sharedQuery.isError ? (
-          <p className="text-sm text-red-200">Unable to find this shared list.</p>
+          <p className="text-sm text-red-200">{t("sharedList.notFound")}</p>
         ) : null}
       </div>
 
       <section className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pb-10">
         {sharedQuery.isLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
-            <Loader2 className="h-5 w-5 animate-spin" /> Fetching shared list…
+            <Loader2 className="h-5 w-5 animate-spin" /> {t("sharedList.fetchingList")}
           </div>
         ) : sharedQuery.isError || !sharedList ? (
           <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-6 text-sm text-red-200">
-            This share link is no longer valid or has been revoked by its owner.
+            {t("sharedList.invalidLink")}
           </div>
         ) : (
           <div className="flex flex-col gap-6">
@@ -65,16 +67,16 @@ export default function SharedListPage({ params }: SharedListPageProps) {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-                    Shared biomarkers
+                    {t("sharedList.sharedBiomarkers")}
                   </p>
-                  <h2 className="text-xl font-semibold text-white">Selection overview</h2>
+                  <h2 className="text-xl font-semibold text-white">{t("sharedList.selectionOverview")}</h2>
                 </div>
                 <button
                   type="button"
-                  onClick={() => router.push(`/?shared=${shareToken}`)}
+                  onClick={() => router.push({ pathname: "/", query: { shared: shareToken } })}
                   className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                 >
-                  Load in optimizer
+                  {t("lists.loadInOptimizer")}
                 </button>
               </div>
               <ul className="space-y-3 text-sm text-slate-200">
@@ -87,7 +89,7 @@ export default function SharedListPage({ params }: SharedListPageProps) {
                       <span className="font-semibold text-white">{entry.display_name}</span>
                     </div>
                     {entry.biomarker_id && (
-                      <p className="text-xs text-slate-400">Mapped biomarker ID: {entry.biomarker_id}</p>
+                      <p className="text-xs text-slate-400">{t("sharedList.mappedBiomarkerId")}: {entry.biomarker_id}</p>
                     )}
                   </li>
                 ))}
@@ -95,10 +97,9 @@ export default function SharedListPage({ params }: SharedListPageProps) {
             </section>
 
             <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-xl font-semibold text-white">Live pricing</h2>
+              <h2 className="text-xl font-semibold text-white">{t("sharedList.livePricing")}</h2>
               <p className="mt-2 text-sm text-slate-300">
-                Panelyt computes the cheapest basket for this shared list using the latest diag.pl
-                prices.
+                {t("sharedList.livePricingDescription")}
               </p>
               <div className="mt-6">
                 <OptimizationResults

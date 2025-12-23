@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Bell,
   BellOff,
@@ -12,13 +10,15 @@ import {
   Trash2,
   Link as LinkIcon,
 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import type { SavedList } from "@panelyt/types";
 
-import { Header } from "../../components/header";
-import { useSavedLists } from "../../hooks/useSavedLists";
-import { useUserSession } from "../../hooks/useUserSession";
-import { useAccountSettings } from "../../hooks/useAccountSettings";
-import { postJson } from "../../lib/http";
+import { Link, getPathname, useRouter } from "../../../i18n/navigation";
+import { Header } from "../../../components/header";
+import { useSavedLists } from "../../../hooks/useSavedLists";
+import { useUserSession } from "../../../hooks/useUserSession";
+import { useAccountSettings } from "../../../hooks/useAccountSettings";
+import { postJson } from "../../../lib/http";
 import { OptimizeResponseSchema } from "@panelyt/types";
 
 interface ListWithTotals {
@@ -32,13 +32,15 @@ interface ListTotalsValue {
   currency: string | null;
 }
 
-export default function ListsPage() {
+export default function ListsContent() {
+  const t = useTranslations();
   const session = useUserSession();
   const savedLists = useSavedLists(Boolean(session.data));
   const account = useAccountSettings(Boolean(session.data));
   const { shareMutation, unshareMutation, notificationsMutation, notificationsBulkMutation } =
     savedLists;
   const rawLists = savedLists.listsQuery.data;
+  const locale = useLocale();
   const router = useRouter();
   const [listTotals, setListTotals] = useState<Record<string, ListTotalsValue>>({});
   const [loadingTotals, setLoadingTotals] = useState(false);
@@ -113,7 +115,7 @@ export default function ListsPage() {
         }
       } catch {
         if (!cancelled) {
-          setError("Failed to calculate totals for saved lists.");
+          setError(t("errors.failedToCalculateTotals"));
         }
       } finally {
         if (!cancelled) {
@@ -126,7 +128,7 @@ export default function ListsPage() {
     return () => {
       cancelled = true;
     };
-  }, [rawLists]);
+  }, [rawLists, t]);
 
   const formattedLists = useMemo(() => {
     const lists = rawLists ?? [];
@@ -153,11 +155,13 @@ export default function ListsPage() {
       if (!currentlyEnabled && !telegramLinked) {
         setError(
           <>
-            Link your Telegram chat in {" "}
-            <Link href="/account" className="underline text-sky-300">
-              Account settings
-            </Link>{" "}
-            before enabling alerts.
+            {t.rich("lists.linkTelegramFirst", {
+              link: (chunks) => (
+                <Link href="/account" className="underline text-sky-300">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </>,
         );
         return;
@@ -166,12 +170,12 @@ export default function ListsPage() {
       notificationsMutation.mutate(
         { id, notify: !currentlyEnabled },
         {
-          onError: () => setError("Failed to update Telegram alerts."),
+          onError: () => setError(t("errors.failedToUpdateAlerts")),
           onSuccess: () => setError(null),
         },
       );
     },
-    [notificationsMutation, telegramLinked],
+    [notificationsMutation, telegramLinked, t],
   );
 
   const handleToggleAllAlerts = useCallback(
@@ -179,11 +183,13 @@ export default function ListsPage() {
       if (targetState && !telegramLinked) {
         setError(
           <>
-            Link your Telegram chat in {" "}
-            <Link href="/account" className="underline text-sky-300">
-              Account settings
-            </Link>{" "}
-            before enabling alerts.
+            {t.rich("lists.linkTelegramFirst", {
+              link: (chunks) => (
+                <Link href="/account" className="underline text-sky-300">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </>,
         );
         return;
@@ -192,19 +198,22 @@ export default function ListsPage() {
       notificationsBulkMutation.mutate(
         { notify: targetState },
         {
-          onError: () => setError("Failed to update Telegram alerts."),
+          onError: () => setError(t("errors.failedToUpdateAlerts")),
           onSuccess: () => setError(null),
         },
       );
     },
-    [notificationsBulkMutation, telegramLinked],
+    [notificationsBulkMutation, telegramLinked, t],
   );
 
   const handleDelete = async (id: string) => {
     await savedLists.deleteMutation.mutateAsync(id);
   };
 
-  const sharePath = useCallback((token: string) => `/collections/shared/${token}`, []);
+  const sharePath = useCallback(
+    (token: string) => getPathname({ href: `/collections/shared/${token}`, locale }),
+    [locale],
+  );
 
   const buildShareUrl = useCallback(
     (token: string) => (shareOrigin ? `${shareOrigin}${sharePath(token)}` : sharePath(token)),
@@ -237,10 +246,10 @@ export default function ListsPage() {
         setCopiedId(listId);
         setError(null);
       } catch {
-        setError("Failed to copy share link.");
+        setError(t("errors.failedToCopy"));
       }
     },
-    [buildShareUrl],
+    [buildShareUrl, t],
   );
 
   const handleShare = useCallback(
@@ -250,12 +259,12 @@ export default function ListsPage() {
         await shareMutation.mutateAsync({ id, regenerate });
         setError(null);
       } catch {
-        setError(regenerate ? "Failed to regenerate share link." : "Failed to enable sharing.");
+        setError(regenerate ? t("errors.failedToRegenerate") : t("errors.failedToShare"));
       } finally {
         setShareActionId(null);
       }
     },
-    [shareMutation],
+    [shareMutation, t],
   );
 
   const handleUnshare = useCallback(
@@ -265,12 +274,12 @@ export default function ListsPage() {
         await unshareMutation.mutateAsync(id);
         setError(null);
       } catch {
-        setError("Failed to disable sharing.");
+        setError(t("errors.failedToDisableShare"));
       } finally {
         setUnshareActionId(null);
       }
     },
-    [unshareMutation],
+    [unshareMutation, t],
   );
 
   const formatTotal = (item: ListWithTotals) => {
@@ -292,9 +301,9 @@ export default function ListsPage() {
       <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold text-white">My Lists</h1>
+            <h1 className="text-3xl font-semibold text-white">{t("lists.title")}</h1>
             <p className="mt-2 text-sm text-slate-400">
-              Manage every saved biomarker set, load it into the optimizer, or clean up old entries.
+              {t("lists.description")}
             </p>
           </div>
           <button
@@ -311,10 +320,10 @@ export default function ListsPage() {
               <Bell className="h-4 w-4" />
             )}
             {bulkNotifyPending
-              ? "Saving…"
+              ? t("common.loading")
               : allNotificationsEnabled
-                ? "Disable all alerts"
-                : "Enable all alerts"}
+                ? t("lists.disableAllAlerts")
+                : t("lists.enableAllAlerts")}
           </button>
         </div>
         {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
@@ -323,11 +332,11 @@ export default function ListsPage() {
       <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
         {savedLists.listsQuery.isLoading || loadingTotals ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
-            <Loader2 className="h-5 w-5 animate-spin" /> Loading lists…
+            <Loader2 className="h-5 w-5 animate-spin" /> {t("lists.loadingLists")}
           </div>
         ) : formattedLists.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/70 px-6 py-8 text-center text-sm text-slate-400">
-            No lists yet. Build a selection on the home page and press <span className="text-emerald-300">Save</span> to store it here.
+            {t.rich("lists.noLists", { saveButton: (chunks) => <span className="text-emerald-300">{chunks}</span> })}
           </div>
         ) : (
           <div className="grid gap-4">
@@ -352,13 +361,12 @@ export default function ListsPage() {
                     <div>
                       <p className="text-lg font-semibold text-white">{item.list.name}</p>
                       <p className="text-xs text-slate-400">
-                        {item.list.biomarkers.length} biomarker
-                        {item.list.biomarkers.length === 1 ? "" : "s"}
+                        {t("common.biomarkersCount", { count: item.list.biomarkers.length })}
                       </p>
                     </div>
                     <div className="flex flex-col items-start gap-2 text-sm text-slate-300 md:flex-row md:items-center md:gap-6">
                       <div>
-                        <span className="text-xs uppercase tracking-wide text-slate-500">Current total</span>
+                        <span className="text-xs uppercase tracking-wide text-slate-500">{t("results.currentTotal")}</span>
                         <p className="font-semibold text-white">{formatTotal(item)}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -376,24 +384,24 @@ export default function ListsPage() {
                             <BellOff className="h-4 w-4" />
                           )}
                           {notifyPending
-                            ? "Saving…"
+                            ? t("common.loading")
                             : notificationsEnabled
-                              ? "Disable alerts"
-                              : "Enable alerts"}
+                              ? t("lists.disableAlerts")
+                              : t("lists.enableAlerts")}
                         </button>
                         <button
                           type="button"
-                          onClick={() => router.push(`/?list=${item.list.id}`)}
+                          onClick={() => router.push({ pathname: "/", query: { list: item.list.id } })}
                           className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                         >
-                          Load in optimizer
+                          {t("lists.loadInOptimizer")}
                         </button>
                         <button
                           type="button"
                           onClick={() => void handleDelete(item.list.id)}
                           className="flex items-center gap-1 rounded-lg border border-red-500/60 px-4 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/20"
                         >
-                          <Trash2 className="h-4 w-4" /> Delete
+                          <Trash2 className="h-4 w-4" /> {t("common.delete")}
                         </button>
                       </div>
                     </div>
@@ -405,12 +413,12 @@ export default function ListsPage() {
                         <div className="flex flex-col gap-1">
                           <span className="flex items-center gap-2 text-slate-400">
                             <LinkIcon className="h-4 w-4" />
-                            <span className="font-semibold text-slate-200">Share link</span>
+                            <span className="font-semibold text-slate-200">{t("lists.shareLink")}</span>
                           </span>
                           <span className="truncate font-mono text-sm text-slate-200">{shareLink}</span>
                           {sharedTimestamp && (
                             <span className="text-[11px] text-slate-500">
-                              Updated {new Date(sharedTimestamp).toLocaleString()}
+                              {t("common.updated")} {new Date(sharedTimestamp).toLocaleString("pl-PL")}
                             </span>
                           )}
                         </div>
@@ -421,7 +429,7 @@ export default function ListsPage() {
                             className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
                           >
                             <Copy className="h-3.5 w-3.5" />
-                            {copiedId === item.list.id ? "Copied!" : "Copy link"}
+                            {copiedId === item.list.id ? t("common.copied") : t("lists.copyLink")}
                           </button>
                           <button
                             type="button"
@@ -430,7 +438,7 @@ export default function ListsPage() {
                             disabled={isSharePending}
                           >
                             <RefreshCcw className="h-3.5 w-3.5" />
-                            {isSharePending ? "Regenerating…" : "Regenerate"}
+                            {isSharePending ? t("lists.regenerating") : t("lists.regenerate")}
                           </button>
                           <button
                             type="button"
@@ -438,14 +446,14 @@ export default function ListsPage() {
                             className="flex items-center gap-1 rounded-lg border border-red-500/60 px-3 py-1.5 font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                             disabled={isUnsharePending}
                           >
-                            {isUnsharePending ? "Disabling…" : "Disable share"}
+                            {isUnsharePending ? t("lists.disabling") : t("lists.disableShare")}
                           </button>
                         </div>
                       </div>
                     ) : (
                       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                         <p className="text-slate-400">
-                          Generate a shareable link to let others view this list without editing rights.
+                          {t("lists.shareDescription")}
                         </p>
                         <button
                           type="button"
@@ -453,7 +461,7 @@ export default function ListsPage() {
                           className="flex items-center gap-1 rounded-lg border border-emerald-500/60 px-3 py-1.5 font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                           disabled={isSharePending}
                         >
-                          {isSharePending ? "Generating…" : "Enable share"}
+                          {isSharePending ? t("lists.generating") : t("lists.enableShare")}
                         </button>
                       </div>
                     )}

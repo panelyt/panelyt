@@ -1,12 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+
+import { Link, usePathname } from "../i18n/navigation";
 
 import { useUserSession } from "../hooks/useUserSession";
 import { useAuthModal } from "../hooks/useAuthModal";
 import { AuthModal } from "./auth-modal";
+import { LanguageSwitcher } from "./language-switcher";
 
 interface HeaderProps {
   onAuthSuccess?: () => void;
@@ -14,6 +16,7 @@ interface HeaderProps {
 }
 
 export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
+  const t = useTranslations();
   const pathname = usePathname();
   const sessionQuery = useUserSession();
   const userSession = sessionQuery.data;
@@ -24,9 +27,9 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
   });
 
   const navItems = [
-    { href: "/", label: "Optimizer" },
-    { href: "/collections", label: "Templates" },
-    { href: "/lists", label: "My Lists" },
+    { href: "/", label: t("nav.optimizer") },
+    { href: "/collections", label: t("nav.templates") },
+    { href: "/lists", label: t("nav.myLists") },
   ];
 
   const isActive = (href: string) => {
@@ -65,6 +68,7 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             {sessionQuery.isLoading ? (
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -87,7 +91,7 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
                   className="rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition hover:bg-slate-800/50 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={authModal.isLoggingOut}
                 >
-                  {authModal.isLoggingOut ? "Signing out..." : "Sign out"}
+                  {authModal.isLoggingOut ? t("auth.signingOut") : t("auth.signOut")}
                 </button>
               </>
             ) : (
@@ -97,14 +101,14 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
                   onClick={() => authModal.open("login")}
                   className="rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition hover:bg-slate-800/50 hover:text-slate-200"
                 >
-                  Sign in
+                  {t("auth.signIn")}
                 </button>
                 <button
                   type="button"
                   onClick={() => authModal.open("register")}
                   className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
                 >
-                  Register
+                  {t("auth.register")}
                 </button>
               </>
             )}
