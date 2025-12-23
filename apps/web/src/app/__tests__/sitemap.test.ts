@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+import { BASE_URL } from "@/lib/config";
+
 import sitemap, { fetchTemplateSlugs } from "../sitemap";
 
 describe("fetchTemplateSlugs", () => {
@@ -123,21 +125,21 @@ describe("sitemap", () => {
     const entries = await sitemap();
 
     // Check Polish home page
-    const plHome = entries.find((e) => e.url === "https://panelyt.com/");
+    const plHome = entries.find((e) => e.url === `${BASE_URL}/`);
     expect(plHome).toBeDefined();
     expect(plHome?.alternates?.languages).toEqual({
-      pl: "https://panelyt.com/",
-      en: "https://panelyt.com/en/",
-      "x-default": "https://panelyt.com/",
+      pl: `${BASE_URL}/`,
+      en: `${BASE_URL}/en/`,
+      "x-default": `${BASE_URL}/`,
     });
 
     // Check English home page
-    const enHome = entries.find((e) => e.url === "https://panelyt.com/en/");
+    const enHome = entries.find((e) => e.url === `${BASE_URL}/en/`);
     expect(enHome).toBeDefined();
     expect(enHome?.alternates?.languages).toEqual({
-      pl: "https://panelyt.com/",
-      en: "https://panelyt.com/en/",
-      "x-default": "https://panelyt.com/",
+      pl: `${BASE_URL}/`,
+      en: `${BASE_URL}/en/`,
+      "x-default": `${BASE_URL}/`,
     });
   });
 
@@ -155,26 +157,26 @@ describe("sitemap", () => {
 
     // Check Polish template page
     const plTemplate = entries.find(
-      (e) => e.url === "https://panelyt.com/collections/basic-panel"
+      (e) => e.url === `${BASE_URL}/collections/basic-panel`
     );
     expect(plTemplate).toBeDefined();
     expect(plTemplate?.priority).toBe(0.7);
     expect(plTemplate?.changeFrequency).toBe("weekly");
     expect(plTemplate?.alternates?.languages).toEqual({
-      pl: "https://panelyt.com/collections/basic-panel",
-      en: "https://panelyt.com/en/collections/basic-panel",
-      "x-default": "https://panelyt.com/collections/basic-panel",
+      pl: `${BASE_URL}/collections/basic-panel`,
+      en: `${BASE_URL}/en/collections/basic-panel`,
+      "x-default": `${BASE_URL}/collections/basic-panel`,
     });
 
     // Check English template page
     const enTemplate = entries.find(
-      (e) => e.url === "https://panelyt.com/en/collections/basic-panel"
+      (e) => e.url === `${BASE_URL}/en/collections/basic-panel`
     );
     expect(enTemplate).toBeDefined();
     expect(enTemplate?.alternates?.languages).toEqual({
-      pl: "https://panelyt.com/collections/basic-panel",
-      en: "https://panelyt.com/en/collections/basic-panel",
-      "x-default": "https://panelyt.com/collections/basic-panel",
+      pl: `${BASE_URL}/collections/basic-panel`,
+      en: `${BASE_URL}/en/collections/basic-panel`,
+      "x-default": `${BASE_URL}/collections/basic-panel`,
     });
   });
 
