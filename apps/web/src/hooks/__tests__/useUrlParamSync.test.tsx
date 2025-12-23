@@ -2,12 +2,16 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import { useUrlParamSync } from '../useUrlParamSync'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '../../i18n/navigation'
 import enMessages from '../../i18n/messages/en.json'
 
 vi.mock('../lib/http', () => ({
   getJson: vi.fn(),
   extractErrorMessage: vi.fn(),
+}))
+
+vi.mock('../../i18n/navigation', () => ({
+  useRouter: vi.fn(),
 }))
 
 const useRouterMock = vi.mocked(useRouter)

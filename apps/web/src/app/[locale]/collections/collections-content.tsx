@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "../../../i18n/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
