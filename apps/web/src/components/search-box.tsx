@@ -167,7 +167,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
         </button>
       </div>
       {query.length >= 2 && (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-700/60 bg-slate-950/95 shadow-2xl shadow-slate-950/40 backdrop-blur">
+        <div className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-slate-700/60 bg-slate-950/95 shadow-2xl shadow-slate-950/40 backdrop-blur">
           {suggestions.length > 0 ? (
             <ul className="max-h-64 overflow-y-auto">
               {suggestions.map((item, index) => {
