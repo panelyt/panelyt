@@ -273,5 +273,33 @@
   },
   "language": {
     "switch": "Polski"
+  },
+  "footer": {
+    "contact": "Contact",
+    "github": "GitHub",
+    "privacy": "Privacy"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "metaTitle": "Privacy Policy | Panelyt",
+    "metaDescription": "How Panelyt handles your data.",
+    "lastUpdated": "Last updated: {date}",
+    "intro": "Panelyt is an open-source tool that helps you find the cheapest blood test combinations. We respect your privacy and collect only what's necessary to provide the service.",
+    "analyticsTitle": "Analytics",
+    "analyticsText": "We use Umami, a privacy-focused analytics tool. Umami does not use cookies, does not collect personal data, and does not track you across websites. We only see aggregated, anonymous statistics like page views and country of origin.",
+    "accountDataTitle": "Account data",
+    "accountDataText": "If you create an account, we store your username and a securely hashed password. We never store your password in plain text.",
+    "savedListsTitle": "Saved lists",
+    "savedListsText": "Your saved biomarker lists are stored on our servers so you can access them from any device. You can delete your lists at any time.",
+    "telegramTitle": "Telegram integration",
+    "telegramText": "If you link your Telegram account, we store your chat ID to send you price drop notifications. You can disconnect at any time from your account settings.",
+    "dataRetentionTitle": "Data retention",
+    "dataRetentionText": "We retain your data for as long as your account is active. If you delete your account, all associated data is permanently removed.",
+    "thirdPartiesTitle": "Third parties",
+    "thirdPartiesText": "We do not sell, trade, or share your personal data with third parties. Price data is fetched from diag.pl's public catalog.",
+    "contactTitle": "Contact",
+    "contactText": "Questions about this policy? Email us at <email>contact@panelyt.com</email>.",
+    "yourRightsTitle": "Your rights",
+    "yourRightsText": "You have the right to access, correct, or delete your personal data. Contact us to exercise these rights."
   }
 }

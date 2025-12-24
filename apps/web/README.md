@@ -1,36 +1,35 @@
 # Panelyt Web
 
-Next.js App Router client for Panelyt. Provides biomarker search, selection chips, and an
-optimization dashboard that consumes the FastAPI backend.
+Next.js App Router client with bilingual support (English/Polish). Provides biomarker search, panel assembly, and price optimization visualization.
 
-## Local development
+## Setup
 
-1. Install dependencies (from repository root):
-   ```bash
-   make install-web
-   ```
-2. Copy `.env.local.example` to `.env.local` if you need to override `NEXT_PUBLIC_API_URL` or
-   provide an `INTERNAL_API_URL` for containerized runs.
-3. Start the dev server:
-   ```bash
-   make dev-web
-   ```
+From the repository root:
 
-The app expects the API on `http://localhost:8000`. Update `NEXT_PUBLIC_API_URL` if you run the API
-elsewhere for the browser, and optionally `INTERNAL_API_URL` for server-side access inside Docker.
+```bash
+make install-web
+```
 
-## Key scripts
+## Development
 
-- `pnpm dev` – Next.js dev server (Turbo).
-- `pnpm build` – production build (`.next/standalone`).
-- `pnpm lint` – ESLint.
-- `pnpm typecheck` – TypeScript project validation.
+```bash
+make dev-web        # Start dev server on :3000
+make test-web       # Run tests
+make lint-web       # Lint with ESLint
+make typecheck-web  # TypeScript validation
+```
+
+The app expects the API on `http://localhost:8000`. Set `NEXT_PUBLIC_API_URL` to override.
 
 ## Structure
 
-- `src/app` – App Router pages and layout.
-- `src/components` – UI components (search box, selected chips, optimization results).
-- `src/hooks` – React Query hooks and helpers.
-- `src/lib` – HTTP helper + currency formatting.
+```
+src/
+  app/        # App Router pages and layouts
+  components/ # UI components
+  hooks/      # React Query hooks
+  lib/        # API client, utilities
+  messages/   # i18n translations (en.json, pl.json)
+```
 
-Shared schemas live in `packages/types` and are imported via `@panelyt/types`.
+Shared schemas live in `packages/types` (`@panelyt/types`).

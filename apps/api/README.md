@@ -1,34 +1,24 @@
 # Panelyt API
 
-FastAPI service that ingests the diag.pl catalog, stores a 30-day price history, and exposes
-optimization endpoints for the frontend. See `SPEC.md` for architecture details.
+FastAPI service that ingests the diag.pl catalog, stores a 30-day price history, and exposes optimization endpoints.
 
 ## Setup
 
-Install [uv](https://github.com/astral-sh/uv), create a virtual environment, and activate it:
+From the repository root:
 
 ```bash
-cd apps/api
-python -m venv .venv
-source .venv/bin/activate
-uv sync --extra dev
+make install-api
 ```
 
-This creates `.venv/` managed by uv and installs dev tooling (pytest, ruff, etc.).
-
-## Common commands
-
-Run all tooling via `uv run` **after** activating the virtual environment:
+## Development
 
 ```bash
-source .venv/bin/activate  # if not already active
-uv run uvicorn panelyt_api.main:app --reload
-uv run alembic upgrade head
-uv run pytest
-uv run ruff check src
+make dev-api       # Start dev server on :8000
+make test-api      # Run tests
+make lint-api      # Lint with ruff
+make fmt-api       # Format code
+make migrate-api   # Run database migrations
 ```
-
-The repository Makefile wraps these commands (e.g. `make dev-api`, `make test-api`).
 
 ## Production Deployment
 

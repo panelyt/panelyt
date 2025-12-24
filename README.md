@@ -1,20 +1,24 @@
 # Panelyt
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-panelyt-black?logo=github)](https://github.com/panelyt/panelyt)
+
 Panelyt minimizes the total cost of user-selected biomarkers by blending single blood tests and packages from diag.pl. The backend ingests the public catalog, stores a 30-day price history in Postgres, and exposes optimization endpoints. The Next.js frontend lets contributors search biomarkers, assemble panels, and compare current prices with Panelyt's historical minimum basket.
+
+## Requirements
+
+- Python 3.11+
+- Node.js 20+
+- [uv](https://github.com/astral-sh/uv) for Python dependency management
+- [pnpm](https://pnpm.io/installation) for Node.js dependency management
 
 ## Getting started
 
-Install [uv](https://github.com/astral-sh/uv) (for example `curl -LsSf https://astral.sh/uv/install.sh | sh`) and [pnpm](https://pnpm.io/installation).
-
 1. **Install dependencies**
    ```bash
-   make install-api   # uv sync --extra dev in apps/api (.venv managed by uv)
+   make install-api   # uv sync in apps/api
    make install-web   # pnpm install in apps/web
-   ```
-   After syncing backend dependencies, activate the virtual environment before
-   running direct `uv` commands:
-   ```bash
-   source apps/api/.venv/bin/activate
+   make install-bot   # uv sync in apps/telegram-bot
    ```
 2. **Run services locally**
    ```bash
@@ -35,10 +39,11 @@ For a containerized setup, copy `infra/.env.example` to `infra/.env`, adjust cre
 
 ```
 apps/
-  api/      # FastAPI service: ingestion, optimization, scheduler
-  web/      # Next.js client: biomarker search + results UI
+  api/           # FastAPI service: ingestion, optimization, scheduler
+  web/           # Next.js client: biomarker search + results UI
+  telegram-bot/  # Telegram bot for account linking and alerts
 packages/
-  types/    # Shared Zod schemas for API contracts
+  types/         # Shared Zod schemas for API contracts
 infra/
   docker-compose.yml
 ```
@@ -59,5 +64,18 @@ infra/
 
 ## Tests & linting
 
-- Backend: `make lint-api`, `make fmt-api`, `make test-api` (all via `uv run`).
-- Frontend: `pnpm --filter @panelyt/web lint` and `pnpm --filter @panelyt/web typecheck`.
+- API: `make lint-api`, `make fmt-api`, `make test-api`
+- Web: `make lint-web`, `make typecheck-web`, `make test-web`
+- Bot: `make lint-bot`, `make typecheck-bot`
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and guidelines.
+
+## Security
+
+To report vulnerabilities, see [SECURITY.md](./SECURITY.md).
+
+## License
+
+[MIT](./LICENSE)
