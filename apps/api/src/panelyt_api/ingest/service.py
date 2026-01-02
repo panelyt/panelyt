@@ -10,9 +10,9 @@ from panelyt_api.core.cache import clear_all_caches, freshness_cache
 from panelyt_api.core.settings import Settings
 from panelyt_api.db.session import get_session
 from panelyt_api.ingest.client import AlabClient, DiagClient
-from panelyt_api.ingest.repository import IngestionRepository
+from panelyt_api.ingest.repository import IngestionRepository, StageContext
 from panelyt_api.ingest.types import LabIngestionResult
-from panelyt_api.matching import MatchingConfig, MatchingSynchronizer, load_config
+from panelyt_api.matching import apply_matching_if_needed, config_hash, load_config
 from panelyt_api.services.alerts import TelegramPriceAlertService
 
 logger = logging.getLogger(__name__)
@@ -76,9 +76,21 @@ class IngestionService:
                     logger.warning("Ingestion returned no lab items")
 
                 matching_config = load_config()
+                matching_digest = config_hash()
+                contexts = []
 
                 for result in results:
-                    await self._process_lab_result(repo, result, matching_config)
+                    context = await self._stage_lab_result(repo, result)
+                    if context is not None:
+                        contexts.append(context)
+
+                if contexts:
+                    await apply_matching_if_needed(
+                        repo.session, matching_config, matching_digest
+                    )
+
+                for context in contexts:
+                    await repo.synchronize_catalog(context)
 
                 await repo.prune_snapshots(now_utc.date())
                 await repo.prune_orphan_biomarkers()
@@ -185,12 +197,11 @@ class IngestionService:
         )
         return lab_result
 
-    async def _process_lab_result(
+    async def _stage_lab_result(
         self,
         repo: IngestionRepository,
         result: LabIngestionResult,
-        matching_config: MatchingConfig,
-    ) -> None:
+    ) -> StageContext | None:
         if result.raw_payload:
             await repo.write_raw_snapshot(
                 source=f"{result.lab_code}:catalog",
@@ -214,9 +225,4 @@ class IngestionService:
             result.items,
             fetched_at=result.fetched_at,
         )
-
-        if matching_config.biomarkers:
-            synchronizer = MatchingSynchronizer(repo.session, matching_config)
-            await synchronizer.apply()
-
-        await repo.synchronize_catalog(context)
+        return context

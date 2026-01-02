@@ -324,6 +324,16 @@ class AppActivity(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class AppSetting(Base):
+    __tablename__ = "app_setting"
+
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class UserAccount(Base):
     __tablename__ = "user_account"
 
@@ -501,6 +511,7 @@ class BiomarkerListTemplateEntry(Base):
 
 __all__ = [
     "AppActivity",
+    "AppSetting",
     "Biomarker",
     "BiomarkerAlias",
     "BiomarkerListTemplate",

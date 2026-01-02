@@ -3,11 +3,33 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import insert, select
+from sqlalchemy import event, insert, select
 
 from panelyt_api.db import models
-from panelyt_api.matching import MatchingSynchronizer, load_config, suggest_lab_matches
+from panelyt_api.matching import (
+    MatchingSynchronizer,
+    apply_matching_if_needed,
+    config_hash,
+    load_config,
+    suggest_lab_matches,
+)
 from panelyt_api.matching.config import BiomarkerConfig, LabMatchConfig, MatchingConfig
+
+
+class QueryCounter:
+    def __init__(self, engine):
+        self.count = 0
+        self._engine = engine
+
+    def __enter__(self):
+        event.listen(self._engine, "before_cursor_execute", self._increment)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        event.remove(self._engine, "before_cursor_execute", self._increment)
+
+    def _increment(self, *args, **kwargs):
+        self.count += 1
 
 
 @pytest.mark.asyncio
@@ -254,6 +276,119 @@ async def test_matching_synchronizer_merges_replacements(db_session):
     }
     assert "hemoglobina-glikowana" not in remaining_slugs
     assert "hemoglobina-glikowana-met-hplc" not in remaining_slugs
+
+
+@pytest.mark.asyncio
+async def test_apply_matching_skips_when_hash_unchanged(db_session, tmp_path):
+    await _seed_labs(db_session)
+
+    await db_session.execute(
+        models.LabBiomarker.__table__.insert(),
+        [
+            {
+                "lab_id": 1,
+                "external_id": "diag-1",
+                "slug": "alt",
+                "name": "ALT",
+                "is_active": True,
+            },
+            {
+                "lab_id": 2,
+                "external_id": "alab-1",
+                "slug": "alt",
+                "name": "ALT",
+                "is_active": True,
+            },
+        ],
+    )
+    await db_session.commit()
+
+    config_path = tmp_path / "biomarkers.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "version: 1",
+                "biomarkers:",
+                "  - code: ALT",
+                "    name: ALT",
+                "    slug: alt",
+                "    labs:",
+                "      diag:",
+                "        - id: diag-1",
+                "      alab:",
+                "        - id: alab-1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+    config_digest = config_hash(config_path)
+
+    applied_first = await apply_matching_if_needed(db_session, config, config_digest)
+    applied_second = await apply_matching_if_needed(db_session, config, config_digest)
+
+    assert applied_first is True
+    assert applied_second is False
+    stored_hash = await db_session.scalar(
+        select(models.AppSetting.value).where(
+            models.AppSetting.name == "matching_config_hash"
+        )
+    )
+    assert stored_hash == config_digest
+
+
+@pytest.mark.asyncio
+async def test_matching_synchronizer_bulkifies_queries(db_session):
+    await _seed_labs(db_session)
+
+    biomarker_configs = []
+    lab_biomarkers = []
+    for index in range(20):
+        code = f"bio-{index}"
+        slug = f"bio-{index}"
+        biomarker_configs.append(
+            BiomarkerConfig(
+                code=code,
+                name=f"Biomarker {index}",
+                slug=slug,
+                labs={
+                    "diag": [LabMatchConfig(id=f"diag-{index}")],
+                    "alab": [LabMatchConfig(id=f"alab-{index}")],
+                },
+            )
+        )
+        lab_biomarkers.extend(
+            [
+                {
+                    "lab_id": 1,
+                    "external_id": f"diag-{index}",
+                    "slug": slug,
+                    "name": f"Biomarker {index}",
+                    "is_active": True,
+                },
+                {
+                    "lab_id": 2,
+                    "external_id": f"alab-{index}",
+                    "slug": slug,
+                    "name": f"Biomarker {index}",
+                    "is_active": True,
+                },
+            ]
+        )
+
+    await db_session.execute(models.LabBiomarker.__table__.insert(), lab_biomarkers)
+    await db_session.commit()
+
+    config = MatchingConfig(biomarkers=biomarker_configs)
+    synchronizer = MatchingSynchronizer(db_session, config)
+    engine = db_session.get_bind()
+    sync_engine = getattr(engine, "sync_engine", engine)
+
+    with QueryCounter(sync_engine) as counter:
+        await synchronizer.apply()
+
+    assert counter.count <= 60
 
 
 @pytest.mark.asyncio

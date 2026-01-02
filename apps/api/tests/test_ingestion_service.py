@@ -12,7 +12,6 @@ from panelyt_api.ingest.client import DiagClient, _normalize_identifier, _pln_to
 from panelyt_api.ingest.service import IngestionService
 from panelyt_api.ingest.types import LabIngestionResult, RawLabBiomarker, RawLabItem
 from panelyt_api.schemas.common import CatalogMeta
-from panelyt_api.matching.config import MatchingConfig
 
 
 class TestIngestionService:
@@ -173,18 +172,23 @@ class TestIngestionService:
         with patch.object(
             ingestion_service, "_fetch_all_labs", new_callable=AsyncMock
         ) as mock_fetch, patch.object(
-            ingestion_service, "_process_lab_result", new_callable=AsyncMock
-        ) as mock_process:
+            ingestion_service, "_stage_lab_result", new_callable=AsyncMock
+        ) as mock_stage, patch(
+            "panelyt_api.ingest.service.apply_matching_if_needed", new_callable=AsyncMock
+        ) as mock_apply:
             mock_fetch.return_value = [lab_result]
+            stage_context = MagicMock()
+            mock_stage.return_value = stage_context
 
             await ingestion_service.run(reason="test")
 
             mock_fetch.assert_awaited_once()
-            mock_process.assert_awaited_once()
-            args, _ = mock_process.await_args
+            mock_stage.assert_awaited_once()
+            args, _ = mock_stage.await_args
             assert args[0] is mock_repo
             assert args[1] == lab_result
-            assert isinstance(args[2], MatchingConfig)
+            mock_apply.assert_awaited_once()
+            mock_repo.synchronize_catalog.assert_awaited_once_with(stage_context)
             mock_repo.prune_snapshots.assert_called_once()
             mock_repo.finalize_run_log.assert_called_with(1, status="completed")
 
@@ -264,7 +268,7 @@ class TestIngestionService:
         mock_repo.finalize_run_log.assert_called_with(1, status="failed", note="Network error")
 
     @pytest.mark.asyncio
-    async def test_process_lab_result_stages_and_syncs(self, mock_repo, ingestion_service):
+    async def test_stage_lab_result_stages_items(self, mock_repo, ingestion_service):
         fetched_at = datetime.now(UTC)
         lab_result = LabIngestionResult(
             lab_code="diag",
@@ -296,14 +300,15 @@ class TestIngestionService:
         mock_repo.stage_lab_items = AsyncMock(return_value=stage_context)
         mock_repo.synchronize_catalog = AsyncMock()
 
-        await ingestion_service._process_lab_result(mock_repo, lab_result, MatchingConfig())
+        context = await ingestion_service._stage_lab_result(mock_repo, lab_result)
 
         mock_repo.write_raw_snapshot.assert_called_once()
         mock_repo.stage_lab_items.assert_awaited_once()
-        mock_repo.synchronize_catalog.assert_awaited_once_with(stage_context)
+        mock_repo.synchronize_catalog.assert_not_awaited()
+        assert context is stage_context
 
     @pytest.mark.asyncio
-    async def test_process_lab_result_without_items(self, mock_repo, ingestion_service):
+    async def test_stage_lab_result_without_items(self, mock_repo, ingestion_service):
         lab_result = LabIngestionResult(
             lab_code="diag",
             fetched_at=datetime.now(UTC),
@@ -311,10 +316,11 @@ class TestIngestionService:
             raw_payload={"page_1": {}},
         )
 
-        await ingestion_service._process_lab_result(mock_repo, lab_result, MatchingConfig())
+        context = await ingestion_service._stage_lab_result(mock_repo, lab_result)
 
         mock_repo.write_raw_snapshot.assert_called_once()
         mock_repo.stage_lab_items.assert_not_called()
+        assert context is None
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.IngestionRepository")
