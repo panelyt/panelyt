@@ -6,7 +6,8 @@ import pytest
 from sqlalchemy import insert, select
 
 from panelyt_api.db import models
-from panelyt_api.services.alerts import TelegramPriceAlertService
+from panelyt_api.schemas.common import ItemOut
+from panelyt_api.services.alerts import AlertPayload, TelegramPriceAlertService
 
 
 class StubTelegramClient:
@@ -143,6 +144,55 @@ async def test_no_alert_when_not_lower_than_last_notified(db_session, test_setti
     assert saved_list is not None
     assert saved_list.last_known_total_grosz == 3000
     assert saved_list.last_notified_total_grosz == 3000
+
+
+@pytest.mark.asyncio
+async def test_alert_message_escapes_list_name(db_session, test_settings) -> None:
+    service = TelegramPriceAlertService(db_session, settings=test_settings)
+    saved_list = models.SavedList(user_id="user-1", name='Bad <b>&"Name"')
+    alert = AlertPayload(
+        saved_list=saved_list,
+        chat_id="123",
+        previous_total=2000,
+        new_total=1500,
+        items=[],
+    )
+
+    message = service._build_message(alert)
+
+    assert '<b>Bad &lt;b&gt;&amp;"Name"</b>' in message
+
+
+@pytest.mark.asyncio
+async def test_alert_message_escapes_item_name(db_session, test_settings) -> None:
+    service = TelegramPriceAlertService(db_session, settings=test_settings)
+    saved_list = models.SavedList(user_id="user-2", name="List")
+    item = ItemOut(
+        id=1,
+        kind="single",
+        name='Item <a href="https://bad.example">link</a>',
+        slug="item",
+        price_now_grosz=1200,
+        price_min30_grosz=1200,
+        currency="PLN",
+        biomarkers=["ALT"],
+        url="https://bad.example",
+        on_sale=False,
+        lab_code="LAB",
+        lab_name="Lab",
+    )
+    alert = AlertPayload(
+        saved_list=saved_list,
+        chat_id="123",
+        previous_total=2000,
+        new_total=1500,
+        items=[item],
+    )
+
+    message = service._build_message(alert)
+
+    assert "&lt;a href=" in message
+    assert "<a href=" not in message
 async def _create_biomarker(db_session, code: str) -> int:
     result = await db_session.execute(
         insert(models.Biomarker)
