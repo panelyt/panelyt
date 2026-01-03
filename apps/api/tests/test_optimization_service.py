@@ -42,7 +42,7 @@ class TestOptimizationService:
     @pytest.mark.asyncio
     async def test_resolve_biomarkers_empty_input(self, service):
         """Test biomarker resolution with empty input."""
-        resolved, unresolved = await service._resolve_biomarkers([])
+        resolved, unresolved = await service._resolver.resolve_tokens([])
         assert resolved == []
         assert unresolved == []
 
@@ -60,7 +60,7 @@ class TestOptimizationService:
         )
         await db_session.commit()
 
-        resolved, unresolved = await service._resolve_biomarkers(["ALT", "AST", "UNKNOWN"])
+        resolved, unresolved = await service._resolver.resolve_tokens(["ALT", "AST", "UNKNOWN"])
 
         assert len(resolved) == 2
         assert len(unresolved) == 1
@@ -85,7 +85,7 @@ class TestOptimizationService:
         )
         await db_session.commit()
 
-        resolved, unresolved = await service._resolve_biomarkers(["alt", "Alt", "ALT"])
+        resolved, unresolved = await service._resolver.resolve_tokens(["alt", "Alt", "ALT"])
 
         assert len(resolved) == 3
         assert unresolved == []
@@ -145,7 +145,7 @@ class TestOptimizationService:
 
         monkeypatch.setattr(service.session, "execute", counting_execute)
 
-        resolved, unresolved = await service._resolve_biomarkers(["ALT", "AST", "alt"])
+        resolved, unresolved = await service._resolver.resolve_tokens(["ALT", "AST", "alt"])
 
         assert len(resolved) == 3
         assert unresolved == []
@@ -164,7 +164,7 @@ class TestOptimizationService:
         )
         await db_session.commit()
 
-        resolved, unresolved = await service._resolve_biomarkers(["cholesterol", "vitamin d"])
+        resolved, unresolved = await service._resolver.resolve_tokens(["cholesterol", "vitamin d"])
 
         assert len(resolved) == 2
         assert unresolved == []

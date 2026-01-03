@@ -22,8 +22,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from panelyt_api.core.settings import get_settings
 from panelyt_api.db.base import Base
+
+JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
 
 
 class Lab(Base):
@@ -48,14 +49,6 @@ class Lab(Base):
     lab_biomarkers: Mapped[list[LabBiomarker]] = relationship(
         "LabBiomarker", back_populates="lab", cascade="all, delete-orphan"
     )
-
-
-def _get_json_type():
-    """Get appropriate JSON type based on database."""
-    settings = get_settings()
-    if settings.database_url.startswith("sqlite"):
-        return JSON
-    return JSONB
 
 
 class Biomarker(Base):
@@ -163,7 +156,7 @@ class LabBiomarker(Base):
     elab_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     slug: Mapped[str | None] = mapped_column(String(255), nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    attributes: Mapped[dict | None] = mapped_column(_get_json_type(), nullable=True)
+    attributes: Mapped[dict | None] = mapped_column(JSON_TYPE, nullable=True)
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -210,7 +203,7 @@ class LabItem(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    attributes: Mapped[dict | None] = mapped_column(_get_json_type(), nullable=True)
+    attributes: Mapped[dict | None] = mapped_column(JSON_TYPE, nullable=True)
 
     lab: Mapped[Lab] = relationship("Lab", back_populates="lab_items")
     biomarkers: Mapped[list[LabItemBiomarker]] = relationship(
@@ -304,7 +297,7 @@ class RawSnapshot(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    payload: Mapped[dict] = mapped_column(_get_json_type(), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON_TYPE, nullable=False)
 
 
 class IngestionLog(Base):
@@ -422,7 +415,10 @@ class SavedList(Base):
 
     user: Mapped[UserAccount] = relationship("UserAccount", back_populates="lists")
     entries: Mapped[list[SavedListEntry]] = relationship(
-        "SavedListEntry", back_populates="saved_list", cascade="all, delete-orphan"
+        "SavedListEntry",
+        back_populates="saved_list",
+        cascade="all, delete-orphan",
+        order_by="SavedListEntry.sort_order",
     )
 
 

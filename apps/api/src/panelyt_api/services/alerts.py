@@ -217,8 +217,7 @@ class TelegramPriceAlertService:
 
     @staticmethod
     def _biomarker_codes(saved_list: SavedList) -> list[str]:
-        entries = sorted(saved_list.entries, key=lambda entry: entry.sort_order)
-        return [entry.code for entry in entries]
+        return [entry.code for entry in saved_list.entries]
 
     @staticmethod
     def _sum_price(items: Sequence[ItemOut]) -> int:

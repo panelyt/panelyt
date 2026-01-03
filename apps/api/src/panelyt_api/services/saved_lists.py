@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from secrets import token_urlsafe
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from panelyt_api.db.models import Biomarker, SavedList, SavedListEntry
+from panelyt_api.db.models import SavedList, SavedListEntry
+from panelyt_api.services.biomarker_resolver import BiomarkerResolver
 
 
 @dataclass(slots=True)
@@ -23,6 +24,7 @@ class SavedListService:
 
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
+        self._resolver = BiomarkerResolver(db)
 
     async def list_for_user(self, user_id: str) -> list[SavedList]:
         stmt = (
@@ -32,10 +34,7 @@ class SavedListService:
             .order_by(SavedList.created_at.asc())
         )
         result = await self._db.execute(stmt)
-        lists = list(result.scalars())
-        for saved in lists:
-            saved.entries.sort(key=lambda entry: entry.sort_order)
-        return lists
+        return list(result.scalars())
 
     async def get_for_user(self, list_id: str, user_id: str) -> SavedList | None:
         stmt = (
@@ -45,8 +44,6 @@ class SavedListService:
         )
         result = await self._db.execute(stmt)
         saved_list = result.scalar_one_or_none()
-        if saved_list is not None:
-            saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
     async def get_shared(self, share_token: str) -> SavedList | None:
@@ -59,8 +56,6 @@ class SavedListService:
         )
         result = await self._db.execute(stmt)
         saved_list = result.scalar_one_or_none()
-        if saved_list is not None:
-            saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
     async def get_by_name_for_user(self, user_id: str, name: str) -> SavedList | None:
@@ -75,8 +70,6 @@ class SavedListService:
         )
         result = await self._db.execute(stmt)
         saved_list = result.scalars().first()
-        if saved_list is not None:
-            saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
     async def create_list(
@@ -86,7 +79,7 @@ class SavedListService:
         entries: Sequence[SavedListEntryData],
     ) -> SavedList:
         prepared = self._prepare_entries(entries)
-        biomarker_map = await self._resolve_biomarkers(prepared)
+        biomarker_map = await self._resolver.resolve_for_list_entries(prepared)
 
         saved_list = SavedList(
             user_id=user_id,
@@ -112,7 +105,6 @@ class SavedListService:
             saved_list.shared_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
-        saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
     async def update_list(
@@ -122,7 +114,7 @@ class SavedListService:
         entries: Sequence[SavedListEntryData],
     ) -> SavedList:
         prepared = self._prepare_entries(entries)
-        biomarker_map = await self._resolve_biomarkers(prepared)
+        biomarker_map = await self._resolver.resolve_for_list_entries(prepared)
 
         saved_list.name = name
         await self._db.execute(
@@ -144,7 +136,6 @@ class SavedListService:
         saved_list.updated_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
-        saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
     async def delete_list(self, saved_list: SavedList) -> None:
@@ -163,7 +154,6 @@ class SavedListService:
         saved_list.updated_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
-        saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
     async def revoke_share(self, saved_list: SavedList) -> SavedList:
@@ -172,7 +162,6 @@ class SavedListService:
         saved_list.updated_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
-        saved_list.entries.sort(key=lambda entry: entry.sort_order)
         return saved_list
 
     async def set_notifications(self, saved_list: SavedList, *, notify: bool) -> SavedList:
@@ -220,29 +209,6 @@ class SavedListService:
             seen.add(normalized)
             prepared.append(SavedListEntryData(code=code, display_name=display_name))
         return prepared
-
-    async def _resolve_biomarkers(
-        self,
-        entries: Sequence[SavedListEntryData],
-    ) -> dict[str, int]:
-        codes = {entry.code.lower() for entry in entries}
-        if not codes:
-            return {}
-
-        stmt = select(Biomarker).where(
-            or_(
-                func.lower(Biomarker.elab_code).in_(codes),
-                func.lower(Biomarker.slug).in_(codes),
-            )
-        )
-        result = await self._db.execute(stmt)
-        biomarker_map: dict[str, int] = {}
-        for biomarker in result.scalars():
-            if biomarker.elab_code:
-                biomarker_map.setdefault(biomarker.elab_code.lower(), biomarker.id)
-            if biomarker.slug:
-                biomarker_map.setdefault(biomarker.slug.lower(), biomarker.id)
-        return biomarker_map
 
     async def _generate_unique_share_token(self) -> str:
         while True:

@@ -42,10 +42,15 @@ def init_engine() -> AsyncEngine:
                 "pool_timeout": settings.db_pool_timeout,
             }
 
+        connect_args: dict[str, object] = {}
+        if "postgresql" in async_url and settings.db_schema:
+            connect_args = {"server_settings": {"search_path": settings.db_schema}}
+
         _engine = create_async_engine(
             async_url,
             pool_pre_ping=True,
             future=True,
+            connect_args=connect_args,
             **pool_kwargs,
         )
         _session_factory = async_sessionmaker(_engine, expire_on_commit=False)

@@ -42,6 +42,7 @@ def test_init_engine_configures_pool_for_postgres(monkeypatch):
             db_pool_max_overflow=20,
             db_pool_recycle=3600,
             db_pool_timeout=30,
+            db_schema="panelyt",
         ),
     )
 
@@ -54,6 +55,9 @@ def test_init_engine_configures_pool_for_postgres(monkeypatch):
     assert captured["kwargs"]["pool_timeout"] == 30
     assert captured["kwargs"]["pool_pre_ping"] is True
     assert captured["kwargs"]["future"] is True
+    assert captured["kwargs"]["connect_args"] == {
+        "server_settings": {"search_path": "panelyt"}
+    }
     _reset_engine_state()
 
 
@@ -95,4 +99,5 @@ def test_init_engine_skips_pool_for_sqlite(monkeypatch):
     assert "pool_timeout" not in captured["kwargs"]
     assert captured["kwargs"]["pool_pre_ping"] is True
     assert captured["kwargs"]["future"] is True
+    assert captured["kwargs"]["connect_args"] == {}
     _reset_engine_state()

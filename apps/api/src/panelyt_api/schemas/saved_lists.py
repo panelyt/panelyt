@@ -70,7 +70,6 @@ class SavedListResponse(BaseModel):
 
     @classmethod
     def from_model(cls, model: SavedList) -> Self:
-        sorted_entries = sorted(model.entries, key=lambda entry: entry.sort_order)
         return cls(
             id=model.id,
             name=model.name,
@@ -83,7 +82,7 @@ class SavedListResponse(BaseModel):
             last_total_updated_at=model.last_total_updated_at,
             last_notified_total_grosz=model.last_notified_total_grosz,
             last_notified_at=model.last_notified_at,
-            biomarkers=[SavedListEntryResponse.model_validate(entry) for entry in sorted_entries],
+            biomarkers=[SavedListEntryResponse.model_validate(entry) for entry in model.entries],
         )
 
 

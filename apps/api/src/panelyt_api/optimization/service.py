@@ -19,7 +19,6 @@ from panelyt_api.optimization.context import (
     LabSelectionAccumulator,
     LabSolution,
     MultiLabSolution,
-    NormalizedBiomarkerInput,
     OptimizationContext,
     ResolvedBiomarker,
     SolverOutcome,
@@ -36,6 +35,7 @@ from panelyt_api.schemas.optimize import (
     OptimizeRequest,
     OptimizeResponse,
 )
+from panelyt_api.services.biomarker_resolver import BiomarkerResolver
 from panelyt_api.utils.normalization import (
     create_normalized_lookup,
     normalize_token,
@@ -57,13 +57,14 @@ COVER_CACHE_MAXSIZE = 1000
 class OptimizationService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self._resolver = BiomarkerResolver(session)
         self._cover_cache: LRUCache[
             tuple[frozenset[str], frozenset[int]], tuple[float, frozenset[int]]
         ] = LRUCache(maxsize=COVER_CACHE_MAXSIZE)
         self._last_context: OptimizationContext | None = None
 
     async def solve(self, payload: OptimizeRequest) -> OptimizeResponse:
-        resolved, unresolved_inputs = await self._resolve_biomarkers(payload.biomarkers)
+        resolved, unresolved_inputs = await self._resolver.resolve_tokens(payload.biomarkers)
         try:
             mode = OptimizeMode(payload.mode)
         except (ValueError, TypeError):
@@ -162,7 +163,7 @@ class OptimizationService:
             logger.debug("Using cached context for addon computation")
         else:
             logger.debug("Cache miss - computing context for addons")
-            resolved, _ = await self._resolve_biomarkers(payload.biomarkers)
+            resolved, _ = await self._resolver.resolve_tokens(payload.biomarkers)
             if not resolved:
                 return AddonSuggestionsResponse()
 
@@ -197,90 +198,6 @@ class OptimizationService:
         return AddonSuggestionsResponse(
             addon_suggestions=suggestions,
             labels={**existing_labels, **suggestion_labels},
-        )
-
-    async def _resolve_biomarkers(
-        self, inputs: Sequence[str]
-    ) -> tuple[list[ResolvedBiomarker], list[str]]:
-        normalized_inputs = self._normalize_biomarker_inputs(inputs)
-        if not normalized_inputs:
-            return [], []
-
-        search_tokens = {entry.normalized for entry in normalized_inputs}
-        match_index = await self._fetch_biomarker_matches(search_tokens)
-
-        resolved: list[ResolvedBiomarker] = []
-        unresolved: list[str] = []
-        for entry in normalized_inputs:
-            biomarker = self._pick_biomarker(match_index, entry.normalized)
-            if biomarker is None:
-                unresolved.append(entry.raw)
-                continue
-            resolved.append(self._build_resolved_biomarker(biomarker, entry.raw))
-        return resolved, unresolved
-
-    def _normalize_biomarker_inputs(
-        self, inputs: Sequence[str]
-    ) -> list[NormalizedBiomarkerInput]:
-        normalized: list[NormalizedBiomarkerInput] = []
-        for raw in inputs:
-            token = normalize_token(raw)
-            if token:
-                normalized.append(NormalizedBiomarkerInput(raw=raw, normalized=token))
-        return normalized
-
-    async def _fetch_biomarker_matches(
-        self, search_tokens: set[str]
-    ) -> dict[str, list[tuple[int, models.Biomarker]]]:
-        if not search_tokens:
-            return {}
-
-        statement = select(models.Biomarker).where(
-            or_(
-                func.lower(models.Biomarker.elab_code).in_(search_tokens),
-                func.lower(models.Biomarker.slug).in_(search_tokens),
-                func.lower(models.Biomarker.name).in_(search_tokens),
-            )
-        )
-        rows = (await self.session.execute(statement)).scalars().all()
-        return self._build_biomarker_match_index(rows, search_tokens)
-
-    def _build_biomarker_match_index(
-        self,
-        rows: Sequence[models.Biomarker],
-        search_tokens: set[str],
-    ) -> dict[str, list[tuple[int, models.Biomarker]]]:
-        match_index: dict[str, list[tuple[int, models.Biomarker]]] = {}
-        for row in rows:
-            for priority, candidate in enumerate((row.elab_code, row.slug, row.name)):
-                normalized = normalize_token(candidate)
-                if normalized and normalized in search_tokens:
-                    match_index.setdefault(normalized, []).append((priority, row))
-
-        for candidates in match_index.values():
-            candidates.sort(key=lambda item: (item[0], item[1].id))
-        return match_index
-
-    @staticmethod
-    def _pick_biomarker(
-        match_index: dict[str, list[tuple[int, models.Biomarker]]],
-        token: str,
-    ) -> models.Biomarker | None:
-        candidates = match_index.get(token)
-        if not candidates:
-            return None
-        return candidates[0][1]
-
-    @staticmethod
-    def _build_resolved_biomarker(
-        biomarker: models.Biomarker, original: str
-    ) -> ResolvedBiomarker:
-        token = biomarker.elab_code or biomarker.slug or biomarker.name
-        return ResolvedBiomarker(
-            id=biomarker.id,
-            token=token,
-            display_name=biomarker.name,
-            original=original,
         )
 
     async def _collect_candidates(
