@@ -73,6 +73,78 @@ async def test_matching_synchronizer_applies_config(db_session):
 
 
 @pytest.mark.asyncio
+async def test_matching_synchronizer_updates_existing_biomarker_name(db_session):
+    await _seed_labs(db_session)
+
+    await db_session.execute(
+        insert(models.Biomarker).values(slug="alt", name="ALT Old")
+    )
+
+    config = MatchingConfig(
+        biomarkers=[BiomarkerConfig(code="ALT", name="ALT New", slug="alt")]
+    )
+    synchronizer = MatchingSynchronizer(db_session, config)
+    await synchronizer.apply()
+
+    updated_name = await db_session.scalar(
+        select(models.Biomarker.name).where(models.Biomarker.slug == "alt")
+    )
+    assert updated_name == "ALT New"
+
+
+@pytest.mark.asyncio
+async def test_matching_synchronizer_updates_existing_match(db_session):
+    await _seed_labs(db_session)
+
+    biomarker_id = await db_session.scalar(
+        insert(models.Biomarker)
+        .values(slug="alt", name="ALT")
+        .returning(models.Biomarker.id)
+    )
+    lab_biomarker_id = await db_session.scalar(
+        insert(models.LabBiomarker)
+        .values(
+            lab_id=1,
+            external_id="diag-1",
+            slug="alt",
+            name="ALT",
+            is_active=True,
+        )
+        .returning(models.LabBiomarker.id)
+    )
+    await db_session.execute(
+        insert(models.BiomarkerMatch).values(
+            lab_biomarker_id=lab_biomarker_id,
+            biomarker_id=biomarker_id,
+            match_type="auto",
+            confidence=0.5,
+            status="pending",
+            notes="seeded",
+        )
+    )
+
+    config = MatchingConfig(
+        biomarkers=[
+            BiomarkerConfig(
+                code="ALT",
+                name="ALT",
+                slug="alt",
+                labs={"diag": [LabMatchConfig(id="diag-1")]},
+            )
+        ]
+    )
+    synchronizer = MatchingSynchronizer(db_session, config)
+    await synchronizer.apply()
+
+    match_type = await db_session.scalar(
+        select(models.BiomarkerMatch.match_type).where(
+            models.BiomarkerMatch.lab_biomarker_id == lab_biomarker_id
+        )
+    )
+    assert match_type == "manual-config"
+
+
+@pytest.mark.asyncio
 async def test_matching_synchronizer_falls_back_to_slug_when_id_mismatch(db_session):
     await _seed_labs(db_session)
 

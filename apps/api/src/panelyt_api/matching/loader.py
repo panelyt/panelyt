@@ -41,7 +41,7 @@ class MatchingSynchronizer:
             existing_biomarkers = await self._load_biomarkers(slugs)
 
         update_rows = [
-            {"id": biomarker.id, "name": config.name}
+            {"id": biomarker.id, "b_id": biomarker.id, "b_name": config.name}
             for config, slug in plans
             if (biomarker := existing_biomarkers.get(slug)) is not None
             and biomarker.name != config.name
@@ -49,8 +49,9 @@ class MatchingSynchronizer:
         if update_rows:
             update_stmt = (
                 update(models.Biomarker)
-                .where(models.Biomarker.id == bindparam("id"))
-                .values(name=bindparam("name"))
+                .where(models.Biomarker.id == bindparam("b_id"))
+                .values(name=bindparam("b_name"))
+                .execution_options(synchronize_session=None)
             )
             await self._session.execute(update_stmt, update_rows)
 
@@ -108,22 +109,30 @@ class MatchingSynchronizer:
                     }
                 )
             else:
-                update_rows.append({"id": existing_id, **payload})
+                update_rows.append(
+                    {
+                        "id": existing_id,
+                        "b_id": existing_id,
+                        "b_biomarker_id": biomarker_id,
+                        "b_updated_at": now,
+                    }
+                )
 
         if insert_rows:
             await self._session.execute(insert(models.BiomarkerMatch).values(insert_rows))
         if update_rows:
             update_stmt = (
                 update(models.BiomarkerMatch)
-                .where(models.BiomarkerMatch.id == bindparam("id"))
+                .where(models.BiomarkerMatch.id == bindparam("b_id"))
                 .values(
-                    biomarker_id=bindparam("biomarker_id"),
+                    biomarker_id=bindparam("b_biomarker_id"),
                     match_type="manual-config",
                     status="accepted",
                     confidence=1.0,
                     notes=None,
-                    updated_at=bindparam("updated_at"),
+                    updated_at=bindparam("b_updated_at"),
                 )
+                .execution_options(synchronize_session=None)
             )
             await self._session.execute(update_stmt, update_rows)
 
