@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from panelyt_api.db.models import SavedList, SavedListEntry
+from panelyt_api.optimization.service import OptimizationService
+from panelyt_api.schemas.optimize import OptimizeRequest
 from panelyt_api.services.biomarker_resolver import BiomarkerResolver
 
 
@@ -25,6 +27,7 @@ class SavedListService:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
         self._resolver = BiomarkerResolver(db)
+        self._optimizer = OptimizationService(db)
 
     async def list_for_user(self, user_id: str) -> list[SavedList]:
         stmt = (
@@ -100,6 +103,7 @@ class SavedListService:
                 )
             )
 
+        await self._refresh_list_totals(saved_list, prepared)
         saved_list.updated_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
@@ -131,6 +135,7 @@ class SavedListService:
                 )
             )
 
+        await self._refresh_list_totals(saved_list, prepared)
         saved_list.updated_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
@@ -207,6 +212,29 @@ class SavedListService:
             seen.add(normalized)
             prepared.append(SavedListEntryData(code=code, display_name=display_name))
         return prepared
+
+    async def _refresh_list_totals(
+        self,
+        saved_list: SavedList,
+        entries: Sequence[SavedListEntryData],
+    ) -> None:
+        codes = [entry.code for entry in entries]
+        timestamp = datetime.now(UTC)
+        if not codes:
+            saved_list.last_known_total_grosz = 0
+            saved_list.last_total_updated_at = timestamp
+            return
+
+        response = await self._optimizer.solve(OptimizeRequest(biomarkers=codes))
+        if response.uncovered:
+            saved_list.last_known_total_grosz = None
+            saved_list.last_total_updated_at = timestamp
+            return
+
+        saved_list.last_known_total_grosz = sum(
+            item.price_now_grosz for item in response.items
+        )
+        saved_list.last_total_updated_at = timestamp
 
     async def _generate_unique_share_token(self) -> str:
         while True:

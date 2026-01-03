@@ -430,6 +430,77 @@ class TestOptimizeEndpoint:
         assert "Liver Panel" in data["explain"]["AST"]
         activity_spy.assert_awaited_once()
 
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    async def test_optimize_compare_returns_bundle(
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+        db_session,
+        activity_spy: AsyncMock,
+    ):
+        """Test compare endpoint returns auto/split/by-lab bundle."""
+        mock_ensure_fresh.return_value = None
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [
+                    {"id": 10, "name": "ALT", "elab_code": "ALT", "slug": "alt"},
+                    {"id": 11, "name": "AST", "elab_code": "AST", "slug": "ast"},
+                ]
+            )
+        )
+        await db_session.execute(
+            insert(models.Item).values(
+                [
+                    {
+                        "id": 10,
+                        "lab_id": 1,
+                        "external_id": "item-10",
+                        "kind": "single",
+                        "name": "ALT Test",
+                        "slug": "alt-test",
+                        "price_now_grosz": 1000,
+                        "price_min30_grosz": 900,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                    {
+                        "id": 11,
+                        "lab_id": 1,
+                        "external_id": "item-11",
+                        "kind": "single",
+                        "name": "AST Test",
+                        "slug": "ast-test",
+                        "price_now_grosz": 1200,
+                        "price_min30_grosz": 1100,
+                        "currency": "PLN",
+                        "is_available": True,
+                    },
+                ]
+            )
+        )
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [
+                    {"item_id": 10, "biomarker_id": 10},
+                    {"item_id": 11, "biomarker_id": 11},
+                ]
+            )
+        )
+        await db_session.commit()
+
+        payload = {"biomarkers": ["ALT", "AST"]}
+        response = await async_client.post("/optimize/compare", json=payload)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["auto"]["mode"] == "auto"
+        assert data["split"]["mode"] == "split"
+        assert "diag" in data["by_lab"]
+        assert data["by_lab"]["diag"]["mode"] == "single_lab"
+        assert any(option["code"] == "diag" for option in data["lab_options"])
+        activity_spy.assert_awaited_once()
+
     async def test_optimize_invalid_payload(self, async_client: AsyncClient):
         """Test optimization with invalid payload."""
         # Missing biomarkers field

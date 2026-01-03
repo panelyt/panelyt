@@ -13,6 +13,8 @@ from panelyt_api.optimization.service import OptimizationService
 from panelyt_api.schemas.optimize import (
     AddonSuggestionsRequest,
     AddonSuggestionsResponse,
+    OptimizeCompareRequest,
+    OptimizeCompareResponse,
     OptimizeRequest,
     OptimizeResponse,
 )
@@ -31,6 +33,19 @@ async def optimize(
     await ingestion_service.ensure_fresh_data()
     optimizer = OptimizationService(session)
     return await optimizer.solve_cached(payload)
+
+
+@router.post("/optimize/compare", response_model=OptimizeCompareResponse)
+async def optimize_compare(
+    payload: OptimizeCompareRequest,
+    session: SessionDep,
+) -> OptimizeCompareResponse:
+    repo = IngestionRepository(session)
+    await record_user_activity_debounced(repo, datetime.now(UTC))
+    ingestion_service = IngestionService(get_settings())
+    await ingestion_service.ensure_fresh_data()
+    optimizer = OptimizationService(session)
+    return await optimizer.compare(payload)
 
 
 @router.post("/optimize/addons", response_model=AddonSuggestionsResponse)

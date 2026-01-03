@@ -31,6 +31,8 @@ from panelyt_api.schemas.optimize import (
     AddonSuggestionsResponse,
     LabAvailability,
     LabSelectionSummary,
+    OptimizeCompareRequest,
+    OptimizeCompareResponse,
     OptimizeMode,
     OptimizeRequest,
     OptimizeResponse,
@@ -139,6 +141,32 @@ class OptimizationService:
             optimization_context_cache.set(context_key, self._last_context)
 
         return result
+
+    async def compare(self, payload: OptimizeCompareRequest) -> OptimizeCompareResponse:
+        biomarkers = list(payload.biomarkers)
+        auto = await self.solve_cached(OptimizeRequest(biomarkers=biomarkers))
+        split = await self.solve_cached(
+            OptimizeRequest(biomarkers=biomarkers, mode=OptimizeMode.SPLIT)
+        )
+        lab_options = auto.lab_options
+        by_lab: dict[str, OptimizeResponse] = {}
+        for option in lab_options:
+            code = option.code
+            if not code:
+                continue
+            by_lab[code] = await self.solve_cached(
+                OptimizeRequest(
+                    biomarkers=biomarkers,
+                    mode=OptimizeMode.SINGLE_LAB,
+                    lab_code=code,
+                )
+            )
+        return OptimizeCompareResponse(
+            auto=auto,
+            split=split,
+            by_lab=by_lab,
+            lab_options=lab_options,
+        )
 
     async def compute_addons(
         self, payload: AddonSuggestionsRequest
