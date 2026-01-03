@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import cast
@@ -11,6 +12,7 @@ from ortools.sat.python import cp_model
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from panelyt_api.core import metrics
 from panelyt_api.core.cache import optimization_cache, optimization_context_cache
 from panelyt_api.db import models
 from panelyt_api.optimization.context import (
@@ -66,55 +68,65 @@ class OptimizationService:
         self._last_context: OptimizationContext | None = None
 
     async def solve(self, payload: OptimizeRequest) -> OptimizeResponse:
-        resolved, unresolved_inputs = await self._resolver.resolve_tokens(payload.biomarkers)
+        start_time = time.perf_counter()
         mode = payload.mode
-        if not resolved:
-            empty = self._empty_response(payload.biomarkers)
-            return empty.model_copy(update={"mode": mode})
+        try:
+            resolved, unresolved_inputs = await self._resolver.resolve_tokens(payload.biomarkers)
+            if not resolved:
+                empty = self._empty_response(payload.biomarkers)
+                return empty.model_copy(update={"mode": mode})
 
-        candidates = await self._collect_candidates(resolved)
-        if not candidates:
-            empty = self._empty_response(payload.biomarkers)
-            return empty.model_copy(update={"mode": mode})
+            candidates = await self._collect_candidates(resolved)
+            if not candidates:
+                empty = self._empty_response(payload.biomarkers)
+                return empty.model_copy(update={"mode": mode})
 
-        context = self._prepare_context(resolved, unresolved_inputs, candidates)
-        if context is None:
+            context = self._prepare_context(resolved, unresolved_inputs, candidates)
+            if context is None:
+                fallback_uncovered = self._fallback_uncovered_tokens(resolved, unresolved_inputs)
+                empty = self._empty_response(fallback_uncovered)
+                return empty.model_copy(update={"mode": mode})
+
+            self._last_context = context
             fallback_uncovered = self._fallback_uncovered_tokens(resolved, unresolved_inputs)
-            empty = self._empty_response(fallback_uncovered)
-            return empty.model_copy(update={"mode": mode})
+            chosen_items: list[CandidateItem] = []
 
-        self._last_context = context
-        fallback_uncovered = self._fallback_uncovered_tokens(resolved, unresolved_inputs)
-        chosen_items: list[CandidateItem] = []
-
-        if mode == OptimizeMode.SPLIT:
-            multi_solution = await self._solve_multi_lab(context)
-            if multi_solution is not None:
-                chosen_items = multi_solution.chosen_items
-                base_response = multi_solution.response
-            else:
-                base_response = self._empty_response(fallback_uncovered)
-        elif mode == OptimizeMode.SINGLE_LAB:
-            single_solution = await self._solve_single_lab(payload.lab_code, context)
-            if single_solution is not None:
-                chosen_items = single_solution.chosen_items
-                base_response = single_solution.response
-            else:
-                base_response = self._empty_response(fallback_uncovered)
-        else:
-            best_solution = await self._find_best_solution(context)
-            if best_solution is not None:
-                chosen_items = best_solution.chosen_items
-                base_response = best_solution.response
-            else:
+            if mode == OptimizeMode.SPLIT:
                 multi_solution = await self._solve_multi_lab(context)
                 if multi_solution is not None:
                     chosen_items = multi_solution.chosen_items
                     base_response = multi_solution.response
                 else:
                     base_response = self._empty_response(fallback_uncovered)
+            elif mode == OptimizeMode.SINGLE_LAB:
+                single_solution = await self._solve_single_lab(payload.lab_code, context)
+                if single_solution is not None:
+                    chosen_items = single_solution.chosen_items
+                    base_response = single_solution.response
+                else:
+                    base_response = self._empty_response(fallback_uncovered)
+            else:
+                best_solution = await self._find_best_solution(context)
+                if best_solution is not None:
+                    chosen_items = best_solution.chosen_items
+                    base_response = best_solution.response
+                else:
+                    multi_solution = await self._solve_multi_lab(context)
+                    if multi_solution is not None:
+                        chosen_items = multi_solution.chosen_items
+                        base_response = multi_solution.response
+                    else:
+                        base_response = self._empty_response(fallback_uncovered)
 
-        return await self._finalize_response(base_response, context, chosen_items, mode)
+            return await self._finalize_response(base_response, context, chosen_items, mode)
+        finally:
+            duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            metrics.increment("optimization.solve", mode=mode.value)
+            logger.info(
+                "Optimization solve finished mode=%s duration_ms=%s",
+                mode.value,
+                duration_ms,
+            )
 
     async def solve_cached(self, payload: OptimizeRequest) -> OptimizeResponse:
         """Solve optimization with caching.

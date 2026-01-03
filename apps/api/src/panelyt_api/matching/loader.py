@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from datetime import UTC, datetime
 
 from sqlalchemy import bindparam, delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from panelyt_api.core import metrics
 from panelyt_api.db import models
 from panelyt_api.matching.config import BiomarkerConfig, LabMatchConfig, MatchingConfig
 
@@ -559,6 +561,7 @@ async def apply_matching_if_needed(
     if existing == config_digest:
         return False
 
+    start_time = time.perf_counter()
     synchronizer = MatchingSynchronizer(session, config)
     await synchronizer.apply()
 
@@ -571,6 +574,9 @@ async def apply_matching_if_needed(
     else:
         setting.value = config_digest
         setting.updated_at = now
+    duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+    metrics.increment("matching.apply", applied="true")
+    logger.info("Matching applied duration_ms=%s", duration_ms)
     return True
 
 

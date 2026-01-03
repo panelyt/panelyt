@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from panelyt_api.api.router import api_router
 from panelyt_api.core.settings import get_settings
+from panelyt_api.middleware.request_id import RequestIdMiddleware
 from panelyt_api.services.lifecycle import LifecyleManager
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
             allow_headers=["*"],
         )
 
+    app.add_middleware(RequestIdMiddleware)
     app.include_router(api_router)
     return app
 

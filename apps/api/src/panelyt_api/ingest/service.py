@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
+from panelyt_api.core import metrics
 from panelyt_api.core.cache import clear_all_caches, freshness_cache
 from panelyt_api.core.settings import Settings
 from panelyt_api.db.session import get_session
@@ -60,6 +62,8 @@ class IngestionService:
 
     async def run(self, scheduled: bool = False, reason: str | None = None) -> None:
         logger.info("Starting ingestion run (scheduled=%s reason=%s)", scheduled, reason)
+        start_time = time.perf_counter()
+        status = "failed"
 
         if scheduled and await self._should_skip_scheduled_run():
             logger.info("Skipping scheduled ingestion; already fresh for active users")
@@ -96,12 +100,21 @@ class IngestionService:
                 await repo.prune_orphan_biomarkers()
                 await self._dispatch_price_alerts(repo)
                 await repo.finalize_run_log(log_id, status="completed")
+                status = "completed"
                 # Clear caches so fresh ingestion data is served immediately
                 clear_all_caches()
             except Exception as exc:
                 await repo.finalize_run_log(log_id, status="failed", note=str(exc)[:500])
                 logger.exception("Ingestion failed: %s", exc)
                 raise
+            finally:
+                duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+                metrics.increment("ingestion.run", status=status, scheduled=str(scheduled))
+                logger.info(
+                    "Ingestion run finished status=%s duration_ms=%s",
+                    status,
+                    duration_ms,
+                )
 
     async def _should_skip_scheduled_run(self) -> bool:
         now_utc = datetime.now(UTC)
