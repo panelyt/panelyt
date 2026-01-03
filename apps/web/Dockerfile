@@ -41,4 +41,3 @@ USER nextjs
 
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
-RUN corepack prepare pnpm@10.17.1 --activate

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import yaml  # type: ignore[import-untyped]
@@ -48,5 +49,15 @@ def load_config(path: str | Path | None = None) -> MatchingConfig:
         payload = yaml.safe_load(fh) or {}
     return MatchingConfig.model_validate(payload)
 
+def config_hash(path: str | Path | None = None) -> str:
+    target = Path(path) if path else _DEFAULT_CONFIG_PATH
+    return hashlib.sha256(target.read_bytes()).hexdigest()
 
-__all__ = ["BiomarkerConfig", "LabMatchConfig", "MatchingConfig", "load_config"]
+
+__all__ = [
+    "BiomarkerConfig",
+    "LabMatchConfig",
+    "MatchingConfig",
+    "config_hash",
+    "load_config",
+]

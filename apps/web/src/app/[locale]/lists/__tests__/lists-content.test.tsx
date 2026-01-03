@@ -88,12 +88,21 @@ describe("ListsContent", () => {
     expect(await screen.findByText(expectedUrl)).toBeInTheDocument();
   });
 
-  it("shows a localized totals error message", async () => {
+  it("shows a placeholder when totals are missing", async () => {
     listsData = [
       {
         id: "list-2",
         name: "Totals list",
-        biomarkers: [],
+        biomarkers: [
+          {
+            id: "bio-1",
+            code: "ALT",
+            display_name: "ALT",
+            sort_order: 0,
+            biomarker_id: "bio-1",
+            created_at: "",
+          },
+        ],
         created_at: "",
         updated_at: "",
         share_token: null,
@@ -106,16 +115,14 @@ describe("ListsContent", () => {
       },
     ];
 
-    const promiseAllSpy = vi.spyOn(Promise, "all").mockRejectedValueOnce(new Error("boom"));
-
     renderWithIntl("pl", plMessages);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(plMessages.errors.failedToCalculateTotals),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Totals list")).toBeInTheDocument();
+      expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     });
-
-    promiseAllSpy.mockRestore();
+    expect(
+      screen.queryByText(plMessages.errors.failedToCalculateTotals),
+    ).not.toBeInTheDocument();
   });
 });

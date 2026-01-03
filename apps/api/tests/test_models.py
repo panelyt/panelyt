@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import insert, select
+from sqlalchemy.orm import selectinload
 
 from panelyt_api.db import models
 
@@ -254,6 +256,93 @@ class TestDatabaseModels:
 
         assert activity.name == "test-activity"
         assert activity.occurred_at == activity_time.replace(tzinfo=None)
+
+    async def test_saved_list_entries_ordered_by_sort_order(self, db_session):
+        """Saved list entries should be ordered by sort_order at the ORM level."""
+        user_id = str(uuid4())
+        await db_session.execute(models.UserAccount.__table__.insert(), {"id": user_id})
+        result = await db_session.execute(
+            insert(models.SavedList)
+            .values({"user_id": user_id, "name": "Ordered list"})
+            .returning(models.SavedList.id)
+        )
+        list_id = result.scalar_one()
+        await db_session.execute(
+            models.SavedListEntry.__table__.insert(),
+            [
+                {
+                    "id": str(uuid4()),
+                    "list_id": list_id,
+                    "code": "C",
+                    "display_name": "C",
+                    "sort_order": 2,
+                },
+                {
+                    "id": str(uuid4()),
+                    "list_id": list_id,
+                    "code": "A",
+                    "display_name": "A",
+                    "sort_order": 0,
+                },
+                {
+                    "id": str(uuid4()),
+                    "list_id": list_id,
+                    "code": "B",
+                    "display_name": "B",
+                    "sort_order": 1,
+                },
+            ],
+        )
+        await db_session.commit()
+
+        saved_list = await db_session.scalar(
+            select(models.SavedList)
+            .options(selectinload(models.SavedList.entries))
+            .where(models.SavedList.id == list_id)
+        )
+        assert saved_list is not None
+        assert [entry.code for entry in saved_list.entries] == ["A", "B", "C"]
+
+    async def test_template_entries_ordered_by_sort_order(self, db_session):
+        """Template entries should be ordered by sort_order at the ORM level."""
+        result = await db_session.execute(
+            insert(models.BiomarkerListTemplate)
+            .values({"slug": "template", "name": "Template", "is_active": True})
+            .returning(models.BiomarkerListTemplate.id)
+        )
+        template_id = result.scalar_one()
+        await db_session.execute(
+            models.BiomarkerListTemplateEntry.__table__.insert(),
+            [
+                {
+                    "template_id": template_id,
+                    "code": "C",
+                    "display_name": "C",
+                    "sort_order": 2,
+                },
+                {
+                    "template_id": template_id,
+                    "code": "A",
+                    "display_name": "A",
+                    "sort_order": 0,
+                },
+                {
+                    "template_id": template_id,
+                    "code": "B",
+                    "display_name": "B",
+                    "sort_order": 1,
+                },
+            ],
+        )
+        await db_session.commit()
+
+        template = await db_session.scalar(
+            select(models.BiomarkerListTemplate)
+            .options(selectinload(models.BiomarkerListTemplate.entries))
+            .where(models.BiomarkerListTemplate.id == template_id)
+        )
+        assert template is not None
+        assert [entry.code for entry in template.entries] == ["A", "B", "C"]
 
     async def test_raw_snapshot_model(self, db_session):
         """Test RawSnapshot model."""

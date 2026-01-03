@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
   BellOff,
@@ -18,8 +18,6 @@ import { Header } from "../../../components/header";
 import { useSavedLists } from "../../../hooks/useSavedLists";
 import { useUserSession } from "../../../hooks/useUserSession";
 import { useAccountSettings } from "../../../hooks/useAccountSettings";
-import { postJson } from "../../../lib/http";
-import { OptimizeResponseSchema } from "@panelyt/types";
 
 interface ListWithTotals {
   list: SavedList;
@@ -27,10 +25,7 @@ interface ListWithTotals {
   currency: string | null;
 }
 
-interface ListTotalsValue {
-  total: number | null;
-  currency: string | null;
-}
+const CURRENCY_CODE = "PLN";
 
 export default function ListsContent() {
   const t = useTranslations();
@@ -42,13 +37,10 @@ export default function ListsContent() {
   const rawLists = savedLists.listsQuery.data;
   const locale = useLocale();
   const router = useRouter();
-  const [listTotals, setListTotals] = useState<Record<string, ListTotalsValue>>({});
-  const [loadingTotals, setLoadingTotals] = useState(false);
   const [error, setError] = useState<ReactNode | null>(null);
   const [shareActionId, setShareActionId] = useState<string | null>(null);
   const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const totalsSignatureRef = useRef<string | null>(null);
 
   const shareOrigin = useMemo(
     () => (typeof window === "undefined" ? "" : window.location.origin),
@@ -63,84 +55,25 @@ export default function ListsContent() {
     return () => clearTimeout(timer);
   }, [copiedId]);
 
-  useEffect(() => {
-    const lists = rawLists ?? [];
-    if (!lists.length) {
-      totalsSignatureRef.current = "";
-      setListTotals({});
-      setLoadingTotals(false);
-      return;
-    }
-
-    const signature = lists
-      .map((list) => `${list.id}:${list.biomarkers.map((entry) => entry.code).join(",")}`)
-      .join("|");
-
-    if (totalsSignatureRef.current === signature) {
-      setLoadingTotals(false);
-      return;
-    }
-
-    totalsSignatureRef.current = signature;
-
-    let cancelled = false;
-    setLoadingTotals(true);
-    setError(null);
-
-    const fetchTotals = async () => {
-      try {
-        const results = await Promise.all(
-          lists.map(async (list) => {
-            if (list.biomarkers.length === 0) {
-              return [list.id, { total: 0, currency: "PLN" }] as const;
-            }
-            try {
-              const payload = await postJson("/optimize", {
-                biomarkers: list.biomarkers.map((entry) => entry.code),
-              });
-              const parsed = OptimizeResponseSchema.parse(payload);
-              return [list.id, { total: parsed.total_now, currency: parsed.currency }] as const;
-            } catch {
-              return [list.id, { total: null, currency: null }] as const;
-            }
-          }),
-        );
-
-        if (!cancelled) {
-          const totals: Record<string, ListTotalsValue> = {};
-          for (const [id, value] of results) {
-            totals[id] = value;
-          }
-          setListTotals(totals);
-        }
-      } catch {
-        if (!cancelled) {
-          setError(t("errors.failedToCalculateTotals"));
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingTotals(false);
-        }
-      }
-    };
-
-    fetchTotals();
-    return () => {
-      cancelled = true;
-    };
-  }, [rawLists, t]);
-
   const formattedLists = useMemo(() => {
     const lists = rawLists ?? [];
     return lists.map((list) => {
-      const totals = listTotals[list.id];
+      if (list.biomarkers.length === 0) {
+        return {
+          list,
+          total: 0,
+          currency: CURRENCY_CODE,
+        } satisfies ListWithTotals;
+      }
+      const totalGrosz = list.last_known_total_grosz;
+      const total = totalGrosz === null ? null : totalGrosz / 100;
       return {
         list,
-        total: totals?.total ?? null,
-        currency: totals?.currency ?? null,
+        total,
+        currency: total === null ? null : CURRENCY_CODE,
       } satisfies ListWithTotals;
     });
-  }, [rawLists, listTotals]);
+  }, [rawLists]);
 
   const telegramLinked = Boolean(account.settingsQuery.data?.telegram.chat_id);
   const allNotificationsEnabled = useMemo(
@@ -330,7 +263,7 @@ export default function ListsContent() {
       </div>
 
       <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
-        {savedLists.listsQuery.isLoading || loadingTotals ? (
+        {savedLists.listsQuery.isLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
             <Loader2 className="h-5 w-5 animate-spin" /> {t("lists.loadingLists")}
           </div>

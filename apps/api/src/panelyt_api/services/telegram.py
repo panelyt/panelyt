@@ -102,8 +102,6 @@ class TelegramLinkService:
         await self.clear_link(user)
 
     async def _detach_existing(self, chat_id: str, owner_id: str) -> None:
-        if not chat_id:
-            return
         statement = select(UserAccount).where(UserAccount.telegram_chat_id == chat_id)
         result = await self._db.execute(statement)
         existing = result.scalar_one_or_none()

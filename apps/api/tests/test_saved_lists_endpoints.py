@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
+from sqlalchemy import insert
+
+from panelyt_api.db import models
 
 
 def ensure_session(client: TestClient) -> None:
@@ -11,6 +17,67 @@ def ensure_session(client: TestClient) -> None:
     body = response.json()
     assert "user_id" in body
     assert body["is_admin"] is False
+
+
+async def ensure_session_async(client: AsyncClient) -> None:
+    response = await client.post("/users/session")
+    assert response.status_code == 200
+    body = response.json()
+    assert "user_id" in body
+    assert body["is_admin"] is False
+
+
+async def seed_biomarkers_with_items(session) -> None:
+    await session.execute(
+        insert(models.Biomarker).values(
+            [
+                {"id": 1, "name": "ALT", "elab_code": "ALT", "slug": "alt"},
+                {"id": 2, "name": "AST", "elab_code": "AST", "slug": "ast"},
+            ]
+        )
+    )
+    now = datetime.now(timezone.utc)
+    await session.execute(
+        insert(models.Item).values(
+            [
+                {
+                    "id": 1,
+                    "lab_id": 1,
+                    "external_id": "item-1",
+                    "kind": "single",
+                    "name": "ALT Test",
+                    "slug": "alt-test",
+                    "price_now_grosz": 1000,
+                    "price_min30_grosz": 1000,
+                    "currency": "PLN",
+                    "is_available": True,
+                    "fetched_at": now,
+                },
+                {
+                    "id": 2,
+                    "lab_id": 1,
+                    "external_id": "item-2",
+                    "kind": "single",
+                    "name": "AST Test",
+                    "slug": "ast-test",
+                    "price_now_grosz": 1200,
+                    "price_min30_grosz": 1200,
+                    "currency": "PLN",
+                    "is_available": True,
+                    "fetched_at": now,
+                },
+            ]
+        )
+    )
+    await session.execute(
+        insert(models.ItemBiomarker).values(
+            [
+                {"item_id": 1, "biomarker_id": 1},
+                {"item_id": 2, "biomarker_id": 2},
+            ]
+        )
+    )
+    await session.commit()
 
 
 def test_session_reuse(client: TestClient) -> None:
@@ -298,3 +365,58 @@ def test_notifications_toggle_bulk(client: TestClient) -> None:
     lists = response.json()["lists"]
     assert len(lists) == 2
     assert all(item["notify_on_price_drop"] is False for item in lists)
+
+
+@pytest.mark.asyncio
+async def test_list_totals_set_on_create(
+    async_client: AsyncClient, db_session
+) -> None:
+    await seed_biomarkers_with_items(db_session)
+    await ensure_session_async(async_client)
+
+    payload = {
+        "name": "Morning panel",
+        "biomarkers": [
+            {"code": "ALT", "name": "Alanine"},
+            {"code": "AST", "name": "Aspartate"},
+        ],
+    }
+    response = await async_client.post("/lists", json=payload)
+    assert response.status_code == 201
+    created = response.json()
+
+    assert created["last_known_total_grosz"] == 2200
+    assert created["last_total_updated_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_list_totals_update_on_edit(
+    async_client: AsyncClient, db_session
+) -> None:
+    await seed_biomarkers_with_items(db_session)
+    await ensure_session_async(async_client)
+
+    payload = {
+        "name": "Starter panel",
+        "biomarkers": [
+            {"code": "ALT", "name": "Alanine"},
+            {"code": "AST", "name": "Aspartate"},
+        ],
+    }
+    response = await async_client.post("/lists", json=payload)
+    assert response.status_code == 201
+    created = response.json()
+    list_id = created["id"]
+
+    update_payload = {
+        "name": "ALT only",
+        "biomarkers": [
+            {"code": "ALT", "name": "Alanine"},
+        ],
+    }
+    response = await async_client.put(f"/lists/{list_id}", json=update_payload)
+    assert response.status_code == 200
+    updated = response.json()
+
+    assert updated["last_known_total_grosz"] == 1000
+    assert updated["last_total_updated_at"] is not None

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -19,6 +20,14 @@ from panelyt_api.schemas.optimize import OptimizeRequest
 logger = logging.getLogger(__name__)
 
 _MIN_DROP_GROSZ = 100  # notify when the list gets at least 1 PLN cheaper
+
+
+def tg_html(text: str) -> str:
+    return html.escape(text, quote=False)
+
+
+def tg_attr(text: str) -> str:
+    return html.escape(text, quote=True)
 
 
 @dataclass(slots=True)
@@ -189,14 +198,16 @@ class TelegramPriceAlertService:
         drop_pln = self._format_price(alert.previous_total - alert.new_total)
         new_total = self._format_price(alert.new_total)
         previous_total = self._format_price(alert.previous_total)
+        list_name = tg_html(alert.saved_list.name)
         lines = [
-            f"📉 <b>{alert.saved_list.name}</b> is cheaper!",
+            f"📉 <b>{list_name}</b> is cheaper!",
             f"New total: <b>{new_total}</b> (was {previous_total}, drop {drop_pln}).",
         ]
         if alert.items:
             lines.append("Top picks:")
             for item in alert.items[:3]:
-                lines.append(f"• {item.name} — {self._format_price(item.price_now_grosz)}")
+                item_name = tg_html(item.name)
+                lines.append(f"• {item_name} — {self._format_price(item.price_now_grosz)}")
         lines.append("Manage alerts from your Panelyt lists.")
         return "\n".join(lines)
 
@@ -206,8 +217,7 @@ class TelegramPriceAlertService:
 
     @staticmethod
     def _biomarker_codes(saved_list: SavedList) -> list[str]:
-        entries = sorted(saved_list.entries, key=lambda entry: entry.sort_order)
-        return [entry.code for entry in entries]
+        return [entry.code for entry in saved_list.entries]
 
     @staticmethod
     def _sum_price(items: Sequence[ItemOut]) -> int:

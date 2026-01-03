@@ -8,11 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import Select
 
-from panelyt_api.db.models import (
-    Biomarker,
-    BiomarkerListTemplate,
-    BiomarkerListTemplateEntry,
-)
+from panelyt_api.db.models import BiomarkerListTemplate, BiomarkerListTemplateEntry
+from panelyt_api.services.biomarker_resolver import BiomarkerResolver
 from panelyt_api.utils.normalization import create_slug_from_text, normalize_search_query
 
 
@@ -37,22 +34,17 @@ class BiomarkerListTemplateService:
 
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
+        self._resolver = BiomarkerResolver(db)
 
     async def list_active(self) -> list[BiomarkerListTemplate]:
         stmt = self._base_query().where(BiomarkerListTemplate.is_active.is_(True))
         result = await self._db.execute(stmt)
-        templates = list(result.scalars())
-        for template in templates:
-            self._sort_entries(template)
-        return templates
+        return list(result.scalars())
 
     async def list_all(self) -> list[BiomarkerListTemplate]:
         stmt = self._base_query()
         result = await self._db.execute(stmt)
-        templates = list(result.scalars())
-        for template in templates:
-            self._sort_entries(template)
-        return templates
+        return list(result.scalars())
 
     async def search_active_matches(
         self, query: str, limit: int = 5
@@ -123,18 +115,12 @@ class BiomarkerListTemplateService:
             BiomarkerListTemplate.is_active.is_(True),
         )
         result = await self._db.execute(stmt)
-        template = result.scalars().first()
-        if template is not None:
-            self._sort_entries(template)
-        return template
+        return result.scalars().first()
 
     async def get_by_slug(self, slug: str) -> BiomarkerListTemplate | None:
         stmt = self._base_query().where(BiomarkerListTemplate.slug == slug)
         result = await self._db.execute(stmt)
-        template = result.scalars().first()
-        if template is not None:
-            self._sort_entries(template)
-        return template
+        return result.scalars().first()
 
     async def create_template(
         self,
@@ -149,7 +135,7 @@ class BiomarkerListTemplateService:
         await self._assert_unique_slug(normalized_slug)
 
         prepared_entries = self._prepare_entries(entries)
-        biomarker_map = await self._resolve_biomarkers(prepared_entries)
+        biomarker_map = await self._resolver.resolve_for_list_entries(prepared_entries)
 
         template = BiomarkerListTemplate(
             slug=normalized_slug,
@@ -190,7 +176,7 @@ class BiomarkerListTemplateService:
             await self._assert_unique_slug(normalized_slug, exclude_id=template.id)
 
         prepared_entries = self._prepare_entries(entries)
-        biomarker_map = await self._resolve_biomarkers(prepared_entries)
+        biomarker_map = await self._resolver.resolve_for_list_entries(prepared_entries)
 
         template.slug = normalized_slug
         template.name = name.strip()
@@ -234,16 +220,12 @@ class BiomarkerListTemplateService:
             .order_by(BiomarkerListTemplate.name.asc())
         )
 
-    def _sort_entries(self, template: BiomarkerListTemplate) -> None:
-        template.entries.sort(key=lambda entry: entry.sort_order)
-
     async def _fetch_by_id(self, template_id: int) -> BiomarkerListTemplate:
         stmt = self._base_query().where(BiomarkerListTemplate.id == template_id)
         result = await self._db.execute(stmt)
         template = result.scalars().first()
         if template is None:
             raise RuntimeError("Template not found after refresh")
-        self._sort_entries(template)
         return template
 
     @staticmethod
@@ -272,28 +254,6 @@ class BiomarkerListTemplateService:
                 TemplateEntryData(code=code, display_name=display_name, notes=notes)
             )
         return prepared
-
-    async def _resolve_biomarkers(
-        self, entries: Sequence[TemplateEntryData]
-    ) -> dict[str, int]:
-        codes = {entry.code.lower() for entry in entries}
-        if not codes:
-            return {}
-
-        stmt = select(Biomarker).where(
-            or_(
-                func.lower(Biomarker.elab_code).in_(codes),
-                func.lower(Biomarker.slug).in_(codes),
-            )
-        )
-        result = await self._db.execute(stmt)
-        biomarker_map: dict[str, int] = {}
-        for biomarker in result.scalars():
-            if biomarker.elab_code:
-                biomarker_map.setdefault(biomarker.elab_code.lower(), biomarker.id)
-            if biomarker.slug:
-                biomarker_map.setdefault(biomarker.slug.lower(), biomarker.id)
-        return biomarker_map
 
     async def _assert_unique_slug(self, slug: str, *, exclude_id: int | None = None) -> None:
         stmt = select(BiomarkerListTemplate).where(BiomarkerListTemplate.slug == slug)

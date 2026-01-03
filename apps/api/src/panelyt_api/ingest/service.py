@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
+from panelyt_api.core import metrics
 from panelyt_api.core.cache import clear_all_caches, freshness_cache
 from panelyt_api.core.settings import Settings
 from panelyt_api.db.session import get_session
 from panelyt_api.ingest.client import AlabClient, DiagClient
-from panelyt_api.ingest.repository import IngestionRepository
+from panelyt_api.ingest.repository import IngestionRepository, StageContext
 from panelyt_api.ingest.types import LabIngestionResult
-from panelyt_api.matching import MatchingConfig, MatchingSynchronizer, load_config
+from panelyt_api.matching import apply_matching_if_needed, config_hash, load_config
 from panelyt_api.services.alerts import TelegramPriceAlertService
 
 logger = logging.getLogger(__name__)
@@ -60,6 +62,8 @@ class IngestionService:
 
     async def run(self, scheduled: bool = False, reason: str | None = None) -> None:
         logger.info("Starting ingestion run (scheduled=%s reason=%s)", scheduled, reason)
+        start_time = time.perf_counter()
+        status = "failed"
 
         if scheduled and await self._should_skip_scheduled_run():
             logger.info("Skipping scheduled ingestion; already fresh for active users")
@@ -76,20 +80,41 @@ class IngestionService:
                     logger.warning("Ingestion returned no lab items")
 
                 matching_config = load_config()
+                matching_digest = config_hash()
+                contexts = []
 
                 for result in results:
-                    await self._process_lab_result(repo, result, matching_config)
+                    context = await self._stage_lab_result(repo, result)
+                    if context is not None:
+                        contexts.append(context)
+
+                if contexts:
+                    await apply_matching_if_needed(
+                        repo.session, matching_config, matching_digest
+                    )
+
+                for context in contexts:
+                    await repo.synchronize_catalog(context)
 
                 await repo.prune_snapshots(now_utc.date())
                 await repo.prune_orphan_biomarkers()
                 await self._dispatch_price_alerts(repo)
                 await repo.finalize_run_log(log_id, status="completed")
+                status = "completed"
                 # Clear caches so fresh ingestion data is served immediately
                 clear_all_caches()
             except Exception as exc:
                 await repo.finalize_run_log(log_id, status="failed", note=str(exc)[:500])
                 logger.exception("Ingestion failed: %s", exc)
                 raise
+            finally:
+                duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+                metrics.increment("ingestion.run", status=status, scheduled=str(scheduled))
+                logger.info(
+                    "Ingestion run finished status=%s duration_ms=%s",
+                    status,
+                    duration_ms,
+                )
 
     async def _should_skip_scheduled_run(self) -> bool:
         now_utc = datetime.now(UTC)
@@ -185,12 +210,11 @@ class IngestionService:
         )
         return lab_result
 
-    async def _process_lab_result(
+    async def _stage_lab_result(
         self,
         repo: IngestionRepository,
         result: LabIngestionResult,
-        matching_config: MatchingConfig,
-    ) -> None:
+    ) -> StageContext | None:
         if result.raw_payload:
             await repo.write_raw_snapshot(
                 source=f"{result.lab_code}:catalog",
@@ -203,7 +227,7 @@ class IngestionService:
 
         if not result.items:
             logger.info("Lab %s returned no items", result.lab_code)
-            return
+            return None
 
         logger.info(
             "Staging %s items for lab %s", len(result.items), result.lab_code
@@ -214,9 +238,4 @@ class IngestionService:
             result.items,
             fetched_at=result.fetched_at,
         )
-
-        if matching_config.biomarkers:
-            synchronizer = MatchingSynchronizer(repo.session, matching_config)
-            await synchronizer.apply()
-
-        await repo.synchronize_catalog(context)
+        return context

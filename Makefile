@@ -2,6 +2,7 @@
 
 UV ?= uv
 UV_ENV ?= UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache
+PNPM ?= corepack pnpm
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -9,7 +10,7 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 install-web: ## Install web frontend dependencies
-	cd apps/web && corepack enable && pnpm install
+	cd apps/web && corepack enable && $(PNPM) install
 
 install-api: ## Install API backend dependencies
 	cd apps/api && $(UV_ENV) $(UV) sync --extra dev
@@ -18,7 +19,7 @@ install-bot: ## Install Telegram bot dependencies
 	cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev
 
 dev-web: ## Start web frontend development server
-	cd apps/web && corepack enable && pnpm --filter @panelyt/types build && pnpm dev
+	cd apps/web && corepack enable && $(PNPM) --filter @panelyt/types build && $(PNPM) dev
 
 dev-api: ## Start API backend development server
 	cd apps/api && $(UV_ENV) $(UV) run uvicorn panelyt_api.main:app --reload --host 0.0.0.0 --port 8000 --reload-dir src
@@ -27,12 +28,14 @@ dev-bot: ## Run Telegram bot locally with long polling
 	cd apps/telegram-bot && $(UV_ENV) $(UV) run panelyt-telegram-bot
 
 lint-api: ## Run linting checks on API code
+	( cd apps/api && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
 	( cd apps/api && $(UV_ENV) $(UV) run ruff check src ) || ( cd apps/api && .venv/bin/ruff check src )
 
 fmt-api: ## Format and fix API code style
 	cd apps/api && $(UV_ENV) $(UV) run ruff check src --fix
 
 test-api: ## Run API test suite
+	( cd apps/api && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
 	( cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" $(UV_ENV) $(UV) run pytest ) || \
 		( cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" .venv/bin/pytest )
 
@@ -49,24 +52,25 @@ docker-down: ## Stop all Docker Compose services
 	cd infra && docker compose down
 
 typecheck-api: ## Run type checking on API code
+	( cd apps/api && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
 	( cd apps/api && $(UV_ENV) $(UV) run mypy src ) || ( cd apps/api && .venv/bin/python -m mypy src )
 
 lint-web: ## Run linting checks on web frontend
-	cd apps/web && pnpm lint
+	cd apps/web && $(PNPM) lint
 
 lint-bot: ## Run linting checks on Telegram bot code
 	( cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
 	( cd apps/telegram-bot && $(UV_ENV) $(UV) run ruff check src ) || ( cd apps/telegram-bot && .venv/bin/ruff check src )
 
 typecheck-web: ## Run type checking on web frontend
-	cd apps/web && pnpm typecheck
+	cd apps/web && $(PNPM) typecheck
 
 typecheck-bot: ## Run type checking on Telegram bot code
 	( cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
 	( cd apps/telegram-bot && $(UV_ENV) $(UV) run mypy src ) || ( cd apps/telegram-bot && .venv/bin/python -m mypy src )
 
 test-web: ## Run web frontend test suite
-	cd apps/web && pnpm --filter @panelyt/web test -- --run
+	cd apps/web && $(PNPM) --filter @panelyt/web test:run
 
 test: ## Run all test suites
 	$(MAKE) test-api
@@ -76,7 +80,7 @@ check: ## Run comprehensive code quality checks, tests, and linting for the enti
 	@echo "🔍 Running comprehensive code quality checks..."
 	@echo ""
 	@echo "📦 Building shared types..."
-	cd apps/web && pnpm --filter @panelyt/types build
+	cd apps/web && $(PNPM) --filter @panelyt/types build
 	@echo ""
 	@echo "🔧 API: Type checking..."
 	$(MAKE) typecheck-api

@@ -125,6 +125,25 @@ export const OptimizeResponseSchema = z.object({
 
 export type OptimizeResponse = z.infer<typeof OptimizeResponseSchema>;
 
+export const OptimizeCompareRequestSchema = z.object({
+  biomarkers: z.array(z.string().min(1)).min(1),
+});
+
+export type OptimizeCompareRequest = z.infer<
+  typeof OptimizeCompareRequestSchema
+>;
+
+export const OptimizeCompareResponseSchema = z.object({
+  auto: OptimizeResponseSchema,
+  split: OptimizeResponseSchema,
+  by_lab: z.record(z.string(), OptimizeResponseSchema).default({}),
+  lab_options: z.array(LabAvailabilitySchema).default([]),
+});
+
+export type OptimizeCompareResponse = z.infer<
+  typeof OptimizeCompareResponseSchema
+>;
+
 export const CredentialsSchema = z.object({
   username: z.string().min(3).max(64),
   password: z.string().min(8).max(128),

@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     session_cookie_ttl_days: int = Field(default=180, alias="SESSION_COOKIE_TTL_DAYS")
     session_cookie_secure: bool = Field(default=False, alias="SESSION_COOKIE_SECURE")
     session_cookie_domain: str | None = Field(default=None, alias="SESSION_COOKIE_DOMAIN")
+    anonymous_user_retention_days: int = Field(
+        default=60, alias="ANONYMOUS_USER_RETENTION_DAYS"
+    )
     admin_usernames_raw: str | list[str] = Field(
         default_factory=list,
         alias="ADMIN_USERNAMES",
