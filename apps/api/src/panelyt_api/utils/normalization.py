@@ -1,34 +1,11 @@
-"""
-Shared normalization utilities for consistent text processing across the application.
-
-This module centralizes all text normalization logic to ensure consistency and
-reduce code duplication (DRY principle).
-"""
+"""Text normalization helpers used across the API."""
 import re
 from collections.abc import Mapping
 from typing import Any
 
 
 def normalize_token(value: str | None) -> str | None:
-    """
-    Normalize a token to lowercase and stripped form.
-
-    Used for case-insensitive matching of biomarker codes, lab codes, and identifiers.
-
-    Args:
-        value: The string to normalize, or None
-
-    Returns:
-        Normalized string (lowercase, stripped) or None if input is None/empty
-
-    Examples:
-        >>> normalize_token("  TSH  ")
-        "tsh"
-        >>> normalize_token(None)
-        None
-        >>> normalize_token("  ")
-        None
-    """
+    """Normalize a token to lowercase/stripped form or None if blank."""
     if value is None:
         return None
     normalized = value.strip().lower()
@@ -36,26 +13,7 @@ def normalize_token(value: str | None) -> str | None:
 
 
 def normalize_slug(value: Any) -> str | None:
-    """
-    Normalize a slug value from external API data.
-
-    Handles None values, strips whitespace, and converts to lowercase.
-    Used when ingesting data from external lab APIs.
-
-    Args:
-        value: The value to normalize (can be any type, will be converted to string)
-
-    Returns:
-        Normalized slug or None if empty
-
-    Examples:
-        >>> normalize_slug("  Test-Slug  ")
-        "test-slug"
-        >>> normalize_slug(None)
-        None
-        >>> normalize_slug(123)
-        "123"
-    """
+    """Normalize a slug value from external data to lowercase or None."""
     if value is None:
         return None
     text = str(value).strip().lower()
@@ -63,50 +21,12 @@ def normalize_slug(value: Any) -> str | None:
 
 
 def normalize_search_query(query: str) -> str:
-    """
-    Normalize a user search query for consistent matching.
-
-    Strips whitespace and lowercases for case-insensitive search.
-    Returns empty string (not None) to simplify search logic.
-
-    Args:
-        query: The search query string
-
-    Returns:
-        Normalized query string (empty if blank)
-
-    Examples:
-        >>> normalize_search_query("  TSH Test  ")
-        "tsh test"
-        >>> normalize_search_query("  ")
-        ""
-    """
+    """Normalize a search query for case-insensitive matching."""
     return query.strip().lower()
 
 
 def create_slug_from_text(value: str) -> str:
-    """
-    Create a URL-safe slug from arbitrary text.
-
-    Converts to lowercase, replaces non-alphanumeric characters with hyphens,
-    and removes leading/trailing hyphens.
-
-    Args:
-        value: The text to convert to a slug
-
-    Returns:
-        URL-safe slug string
-
-    Raises:
-        ValueError: If the resulting slug is empty
-
-    Examples:
-        >>> create_slug_from_text("My Test Name!")
-        "my-test-name"
-        >>> create_slug_from_text("TSH & FT4")
-        "tsh-ft4"
-        >>> create_slug_from_text("!!!") # raises ValueError
-    """
+    """Create a URL-safe slug from text or raise ValueError if empty."""
     # Replace non-alphanumeric (except hyphens) with hyphens
     normalized = re.sub(r"[^a-z0-9-]+", "-", value.strip().lower())
     # Collapse multiple hyphens into one
@@ -119,24 +39,7 @@ def create_slug_from_text(value: str) -> str:
 
 
 def normalize_username(username: str, pattern: re.Pattern | None = None) -> str:
-    """
-    Normalize and validate a username.
-
-    Args:
-        username: The username to normalize
-        pattern: Optional regex pattern to validate against
-
-    Returns:
-        Normalized username (lowercase, stripped)
-
-    Raises:
-        ValueError: If username is blank or doesn't match pattern
-
-    Examples:
-        >>> normalize_username("  UserName  ")
-        "username"
-        >>> normalize_username("  ")  # raises ValueError
-    """
+    """Normalize and validate a username."""
     normalized = username.strip().lower()
 
     if not normalized:
@@ -151,22 +54,7 @@ def normalize_username(username: str, pattern: re.Pattern | None = None) -> str:
 
 
 def normalize_tokens_set(tokens: list[str] | set[str]) -> set[str]:
-    """
-    Normalize a collection of tokens to a set of lowercase, stripped values.
-
-    Filters out None, empty, and whitespace-only values.
-    Useful for comparing biomarker lists.
-
-    Args:
-        tokens: Collection of token strings
-
-    Returns:
-        Set of normalized non-empty tokens
-
-    Examples:
-        >>> normalize_tokens_set(["TSH", "  FT4  ", "", None, "  "])
-        {"tsh", "ft4"}
-    """
+    """Normalize tokens into a set of lowercase, non-empty values."""
     normalized = set()
     for token in tokens:
         if not token or not isinstance(token, str):
@@ -178,22 +66,7 @@ def normalize_tokens_set(tokens: list[str] | set[str]) -> set[str]:
 
 
 def create_normalized_lookup(mapping: Mapping[Any, str]) -> dict[str, Any]:
-    """
-    Create a reverse lookup dictionary with normalized values as keys.
-
-    Useful for case-insensitive matching against a dictionary of identifiers.
-    Filters out None and empty values.
-
-    Args:
-        mapping: Dictionary with original keys and string values to normalize
-
-    Returns:
-        Reverse dictionary mapping normalized values to original keys
-
-    Examples:
-        >>> create_normalized_lookup({1: "TSH", 2: "  FT4  ", 3: ""})
-        {"tsh": 1, "ft4": 2}
-    """
+    """Create a reverse lookup using normalized values as keys."""
     return {
         norm: key
         for key, value in mapping.items()

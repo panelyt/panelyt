@@ -65,10 +65,7 @@ class OptimizationService:
 
     async def solve(self, payload: OptimizeRequest) -> OptimizeResponse:
         resolved, unresolved_inputs = await self._resolver.resolve_tokens(payload.biomarkers)
-        try:
-            mode = OptimizeMode(payload.mode)
-        except (ValueError, TypeError):
-            mode = OptimizeMode.AUTO
+        mode = payload.mode
         if not resolved:
             empty = self._empty_response(payload.biomarkers)
             return empty.model_copy(update={"mode": mode})
@@ -1139,9 +1136,7 @@ class OptimizationService:
         chosen_item_ids = [item.id for item in chosen]
         biomarkers_by_item, labels = await self._get_all_biomarkers_for_items(chosen_item_ids)
 
-        requested_normalized = normalize_tokens_set(
-            [t for t in requested_tokens if isinstance(t, str)]
-        )
+        requested_normalized = normalize_tokens_set(list(requested_tokens))
         bonus_tokens: dict[str, str] = {}
         for item in chosen:
             for token in biomarkers_by_item.get(item.id, []):
@@ -1261,11 +1256,7 @@ class OptimizationService:
             return {}
 
         normalized_lookup = create_normalized_lookup(tokens)
-        raw_tokens = {
-            value.strip()
-            for value in tokens.values()
-            if isinstance(value, str) and value.strip()
-        }
+        raw_tokens = {value.strip() for value in tokens.values() if value.strip()}
         if not raw_tokens or not normalized_lookup:
             return {}
 
@@ -1332,11 +1323,7 @@ class OptimizationService:
             return {}
 
         normalized_lookup = create_normalized_lookup(tokens)
-        raw_tokens = {
-            value.strip()
-            for value in tokens.values()
-            if isinstance(value, str) and value.strip()
-        }
+        raw_tokens = {value.strip() for value in tokens.values() if value.strip()}
         if not raw_tokens or not normalized_lookup:
             return {}
 

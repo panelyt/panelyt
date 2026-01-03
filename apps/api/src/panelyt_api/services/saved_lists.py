@@ -101,8 +101,6 @@ class SavedListService:
             )
 
         saved_list.updated_at = datetime.now(UTC)
-        if saved_list.share_token:
-            saved_list.shared_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
         return saved_list
