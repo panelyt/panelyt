@@ -70,7 +70,7 @@ typecheck-bot: ## Run type checking on Telegram bot code
 	( cd apps/telegram-bot && $(UV_ENV) $(UV) run mypy src ) || ( cd apps/telegram-bot && .venv/bin/python -m mypy src )
 
 test-web: ## Run web frontend test suite
-	cd apps/web && $(PNPM) --filter @panelyt/web test -- --run
+	cd apps/web && $(PNPM) --filter @panelyt/web test:run
 
 test: ## Run all test suites
 	$(MAKE) test-api
