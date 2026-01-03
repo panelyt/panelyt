@@ -227,7 +227,7 @@ class IngestionService:
 
         if not result.items:
             logger.info("Lab %s returned no items", result.lab_code)
-            return
+            return None
 
         logger.info(
             "Staging %s items for lab %s", len(result.items), result.lab_code

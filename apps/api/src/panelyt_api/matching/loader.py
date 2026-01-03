@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import bindparam, delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from panelyt_api.core import metrics
 from panelyt_api.db import models
@@ -140,7 +141,13 @@ class MatchingSynchronizer:
             return {}
         statement = select(models.Biomarker).where(models.Biomarker.slug.in_(slugs))
         rows = (await self._session.execute(statement)).scalars().all()
-        return {row.slug: row for row in rows}
+        biomarkers: dict[str, models.Biomarker] = {}
+        for row in rows:
+            slug = row.slug
+            if not slug:
+                continue
+            biomarkers[slug] = row
+        return biomarkers
 
     async def _load_aliases(self, biomarker_ids: list[int]) -> set[tuple[int, str]]:
         if not biomarker_ids:
@@ -160,7 +167,7 @@ class MatchingSynchronizer:
         if not lab_ids or (not external_ids and not slugs):
             return {}, {}
 
-        clauses = [models.LabBiomarker.lab_id.in_(lab_ids)]
+        clauses: list[ColumnElement[bool]] = [models.LabBiomarker.lab_id.in_(lab_ids)]
         if external_ids and slugs:
             clauses.append(
                 or_(

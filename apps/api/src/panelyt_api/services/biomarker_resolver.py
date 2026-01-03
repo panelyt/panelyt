@@ -98,13 +98,13 @@ class BiomarkerResolver:
         match_index: dict[str, list[tuple[int, models.Biomarker]]] = {}
         seen: set[tuple[str, int, int]] = set()
         for biomarker, alias in rows:
-            candidates = (
+            candidate_sources = (
                 (0, biomarker.elab_code),
                 (1, biomarker.slug),
                 (2, alias),
                 (3, biomarker.name),
             )
-            for priority, candidate in candidates:
+            for priority, candidate in candidate_sources:
                 normalized = normalize_token(candidate)
                 if not normalized or normalized not in search_tokens:
                     continue
