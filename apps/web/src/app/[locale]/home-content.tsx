@@ -199,17 +199,6 @@ function HomeContent() {
                 </div>
 
                 <div className="mt-6 flex flex-wrap items-center gap-3">
-                  {selection.notice && (
-                    <p
-                      className={`text-sm ${
-                        selection.notice.tone === "success"
-                          ? "text-emerald-300"
-                          : "text-slate-300"
-                      }`}
-                    >
-                      {selection.notice.message}
-                    </p>
-                  )}
                   {selection.error && (
                     <p className="text-sm text-red-300">{selection.error}</p>
                   )}

@@ -88,7 +88,6 @@ const selectionStub = {
   selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
   biomarkerCodes: ["ALT"],
   selectionPayload: [{ code: "ALT", name: "Alanine aminotransferase" }],
-  notice: null,
   error: null,
   handleSelect: vi.fn(),
   handleRemove: vi.fn(),
@@ -99,9 +98,7 @@ const selectionStub = {
   replaceAll: vi.fn(),
   setSelected: vi.fn(),
   setError: vi.fn(),
-  setNotice: vi.fn(),
   clearError: vi.fn(),
-  clearNotice: vi.fn(),
 };
 
 const saveListModalStub = {

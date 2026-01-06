@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { BiomarkerListTemplateSchema, type SavedList } from "@panelyt/types";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -9,11 +9,6 @@ import { getJson, extractErrorMessage } from "../lib/http";
 import { usePanelStore, type PanelBiomarker } from "../stores/panelStore";
 
 export type SelectedBiomarker = PanelBiomarker;
-
-export interface SelectionNotice {
-  tone: "success" | "info";
-  message: string;
-}
 
 export interface UseBiomarkerSelectionOptions {
   /** Called when selection changes significantly (template load, addon apply, list load) */
@@ -26,7 +21,6 @@ export interface UseBiomarkerSelectionResult {
   biomarkerCodes: string[];
   /** Payload for API calls: { code, name }[] */
   selectionPayload: { code: string; name: string }[];
-  notice: SelectionNotice | null;
   error: string | null;
   handleSelect: (biomarker: SelectedBiomarker) => void;
   handleRemove: (code: string) => void;
@@ -40,9 +34,7 @@ export interface UseBiomarkerSelectionResult {
   replaceAll: (biomarkers: SelectedBiomarker[]) => void;
   setSelected: React.Dispatch<React.SetStateAction<SelectedBiomarker[]>>;
   setError: (error: string | null) => void;
-  setNotice: (notice: SelectionNotice | null) => void;
   clearError: () => void;
-  clearNotice: () => void;
 }
 
 export function useBiomarkerSelection(
@@ -60,26 +52,14 @@ export function useBiomarkerSelection(
   const undoLastRemoved = usePanelStore((state) => state.undoLastRemoved);
 
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<SelectionNotice | null>(null);
-
   // Derived values
   const biomarkerCodes = selected.map((b) => b.code);
   const selectionPayload = selected.map((item) => ({ code: item.code, name: item.name }));
-
-  // Auto-dismiss notice after 4 seconds
-  useEffect(() => {
-    if (!notice) {
-      return;
-    }
-    const timer = setTimeout(() => setNotice(null), 4000);
-    return () => clearTimeout(timer);
-  }, [notice]);
 
   const handleSelect = useCallback(
     (biomarker: SelectedBiomarker) => {
       addOne(biomarker);
       setError(null);
-      setNotice(null);
     },
     [addOne],
   );
@@ -106,7 +86,6 @@ export function useBiomarkerSelection(
   const handleClearAll = useCallback(() => {
     clearAll();
     setError(null);
-    setNotice(null);
   }, [clearAll]);
 
   const handleTemplateSelect = useCallback(
@@ -120,21 +99,14 @@ export function useBiomarkerSelection(
         const existing = new Set(current.map((item) => item.code));
         const additions = template.biomarkers.filter((entry) => !existing.has(entry.code));
 
-        const resultNotice: SelectionNotice = additions.length === 0
-          ? {
-              tone: "info",
-              message: t("selection.alreadySelected", { name: template.name }),
-            }
-          : {
-              tone: "success",
-              message: t("selection.addedFrom", {
-                count: additions.length,
-                name: template.name,
-              }),
-            };
-
+        const message = additions.length === 0
+          ? t("selection.alreadySelected", { name: template.name })
+          : t("selection.addedFrom", {
+              count: additions.length,
+              name: template.name,
+            });
         setError(null);
-        setNotice(resultNotice);
+        toast(message);
 
         if (additions.length === 0) {
           return;
@@ -150,7 +122,6 @@ export function useBiomarkerSelection(
         // Signal significant change
         onSelectionChange?.();
       } catch (err) {
-        setNotice(null);
         setError(extractErrorMessage(err, t("errors.generic")));
       }
     },
@@ -177,10 +148,6 @@ export function useBiomarkerSelection(
       if (additions.length === 0) {
         const message = t("selection.alreadySelected", { name: packageName });
         setError(null);
-        setNotice({
-          tone: "info",
-          message,
-        });
         toast(message);
         return;
       }
@@ -193,10 +160,6 @@ export function useBiomarkerSelection(
       const message = t("selection.addedFrom", {
         count: additions.length,
         name: packageName,
-      });
-      setNotice({
-        tone: "success",
-        message,
       });
       toast(message);
     },
@@ -229,13 +192,10 @@ export function useBiomarkerSelection(
   );
 
   const clearError = useCallback(() => setError(null), []);
-  const clearNotice = useCallback(() => setNotice(null), []);
-
   return {
     selected,
     biomarkerCodes,
     selectionPayload,
-    notice,
     error,
     handleSelect,
     handleRemove,
@@ -246,8 +206,6 @@ export function useBiomarkerSelection(
     replaceAll,
     setSelected,
     setError,
-    setNotice,
     clearError,
-    clearNotice,
   };
 }

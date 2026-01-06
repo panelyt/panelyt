@@ -2,12 +2,21 @@ import { renderHook, act, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import { Toaster } from 'sonner'
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { useBiomarkerSelection } from '../useBiomarkerSelection'
 import enMessages from '../../i18n/messages/en.json'
 import plMessages from '../../i18n/messages/pl.json'
 import { usePanelStore, PANEL_STORAGE_KEY } from '../../stores/panelStore'
+import { getJson } from '../../lib/http'
+
+vi.mock('../../lib/http', async () => {
+  const actual = await vi.importActual<typeof import('../../lib/http')>('../../lib/http')
+  return {
+    ...actual,
+    getJson: vi.fn(),
+  }
+})
 
 const readPersistedSelection = () => {
   const raw = sessionStorage.getItem(PANEL_STORAGE_KEY)
@@ -66,21 +75,38 @@ describe('useBiomarkerSelection', () => {
     await resetStore()
   })
 
-  it('uses Polish notices when addons add no new biomarkers', () => {
-    const wrapper = createWrapper()
+  it('shows a toast when a template adds biomarkers', async () => {
+    const wrapper = createWrapperWithToaster()
     const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
+    const mockGetJson = vi.mocked(getJson)
 
-    act(() => {
-      result.current.handleSelect({ code: 'ALT', name: 'ALT' })
+    mockGetJson.mockResolvedValueOnce({
+      id: 101,
+      slug: 'core-panel',
+      name: 'Core Panel',
+      description: null,
+      is_active: true,
+      created_at: '2025-12-01T00:00:00Z',
+      updated_at: '2025-12-02T00:00:00Z',
+      biomarkers: [
+        {
+          id: 1,
+          code: 'ALT',
+          display_name: 'ALT',
+          sort_order: 1,
+          biomarker: null,
+          notes: null,
+        },
+      ],
     })
 
-    act(() => {
-      result.current.handleApplyAddon([{ code: 'ALT', name: 'ALT' }], 'Liver Panel')
+    await act(async () => {
+      await result.current.handleTemplateSelect({ slug: 'core-panel', name: 'Core Panel' })
     })
 
-    expect(result.current.notice?.message).toBe(
-      plMessages.selection.alreadySelected.replace('{name}', 'Liver Panel'),
-    )
+    expect(
+      await screen.findByText('Added 1 biomarker from Core Panel.'),
+    ).toBeInTheDocument()
   })
 
   it('shows a toast when addon biomarkers are applied', async () => {
