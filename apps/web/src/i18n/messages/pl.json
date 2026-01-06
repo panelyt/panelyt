@@ -39,6 +39,10 @@
     "template": "Szablon",
     "remove": "Usuń {name}"
   },
+  "toast": {
+    "shareCopied": "Skopiowano link do udostępnienia.",
+    "shareCopyFailed": "Nie udało się skopiować linku do udostępnienia."
+  },
   "auth": {
     "signIn": "Zaloguj się",
     "signOut": "Wyloguj się",

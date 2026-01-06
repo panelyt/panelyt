@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
-import { Link2, Check } from "lucide-react";
+import { Suspense, useCallback, useMemo } from "react";
+import { Link2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { useSavedLists } from "../../hooks/useSavedLists";
 import { useUserSession } from "../../hooks/useUserSession";
@@ -64,9 +65,6 @@ function HomeContent() {
     biomarkers: selection.selected,
   });
 
-  // Share URL state
-  const [shareCopied, setShareCopied] = useState(false);
-
   // URL biomarker sync (two-way)
   const urlBiomarkerSync = useUrlBiomarkerSync({
     selected: selection.selected,
@@ -83,10 +81,11 @@ function HomeContent() {
   const handleSharePanel = useCallback(async () => {
     const success = await urlBiomarkerSync.copyShareUrl();
     if (success) {
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
+      toast(t("toast.shareCopied"));
+      return;
     }
-  }, [urlBiomarkerSync]);
+    toast(t("toast.shareCopyFailed"));
+  }, [t, urlBiomarkerSync]);
 
   // URL parameter sync
   useUrlParamSync({
@@ -244,17 +243,8 @@ function HomeContent() {
                       onClick={() => void handleSharePanel()}
                       disabled={selection.selected.length === 0}
                     >
-                      {shareCopied ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" />
-                          {t("common.copied")}
-                        </>
-                      ) : (
-                        <>
-                          <Link2 className="h-3.5 w-3.5" />
-                          {t("common.share")}
-                        </>
-                      )}
+                      <Link2 className="h-3.5 w-3.5" />
+                      {t("common.share")}
                     </Button>
                     {isAdmin && (
                       <Button

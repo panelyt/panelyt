@@ -1,5 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Toaster } from "sonner";
 
 import { renderWithIntl } from "../../../test/utils";
 
@@ -187,5 +189,28 @@ describe("HomeContent", () => {
     expect(layout).toBeInTheDocument();
     expect(screen.getByTestId("sticky-summary-bar")).toBeInTheDocument();
     expect(rightRail).toContainElement(screen.getByTestId("optimization-results"));
+  });
+
+  it("shows a toast when the share link is copied", async () => {
+    const copyShareUrl = vi.fn().mockResolvedValue(true);
+    mockUseUrlBiomarkerSync.mockReturnValue({
+      isLoadingFromUrl: false,
+      getShareUrl: vi.fn(() => ""),
+      copyShareUrl,
+    } as ReturnType<typeof useUrlBiomarkerSync>);
+
+    const user = userEvent.setup();
+
+    renderWithIntl(
+      <>
+        <Toaster />
+        <Home />
+      </>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /share/i }));
+
+    expect(copyShareUrl).toHaveBeenCalled();
+    expect(await screen.findByText("Share link copied.")).toBeInTheDocument();
   });
 });
