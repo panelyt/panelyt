@@ -40,6 +40,8 @@ vi.mock("../../../../hooks/useAccountSettings", () => ({
 
 vi.mock("../../../../lib/analytics", () => ({
   track: vi.fn(),
+  markTtorStart: vi.fn(),
+  resetTtorStart: vi.fn(),
 }));
 
 const trackMock = vi.mocked(track);

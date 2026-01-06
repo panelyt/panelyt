@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import { persist, type PersistStorage } from "zustand/middleware";
 
+import { markTtorStart, resetTtorStart, track } from "../lib/analytics";
+
 export const PANEL_STORAGE_KEY = "panelyt:selected-biomarkers";
 
 export interface PanelBiomarker {
@@ -159,18 +161,31 @@ export const usePanelStore = create<PanelStoreState>()(
       addOne: (biomarker) => {
         const code = biomarker.code.trim();
         if (!code) return;
+        let didAdd = false;
+        let wasEmpty = false;
         set((state) => {
           if (state.selected.some((item) => item.code === code)) {
             return state;
           }
+          wasEmpty = state.selected.length === 0;
+          didAdd = true;
           return {
             selected: [...state.selected, { code, name: biomarker.name }],
           };
         });
+        if (didAdd) {
+          track("panel_add_biomarker", { count: 1 });
+          if (wasEmpty) {
+            markTtorStart();
+          }
+        }
       },
       addMany: (biomarkers) => {
+        let addedCount = 0;
+        let wasEmpty = false;
         set((state) => {
           if (biomarkers.length === 0) return state;
+          wasEmpty = state.selected.length === 0;
           const existing = new Set(state.selected.map((item) => item.code));
           const additions: PanelBiomarker[] = [];
           for (const entry of biomarkers) {
@@ -180,40 +195,74 @@ export const usePanelStore = create<PanelStoreState>()(
             additions.push({ code, name: entry.name });
           }
           if (additions.length === 0) return state;
+          addedCount = additions.length;
           return { selected: [...state.selected, ...additions] };
         });
+        if (addedCount > 0) {
+          track("panel_add_biomarker", { count: addedCount });
+          if (wasEmpty) {
+            markTtorStart();
+          }
+        }
       },
       remove: (code) =>
         {
           let removed: PanelBiomarker | undefined;
+          let didEmpty = false;
           set((state) => {
             removed = state.selected.find((item) => item.code === code);
             if (!removed) {
               return state;
             }
+            const nextSelected = state.selected.filter((item) => item.code !== code);
+            didEmpty = nextSelected.length === 0;
             return {
-              selected: state.selected.filter((item) => item.code !== code),
+              selected: nextSelected,
               lastRemoved: { biomarker: removed, removedAt: Date.now() },
             };
           });
           if (removed) {
             scheduleLastRemovedClear(set);
+            track("panel_remove_biomarker", { count: 1 });
+            if (didEmpty) {
+              resetTtorStart();
+            }
           }
         },
       clearAll: () => {
         if (lastRemovedTimeout) {
           clearTimeout(lastRemovedTimeout);
         }
-        set({ selected: [], lastRemoved: undefined });
+        let hadSelection = false;
+        set((state) => {
+          hadSelection = state.selected.length > 0;
+          return { selected: [], lastRemoved: undefined };
+        });
+        if (hadSelection) {
+          resetTtorStart();
+        }
       },
-      replaceAll: (biomarkers) =>
-        set({
-          selected: dedupeSelection(biomarkers),
-        }),
+      replaceAll: (biomarkers) => {
+        let shouldMark = false;
+        let shouldReset = false;
+        set((state) => {
+          const next = dedupeSelection(biomarkers);
+          shouldMark = state.selected.length === 0 && next.length > 0;
+          shouldReset = state.selected.length > 0 && next.length === 0;
+          return { selected: next };
+        });
+        if (shouldMark) {
+          markTtorStart();
+        }
+        if (shouldReset) {
+          resetTtorStart();
+        }
+      },
       undoLastRemoved: () => {
         if (lastRemovedTimeout) {
           clearTimeout(lastRemovedTimeout);
         }
+        let shouldMark = false;
         set((state) => {
           if (!state.lastRemoved) {
             return state;
@@ -223,11 +272,15 @@ export const usePanelStore = create<PanelStoreState>()(
           if (alreadySelected) {
             return { lastRemoved: undefined };
           }
+          shouldMark = state.selected.length === 0;
           return {
             selected: [...state.selected, biomarker],
             lastRemoved: undefined,
           };
         });
+        if (shouldMark) {
+          markTtorStart();
+        }
       },
     }),
     {

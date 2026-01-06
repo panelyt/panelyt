@@ -1,6 +1,17 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
+vi.mock("../../lib/analytics", () => ({
+  track: vi.fn(),
+  markTtorStart: vi.fn(),
+  resetTtorStart: vi.fn(),
+}));
+
+import { track, markTtorStart, resetTtorStart } from "../../lib/analytics";
 import { usePanelStore, PANEL_STORAGE_KEY } from "../panelStore";
+
+const trackMock = vi.mocked(track);
+const markTtorStartMock = vi.mocked(markTtorStart);
+const resetTtorStartMock = vi.mocked(resetTtorStart);
 
 const readPersistedSelection = () => {
   const raw = sessionStorage.getItem(PANEL_STORAGE_KEY);
@@ -22,6 +33,9 @@ describe("panelStore", () => {
     sessionStorage.clear();
     usePanelStore.setState({ selected: [], lastOptimizationSummary: undefined });
     usePanelStore.persist.clearStorage();
+    trackMock.mockClear();
+    markTtorStartMock.mockClear();
+    resetTtorStartMock.mockClear();
   });
 
   it("rehydrates legacy array storage and filters invalid entries", async () => {
@@ -81,6 +95,27 @@ describe("panelStore", () => {
     ]);
   });
 
+  it("tracks panel_add_biomarker when adding a new biomarker", () => {
+    usePanelStore.getState().addOne({ code: "ALT", name: "ALT" });
+
+    expect(trackMock).toHaveBeenCalledWith("panel_add_biomarker", { count: 1 });
+  });
+
+  it("marks TTOR when the first biomarker is added to an empty panel", () => {
+    usePanelStore.getState().addOne({ code: "ALT", name: "ALT" });
+
+    expect(markTtorStartMock).toHaveBeenCalled();
+  });
+
+  it("tracks panel_add_biomarker when addMany adds multiple biomarkers", () => {
+    usePanelStore.getState().addMany([
+      { code: "ALT", name: "ALT" },
+      { code: "AST", name: "AST" },
+    ]);
+
+    expect(trackMock).toHaveBeenCalledWith("panel_add_biomarker", { count: 2 });
+  });
+
   it("replaceAll preserves deterministic order", () => {
     usePanelStore.getState().replaceAll([
       { code: "B12", name: "B12" },
@@ -114,6 +149,36 @@ describe("panelStore", () => {
 
     expect(usePanelStore.getState().lastRemoved).toBeUndefined();
     vi.useRealTimers();
+  });
+
+  it("tracks panel_remove_biomarker when an item is removed", () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "ALT" }],
+    });
+
+    usePanelStore.getState().remove("ALT");
+
+    expect(trackMock).toHaveBeenCalledWith("panel_remove_biomarker", { count: 1 });
+  });
+
+  it("resets TTOR when the last biomarker is removed", () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "ALT" }],
+    });
+
+    usePanelStore.getState().remove("ALT");
+
+    expect(resetTtorStartMock).toHaveBeenCalled();
+  });
+
+  it("resets TTOR when the panel is cleared", () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "ALT" }],
+    });
+
+    usePanelStore.getState().clearAll();
+
+    expect(resetTtorStartMock).toHaveBeenCalled();
   });
 
   it("restores the last removed biomarker when undo is called", () => {
