@@ -21,7 +21,7 @@ describe('SelectedBiomarkers', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders selected biomarkers as removable buttons', () => {
+  it('renders selected biomarkers with name and code', () => {
     const biomarkers = [
       { code: 'ALT', name: 'Alanine aminotransferase' },
       { code: 'AST', name: 'Aspartate aminotransferase' },
@@ -36,11 +36,24 @@ describe('SelectedBiomarkers', () => {
     expect(screen.getByText('Aspartate aminotransferase')).toBeInTheDocument()
     expect(screen.getByText('Total cholesterol')).toBeInTheDocument()
 
-    // All biomarkers should be rendered as buttons
-    expect(screen.getAllByRole('button')).toHaveLength(3)
+    expect(screen.getByText('ALT')).toBeInTheDocument()
+    expect(screen.getByText('AST')).toBeInTheDocument()
+    expect(screen.getByText('CHOL')).toBeInTheDocument()
   })
 
-  it('calls onRemove when biomarker button is clicked', async () => {
+  it('renders a remove button with an accessible label', () => {
+    const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
+
+    renderWithIntl(
+      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: /Remove Alanine aminotransferase/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('calls onRemove when remove button is clicked', async () => {
     const user = userEvent.setup()
     const biomarkers = [
       { code: 'ALT', name: 'Alanine aminotransferase' },
@@ -51,88 +64,22 @@ describe('SelectedBiomarkers', () => {
       <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
     )
 
-    const altButton = screen.getByRole('button', { name: /Alanine aminotransferase/ })
-    await user.click(altButton)
+    const removeButton = screen.getByRole('button', {
+      name: /Remove Alanine aminotransferase/i,
+    })
+    await user.click(removeButton)
 
     expect(mockOnRemove).toHaveBeenCalledWith('ALT')
   })
 
-  it('shows proper title attribute for remove functionality', () => {
-    const biomarkers = [
-      { code: 'ALT', name: 'Alanine aminotransferase' },
-    ]
+  it('keeps the code in a monospace style element', () => {
+    const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
 
     renderWithIntl(
       <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
     )
 
-    const button = screen.getByRole('button', { name: /Alanine aminotransferase/ })
-    expect(button).toHaveAttribute('title', 'Remove Alanine aminotransferase')
-  })
-
-  it('applies correct CSS classes for styling', () => {
-    const biomarkers = [
-      { code: 'ALT', name: 'Alanine aminotransferase' },
-    ]
-
-    renderWithIntl(
-      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
-    )
-
-    const button = screen.getByRole('button', { name: /Alanine aminotransferase/ })
-    expect(button).toHaveClass(
-      'group',
-      'inline-flex',
-      'items-center',
-      'gap-2',
-      'rounded-full',
-      'border',
-      'border-emerald-400/40',
-      'bg-emerald-400/15',
-      'px-3',
-      'py-1.5',
-      'text-xs',
-      'font-semibold',
-      'text-emerald-200',
-      'transition',
-    )
-  })
-
-  it('handles duplicate codes correctly', async () => {
-    const user = userEvent.setup()
-    const biomarkers = [
-      { code: 'ALT', name: 'Alanine aminotransferase' },
-      { code: 'ALT', name: 'ALT (duplicate)' },
-    ]
-
-    renderWithIntl(
-      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
-    )
-
-    // Both should be rendered
-    expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
-    expect(screen.getByText('ALT (duplicate)')).toBeInTheDocument()
-
-    // Click on first one
-    const firstButton = screen.getByText('Alanine aminotransferase')
-    await user.click(firstButton)
-
-    expect(mockOnRemove).toHaveBeenCalledWith('ALT')
-  })
-
-  it('renders with flexbox layout for responsive design', () => {
-    const biomarkers = [
-      { code: 'ALT', name: 'Alanine aminotransferase' },
-      { code: 'AST', name: 'Aspartate aminotransferase' },
-    ]
-
-    renderWithIntl(
-      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
-    )
-
-    const container = screen.getByRole('button', { name: /Alanine aminotransferase/ }).closest('div')
-    expect(container).toHaveClass('flex', 'flex-wrap', 'gap-2')
-
-    expect(screen.queryByText('ALT', { exact: true })).not.toBeInTheDocument()
+    const code = screen.getByText('ALT')
+    expect(code).toHaveClass('font-mono')
   })
 })
