@@ -1,51 +1,55 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-import { useOptimization } from "../hooks/useOptimization";
 import { formatCurrency } from "../lib/format";
+import type { TemplatePricingState } from "../hooks/useBiomarkerListTemplates";
 
 interface TemplatePriceSummaryProps {
-  codes: string[];
+  pricing?: TemplatePricingState;
+  className?: string;
 }
 
-export function TemplatePriceSummary({ codes }: TemplatePriceSummaryProps) {
-  const optimization = useOptimization(codes, 'auto');
-  const hasCodes = codes.length > 0;
+export function TemplatePriceSummary({ pricing, className }: TemplatePriceSummaryProps) {
+  const t = useTranslations();
 
-  if (!hasCodes) {
-    return null;
-  }
-
-  if (optimization.isLoading) {
+  if (!pricing || pricing.status === "idle") {
     return (
       <div className="flex justify-end">
-        <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-slate-950/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <span className="text-xs text-secondary">{t("common.notAvailable")}</span>
+      </div>
+    );
+  }
+
+  if (pricing.status === "loading") {
+    return (
+      <div className="flex justify-end">
+        <span className="inline-flex items-center gap-2 rounded-pill border border-border/80 bg-surface-2 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-secondary">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Pricing…
+          {t("collections.pricingLoading")}
         </span>
       </div>
     );
   }
 
-  if (optimization.isError || !optimization.data) {
+  if (pricing.status === "error" || typeof pricing.totalNow !== "number") {
     return (
       <div className="flex justify-end">
-        <span className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-200">
-          Pricing unavailable
+        <span className="rounded-pill border border-accent-red/40 bg-accent-red/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-red">
+          {t("collections.pricingUnavailable")}
         </span>
       </div>
     );
   }
 
-  const totals = optimization.data;
-  const currentTotal = formatCurrency(totals.total_now);
+  const currentTotal = formatCurrency(pricing.totalNow);
 
   return (
     <div className="flex justify-end">
       <span
-        className="text-right text-2xl font-semibold text-white md:text-3xl"
-        aria-label={`Template current price ${currentTotal}`}
+        className={`text-right font-semibold text-primary ${className ?? "text-lg"}`}
+        aria-label={t("collections.currentTotalAria", { amount: currentTotal })}
       >
         {currentTotal}
       </span>

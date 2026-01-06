@@ -1,27 +1,53 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "../../../i18n/navigation";
+import { useMemo, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
+import { Link } from "../../../i18n/navigation";
 import { Header } from "../../../components/header";
 import { TemplateModal } from "../../../components/template-modal";
 import { TemplatePriceSummary } from "../../../components/template-price-summary";
-import { useTemplateCatalog } from "../../../hooks/useBiomarkerListTemplates";
+import {
+  useTemplateCatalog,
+  useTemplatePricing,
+} from "../../../hooks/useBiomarkerListTemplates";
 import { useTemplateAdmin } from "../../../hooks/useTemplateAdmin";
 import { useUserSession } from "../../../hooks/useUserSession";
+import { usePanelStore } from "../../../stores/panelStore";
 import { slugify } from "../../../lib/slug";
+import { Button, buttonVariants } from "../../../ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../ui/table";
+import { cn } from "../../../lib/cn";
+
+const sortOptions = [
+  { value: "updated", labelKey: "collections.sortUpdated" },
+  { value: "count", labelKey: "collections.sortCount" },
+  { value: "total", labelKey: "collections.sortTotal" },
+] as const;
+
+type SortOption = (typeof sortOptions)[number]["value"];
 
 export default function CollectionsContent() {
   const t = useTranslations();
-  const router = useRouter();
+  const locale = useLocale();
   const session = useUserSession();
   const isAdmin = Boolean(session.data?.is_admin);
   const templateAdmin = useTemplateAdmin();
   const templatesQuery = useTemplateCatalog({ includeAll: isAdmin });
-  const templates = templatesQuery.data ?? [];
+  const templates = useMemo(
+    () => templatesQuery.data ?? [],
+    [templatesQuery.data],
+  );
+  const { pricingBySlug } = useTemplatePricing(templates);
+  const addMany = usePanelStore((state) => state.addMany);
   const [adminError, setAdminError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalName, setModalName] = useState("");
@@ -35,6 +61,17 @@ export default function CollectionsContent() {
   const [modalBiomarkers, setModalBiomarkers] = useState<
     { code: string; display_name: string; notes: string | null }[]
   >([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortKey, setSortKey] = useState<SortOption>("updated");
+  const [showInactive, setShowInactive] = useState(false);
+
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        dateStyle: "medium",
+      }),
+    [locale],
+  );
 
   const openModalForTemplate = (template: (typeof templates)[number]) => {
     setModalName(template.name);
@@ -49,7 +86,7 @@ export default function CollectionsContent() {
         code: entry.code,
         display_name: entry.display_name,
         notes: entry.notes ?? null,
-      }))
+      })),
     );
     setAdminError(null);
     setIsModalOpen(true);
@@ -122,100 +159,300 @@ export default function CollectionsContent() {
     }
   };
 
+  const handleAddToPanel = (template: (typeof templates)[number]) => {
+    addMany(
+      template.biomarkers.map((entry) => ({
+        code: entry.code,
+        name: entry.display_name,
+      })),
+    );
+  };
+
+  const filteredTemplates = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    return templates.filter((template) => {
+      if (!isAdmin && !template.is_active) {
+        return false;
+      }
+      if (isAdmin && !showInactive && !template.is_active) {
+        return false;
+      }
+      if (!normalizedQuery) {
+        return true;
+      }
+      const haystack = `${template.name} ${template.description ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [isAdmin, searchQuery, showInactive, templates]);
+
+  const sortedTemplates = useMemo(() => {
+    const sorted = [...filteredTemplates];
+    sorted.sort((a, b) => {
+      if (sortKey === "count") {
+        return b.biomarkers.length - a.biomarkers.length;
+      }
+      if (sortKey === "total") {
+        const totalA = pricingBySlug[a.slug]?.totalNow;
+        const totalB = pricingBySlug[b.slug]?.totalNow;
+        const resolvedA = typeof totalA === "number" ? totalA : Number.POSITIVE_INFINITY;
+        const resolvedB = typeof totalB === "number" ? totalB : Number.POSITIVE_INFINITY;
+        return resolvedA - resolvedB;
+      }
+      const dateA = new Date(a.updated_at).getTime();
+      const dateB = new Date(b.updated_at).getTime();
+      return dateB - dateA;
+    });
+    return sorted;
+  }, [filteredTemplates, pricingBySlug, sortKey]);
+
+  const formatUpdatedAt = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return dateFormatter.format(date);
+  };
+
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-app text-primary">
       <Header />
 
       <div className="mx-auto max-w-6xl px-6 py-8">
-        <h1 className="text-3xl font-semibold text-white">{t("collections.title")}</h1>
-        <p className="mt-2 max-w-xl text-sm text-slate-400">
+        <h1 className="text-3xl font-semibold text-primary">{t("collections.title")}</h1>
+        <p className="mt-2 max-w-xl text-sm text-secondary">
           {t("collections.description")}
         </p>
         {adminError && (
-          <p className="mt-4 text-sm text-red-300">{adminError}</p>
+          <p className="mt-4 text-sm text-accent-red">{adminError}</p>
         )}
       </div>
 
       <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
+        <div className="flex flex-col gap-4 rounded-panel border border-border/70 bg-surface-1/60 p-4 md:flex-row md:items-end md:justify-between">
+          <div className="flex-1">
+            <label
+              htmlFor="template-search"
+              className="text-xs font-semibold uppercase tracking-wide text-secondary"
+            >
+              {t("collections.searchLabel")}
+            </label>
+            <input
+              id="template-search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t("collections.searchPlaceholder")}
+              className="mt-2 w-full rounded-lg border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-secondary focus-ring"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <div>
+              <label
+                htmlFor="template-sort"
+                className="text-xs font-semibold uppercase tracking-wide text-secondary"
+              >
+                {t("collections.sortLabel")}
+              </label>
+              <select
+                id="template-sort"
+                value={sortKey}
+                onChange={(event) => setSortKey(event.target.value as SortOption)}
+                className="mt-2 w-full rounded-lg border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary focus-ring"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {t(option.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {isAdmin ? (
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-secondary">
+                <input
+                  type="checkbox"
+                  checked={showInactive}
+                  onChange={(event) => setShowInactive(event.target.checked)}
+                  className="h-4 w-4 accent-accent-cyan"
+                />
+                {t("collections.showInactive")}
+              </label>
+            ) : null}
+          </div>
+        </div>
+
         {templatesQuery.isLoading ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
+          <div className="flex items-center gap-3 rounded-panel border border-border/70 bg-surface-1 px-4 py-6 text-sm text-secondary">
             <Loader2 className="h-5 w-5 animate-spin" /> {t("collections.loadingTemplates")}
           </div>
         ) : templatesQuery.isError ? (
-          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-6 text-sm text-red-200">
+          <div className="rounded-panel border border-accent-red/40 bg-accent-red/10 px-4 py-6 text-sm text-accent-red">
             {t("collections.failedToLoad")}
           </div>
-        ) : templates.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/70 px-6 py-8 text-center text-sm text-slate-400">
+        ) : sortedTemplates.length === 0 ? (
+          <div className="rounded-panel border border-dashed border-border/80 bg-surface-1/70 px-6 py-8 text-center text-sm text-secondary">
             {t("collections.noTemplates")}
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {templates.map((template) => (
-              <div
-                key={template.id}
-                className={`flex h-full flex-col justify-between gap-4 rounded-2xl border px-6 py-5 shadow-lg shadow-slate-900/30 ${
-                  template.is_active ? "border-slate-800 bg-slate-900/80" : "border-slate-700 bg-slate-900/60"
-                }`}
-              >
-                <div className="space-y-3">
+          <>
+            <div className="hidden md:block">
+              <Table dense>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("collections.columnName")}</TableHead>
+                    <TableHead>{t("collections.columnBiomarkers")}</TableHead>
+                    <TableHead>{t("collections.columnUpdated")}</TableHead>
+                    <TableHead>{t("collections.columnTotal")}</TableHead>
+                    <TableHead className="text-right">
+                      {t("collections.columnActions")}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedTemplates.map((template) => (
+                    <TableRow key={template.id}>
+                      <TableCell className="align-top">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <h3 className="text-base font-semibold text-primary">
+                              {template.name}
+                            </h3>
+                            {!template.is_active ? (
+                              <span className="rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
+                                {t("collections.unpublished")}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="text-sm text-secondary">
+                            {template.description ?? t("collections.noDescription")}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-secondary">
+                        {t("common.biomarkersCount", {
+                          count: template.biomarkers.length,
+                        })}
+                      </TableCell>
+                      <TableCell className="text-xs text-secondary">
+                        {formatUpdatedAt(template.updated_at)}
+                      </TableCell>
+                      <TableCell>
+                        <TemplatePriceSummary
+                          pricing={pricingBySlug[template.slug]}
+                          className="text-base"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-col items-end gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddToPanel(template)}
+                          >
+                            {t("collections.addToPanel")}
+                          </Button>
+                          <Link
+                            href={`/collections/${template.slug}`}
+                            className={cn(
+                              buttonVariants({ variant: "secondary", size: "sm" }),
+                              "inline-flex",
+                            )}
+                          >
+                            {t("collections.viewDetails")}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Link>
+                          {isAdmin ? (
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => openModalForTemplate(template)}
+                              >
+                                {t("common.edit")}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => void handleDeleteTemplate(template.slug, template.name)}
+                              >
+                                {t("common.delete")}
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="grid gap-4 md:hidden">
+              {sortedTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  className="rounded-panel border border-border/70 bg-surface-1 px-5 py-4"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-                        {t("common.template")}
+                      <h3 className="text-lg font-semibold text-primary">
+                        {template.name}
+                      </h3>
+                      <p className="mt-1 text-sm text-secondary">
+                        {template.description ?? t("collections.noDescription")}
                       </p>
-                      <h2 className="mt-2 text-2xl font-semibold text-white">{template.name}</h2>
                     </div>
                     <TemplatePriceSummary
-                      codes={template.biomarkers.map((entry) => entry.code)}
+                      pricing={pricingBySlug[template.slug]}
+                      className="text-xl"
                     />
                   </div>
-                  <p className="text-sm text-slate-300">{template.description ?? t("collections.noDescription")}</p>
-                  <p className="text-xs text-slate-500">
-                    {t("common.biomarkersCount", { count: template.biomarkers.length })} • {t("common.updated")} {new Date(template.updated_at).toLocaleDateString()}
-                    {!template.is_active && (
-                      <span className="ml-2 inline-flex items-center rounded-full border border-slate-600 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                        {t("collections.unpublished")}
-                      </span>
-                    )}
+                  <p className="mt-3 text-xs text-secondary">
+                    {t("common.biomarkersCount", { count: template.biomarkers.length })}
+                    {" · "}
+                    {t("collections.updatedLabel", {
+                      date: formatUpdatedAt(template.updated_at),
+                    })}
                   </p>
+                  {!template.is_active ? (
+                    <span className="mt-2 inline-flex rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
+                      {t("collections.unpublished")}
+                    </span>
+                  ) : null}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => handleAddToPanel(template)}>
+                      {t("collections.addToPanel")}
+                    </Button>
+                    <Link
+                      href={`/collections/${template.slug}`}
+                      className={cn(
+                        buttonVariants({ variant: "secondary", size: "sm" }),
+                        "inline-flex",
+                      )}
+                    >
+                      {t("collections.viewDetails")}
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                    {isAdmin ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openModalForTemplate(template)}
+                        >
+                          {t("common.edit")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => void handleDeleteTemplate(template.slug, template.name)}
+                        >
+                          {t("common.delete")}
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/?template=${template.slug}`)}
-                    className="flex items-center gap-2 rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-                  >
-                    {t("lists.loadInOptimizer")}
-                  </button>
-                  <Link
-                    href={`/collections/${template.slug}`}
-                    className="flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-                  >
-                    {t("collections.viewDetails")} <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                  {isAdmin && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => openModalForTemplate(template)}
-                        className="rounded-lg border border-sky-500/60 px-4 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20"
-                      >
-                        {t("common.edit")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteTemplate(template.slug, template.name)}
-                        className="rounded-lg border border-red-500/60 px-4 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/20"
-                      >
-                        {t("common.delete")}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </section>
 
