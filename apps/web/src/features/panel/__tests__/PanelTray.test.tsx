@@ -28,7 +28,7 @@ describe("PanelTray", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<PanelTray />);
 
-    await user.click(screen.getByRole("button", { name: /open panel tray/i }));
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
 
     expect(screen.getByText("Alanine aminotransferase")).toBeInTheDocument();
     expect(screen.getByText("Aspartate aminotransferase")).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe("PanelTray", () => {
     const user = userEvent.setup();
     renderWithQueryClient(<PanelTray />);
 
-    await user.click(screen.getByRole("button", { name: /open panel tray/i }));
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
 
     const totalLabel = formatCurrency(120).replace(/\u00a0/g, " ");
     const savingsLabel = formatCurrency(20).replace(/\u00a0/g, " ");
@@ -69,5 +69,18 @@ describe("PanelTray", () => {
         return normalized.includes("30-day floor") && normalized.includes(savingsLabel);
       }),
     ).toBeInTheDocument();
+  });
+
+  it("renders a mobile tray trigger that opens the dialog", async () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getByTestId("panel-tray-mobile"));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });

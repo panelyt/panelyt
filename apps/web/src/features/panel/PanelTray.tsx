@@ -29,6 +29,8 @@ export function PanelTray() {
   const selected = usePanelStore((state) => state.selected);
   const remove = usePanelStore((state) => state.remove);
   const summary = usePanelStore((state) => state.lastOptimizationSummary);
+  const countLabel = t("common.biomarkersCount", { count: selected.length });
+  const summaryLabel = summary ? formatCurrency(summary.totalNow) : t("panelTray.runOptimize");
 
   const sessionQuery = useUserSession();
   const isAuthenticated = Boolean(sessionQuery.data?.registered);
@@ -68,6 +70,22 @@ export function PanelTray() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <PanelPill className="hidden md:inline-flex" />
+        </DialogTrigger>
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            data-testid="panel-tray-mobile"
+            aria-label={t("panelTray.openPanel")}
+            className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-between border-t border-border/80 bg-surface-1 px-4 py-3 text-sm text-primary shadow-lg shadow-black/40 md:hidden"
+          >
+            <div className="flex flex-col">
+              <span className="text-[11px] uppercase tracking-wide text-secondary">
+                {t("panelTray.title")}
+              </span>
+              <span className="text-sm font-semibold">{countLabel}</span>
+            </div>
+            <span className="text-sm font-semibold text-secondary">{summaryLabel}</span>
+          </button>
         </DialogTrigger>
         <DialogContent
           className={cn(
