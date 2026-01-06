@@ -19,6 +19,8 @@ import { SelectedBiomarkers } from "../../components/selected-biomarkers";
 import { SaveListModal } from "../../components/save-list-modal";
 import { TemplateModal } from "../../components/template-modal";
 import { LoadMenu } from "../../components/load-menu";
+import { OptimizerLayout } from "../../features/optimizer/OptimizerLayout";
+import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
 
 function HomeContent() {
   const t = useTranslations();
@@ -171,106 +173,112 @@ function HomeContent() {
 
       <section className="relative z-10 pb-16 pt-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6">
-          <div className="grid gap-6">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-900/30">
-              <h2 className="text-lg font-semibold text-white">
-                {t("home.buildPanel")}
-              </h2>
-              <div className="mt-6 flex flex-col gap-4">
-                <SearchBox
-                  onSelect={selection.handleSelect}
-                  onTemplateSelect={handleTemplateSelect}
-                />
-                <SelectedBiomarkers
-                  biomarkers={selection.selected}
-                  onRemove={selection.handleRemove}
-                />
-                {selection.selected.length > 0 && (
-                  <p className="text-sm text-slate-400">
-                    {t("home.comparePrices")}
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                {selection.notice && (
-                  <p
-                    className={`text-sm ${
-                      selection.notice.tone === "success"
-                        ? "text-emerald-300"
-                        : "text-slate-300"
-                    }`}
-                  >
-                    {selection.notice.message}
-                  </p>
-                )}
-                {selection.error && (
-                  <p className="text-sm text-red-300">{selection.error}</p>
-                )}
-                <div className="ml-auto flex items-center gap-2">
-                  <LoadMenu
-                    lists={savedListsData}
-                    isLoading={savedLists.listsQuery.isFetching}
-                    onSelect={handleLoadFromMenu}
+          <OptimizerLayout
+            left={
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-900/30">
+                <h2 className="text-lg font-semibold text-white">
+                  {t("home.buildPanel")}
+                </h2>
+                <div className="mt-6 flex flex-col gap-4">
+                  <SearchBox
+                    onSelect={selection.handleSelect}
+                    onTemplateSelect={handleTemplateSelect}
                   />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      saveListModal.open(
-                        selection.selected.length
-                          ? t("saveList.defaultName", {
-                              date: new Date().toLocaleDateString(),
-                            })
-                          : "",
-                      )
-                    }
-                    className="rounded-full border border-emerald-500/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-                  >
-                    {t("common.save")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleSharePanel()}
-                    disabled={selection.selected.length === 0}
-                    className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {shareCopied ? (
-                      <>
-                        <Check className="h-3.5 w-3.5" />
-                        {t("common.copied")}
-                      </>
-                    ) : (
-                      <>
-                        <Link2 className="h-3.5 w-3.5" />
-                        {t("common.share")}
-                      </>
-                    )}
-                  </button>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={templateModal.open}
-                      className="rounded-full border border-sky-500/60 px-3 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20"
-                    >
-                      {t("home.saveAsTemplate")}
-                    </button>
+                  <SelectedBiomarkers
+                    biomarkers={selection.selected}
+                    onRemove={selection.handleRemove}
+                  />
+                  {selection.selected.length > 0 && (
+                    <p className="text-sm text-slate-400">
+                      {t("home.comparePrices")}
+                    </p>
                   )}
                 </div>
-              </div>
-            </div>
-          </div>
 
-          <OptimizationResults
-            selected={selection.biomarkerCodes}
-            result={labOptimization.activeResult}
-            isLoading={labOptimization.activeLoading}
-            error={labOptimization.activeError ?? undefined}
-            variant="dark"
-            labCards={labOptimization.labCards}
-            addonSuggestions={labOptimization.addonSuggestions}
-            addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
-            onApplyAddon={handleApplyAddon}
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  {selection.notice && (
+                    <p
+                      className={`text-sm ${
+                        selection.notice.tone === "success"
+                          ? "text-emerald-300"
+                          : "text-slate-300"
+                      }`}
+                    >
+                      {selection.notice.message}
+                    </p>
+                  )}
+                  {selection.error && (
+                    <p className="text-sm text-red-300">{selection.error}</p>
+                  )}
+                  <div className="ml-auto flex items-center gap-2">
+                    <LoadMenu
+                      lists={savedListsData}
+                      isLoading={savedLists.listsQuery.isFetching}
+                      onSelect={handleLoadFromMenu}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        saveListModal.open(
+                          selection.selected.length
+                            ? t("saveList.defaultName", {
+                                date: new Date().toLocaleDateString(),
+                              })
+                            : "",
+                        )
+                      }
+                      className="rounded-full border border-emerald-500/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+                    >
+                      {t("common.save")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleSharePanel()}
+                      disabled={selection.selected.length === 0}
+                      className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {shareCopied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          {t("common.copied")}
+                        </>
+                      ) : (
+                        <>
+                          <Link2 className="h-3.5 w-3.5" />
+                          {t("common.share")}
+                        </>
+                      )}
+                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={templateModal.open}
+                        className="rounded-full border border-sky-500/60 px-3 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20"
+                      >
+                        {t("home.saveAsTemplate")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            }
+            right={
+              <>
+                <StickySummaryBar isVisible={selection.selected.length > 0} />
+                <OptimizationResults
+                  selected={selection.biomarkerCodes}
+                  result={labOptimization.activeResult}
+                  isLoading={labOptimization.activeLoading}
+                  error={labOptimization.activeError ?? undefined}
+                  variant="dark"
+                  labCards={labOptimization.labCards}
+                  addonSuggestions={labOptimization.addonSuggestions}
+                  addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
+                  onApplyAddon={handleApplyAddon}
+                />
+              </>
+            }
           />
         </div>
       </section>
