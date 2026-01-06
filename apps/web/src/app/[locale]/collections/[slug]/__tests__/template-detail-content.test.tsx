@@ -5,11 +5,18 @@ import { Toaster } from "sonner";
 
 import { renderWithIntl } from "../../../../../test/utils";
 import enMessages from "../../../../../i18n/messages/en.json";
+import { track } from "../../../../../lib/analytics";
 import { usePanelStore } from "../../../../../stores/panelStore";
 import { useTemplateDetail } from "../../../../../hooks/useBiomarkerListTemplates";
 import { useOptimization } from "../../../../../hooks/useOptimization";
 import { useRouter } from "../../../../../i18n/navigation";
 import TemplateDetailContent from "../template-detail-content";
+
+vi.mock("../../../../../lib/analytics", () => ({
+  track: vi.fn(),
+  markTtorStart: vi.fn(),
+  resetTtorStart: vi.fn(),
+}));
 
 vi.mock("../../../../../components/header", () => ({
   Header: () => <div data-testid="header" />,
@@ -34,6 +41,7 @@ vi.mock("../../../../../hooks/useOptimization", () => ({
 const mockUseTemplateDetail = vi.mocked(useTemplateDetail);
 const mockUseOptimization = vi.mocked(useOptimization);
 const mockUseRouter = vi.mocked(useRouter);
+const trackMock = vi.mocked(track);
 
 const templateData = {
   id: 1,
@@ -82,6 +90,7 @@ describe("TemplateDetailContent", () => {
       lastRemoved: undefined,
     });
     usePanelStore.persist.clearStorage();
+    trackMock.mockClear();
     mockUseTemplateDetail.mockReturnValue({
       data: templateData,
       isLoading: false,
@@ -140,6 +149,7 @@ describe("TemplateDetailContent", () => {
     expect(
       screen.getByRole("button", { name: enMessages.templateDetail.openOptimizer }),
     ).toBeInTheDocument();
+    expect(trackMock).toHaveBeenCalledWith("panel_apply_template", { mode: "append" });
   });
 
   it("replaces the panel with template biomarkers and shows a toast", async () => {
@@ -166,5 +176,6 @@ describe("TemplateDetailContent", () => {
       templateData.name,
     );
     expect(await screen.findByText(replacedToast)).toBeInTheDocument();
+    expect(trackMock).toHaveBeenCalledWith("panel_apply_template", { mode: "replace" });
   });
 });

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { useSavedLists } from "./useSavedLists";
 import { extractErrorMessage } from "../lib/http";
+import { track } from "../lib/analytics";
 
 export interface UseSaveListModalOptions {
   /** Whether the user is authenticated (required for saving) */
@@ -72,10 +73,12 @@ export function useSaveListModal(
         name: trimmed,
         biomarkers,
       });
+      track("save_list_submit", { status: "success" });
       setError(null);
       onSuccess?.();
       close();
     } catch (err) {
+      track("save_list_submit", { status: "failure" });
       const message = extractErrorMessage(err, t("errors.generic"));
       setError(message);
       onExternalError?.(message);

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { getJson, extractErrorMessage } from "../lib/http";
+import { track } from "../lib/analytics";
 import { usePanelStore, type PanelBiomarker } from "../stores/panelStore";
 
 export type SelectedBiomarker = PanelBiomarker;
@@ -118,6 +119,7 @@ export function useBiomarkerSelection(
             name: entry.display_name,
           })),
         );
+        track("panel_apply_template", { mode: "append" });
 
         // Signal significant change
         onSelectionChange?.();
@@ -153,6 +155,7 @@ export function useBiomarkerSelection(
       }
 
       addMany(additions);
+      track("panel_apply_addon", { count: additions.length });
 
       // Signal significant change
       onSelectionChange?.();

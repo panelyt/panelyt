@@ -15,6 +15,7 @@ import { SaveListModal } from "@/components/save-list-modal";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/format";
+import { track } from "@/lib/analytics";
 import { usePanelStore } from "@/stores/panelStore";
 import { Button } from "@/ui/button";
 import {
@@ -73,6 +74,7 @@ export function PanelTray() {
 
   const handleShare = async () => {
     const success = await shareSync.copyShareUrl();
+    track("share_copy_url", { status: success ? "success" : "failure" });
     toast(success ? t("toast.shareCopied") : t("toast.shareCopyFailed"));
   };
 

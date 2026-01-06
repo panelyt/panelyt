@@ -23,6 +23,7 @@ import { LoadMenu } from "../../components/load-menu";
 import { OptimizerLayout } from "../../features/optimizer/OptimizerLayout";
 import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
 import { dispatchSearchPrefill } from "../../features/optimizer/search-events";
+import { track } from "../../lib/analytics";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 
@@ -80,6 +81,7 @@ function HomeContent() {
   // Handle share button click
   const handleSharePanel = useCallback(async () => {
     const success = await urlBiomarkerSync.copyShareUrl();
+    track("share_copy_url", { status: success ? "success" : "failure" });
     if (success) {
       toast(t("toast.shareCopied"));
       return;

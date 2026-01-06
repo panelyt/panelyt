@@ -8,8 +8,15 @@ import { Toaster } from "sonner";
 import ListsContent from "../lists-content";
 import enMessages from "../../../../i18n/messages/en.json";
 import plMessages from "../../../../i18n/messages/pl.json";
+import { track } from "../../../../lib/analytics";
 import { usePanelStore } from "../../../../stores/panelStore";
 import { useRouter } from "../../../../i18n/navigation";
+
+vi.mock("../../../../lib/analytics", () => ({
+  track: vi.fn(),
+  markTtorStart: vi.fn(),
+  resetTtorStart: vi.fn(),
+}));
 
 vi.mock("../../../../components/header", () => ({
   Header: () => <div data-testid="header" />,
@@ -72,6 +79,7 @@ vi.mock("../../../../hooks/useSavedLists", () => ({
 }));
 
 const useRouterMock = vi.mocked(useRouter);
+const trackMock = vi.mocked(track);
 type Router = ReturnType<typeof useRouter>;
 const createRouter = (overrides: Partial<Router> = {}): Router => ({
   push: vi.fn(),
@@ -106,6 +114,7 @@ describe("ListsContent", () => {
     useRouterMock.mockReturnValue(createRouter());
     usePanelStore.setState({ selected: [] });
     deleteMutationMock = vi.fn();
+    trackMock.mockClear();
   });
 
   it("includes locale prefix in shared list links", async () => {
@@ -397,7 +406,69 @@ describe("ListsContent", () => {
     const table = await screen.findByRole("table");
     await user.click(within(table).getByRole("button", { name: "Copy link" }));
 
+    expect(trackMock).toHaveBeenCalledWith("share_copy_url", { status: "success" });
     expect(await screen.findByText("Share link copied.")).toBeInTheDocument();
+  });
+
+  it("tracks single alert toggles", async () => {
+    listsData = [
+      {
+        id: "list-11",
+        name: "Alerts list",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "2024-01-01T10:00:00Z",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    const user = userEvent.setup();
+    renderWithIntl("en", enMessages);
+
+    const table = await screen.findByRole("table");
+    await user.click(within(table).getByRole("button", { name: "Enable alerts" }));
+
+    expect(trackMock).toHaveBeenCalledWith("alerts_toggle", {
+      mode: "single",
+      enabled: true,
+    });
+  });
+
+  it("tracks bulk alert toggles", async () => {
+    listsData = [
+      {
+        id: "list-12",
+        name: "Alerts list",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "2024-01-01T10:00:00Z",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    const user = userEvent.setup();
+    renderWithIntl("en", enMessages);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Enable all alerts" }),
+    );
+
+    expect(trackMock).toHaveBeenCalledWith("alerts_toggle", {
+      mode: "bulk",
+      enabled: true,
+    });
   });
 
   it("loads a list into the panel and navigates home", async () => {

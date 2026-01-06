@@ -21,6 +21,7 @@ import { Header } from "../../../components/header";
 import { useSavedLists } from "../../../hooks/useSavedLists";
 import { useUserSession } from "../../../hooks/useUserSession";
 import { useAccountSettings } from "../../../hooks/useAccountSettings";
+import { track } from "../../../lib/analytics";
 import { usePanelStore } from "../../../stores/panelStore";
 import {
   DropdownMenu,
@@ -145,6 +146,7 @@ export default function ListsContent() {
           onSuccess: () => setError(null),
         },
       );
+      track("alerts_toggle", { mode: "single", enabled: !currentlyEnabled });
     },
     [notificationsMutation, telegramLinked, t],
   );
@@ -175,6 +177,7 @@ export default function ListsContent() {
           onSettled: () => setBulkTarget(null),
         },
       );
+      track("alerts_toggle", { mode: "bulk", enabled: targetState });
     },
     [notificationsBulkMutation, telegramLinked, t],
   );
@@ -248,8 +251,10 @@ export default function ListsContent() {
         }
         toast(t("toast.shareCopied"));
         setError(null);
+        track("share_copy_url", { status: "success" });
       } catch {
         toast(t("toast.shareCopyFailed"));
+        track("share_copy_url", { status: "failure" });
       }
     },
     [buildShareUrl, t],

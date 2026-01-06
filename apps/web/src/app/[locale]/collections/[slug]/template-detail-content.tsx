@@ -11,6 +11,7 @@ import { OptimizationResults } from "../../../../components/optimization-results
 import { useTemplateDetail } from "../../../../hooks/useBiomarkerListTemplates";
 import { useOptimization } from "../../../../hooks/useOptimization";
 import { usePanelStore } from "../../../../stores/panelStore";
+import { track } from "../../../../lib/analytics";
 import { Button } from "../../../../ui/button";
 import { Card } from "../../../../ui/card";
 
@@ -51,6 +52,7 @@ export default function TemplateDetailContent({ params }: TemplateDetailContentP
       return;
     }
     addMany(templateSelection);
+    track("panel_apply_template", { mode: "append" });
     toast(t("collections.appliedAppend", { name: template.name }), {
       action: {
         label: t("templateDetail.openOptimizer"),
@@ -64,6 +66,7 @@ export default function TemplateDetailContent({ params }: TemplateDetailContentP
       return;
     }
     replaceAll(templateSelection);
+    track("panel_apply_template", { mode: "replace" });
     toast(t("collections.appliedReplace", { name: template.name }), {
       action: {
         label: t("templateDetail.openOptimizer"),

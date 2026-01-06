@@ -10,6 +10,12 @@ import plMessages from '../../i18n/messages/pl.json'
 import { usePanelStore, PANEL_STORAGE_KEY } from '../../stores/panelStore'
 import { getJson } from '../../lib/http'
 
+vi.mock('../../lib/analytics', () => ({
+  track: vi.fn(),
+  markTtorStart: vi.fn(),
+  resetTtorStart: vi.fn(),
+}))
+
 vi.mock('../../lib/http', async () => {
   const actual = await vi.importActual<typeof import('../../lib/http')>('../../lib/http')
   return {
@@ -17,6 +23,10 @@ vi.mock('../../lib/http', async () => {
     getJson: vi.fn(),
   }
 })
+
+import { track } from '../../lib/analytics'
+
+const trackMock = vi.mocked(track)
 
 const readPersistedSelection = () => {
   const raw = sessionStorage.getItem(PANEL_STORAGE_KEY)
@@ -68,6 +78,7 @@ describe('useBiomarkerSelection', () => {
     sessionStorage.clear()
     await resetStore()
     await rehydrateStore()
+    trackMock.mockClear()
   })
 
   afterEach(async () => {
@@ -107,6 +118,7 @@ describe('useBiomarkerSelection', () => {
     expect(
       await screen.findByText('Added 1 biomarker from Core Panel.'),
     ).toBeInTheDocument()
+    expect(trackMock).toHaveBeenCalledWith('panel_apply_template', { mode: 'append' })
   })
 
   it('shows a toast when addon biomarkers are applied', async () => {
@@ -120,6 +132,7 @@ describe('useBiomarkerSelection', () => {
     expect(
       await screen.findByText('Added 1 biomarker from Liver Panel.'),
     ).toBeInTheDocument()
+    expect(trackMock).toHaveBeenCalledWith('panel_apply_addon', { count: 1 })
   })
 
   describe('sessionStorage persistence', () => {

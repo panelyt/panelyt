@@ -5,6 +5,12 @@ import { Toaster } from "sonner";
 
 import { renderWithIntl } from "../../../test/utils";
 
+vi.mock("../../../lib/analytics", () => ({
+  track: vi.fn(),
+  markTtorStart: vi.fn(),
+  resetTtorStart: vi.fn(),
+}));
+
 vi.mock("../../../hooks/useUserSession", () => ({
   useUserSession: vi.fn(),
 }));
@@ -73,6 +79,7 @@ import { useUrlParamSync } from "../../../hooks/useUrlParamSync";
 import { useUrlBiomarkerSync } from "../../../hooks/useUrlBiomarkerSync";
 import { useSaveListModal } from "../../../hooks/useSaveListModal";
 import { useTemplateModal } from "../../../hooks/useTemplateModal";
+import { track } from "../../../lib/analytics";
 import Home from "../home-content";
 
 const mockUseUserSession = vi.mocked(useUserSession);
@@ -83,6 +90,7 @@ const mockUseUrlParamSync = vi.mocked(useUrlParamSync);
 const mockUseUrlBiomarkerSync = vi.mocked(useUrlBiomarkerSync);
 const mockUseSaveListModal = vi.mocked(useSaveListModal);
 const mockUseTemplateModal = vi.mocked(useTemplateModal);
+const trackMock = vi.mocked(track);
 
 const selectionStub = {
   selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
@@ -132,6 +140,7 @@ const templateModalStub = {
 describe("HomeContent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    trackMock.mockClear();
 
     mockUseUserSession.mockReturnValue({
       data: { is_admin: false, registered: true, username: "User" },
@@ -208,6 +217,7 @@ describe("HomeContent", () => {
     await user.click(screen.getByRole("button", { name: /share/i }));
 
     expect(copyShareUrl).toHaveBeenCalled();
+    expect(trackMock).toHaveBeenCalledWith("share_copy_url", { status: "success" });
     expect(await screen.findByText("Share link copied.")).toBeInTheDocument();
   });
 });

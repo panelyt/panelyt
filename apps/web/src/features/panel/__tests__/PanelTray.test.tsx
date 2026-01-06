@@ -5,16 +5,37 @@ import userEvent from "@testing-library/user-event";
 import { renderWithQueryClient } from "@/test/utils";
 import { usePanelStore } from "@/stores/panelStore";
 import { PanelTray } from "@/features/panel/PanelTray";
+import { track } from "@/lib/analytics";
 import { formatCurrency } from "@/lib/format";
+import { useUrlBiomarkerSync } from "@/hooks/useUrlBiomarkerSync";
 
 vi.mock("@/hooks/useUserSession", () => ({
   useUserSession: () => ({ data: null, isLoading: false }),
 }));
 
+vi.mock("@/hooks/useUrlBiomarkerSync", () => ({
+  useUrlBiomarkerSync: vi.fn(),
+}));
+
+vi.mock("@/lib/analytics", () => ({
+  track: vi.fn(),
+  markTtorStart: vi.fn(),
+  resetTtorStart: vi.fn(),
+}));
+
+const mockUseUrlBiomarkerSync = vi.mocked(useUrlBiomarkerSync);
+const trackMock = vi.mocked(track);
+
 describe("PanelTray", () => {
   beforeEach(() => {
     sessionStorage.clear();
     usePanelStore.setState({ selected: [], lastOptimizationSummary: undefined, lastRemoved: undefined });
+    trackMock.mockClear();
+    mockUseUrlBiomarkerSync.mockReturnValue({
+      isLoadingFromUrl: false,
+      getShareUrl: vi.fn(),
+      copyShareUrl: vi.fn().mockResolvedValue(true),
+    });
   });
 
   it("renders selected biomarkers and removes them", async () => {
@@ -82,6 +103,30 @@ describe("PanelTray", () => {
     await user.click(screen.getByTestId("panel-tray-mobile"));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("tracks share copy events", async () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
+    });
+
+    const copyShareUrl = vi.fn().mockResolvedValue(true);
+    mockUseUrlBiomarkerSync.mockReturnValue({
+      isLoadingFromUrl: false,
+      getShareUrl: vi.fn(),
+      copyShareUrl,
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+    await user.click(
+      screen.getByRole("button", { name: "Share panel" }),
+    );
+
+    expect(copyShareUrl).toHaveBeenCalled();
+    expect(trackMock).toHaveBeenCalledWith("share_copy_url", { status: "success" });
   });
 
   it("focuses the tray search when pressing /", async () => {
