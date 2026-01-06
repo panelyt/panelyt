@@ -9,6 +9,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useCatalogSearch } from "@/hooks/useCatalogSearch";
 import { formatGroszToPln } from "@/lib/format";
 import { PasteCodesDialog } from "@/features/optimizer/PasteCodesDialog";
+import { SEARCH_PREFILL_EVENT } from "@/features/optimizer/search-events";
 
 interface SelectedBiomarker {
   code: string;
@@ -175,6 +176,23 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const handlePrefill = (event: Event) => {
+      const detail = (event as CustomEvent<{ code?: string }>).detail;
+      const next = detail?.code?.trim();
+      if (!next) {
+        return;
+      }
+      setQuery(next);
+      setPendingQuery(null);
+      setHighlightedIndex(-1);
+      inputRef.current?.focus();
+    };
+
+    window.addEventListener(SEARCH_PREFILL_EVENT, handlePrefill as EventListener);
+    return () => window.removeEventListener(SEARCH_PREFILL_EVENT, handlePrefill as EventListener);
   }, []);
 
   return (

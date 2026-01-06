@@ -11,6 +11,7 @@ import { PriceBreakdownSection } from "./price-breakdown";
 import { LabTabs } from "./lab-tabs";
 import { AddonSuggestionsCollapsible } from "./addon-suggestions-collapsible";
 import { buildOptimizationViewModel } from "./view-model";
+import { CoverageGaps } from "../../features/optimizer/CoverageGaps";
 
 export interface OptimizationResultsProps {
   selected: string[];
@@ -22,6 +23,8 @@ export interface OptimizationResultsProps {
   addonSuggestions?: OptimizeResponse["addon_suggestions"];
   addonSuggestionsLoading?: boolean;
   onApplyAddon?: (biomarkers: { code: string; name: string }[], packageName: string) => void;
+  onRemoveFromPanel?: (code: string) => void;
+  onSearchAlternative?: (code: string) => void;
 }
 
 export function OptimizationResults({
@@ -34,6 +37,8 @@ export function OptimizationResults({
   addonSuggestions = [],
   addonSuggestionsLoading = false,
   onApplyAddon,
+  onRemoveFromPanel,
+  onSearchAlternative,
 }: OptimizationResultsProps) {
   const t = useTranslations();
   const missingCodes = useMemo(() => {
@@ -104,6 +109,12 @@ export function OptimizationResults({
         isLoading={addonSuggestionsLoading}
         onApply={onApplyAddon}
         isDark={viewModel.isDark}
+      />
+      <CoverageGaps
+        uncovered={viewModel.coverage.uncoveredTokens}
+        displayNameFor={viewModel.displayNameFor}
+        onRemove={onRemoveFromPanel}
+        onSearchAlternative={onSearchAlternative}
       />
       <PriceBreakdownSection viewModel={viewModel} />
     </div>

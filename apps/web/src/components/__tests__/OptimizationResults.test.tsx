@@ -238,7 +238,7 @@ describe('OptimizationResults', () => {
     // Check coverage summary
   })
 
-  it('does not render coverage summary when there are uncovered biomarkers', () => {
+  it('renders coverage gaps when there are uncovered biomarkers', () => {
     const mockResult = makeOptimizeResponse({
       total_now: 10.0,
       total_min30: 9.5,
@@ -271,8 +271,11 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.queryByText('UNKNOWN_BIOMARKER')).not.toBeInTheDocument()
-    expect(screen.queryByText(/1 uncovered/)).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Coverage gaps' })).toBeInTheDocument()
+    expect(screen.getAllByText('UNKNOWN_BIOMARKER')).toHaveLength(2)
+    expect(
+      screen.getByText('1 biomarker cannot be covered by this lab'),
+    ).toBeInTheDocument()
   })
 
   it('highlights bonus biomarkers', () => {

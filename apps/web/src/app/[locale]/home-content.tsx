@@ -21,6 +21,7 @@ import { TemplateModal } from "../../components/template-modal";
 import { LoadMenu } from "../../components/load-menu";
 import { OptimizerLayout } from "../../features/optimizer/OptimizerLayout";
 import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
+import { dispatchSearchPrefill } from "../../features/optimizer/search-events";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 
@@ -282,6 +283,8 @@ function HomeContent() {
                   addonSuggestions={labOptimization.addonSuggestions}
                   addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
                   onApplyAddon={handleApplyAddon}
+                  onRemoveFromPanel={selection.handleRemove}
+                  onSearchAlternative={dispatchSearchPrefill}
                 />
               </>
             }
