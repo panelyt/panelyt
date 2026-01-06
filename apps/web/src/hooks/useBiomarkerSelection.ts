@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BiomarkerListTemplateSchema, type SavedList } from "@panelyt/types";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { getJson, extractErrorMessage } from "../lib/http";
 import { usePanelStore, type PanelBiomarker } from "../stores/panelStore";
@@ -56,6 +57,7 @@ export function useBiomarkerSelection(
   const remove = usePanelStore((state) => state.remove);
   const clearAll = usePanelStore((state) => state.clearAll);
   const replaceAll = usePanelStore((state) => state.replaceAll);
+  const undoLastRemoved = usePanelStore((state) => state.undoLastRemoved);
 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<SelectionNotice | null>(null);
@@ -84,9 +86,21 @@ export function useBiomarkerSelection(
 
   const handleRemove = useCallback(
     (code: string) => {
+      const removed = usePanelStore
+        .getState()
+        .selected.find((item) => item.code === code);
       remove(code);
+      if (removed) {
+        toast(t("selection.removed", { name: removed.name }), {
+          duration: 10_000,
+          action: {
+            label: t("selection.undo"),
+            onClick: () => undoLastRemoved(),
+          },
+        });
+      }
     },
-    [remove],
+    [remove, t, undoLastRemoved],
   );
 
   const handleClearAll = useCallback(() => {

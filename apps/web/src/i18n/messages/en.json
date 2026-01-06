@@ -85,7 +85,9 @@
   },
   "selection": {
     "alreadySelected": "All biomarkers from {name} are already selected.",
-    "addedFrom": "Added {count, plural, one {# biomarker} other {# biomarkers}} from {name}."
+    "addedFrom": "Added {count, plural, one {# biomarker} other {# biomarkers}} from {name}.",
+    "removed": "Removed {name}.",
+    "undo": "Undo"
   },
   "results": {
     "emptyState": "Start by adding biomarkers above. Panelyt will run the solver instantly and suggest the cheapest combination of single tests and packages, highlighting any bonus biomarkers you pick up along the way.",

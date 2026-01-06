@@ -85,7 +85,9 @@
   },
   "selection": {
     "alreadySelected": "Wszystkie biomarkery z {name} są już wybrane.",
-    "addedFrom": "Dodano {count, plural, one {# biomarker} few {# biomarkery} many {# biomarkerów} other {# biomarkerów}} z {name}."
+    "addedFrom": "Dodano {count, plural, one {# biomarker} few {# biomarkery} many {# biomarkerów} other {# biomarkerów}} z {name}.",
+    "removed": "Usunięto {name}.",
+    "undo": "Cofnij"
   },
   "results": {
     "emptyState": "Zacznij od dodania biomarkerów powyżej. Panelyt natychmiast uruchomi solver i zasugeruje najtańszą kombinację pojedynczych badań i pakietów, podświetlając bonusowe biomarkery, które otrzymasz w pakiecie.",

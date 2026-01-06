@@ -18,14 +18,21 @@ export interface OptimizationSummary {
   updatedAt: string;
 }
 
+interface LastRemovedSnapshot {
+  biomarker: PanelBiomarker;
+  removedAt: number;
+}
+
 interface PanelStoreState {
   selected: PanelBiomarker[];
   lastOptimizationSummary?: OptimizationSummary;
+  lastRemoved?: LastRemovedSnapshot;
   addOne: (biomarker: PanelBiomarker) => void;
   addMany: (biomarkers: PanelBiomarker[]) => void;
   remove: (code: string) => void;
   clearAll: () => void;
   replaceAll: (biomarkers: PanelBiomarker[]) => void;
+  undoLastRemoved: () => void;
 }
 
 const isValidBiomarker = (value: unknown): value is PanelBiomarker => {
@@ -132,11 +139,23 @@ const dedupeSelection = (biomarkers: PanelBiomarker[]): PanelBiomarker[] => {
   return result;
 };
 
+let lastRemovedTimeout: ReturnType<typeof setTimeout> | undefined;
+
+const scheduleLastRemovedClear = (set: (partial: Partial<PanelStoreState>) => void) => {
+  if (lastRemovedTimeout) {
+    clearTimeout(lastRemovedTimeout);
+  }
+  lastRemovedTimeout = setTimeout(() => {
+    set({ lastRemoved: undefined });
+  }, 10_000);
+};
+
 export const usePanelStore = create<PanelStoreState>()(
   persist(
     (set) => ({
       selected: [],
       lastOptimizationSummary: undefined,
+      lastRemoved: undefined,
       addOne: (biomarker) => {
         const code = biomarker.code.trim();
         if (!code) return;
@@ -165,14 +184,51 @@ export const usePanelStore = create<PanelStoreState>()(
         });
       },
       remove: (code) =>
-        set((state) => ({
-          selected: state.selected.filter((item) => item.code !== code),
-        })),
-      clearAll: () => set({ selected: [] }),
+        {
+          let removed: PanelBiomarker | undefined;
+          set((state) => {
+            removed = state.selected.find((item) => item.code === code);
+            if (!removed) {
+              return state;
+            }
+            return {
+              selected: state.selected.filter((item) => item.code !== code),
+              lastRemoved: { biomarker: removed, removedAt: Date.now() },
+            };
+          });
+          if (removed) {
+            scheduleLastRemovedClear(set);
+          }
+        },
+      clearAll: () => {
+        if (lastRemovedTimeout) {
+          clearTimeout(lastRemovedTimeout);
+        }
+        set({ selected: [], lastRemoved: undefined });
+      },
       replaceAll: (biomarkers) =>
         set({
           selected: dedupeSelection(biomarkers),
         }),
+      undoLastRemoved: () => {
+        if (lastRemovedTimeout) {
+          clearTimeout(lastRemovedTimeout);
+        }
+        set((state) => {
+          if (!state.lastRemoved) {
+            return state;
+          }
+          const { biomarker } = state.lastRemoved;
+          const alreadySelected = state.selected.some((item) => item.code === biomarker.code);
+          if (alreadySelected) {
+            return { lastRemoved: undefined };
+          }
+          return {
+            selected: [...state.selected, biomarker],
+            lastRemoved: undefined,
+          };
+        });
+      },
     }),
     {
       name: PANEL_STORAGE_KEY,

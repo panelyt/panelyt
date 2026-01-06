@@ -93,4 +93,43 @@ describe("panelStore", () => {
       { code: "ALT", name: "ALT" },
     ]);
   });
+
+  it("records lastRemoved and clears it after 10 seconds", () => {
+    vi.useFakeTimers();
+    usePanelStore.setState({
+      selected: [
+        { code: "ALT", name: "ALT" },
+        { code: "AST", name: "AST" },
+      ],
+    });
+
+    usePanelStore.getState().remove("ALT");
+
+    expect(usePanelStore.getState().lastRemoved?.biomarker).toEqual({
+      code: "ALT",
+      name: "ALT",
+    });
+
+    vi.advanceTimersByTime(10_000);
+
+    expect(usePanelStore.getState().lastRemoved).toBeUndefined();
+    vi.useRealTimers();
+  });
+
+  it("restores the last removed biomarker when undo is called", () => {
+    usePanelStore.setState({
+      selected: [
+        { code: "ALT", name: "ALT" },
+        { code: "AST", name: "AST" },
+      ],
+    });
+
+    usePanelStore.getState().remove("ALT");
+    usePanelStore.getState().undoLastRemoved();
+
+    expect(usePanelStore.getState().selected).toEqual([
+      { code: "AST", name: "AST" },
+      { code: "ALT", name: "ALT" },
+    ]);
+  });
 });
