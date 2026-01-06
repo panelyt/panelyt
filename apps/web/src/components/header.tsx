@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Link, usePathname } from "../i18n/navigation";
@@ -10,6 +10,13 @@ import { useAuthModal } from "../hooks/useAuthModal";
 import { AuthModal } from "./auth-modal";
 import { LanguageSwitcher } from "./language-switcher";
 import { PanelTray } from "../features/panel/PanelTray";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 
 interface HeaderProps {
   onAuthSuccess?: () => void;
@@ -76,26 +83,34 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               </div>
             ) : userSession?.registered ? (
-              <>
-                <Link
-                  href="/account"
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    pathname === "/account"
-                      ? "bg-slate-800 text-white"
-                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
-                  }`}
-                >
-                  {userSession.username}
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => void authModal.handleLogout()}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition hover:bg-slate-800/50 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={authModal.isLoggingOut}
-                >
-                  {authModal.isLoggingOut ? t("auth.signingOut") : t("auth.signOut")}
-                </button>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      pathname === "/account"
+                        ? "bg-slate-800 text-white"
+                        : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                    }`}
+                  >
+                    {userSession.username}
+                    <ChevronDown className="h-4 w-4" aria-hidden />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[10rem]">
+                  <DropdownMenuItem asChild>
+                    <Link href="/account">{t("nav.account")}</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => void authModal.handleLogout()}
+                    disabled={authModal.isLoggingOut}
+                    className="text-red-300 focus:text-red-200"
+                  >
+                    {authModal.isLoggingOut ? t("auth.signingOut") : t("auth.signOut")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <>
                 <button
