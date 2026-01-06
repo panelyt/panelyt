@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import CollectionsContent from "../collections-content";
 import enMessages from "../../../../i18n/messages/en.json";
 import plMessages from "../../../../i18n/messages/pl.json";
+import { usePanelStore } from "../../../../stores/panelStore";
 
 vi.mock("../../../../components/header", () => ({
   Header: () => <div data-testid="header" />,
@@ -125,6 +126,7 @@ describe("CollectionsContent", () => {
     pricingBySlug = {};
     updateMutation.mutateAsync.mockClear();
     deleteMutation.mutateAsync.mockClear();
+    usePanelStore.setState({ selected: [] });
   });
 
   it("hides inactive templates for non-admin users", () => {
@@ -251,5 +253,124 @@ describe("CollectionsContent", () => {
     expect(within(table).getByText(enMessages.collections.columnUpdated)).toBeInTheDocument();
     expect(within(table).getByText(enMessages.collections.columnBiomarkers)).toBeInTheDocument();
     expect(within(table).getByText(enMessages.collections.columnTotal)).toBeInTheDocument();
+  });
+
+  it("reveals a biomarker preview and overflow count when expanded", async () => {
+    templatesData = [
+      makeTemplate({
+        id: 12,
+        name: "Extended",
+        slug: "extended",
+        biomarkers: Array.from({ length: 12 }, (_, index) => ({
+          id: index + 1,
+          code: `B${index + 1}`,
+          display_name: `Biomarker ${index + 1}`,
+          sort_order: index,
+          biomarker: null,
+          notes: null,
+        })),
+      }),
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    const user = userEvent.setup();
+    const table = getTable();
+    await user.click(
+      within(table).getByRole("button", { name: enMessages.collections.expandRow }),
+    );
+
+    const details = document.getElementById("template-extended-details");
+    expect(details).not.toBeNull();
+    if (!details) return;
+
+    expect(within(details).getByText("Biomarker 1")).toBeInTheDocument();
+    expect(within(details).getByText("Biomarker 10")).toBeInTheDocument();
+    expect(within(details).queryByText("Biomarker 11")).not.toBeInTheDocument();
+    expect(
+      within(details).getByText(
+        enMessages.collections.moreBiomarkers.replace("{count}", "2"),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("appends biomarkers to the panel from the expanded actions", async () => {
+    templatesData = [
+      makeTemplate({
+        id: 13,
+        name: "Append Set",
+        slug: "append",
+        biomarkers: [
+          {
+            id: 1,
+            code: "ALT",
+            display_name: "ALT",
+            sort_order: 0,
+            biomarker: null,
+            notes: null,
+          },
+        ],
+      }),
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    const user = userEvent.setup();
+    const table = getTable();
+    await user.click(
+      within(table).getByRole("button", { name: enMessages.collections.expandRow }),
+    );
+
+    const details = document.getElementById("template-append-details");
+    expect(details).not.toBeNull();
+    if (!details) return;
+
+    await user.click(
+      within(details).getByRole("button", { name: enMessages.collections.addToPanel }),
+    );
+
+    expect(usePanelStore.getState().selected.map((item) => item.code)).toEqual(["ALT"]);
+  });
+
+  it("replaces the panel selection from the expanded actions", async () => {
+    templatesData = [
+      makeTemplate({
+        id: 14,
+        name: "Replace Set",
+        slug: "replace",
+        biomarkers: [
+          {
+            id: 1,
+            code: "AST",
+            display_name: "AST",
+            sort_order: 0,
+            biomarker: null,
+            notes: null,
+          },
+        ],
+      }),
+    ];
+
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "ALT" }],
+    });
+
+    renderWithIntl("en", enMessages);
+
+    const user = userEvent.setup();
+    const table = getTable();
+    await user.click(
+      within(table).getByRole("button", { name: enMessages.collections.expandRow }),
+    );
+
+    const details = document.getElementById("template-replace-details");
+    expect(details).not.toBeNull();
+    if (!details) return;
+
+    await user.click(
+      within(details).getByRole("button", { name: enMessages.collections.replacePanel }),
+    );
+
+    expect(usePanelStore.getState().selected.map((item) => item.code)).toEqual(["AST"]);
   });
 });

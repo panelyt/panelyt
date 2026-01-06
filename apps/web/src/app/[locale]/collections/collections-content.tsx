@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
+import { ArrowRight, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Link } from "../../../i18n/navigation";
@@ -17,6 +17,7 @@ import { useUserSession } from "../../../hooks/useUserSession";
 import { usePanelStore } from "../../../stores/panelStore";
 import { slugify } from "../../../lib/slug";
 import { Button, buttonVariants } from "../../../ui/button";
+import { IconButton } from "../../../ui/icon-button";
 import {
   Table,
   TableBody,
@@ -48,6 +49,7 @@ export default function CollectionsContent() {
   );
   const { pricingBySlug } = useTemplatePricing(templates);
   const addMany = usePanelStore((state) => state.addMany);
+  const replaceAll = usePanelStore((state) => state.replaceAll);
   const [adminError, setAdminError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalName, setModalName] = useState("");
@@ -64,6 +66,7 @@ export default function CollectionsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortOption>("updated");
   const [showInactive, setShowInactive] = useState(false);
+  const [expandedSlugs, setExpandedSlugs] = useState<string[]>([]);
 
   const dateFormatter = useMemo(
     () =>
@@ -165,6 +168,21 @@ export default function CollectionsContent() {
         code: entry.code,
         name: entry.display_name,
       })),
+    );
+  };
+
+  const handleReplacePanel = (template: (typeof templates)[number]) => {
+    replaceAll(
+      template.biomarkers.map((entry) => ({
+        code: entry.code,
+        name: entry.display_name,
+      })),
+    );
+  };
+
+  const toggleExpanded = (slug: string) => {
+    setExpandedSlugs((prev) =>
+      prev.includes(slug) ? prev.filter((value) => value !== slug) : [...prev, slug],
     );
   };
 
@@ -307,150 +325,272 @@ export default function CollectionsContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedTemplates.map((template) => (
-                    <TableRow key={template.id}>
-                      <TableCell className="align-top">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <h3 className="text-base font-semibold text-primary">
-                              {template.name}
-                            </h3>
-                            {!template.is_active ? (
-                              <span className="rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
-                                {t("collections.unpublished")}
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="text-sm text-secondary">
-                            {template.description ?? t("collections.noDescription")}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-secondary">
-                        {t("common.biomarkersCount", {
-                          count: template.biomarkers.length,
-                        })}
-                      </TableCell>
-                      <TableCell className="text-xs text-secondary">
-                        {formatUpdatedAt(template.updated_at)}
-                      </TableCell>
-                      <TableCell>
-                        <TemplatePriceSummary
-                          pricing={pricingBySlug[template.slug]}
-                          className="text-base"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-col items-end gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddToPanel(template)}
-                          >
-                            {t("collections.addToPanel")}
-                          </Button>
-                          <Link
-                            href={`/collections/${template.slug}`}
-                            className={cn(
-                              buttonVariants({ variant: "secondary", size: "sm" }),
-                              "inline-flex",
-                            )}
-                          >
-                            {t("collections.viewDetails")}
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Link>
-                          {isAdmin ? (
-                            <div className="flex flex-wrap items-center justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => openModalForTemplate(template)}
-                              >
-                                {t("common.edit")}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => void handleDeleteTemplate(template.slug, template.name)}
-                              >
-                                {t("common.delete")}
-                              </Button>
+                  {sortedTemplates.map((template) => {
+                    const isExpanded = expandedSlugs.includes(template.slug);
+                    const detailsId = `template-${template.slug}-details`;
+                    const preview = template.biomarkers.slice(0, 10);
+                    const remaining = template.biomarkers.length - preview.length;
+                    return (
+                      <Fragment key={template.id}>
+                        <TableRow>
+                          <TableCell className="align-top">
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-start justify-between gap-2">
+                                <h3 className="text-base font-semibold text-primary">
+                                  {template.name}
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                  {!template.is_active ? (
+                                    <span className="rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
+                                      {t("collections.unpublished")}
+                                    </span>
+                                  ) : null}
+                                  <IconButton
+                                    variant="secondary"
+                                    size="icon"
+                                    aria-label={
+                                      isExpanded
+                                        ? t("collections.collapseRow")
+                                        : t("collections.expandRow")
+                                    }
+                                    aria-expanded={isExpanded}
+                                    aria-controls={detailsId}
+                                    onClick={() => toggleExpanded(template.slug)}
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                                    )}
+                                  </IconButton>
+                                </div>
+                              </div>
+                              <p className="text-sm text-secondary">
+                                {template.description ?? t("collections.noDescription")}
+                              </p>
                             </div>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-secondary">
+                            {t("common.biomarkersCount", {
+                              count: template.biomarkers.length,
+                            })}
+                          </TableCell>
+                          <TableCell className="text-xs text-secondary">
+                            {formatUpdatedAt(template.updated_at)}
+                          </TableCell>
+                          <TableCell>
+                            <TemplatePriceSummary
+                              pricing={pricingBySlug[template.slug]}
+                              className="text-base"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex flex-col items-end gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleAddToPanel(template)}
+                              >
+                                {t("collections.addToPanel")}
+                              </Button>
+                              <Link
+                                href={`/collections/${template.slug}`}
+                                className={cn(
+                                  buttonVariants({ variant: "secondary", size: "sm" }),
+                                  "inline-flex",
+                                )}
+                              >
+                                {t("collections.viewDetails")}
+                                <ArrowRight className="h-3.5 w-3.5" />
+                              </Link>
+                              {isAdmin ? (
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => openModalForTemplate(template)}
+                                  >
+                                    {t("common.edit")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() =>
+                                      void handleDeleteTemplate(template.slug, template.name)
+                                    }
+                                  >
+                                    {t("common.delete")}
+                                  </Button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {isExpanded ? (
+                          <TableRow className="bg-surface-2/30">
+                            <TableCell colSpan={5}>
+                              <div id={detailsId} className="space-y-4">
+                                <div className="flex flex-wrap gap-2">
+                                  {preview.map((entry) => (
+                                    <span
+                                      key={entry.code}
+                                      className="inline-flex items-center gap-2 rounded-pill border border-border/70 bg-surface-2 px-3 py-1 text-xs"
+                                    >
+                                      <span className="font-medium text-primary">
+                                        {entry.display_name}
+                                      </span>
+                                      <span className="font-mono text-secondary">
+                                        {entry.code}
+                                      </span>
+                                    </span>
+                                  ))}
+                                  {remaining > 0 ? (
+                                    <span className="text-xs text-secondary">
+                                      {t("collections.moreBiomarkers", { count: remaining })}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAddToPanel(template)}
+                                  >
+                                    {t("collections.addToPanel")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleReplacePanel(template)}
+                                  >
+                                    {t("collections.replacePanel")}
+                                  </Button>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
 
             <div className="grid gap-4 md:hidden">
-              {sortedTemplates.map((template) => (
-                <div
-                  key={template.id}
-                  className="rounded-panel border border-border/70 bg-surface-1 px-5 py-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-semibold text-primary">
-                        {template.name}
-                      </h3>
-                      <p className="mt-1 text-sm text-secondary">
-                        {template.description ?? t("collections.noDescription")}
-                      </p>
+              {sortedTemplates.map((template) => {
+                const isExpanded = expandedSlugs.includes(template.slug);
+                const preview = template.biomarkers.slice(0, 10);
+                const remaining = template.biomarkers.length - preview.length;
+                return (
+                  <div
+                    key={template.id}
+                    className="rounded-panel border border-border/70 bg-surface-1 px-5 py-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-primary">
+                          {template.name}
+                        </h3>
+                        <p className="mt-1 text-sm text-secondary">
+                          {template.description ?? t("collections.noDescription")}
+                        </p>
+                      </div>
+                      <TemplatePriceSummary
+                        pricing={pricingBySlug[template.slug]}
+                        className="text-xl"
+                      />
                     </div>
-                    <TemplatePriceSummary
-                      pricing={pricingBySlug[template.slug]}
-                      className="text-xl"
-                    />
-                  </div>
-                  <p className="mt-3 text-xs text-secondary">
-                    {t("common.biomarkersCount", { count: template.biomarkers.length })}
-                    {" · "}
-                    {t("collections.updatedLabel", {
-                      date: formatUpdatedAt(template.updated_at),
-                    })}
-                  </p>
-                  {!template.is_active ? (
-                    <span className="mt-2 inline-flex rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
-                      {t("collections.unpublished")}
-                    </span>
-                  ) : null}
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button size="sm" onClick={() => handleAddToPanel(template)}>
-                      {t("collections.addToPanel")}
-                    </Button>
-                    <Link
-                      href={`/collections/${template.slug}`}
-                      className={cn(
-                        buttonVariants({ variant: "secondary", size: "sm" }),
-                        "inline-flex",
-                      )}
-                    >
-                      {t("collections.viewDetails")}
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                    {isAdmin ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => openModalForTemplate(template)}
-                        >
-                          {t("common.edit")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => void handleDeleteTemplate(template.slug, template.name)}
-                        >
-                          {t("common.delete")}
-                        </Button>
-                      </>
+                    <p className="mt-3 text-xs text-secondary">
+                      {t("common.biomarkersCount", { count: template.biomarkers.length })}
+                      {" · "}
+                      {t("collections.updatedLabel", {
+                        date: formatUpdatedAt(template.updated_at),
+                      })}
+                    </p>
+                    {!template.is_active ? (
+                      <span className="mt-2 inline-flex rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
+                        {t("collections.unpublished")}
+                      </span>
+                    ) : null}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button size="sm" onClick={() => handleAddToPanel(template)}>
+                        {t("collections.addToPanel")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => toggleExpanded(template.slug)}
+                      >
+                        {isExpanded
+                          ? t("collections.collapseRow")
+                          : t("collections.expandRow")}
+                      </Button>
+                      <Link
+                        href={`/collections/${template.slug}`}
+                        className={cn(
+                          buttonVariants({ variant: "secondary", size: "sm" }),
+                          "inline-flex",
+                        )}
+                      >
+                        {t("collections.viewDetails")}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                      {isAdmin ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => openModalForTemplate(template)}
+                          >
+                            {t("common.edit")}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() =>
+                              void handleDeleteTemplate(template.slug, template.name)
+                            }
+                          >
+                            {t("common.delete")}
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
+                    {isExpanded ? (
+                      <div className="mt-4 space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          {preview.map((entry) => (
+                            <span
+                              key={entry.code}
+                              className="inline-flex items-center gap-2 rounded-pill border border-border/70 bg-surface-2 px-3 py-1 text-xs"
+                            >
+                              <span className="font-medium text-primary">
+                                {entry.display_name}
+                              </span>
+                              <span className="font-mono text-secondary">
+                                {entry.code}
+                              </span>
+                            </span>
+                          ))}
+                          {remaining > 0 ? (
+                            <span className="text-xs text-secondary">
+                              {t("collections.moreBiomarkers", { count: remaining })}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleReplacePanel(template)}
+                          >
+                            {t("collections.replacePanel")}
+                          </Button>
+                        </div>
+                      </div>
                     ) : null}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}
