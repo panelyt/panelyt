@@ -69,11 +69,6 @@ export default function ListsContent() {
   const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
   const [bulkTarget, setBulkTarget] = useState<boolean | null>(null);
 
-  const shareOrigin = useMemo(
-    () => (typeof window === "undefined" ? "" : window.location.origin),
-    [],
-  );
-
   const formattedLists = useMemo(() => {
     const lists = rawLists ?? [];
     return lists.map((list) => {
@@ -183,8 +178,14 @@ export default function ListsContent() {
   );
 
   const buildShareUrl = useCallback(
-    (token: string) => (shareOrigin ? `${shareOrigin}${sharePath(token)}` : sharePath(token)),
-    [shareOrigin, sharePath],
+    (token: string) => {
+      const path = sharePath(token);
+      if (typeof window === "undefined") {
+        return path;
+      }
+      return `${window.location.origin}${path}`;
+    },
+    [sharePath],
   );
 
   const handleCopyShare = useCallback(
@@ -327,7 +328,7 @@ export default function ListsContent() {
 
   const buildListState = (item: ListWithTotals) => {
     const shareToken = item.list.share_token;
-    const shareLink = shareToken ? buildShareUrl(shareToken) : null;
+    const shareLink = shareToken ? sharePath(shareToken) : null;
     const isSharePending = shareMutation.isPending && shareActionId === item.list.id;
     const isUnsharePending = unshareMutation.isPending && unshareActionId === item.list.id;
     const notifyPending =

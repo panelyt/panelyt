@@ -125,7 +125,7 @@ describe("ListsContent", () => {
 
     renderWithIntl("en", enMessages);
 
-    const expectedUrl = `${window.location.origin}/en/collections/shared/token-123`;
+    const expectedUrl = "/en/collections/shared/token-123";
     const links = await screen.findAllByText(expectedUrl);
     expect(links.length).toBeGreaterThan(0);
   });
