@@ -373,4 +373,52 @@ describe("CollectionsContent", () => {
 
     expect(usePanelStore.getState().selected.map((item) => item.code)).toEqual(["AST"]);
   });
+
+  it("opens the edit dialog from the admin menu", async () => {
+    sessionData = { is_admin: true };
+    templatesData = [
+      makeTemplate({ id: 15, name: "Admin Template", slug: "admin-template" }),
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    const user = userEvent.setup();
+    const table = getTable();
+    await user.click(
+      within(table).getByRole("button", { name: enMessages.collections.adminMenu }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: enMessages.common.edit }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(enMessages.templateModal.editTemplate)).toBeInTheDocument();
+  });
+
+  it("confirms deletions via a dialog before calling the delete mutation", async () => {
+    sessionData = { is_admin: true };
+    templatesData = [
+      makeTemplate({ id: 16, name: "Delete Me", slug: "delete-me" }),
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    const user = userEvent.setup();
+    const table = getTable();
+    await user.click(
+      within(table).getByRole("button", { name: enMessages.collections.adminMenu }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: enMessages.common.delete }));
+
+    const confirmText = enMessages.templateModal.deleteConfirm.replace(
+      "{name}",
+      "Delete Me",
+    );
+    expect(screen.getByText(confirmText)).toBeInTheDocument();
+
+    const dialog = screen.getByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: enMessages.common.delete }),
+    );
+
+    expect(deleteMutation.mutateAsync).toHaveBeenCalledWith("delete-me");
+  });
 });

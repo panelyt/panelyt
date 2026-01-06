@@ -1,7 +1,13 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  MoreHorizontal,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Link } from "../../../i18n/navigation";
@@ -17,7 +23,20 @@ import { useUserSession } from "../../../hooks/useUserSession";
 import { usePanelStore } from "../../../stores/panelStore";
 import { slugify } from "../../../lib/slug";
 import { Button, buttonVariants } from "../../../ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../../ui/dropdown-menu";
 import { IconButton } from "../../../ui/icon-button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "../../../ui/dialog";
 import {
   Table,
   TableBody,
@@ -63,6 +82,10 @@ export default function CollectionsContent() {
   const [modalBiomarkers, setModalBiomarkers] = useState<
     { code: string; display_name: string; notes: string | null }[]
   >([]);
+  const [deleteTarget, setDeleteTarget] = useState<{ slug: string; name: string } | null>(
+    null,
+  );
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortOption>("updated");
   const [showInactive, setShowInactive] = useState(false);
@@ -147,18 +170,23 @@ export default function CollectionsContent() {
     }
   };
 
-  const handleDeleteTemplate = async (slug: string, name: string) => {
-    if (typeof window !== "undefined") {
-      const confirmed = window.confirm(t("templateModal.deleteConfirm", { name }));
-      if (!confirmed) {
-        return;
-      }
+  const openDeleteDialog = (slug: string, name: string) => {
+    setDeleteTarget({ slug, name });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) {
+      return;
     }
+    setDeleteSubmitting(true);
     try {
-      await templateAdmin.deleteMutation.mutateAsync(slug);
+      await templateAdmin.deleteMutation.mutateAsync(deleteTarget.slug);
       setAdminError(null);
+      setDeleteTarget(null);
     } catch (error) {
       setAdminError(error instanceof Error ? error.message : t("errors.failedToDelete"));
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -403,24 +431,32 @@ export default function CollectionsContent() {
                                 <ArrowRight className="h-3.5 w-3.5" />
                               </Link>
                               {isAdmin ? (
-                                <div className="flex flex-wrap items-center justify-end gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => openModalForTemplate(template)}
-                                  >
-                                    {t("common.edit")}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() =>
-                                      void handleDeleteTemplate(template.slug, template.name)
-                                    }
-                                  >
-                                    {t("common.delete")}
-                                  </Button>
-                                </div>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <IconButton
+                                      variant="secondary"
+                                      size="icon"
+                                      aria-label={t("collections.adminMenu")}
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                                    </IconButton>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onSelect={() => openModalForTemplate(template)}
+                                    >
+                                      {t("common.edit")}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={() =>
+                                        openDeleteDialog(template.slug, template.name)
+                                      }
+                                      className="text-accent-red"
+                                    >
+                                      {t("common.delete")}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               ) : null}
                             </div>
                           </TableCell>
@@ -535,24 +571,28 @@ export default function CollectionsContent() {
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Link>
                       {isAdmin ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => openModalForTemplate(template)}
-                          >
-                            {t("common.edit")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() =>
-                              void handleDeleteTemplate(template.slug, template.name)
-                            }
-                          >
-                            {t("common.delete")}
-                          </Button>
-                        </>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <IconButton
+                              variant="secondary"
+                              size="icon"
+                              aria-label={t("collections.adminMenu")}
+                            >
+                              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                            </IconButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => openModalForTemplate(template)}>
+                              {t("common.edit")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => openDeleteDialog(template.slug, template.name)}
+                              className="text-accent-red"
+                            >
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       ) : null}
                     </div>
                     {isExpanded ? (
@@ -595,6 +635,34 @@ export default function CollectionsContent() {
           </>
         )}
       </section>
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogTitle>{t("common.delete")}</DialogTitle>
+          <DialogDescription className="mt-2">
+            {t("templateModal.deleteConfirm", { name: deleteTarget?.name ?? "" })}
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="secondary">{t("common.cancel")}</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              loading={deleteSubmitting}
+              onClick={() => void handleDeleteConfirm()}
+            >
+              {t("common.delete")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <TemplateModal
         open={isAdmin && isModalOpen}

@@ -187,6 +187,7 @@
     "columnActions": "Actions",
     "updatedLabel": "Updated {date}",
     "addToPanel": "Add to panel",
+    "adminMenu": "Template actions",
     "replacePanel": "Replace panel",
     "expandRow": "Show biomarkers",
     "collapseRow": "Hide biomarkers",

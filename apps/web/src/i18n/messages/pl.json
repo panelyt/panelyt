@@ -187,6 +187,7 @@
     "columnActions": "Akcje",
     "updatedLabel": "Zaktualizowano {date}",
     "addToPanel": "Dodaj do panelu",
+    "adminMenu": "Akcje szablonu",
     "replacePanel": "Zastąp panel",
     "expandRow": "Pokaż biomarkery",
     "collapseRow": "Ukryj biomarkery",
