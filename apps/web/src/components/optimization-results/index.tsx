@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
 import { CircleAlert, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { useBiomarkerLookup } from "../../hooks/useBiomarkerLookup";
+import { track, consumeTtorDuration } from "../../lib/analytics";
 import type { LabChoiceCard } from "./types";
 import { PriceBreakdownSection } from "./price-breakdown";
 import { LabTabs } from "./lab-tabs";
@@ -68,6 +69,40 @@ export function OptimizationResults({
         : null,
     [selected, result, variant, biomarkerLabels],
   );
+
+  const lastEventKeyRef = useRef<string | null>(null);
+  const labChoice = useMemo(() => {
+    if (!result) return "";
+    if (result.mode === "split") return "split";
+    return result.lab_code || result.lab_name || result.mode || "auto";
+  }, [result]);
+  const uncoveredCount = result?.uncovered?.length ?? 0;
+  const eventKey = useMemo(() => {
+    if (!result) return null;
+    return [labChoice, result.total_now, uncoveredCount, selected.join(",")].join("|");
+  }, [labChoice, result, selected, uncoveredCount]);
+
+  useEffect(() => {
+    if (!result || isLoading || error || selected.length === 0) {
+      return;
+    }
+    if (!eventKey || lastEventKeyRef.current === eventKey) {
+      return;
+    }
+    lastEventKeyRef.current = eventKey;
+    const ttorMs = consumeTtorDuration();
+    const payload: Record<string, number | string> = {
+      labChoice,
+      total: result.total_now,
+      uncoveredCount,
+    };
+    if (ttorMs !== null) {
+      payload.ttorMs = ttorMs;
+    }
+    track("optimize_result_rendered", {
+      ...payload,
+    });
+  }, [eventKey, error, isLoading, labChoice, result, selected.length, uncoveredCount]);
 
   if (selected.length === 0) {
     return (

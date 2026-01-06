@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { Sparkles } from 'lucide-react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
@@ -6,10 +6,16 @@ import type { OptimizeResponse } from '@panelyt/types'
 import type { ReactNode } from 'react'
 import { renderWithQueryClient } from '../../test/utils'
 import plMessages from '../../i18n/messages/pl.json'
+import { track, consumeTtorDuration } from '../../lib/analytics'
 
 // Mock the hooks
 vi.mock('../../hooks/useBiomarkerLookup', () => ({
   useBiomarkerLookup: vi.fn(),
+}))
+
+vi.mock('../../lib/analytics', () => ({
+  track: vi.fn(),
+  consumeTtorDuration: vi.fn(),
 }))
 
 vi.mock('../../lib/format', () => ({
@@ -20,6 +26,8 @@ vi.mock('../../lib/format', () => ({
 import { useBiomarkerLookup } from '../../hooks/useBiomarkerLookup'
 
 const mockUseBiomarkerLookup = vi.mocked(useBiomarkerLookup)
+const trackMock = vi.mocked(track)
+const consumeTtorDurationMock = vi.mocked(consumeTtorDuration)
 
 const createLookupResult = (
   overrides: Partial<ReturnType<typeof useBiomarkerLookup>>,
@@ -91,6 +99,8 @@ const makeOptimizeResponse = (
 describe('OptimizationResults', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    trackMock.mockClear()
+    consumeTtorDurationMock.mockReset()
     mockUseBiomarkerLookup.mockReturnValue(
       createLookupResult({
         data: {
@@ -100,6 +110,45 @@ describe('OptimizationResults', () => {
         },
       }),
     )
+  })
+
+  it('tracks optimize_result_rendered events with summary payload', async () => {
+    consumeTtorDurationMock.mockReturnValueOnce(1500)
+    const result = makeOptimizeResponse({
+      total_now: 25,
+      lab_code: 'diag',
+      uncovered: ['ALT', 'AST'],
+      items: [
+        {
+          id: 1,
+          kind: 'single',
+          name: 'ALT',
+          price_now_grosz: 1000,
+          price_min30_grosz: 900,
+          biomarkers: ['ALT'],
+          on_sale: false,
+          url: 'https://example.com/alt',
+        },
+      ],
+    })
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT', 'AST']}
+        result={result}
+        isLoading={false}
+        error={null}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(trackMock).toHaveBeenCalledWith('optimize_result_rendered', {
+        labChoice: 'diag',
+        total: 25,
+        uncoveredCount: 2,
+        ttorMs: 1500,
+      })
+    })
   })
 
   it('shows empty state when no biomarkers are selected', () => {

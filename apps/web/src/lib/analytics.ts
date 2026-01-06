@@ -4,6 +4,8 @@ type UmamiTracker = {
   track: (eventName: string, payload?: AnalyticsPayload) => void;
 };
 
+let ttorStartAt: number | null = null;
+
 export function track(eventName: string, payload?: AnalyticsPayload) {
   if (typeof window === "undefined") {
     return;
@@ -19,4 +21,26 @@ export function track(eventName: string, payload?: AnalyticsPayload) {
   } else {
     umami.track(eventName);
   }
+}
+
+export function markTtorStart() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (ttorStartAt === null) {
+    ttorStartAt = Date.now();
+  }
+}
+
+export function resetTtorStart() {
+  ttorStartAt = null;
+}
+
+export function consumeTtorDuration(): number | null {
+  if (ttorStartAt === null) {
+    return null;
+  }
+  const duration = Math.max(0, Date.now() - ttorStartAt);
+  ttorStartAt = null;
+  return duration;
 }

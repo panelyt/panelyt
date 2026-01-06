@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { track } from "../analytics";
+import { track, markTtorStart, resetTtorStart, consumeTtorDuration } from "../analytics";
 
 describe("track", () => {
   afterEach(() => {
@@ -9,6 +9,7 @@ describe("track", () => {
     }
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    resetTtorStart();
   });
 
   it("no-ops during SSR when window is undefined", () => {
@@ -43,5 +44,36 @@ describe("track", () => {
     track("panel_added");
 
     expect(trackMock).toHaveBeenCalledWith("panel_added");
+  });
+});
+
+describe("TTOR helpers", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetTtorStart();
+  });
+
+  it("returns null when no TTOR start exists", () => {
+    expect(consumeTtorDuration()).toBeNull();
+  });
+
+  it("records and consumes TTOR duration", () => {
+    vi.spyOn(Date, "now")
+      .mockReturnValueOnce(1_000)
+      .mockReturnValueOnce(2_500);
+
+    markTtorStart();
+
+    expect(consumeTtorDuration()).toBe(1_500);
+    expect(consumeTtorDuration()).toBeNull();
+  });
+
+  it("resets TTOR state explicitly", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+
+    markTtorStart();
+    resetTtorStart();
+
+    expect(consumeTtorDuration()).toBeNull();
   });
 });
