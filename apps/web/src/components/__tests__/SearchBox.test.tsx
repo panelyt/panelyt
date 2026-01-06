@@ -65,7 +65,9 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    expect(
+      screen.getByRole('combobox', { name: 'Search biomarkers to add...' }),
+    ).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Search biomarkers to add...')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add to panel' })).toBeInTheDocument()
   })
