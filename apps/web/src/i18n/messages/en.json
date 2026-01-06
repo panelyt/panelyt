@@ -212,6 +212,7 @@
     "includedMarkers": "Included markers",
     "matchedBiomarker": "Matched biomarker",
     "latestPricing": "Latest pricing",
+    "openOptimizer": "Open Optimizer",
     "pricingDescription": "The optimizer runs automatically against diag.pl prices. Adjust the template in the main app to explore alternatives."
   },
   "optimization": {

@@ -212,6 +212,7 @@
     "includedMarkers": "Zawarte markery",
     "matchedBiomarker": "Dopasowany biomarker",
     "latestPricing": "Aktualne ceny",
+    "openOptimizer": "Otwórz optymalizator",
     "pricingDescription": "Optymalizator automatycznie przelicza ceny z diag.pl. Dostosuj szablon w głównej aplikacji, aby sprawdzić alternatywy."
   },
   "optimization": {
