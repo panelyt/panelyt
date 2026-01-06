@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Sparkles, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -28,6 +29,36 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
     pricing,
     overlaps,
   } = viewModel;
+
+  const [isHighlighting, setIsHighlighting] = useState(false);
+  const previousTotalRef = useRef<number | null>(null);
+  const highlightTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const previousTotal = previousTotalRef.current;
+    if (previousTotal === null) {
+      previousTotalRef.current = result.total_now;
+      return;
+    }
+
+    if (previousTotal !== result.total_now) {
+      previousTotalRef.current = result.total_now;
+      setIsHighlighting(true);
+      if (highlightTimerRef.current !== null) {
+        window.clearTimeout(highlightTimerRef.current);
+      }
+      highlightTimerRef.current = window.setTimeout(() => {
+        setIsHighlighting(false);
+      }, 200);
+    }
+
+    return () => {
+      if (highlightTimerRef.current !== null) {
+        window.clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = null;
+      }
+    };
+  }, [result.total_now]);
 
   // Create a map of biomarker code -> other packages it appears in
   const overlapMap = new Map<string, string[]>();
@@ -224,9 +255,12 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
 
       {/* Total and savings footer */}
       <div
-        className={`mt-6 border-t pt-4 ${
-          isDark ? "border-border/70" : "border-slate-200"
-        }`}
+        data-testid="price-breakdown-total"
+        className={cn(
+          "mt-6 rounded-xl border-t pt-4 transition-colors duration-200 motion-reduce:transition-none",
+          isDark ? "border-border/70" : "border-slate-200",
+          isHighlighting && "bg-accent-cyan/10 ring-1 ring-accent-cyan/40 shadow-selected",
+        )}
       >
         <div className="flex items-center justify-between">
           <span
