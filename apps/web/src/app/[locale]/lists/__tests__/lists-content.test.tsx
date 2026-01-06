@@ -1,12 +1,15 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Toaster } from "sonner";
 
 import ListsContent from "../lists-content";
 import enMessages from "../../../../i18n/messages/en.json";
 import plMessages from "../../../../i18n/messages/pl.json";
+import { usePanelStore } from "../../../../stores/panelStore";
+import { useRouter } from "../../../../i18n/navigation";
 
 vi.mock("../../../../components/header", () => ({
   Header: () => <div data-testid="header" />,
@@ -18,6 +21,17 @@ vi.mock("../../../../hooks/useUserSession", () => ({
 
 vi.mock("../../../../hooks/useAccountSettings", () => ({
   useAccountSettings: () => ({ settingsQuery: { data: { telegram: { chat_id: "123" } } } }),
+}));
+
+vi.mock("../../../../i18n/navigation", () => ({
+  Link: ({ href, children, ...props }: { href: string; children: ReactNode }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+  getPathname: ({ href, locale }: { href: string; locale?: string }) =>
+    locale ? `/${locale}${href}` : href,
+  useRouter: vi.fn(),
 }));
 
 let listsData: Array<{
@@ -55,6 +69,18 @@ vi.mock("../../../../hooks/useSavedLists", () => ({
   useSavedLists: () => buildSavedLists(),
 }));
 
+const useRouterMock = vi.mocked(useRouter);
+type Router = ReturnType<typeof useRouter>;
+const createRouter = (overrides: Partial<Router> = {}): Router => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+  back: vi.fn(),
+  forward: vi.fn(),
+  refresh: vi.fn(),
+  prefetch: vi.fn(),
+  ...overrides,
+});
+
 const renderWithIntl = (
   locale: "en" | "pl",
   messages: typeof enMessages | typeof plMessages,
@@ -74,6 +100,11 @@ const renderWithIntl = (
   );
 
 describe("ListsContent", () => {
+  beforeEach(() => {
+    useRouterMock.mockReturnValue(createRouter());
+    usePanelStore.setState({ selected: [] });
+  });
+
   it("includes locale prefix in shared list links", async () => {
     listsData = [
       {
@@ -273,5 +304,61 @@ describe("ListsContent", () => {
     await user.click(within(table).getByRole("button", { name: "Copy link" }));
 
     expect(await screen.findByText("Share link copied.")).toBeInTheDocument();
+  });
+
+  it("loads a list into the panel and navigates home", async () => {
+    listsData = [
+      {
+        id: "list-8",
+        name: "Optimizer list",
+        biomarkers: [
+          {
+            id: "bio-2",
+            code: "ALT",
+            display_name: "ALT",
+            sort_order: 0,
+            biomarker_id: "bio-2",
+            created_at: "",
+          },
+          {
+            id: "bio-3",
+            code: "AST",
+            display_name: "AST",
+            sort_order: 1,
+            biomarker_id: "bio-3",
+            created_at: "",
+          },
+        ],
+        created_at: "",
+        updated_at: "2024-01-01T10:00:00Z",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    const push = vi.fn();
+    useRouterMock.mockReturnValue(createRouter({ push }));
+
+    const user = userEvent.setup();
+
+    renderWithIntl("en", enMessages);
+
+    await user.click(
+      screen.getByRole("button", { name: "Actions for Optimizer list" }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Load in optimizer" }),
+    );
+
+    expect(usePanelStore.getState().selected).toEqual([
+      { code: "ALT", name: "ALT" },
+      { code: "AST", name: "AST" },
+    ]);
+    expect(push).toHaveBeenCalledWith("/");
   });
 });

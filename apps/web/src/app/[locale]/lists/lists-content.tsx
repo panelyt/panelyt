@@ -21,6 +21,7 @@ import { Header } from "../../../components/header";
 import { useSavedLists } from "../../../hooks/useSavedLists";
 import { useUserSession } from "../../../hooks/useUserSession";
 import { useAccountSettings } from "../../../hooks/useAccountSettings";
+import { usePanelStore } from "../../../stores/panelStore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +63,7 @@ export default function ListsContent() {
   const rawLists = savedLists.listsQuery.data;
   const locale = useLocale();
   const router = useRouter();
+  const replaceAll = usePanelStore((state) => state.replaceAll);
   const [error, setError] = useState<ReactNode | null>(null);
   const [shareActionId, setShareActionId] = useState<string | null>(null);
   const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
@@ -347,6 +349,19 @@ export default function ListsContent() {
     };
   };
 
+  const handleLoadInOptimizer = useCallback(
+    (list: SavedList) => {
+      replaceAll(
+        list.biomarkers.map((entry) => ({
+          code: entry.code,
+          name: entry.display_name || entry.code,
+        })),
+      );
+      router.push("/");
+    },
+    [replaceAll, router],
+  );
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <Header />
@@ -574,12 +589,7 @@ export default function ListsContent() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                  onClick={() =>
-                                    router.push({
-                                      pathname: "/",
-                                      query: { list: item.list.id },
-                                    })
-                                  }
+                                  onClick={() => handleLoadInOptimizer(item.list)}
                                 >
                                   {t("lists.loadInOptimizer")}
                                 </DropdownMenuItem>
@@ -702,12 +712,7 @@ export default function ListsContent() {
                             type="button"
                             variant="secondary"
                             size="sm"
-                            onClick={() =>
-                              router.push({
-                                pathname: "/",
-                                query: { list: item.list.id },
-                              })
-                            }
+                            onClick={() => handleLoadInOptimizer(item.list)}
                           >
                             {t("lists.loadInOptimizer")}
                           </Button>
