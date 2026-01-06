@@ -118,13 +118,13 @@ dev-bot:
 	cd apps/telegram-bot && $(UV_ENV) $(UV) run panelyt-telegram-bot
 
 lint-api:
-	cd apps/api && $(UV_ENV) $(UV) run ruff check src
+	cd apps/api && $(UV_ENV) $(UV) run --extra dev ruff check src
 
 fmt-api:
-	cd apps/api && $(UV_ENV) $(UV) run ruff check src --fix
+	cd apps/api && $(UV_ENV) $(UV) run --extra dev ruff check src --fix
 
 test-api:
-	cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" $(UV_ENV) $(UV) run pytest
+	cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" $(UV_ENV) $(UV) run --extra dev pytest
 
 migrate-api:
 	cd apps/api && $(UV_ENV) $(UV) run alembic upgrade head
@@ -139,7 +139,7 @@ docker-down:
 	cd infra && docker compose down
 
 typecheck-api:
-	cd apps/api && $(UV_ENV) $(UV) run mypy src
+	cd apps/api && $(UV_ENV) $(UV) run --extra dev mypy src
 
 lint-web:
 	cd apps/web && $(PNPM) lint
@@ -151,10 +151,10 @@ test-web:
 	cd apps/web && $(PNPM) --filter @panelyt/web test:run
 
 lint-bot:
-	cd apps/telegram-bot && $(UV_ENV) $(UV) run ruff check src
+	cd apps/telegram-bot && $(UV_ENV) $(UV) run --extra dev ruff check src
 
 typecheck-bot:
-	cd apps/telegram-bot && $(UV_ENV) $(UV) run mypy src
+	cd apps/telegram-bot && $(UV_ENV) $(UV) run --extra dev mypy src
 
 check:
 	@$(MAKE) verify
