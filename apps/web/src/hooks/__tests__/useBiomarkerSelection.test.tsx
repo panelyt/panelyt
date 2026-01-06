@@ -5,8 +5,18 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 import { useBiomarkerSelection } from '../useBiomarkerSelection'
 import plMessages from '../../i18n/messages/pl.json'
+import { usePanelStore, PANEL_STORAGE_KEY } from '../../stores/panelStore'
 
-const STORAGE_KEY = 'panelyt:selected-biomarkers'
+const readPersistedSelection = () => {
+  const raw = sessionStorage.getItem(PANEL_STORAGE_KEY)
+  if (!raw) return null
+  const parsed = JSON.parse(raw)
+  if (Array.isArray(parsed)) return parsed
+  if (parsed && typeof parsed === 'object' && 'state' in parsed) {
+    return parsed.state?.selected ?? null
+  }
+  return null
+}
 
 const createWrapper = () => {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -18,13 +28,29 @@ const createWrapper = () => {
   }
 }
 
+const rehydrateStore = async () => {
+  await act(async () => {
+    await usePanelStore.persist.rehydrate()
+  })
+}
+
+const resetStore = async () => {
+  await act(async () => {
+    usePanelStore.setState({ selected: [], lastOptimizationSummary: undefined })
+  })
+  usePanelStore.persist.clearStorage()
+}
+
 describe('useBiomarkerSelection', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     sessionStorage.clear()
+    await resetStore()
+    await rehydrateStore()
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     sessionStorage.clear()
+    await resetStore()
   })
 
   it('uses Polish notices when addons add no new biomarkers', () => {
@@ -53,18 +79,16 @@ describe('useBiomarkerSelection', () => {
         result.current.handleSelect({ code: 'ALT', name: 'ALT' })
       })
 
-      const stored = sessionStorage.getItem(STORAGE_KEY)
-      expect(stored).not.toBeNull()
-      const parsed = JSON.parse(stored!)
-      expect(parsed).toEqual([{ code: 'ALT', name: 'ALT' }])
+      expect(readPersistedSelection()).toEqual([{ code: 'ALT', name: 'ALT' }])
     })
 
-    it('restores selection from sessionStorage on mount', () => {
+    it('restores selection from sessionStorage on mount', async () => {
       const existingSelection = [
         { code: 'ALT', name: 'ALT' },
         { code: 'AST', name: 'AST' },
       ]
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(existingSelection))
+      sessionStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(existingSelection))
+      await rehydrateStore()
 
       const wrapper = createWrapper()
       const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
@@ -72,7 +96,7 @@ describe('useBiomarkerSelection', () => {
       expect(result.current.selected).toEqual(existingSelection)
     })
 
-    it('survives component remount (simulating locale switch)', () => {
+    it('survives component remount (simulating locale switch)', async () => {
       const wrapper = createWrapper()
 
       // First mount: add some biomarkers
@@ -87,6 +111,7 @@ describe('useBiomarkerSelection', () => {
 
       // Unmount (simulating locale switch causing remount)
       unmount()
+      await rehydrateStore()
 
       // Second mount: should restore from storage
       const { result: result2 } = renderHook(() => useBiomarkerSelection(), { wrapper })
@@ -97,8 +122,9 @@ describe('useBiomarkerSelection', () => {
       ])
     })
 
-    it('handles invalid JSON in sessionStorage gracefully', () => {
-      sessionStorage.setItem(STORAGE_KEY, 'not valid json')
+    it('handles invalid JSON in sessionStorage gracefully', async () => {
+      sessionStorage.setItem(PANEL_STORAGE_KEY, 'not valid json')
+      await rehydrateStore()
 
       const wrapper = createWrapper()
       const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
@@ -106,8 +132,9 @@ describe('useBiomarkerSelection', () => {
       expect(result.current.selected).toEqual([])
     })
 
-    it('handles non-array data in sessionStorage gracefully', () => {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ foo: 'bar' }))
+    it('handles non-array data in sessionStorage gracefully', async () => {
+      sessionStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify({ foo: 'bar' }))
+      await rehydrateStore()
 
       const wrapper = createWrapper()
       const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
@@ -115,7 +142,7 @@ describe('useBiomarkerSelection', () => {
       expect(result.current.selected).toEqual([])
     })
 
-    it('filters out malformed entries from sessionStorage', () => {
+    it('filters out malformed entries from sessionStorage', async () => {
       const mixedData = [
         { code: 'ALT', name: 'ALT' }, // valid
         { code: 123, name: 'Invalid' }, // invalid code type
@@ -123,7 +150,8 @@ describe('useBiomarkerSelection', () => {
         null, // null entry
         { code: 'AST', name: 'AST' }, // valid
       ]
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(mixedData))
+      sessionStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(mixedData))
+      await rehydrateStore()
 
       const wrapper = createWrapper()
       const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
@@ -134,14 +162,15 @@ describe('useBiomarkerSelection', () => {
       ])
     })
 
-    it('updates sessionStorage when biomarkers are removed', () => {
+    it('updates sessionStorage when biomarkers are removed', async () => {
       sessionStorage.setItem(
-        STORAGE_KEY,
+        PANEL_STORAGE_KEY,
         JSON.stringify([
           { code: 'ALT', name: 'ALT' },
           { code: 'AST', name: 'AST' },
-        ])
+        ]),
       )
+      await rehydrateStore()
 
       const wrapper = createWrapper()
       const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
@@ -150,8 +179,7 @@ describe('useBiomarkerSelection', () => {
         result.current.handleRemove('ALT')
       })
 
-      const stored = sessionStorage.getItem(STORAGE_KEY)
-      expect(JSON.parse(stored!)).toEqual([{ code: 'AST', name: 'AST' }])
+      expect(readPersistedSelection()).toEqual([{ code: 'AST', name: 'AST' }])
     })
   })
 })

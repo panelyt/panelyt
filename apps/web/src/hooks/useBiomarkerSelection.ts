@@ -1,49 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  BiomarkerListTemplateSchema,
-  type SavedList,
-} from "@panelyt/types";
+import { useCallback, useEffect, useState } from "react";
+import { BiomarkerListTemplateSchema, type SavedList } from "@panelyt/types";
 import { useTranslations } from "next-intl";
 
 import { getJson, extractErrorMessage } from "../lib/http";
+import { usePanelStore, type PanelBiomarker } from "../stores/panelStore";
 
-const STORAGE_KEY = "panelyt:selected-biomarkers";
-
-function loadFromStorage(): SelectedBiomarker[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return [];
-    // Validate structure
-    return parsed.filter(
-      (item): item is SelectedBiomarker =>
-        typeof item === "object" &&
-        item !== null &&
-        typeof item.code === "string" &&
-        typeof item.name === "string"
-    );
-  } catch {
-    return [];
-  }
-}
-
-function saveToStorage(biomarkers: SelectedBiomarker[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(biomarkers));
-  } catch {
-    // Ignore storage errors (quota exceeded, etc.)
-  }
-}
-
-export interface SelectedBiomarker {
-  code: string;
-  name: string;
-}
+export type SelectedBiomarker = PanelBiomarker;
 
 export interface SelectionNotice {
   tone: "success" | "info";
@@ -71,6 +35,7 @@ export interface UseBiomarkerSelectionResult {
     packageName: string,
   ) => void;
   handleLoadList: (list: SavedList) => void;
+  replaceAll: (biomarkers: SelectedBiomarker[]) => void;
   setSelected: React.Dispatch<React.SetStateAction<SelectedBiomarker[]>>;
   setError: (error: string | null) => void;
   setNotice: (notice: SelectionNotice | null) => void;
@@ -84,21 +49,14 @@ export function useBiomarkerSelection(
   const t = useTranslations();
   const { onSelectionChange } = options;
 
-  const [selected, setSelected] = useState<SelectedBiomarker[]>(loadFromStorage);
+  const selected = usePanelStore((state) => state.selected);
+  const addOne = usePanelStore((state) => state.addOne);
+  const addMany = usePanelStore((state) => state.addMany);
+  const remove = usePanelStore((state) => state.remove);
+  const replaceAll = usePanelStore((state) => state.replaceAll);
+
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<SelectionNotice | null>(null);
-
-  // Track if this is the initial mount to avoid saving on hydration
-  const isInitialMount = useRef(true);
-
-  // Persist selection to sessionStorage whenever it changes
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    saveToStorage(selected);
-  }, [selected]);
 
   // Derived values
   const biomarkerCodes = selected.map((b) => b.code);
@@ -113,20 +71,21 @@ export function useBiomarkerSelection(
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const handleSelect = useCallback((biomarker: SelectedBiomarker) => {
-    setSelected((current) => {
-      const normalized = biomarker.code.trim();
-      if (!normalized) return current;
-      if (current.some((b) => b.code === normalized)) return current;
-      return [...current, { code: normalized, name: biomarker.name }];
-    });
-    setError(null);
-    setNotice(null);
-  }, []);
+  const handleSelect = useCallback(
+    (biomarker: SelectedBiomarker) => {
+      addOne(biomarker);
+      setError(null);
+      setNotice(null);
+    },
+    [addOne],
+  );
 
-  const handleRemove = useCallback((code: string) => {
-    setSelected((current) => current.filter((item) => item.code !== code));
-  }, []);
+  const handleRemove = useCallback(
+    (code: string) => {
+      remove(code);
+    },
+    [remove],
+  );
 
   const handleTemplateSelect = useCallback(
     async (selection: { slug: string; name: string }) => {
@@ -135,44 +94,45 @@ export function useBiomarkerSelection(
         const payload = await getJson(`/biomarker-lists/templates/${slug}`);
         const template = BiomarkerListTemplateSchema.parse(payload);
 
-        setSelected((current) => {
-          const existing = new Set(current.map((item) => item.code));
-          const additions = template.biomarkers.filter((entry) => !existing.has(entry.code));
+        const current = usePanelStore.getState().selected;
+        const existing = new Set(current.map((item) => item.code));
+        const additions = template.biomarkers.filter((entry) => !existing.has(entry.code));
 
-          const resultNotice: SelectionNotice = additions.length === 0
-            ? {
-                tone: "info",
-                message: t("selection.alreadySelected", { name: template.name }),
-              }
-            : {
-                tone: "success",
-                message: t("selection.addedFrom", {
-                  count: additions.length,
-                  name: template.name,
-                }),
-              };
+        const resultNotice: SelectionNotice = additions.length === 0
+          ? {
+              tone: "info",
+              message: t("selection.alreadySelected", { name: template.name }),
+            }
+          : {
+              tone: "success",
+              message: t("selection.addedFrom", {
+                count: additions.length,
+                name: template.name,
+              }),
+            };
 
-          setError(null);
-          setNotice(resultNotice);
+        setError(null);
+        setNotice(resultNotice);
 
-          if (additions.length === 0) {
-            return current;
-          }
+        if (additions.length === 0) {
+          return;
+        }
 
-          // Signal significant change
-          onSelectionChange?.();
+        addMany(
+          additions.map((entry) => ({
+            code: entry.code,
+            name: entry.display_name,
+          })),
+        );
 
-          return [
-            ...current,
-            ...additions.map((entry) => ({ code: entry.code, name: entry.display_name })),
-          ];
-        });
+        // Signal significant change
+        onSelectionChange?.();
       } catch (err) {
         setNotice(null);
         setError(extractErrorMessage(err, t("errors.generic")));
       }
     },
-    [onSelectionChange, t],
+    [addMany, onSelectionChange, t],
   );
 
   const handleApplyAddon = useCallback(
@@ -188,15 +148,9 @@ export function useBiomarkerSelection(
         return;
       }
 
-      let additions: { code: string; name: string }[] = [];
-      setSelected((current) => {
-        const existing = new Set(current.map((item) => item.code));
-        additions = normalized.filter((entry) => !existing.has(entry.code));
-        if (additions.length === 0) {
-          return current;
-        }
-        return [...current, ...additions];
-      });
+      const current = usePanelStore.getState().selected;
+      const existing = new Set(current.map((item) => item.code));
+      const additions = normalized.filter((entry) => !existing.has(entry.code));
 
       if (additions.length === 0) {
         setError(null);
@@ -206,6 +160,8 @@ export function useBiomarkerSelection(
         });
         return;
       }
+
+      addMany(additions);
 
       // Signal significant change
       onSelectionChange?.();
@@ -218,17 +174,32 @@ export function useBiomarkerSelection(
         }),
       });
     },
-    [onSelectionChange, t],
+    [addMany, onSelectionChange, t],
   );
 
   const handleLoadList = useCallback(
     (list: SavedList) => {
-      setSelected(
-        list.biomarkers.map((entry) => ({ code: entry.code, name: entry.display_name })),
+      replaceAll(
+        list.biomarkers.map((entry) => ({
+          code: entry.code,
+          name: entry.display_name,
+        })),
       );
       onSelectionChange?.();
     },
-    [onSelectionChange],
+    [onSelectionChange, replaceAll],
+  );
+
+  const setSelected = useCallback<React.Dispatch<React.SetStateAction<SelectedBiomarker[]>>>(
+    (value) => {
+      if (typeof value === "function") {
+        const next = value(usePanelStore.getState().selected);
+        replaceAll(next);
+        return;
+      }
+      replaceAll(value);
+    },
+    [replaceAll],
   );
 
   const clearError = useCallback(() => setError(null), []);
@@ -245,6 +216,7 @@ export function useBiomarkerSelection(
     handleTemplateSelect,
     handleApplyAddon,
     handleLoadList,
+    replaceAll,
     setSelected,
     setError,
     setNotice,
