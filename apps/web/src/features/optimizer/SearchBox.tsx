@@ -8,6 +8,7 @@ import { type CatalogSearchResult } from "@panelyt/types";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useCatalogSearch } from "@/hooks/useCatalogSearch";
 import { formatGroszToPln } from "@/lib/format";
+import { PasteCodesDialog } from "@/features/optimizer/PasteCodesDialog";
 
 interface SelectedBiomarker {
   code: string;
@@ -356,15 +357,18 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
           <span>{t("home.searching")}</span>
         </div>
       )}
-      <p className="mt-2 text-xs text-slate-400">
-        {t.rich("home.searchTip", {
-          key: (chunks) => (
-            <span className="rounded bg-slate-800 px-1 py-0.5 font-mono text-[10px]">
-              {chunks}
-            </span>
-          ),
-        })}
-      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-slate-400">
+          {t.rich("home.searchTip", {
+            key: (chunks) => (
+              <span className="rounded bg-slate-800 px-1 py-0.5 font-mono text-[10px]">
+                {chunks}
+              </span>
+            ),
+          })}
+        </p>
+        <PasteCodesDialog />
+      </div>
     </div>
   );
 }
