@@ -1,6 +1,6 @@
 import { screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { vi } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import { SearchBox } from '../search-box'
 import { renderWithQueryClient } from '../../test/utils'
 
@@ -58,6 +58,10 @@ describe('SearchBox', () => {
     vi.clearAllMocks()
     useDebounceMock.mockImplementation((value: string) => value)
     mockUseCatalogSearch.mockImplementation(() => createSearchResult())
+  })
+
+  afterEach(() => {
+    delete document.body.dataset.searchHotkeyScope
   })
 
   it('renders search input and action button', () => {
@@ -219,5 +223,35 @@ describe('SearchBox', () => {
     fireEvent.keyDown(otherInput, { key: '/' })
 
     expect(otherInput).toHaveFocus()
+  })
+
+  it('skips the "/" hotkey when a different scope is active', () => {
+    document.body.dataset.searchHotkeyScope = 'panel-tray'
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    const input = screen.getByRole('combobox')
+
+    fireEvent.keyDown(window, { key: '/' })
+
+    expect(input).not.toHaveFocus()
+  })
+
+  it('focuses when the active scope matches', () => {
+    document.body.dataset.searchHotkeyScope = 'panel-tray'
+    renderWithQueryClient(
+      <SearchBox
+        onSelect={onSelect}
+        onTemplateSelect={onTemplateSelect}
+        hotkeyScope="panel-tray"
+      />,
+    )
+
+    const input = screen.getByRole('combobox')
+
+    fireEvent.keyDown(window, { key: '/' })
+
+    expect(input).toHaveFocus()
   })
 })

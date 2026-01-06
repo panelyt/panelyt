@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
+import { SearchBox } from "@/components/search-box";
+import { useBiomarkerSelection } from "@/hooks/useBiomarkerSelection";
 import { useUserSession } from "@/hooks/useUserSession";
 import { useSaveListModal } from "@/hooks/useSaveListModal";
 import { useUrlBiomarkerSync } from "@/hooks/useUrlBiomarkerSync";
@@ -26,7 +28,8 @@ import {
 export function PanelTray() {
   const t = useTranslations();
   const [open, setOpen] = useState(false);
-  const selected = usePanelStore((state) => state.selected);
+  const selection = useBiomarkerSelection();
+  const selected = selection.selected;
   const remove = usePanelStore((state) => state.remove);
   const summary = usePanelStore((state) => state.lastOptimizationSummary);
   const countLabel = t("common.biomarkersCount", { count: selected.length });
@@ -50,6 +53,23 @@ export function PanelTray() {
     const amount = Math.max(summary.totalNow - summary.totalMin30, 0);
     return amount > 0 ? amount : null;
   }, [summary]);
+
+  useEffect(() => {
+    if (!open) {
+      if (document.body.dataset.searchHotkeyScope === "panel-tray") {
+        delete document.body.dataset.searchHotkeyScope;
+      }
+      return;
+    }
+
+    document.body.dataset.searchHotkeyScope = "panel-tray";
+
+    return () => {
+      if (document.body.dataset.searchHotkeyScope === "panel-tray") {
+        delete document.body.dataset.searchHotkeyScope;
+      }
+    };
+  }, [open]);
 
   const handleShare = async () => {
     const success = await shareSync.copyShareUrl();
@@ -126,6 +146,14 @@ export function PanelTray() {
                 )}
               </div>
             )}
+
+            <div className="rounded-2xl border border-border/80 bg-surface-2/60 p-4">
+              <SearchBox
+                onSelect={selection.handleSelect}
+                onTemplateSelect={selection.handleTemplateSelect}
+                hotkeyScope="panel-tray"
+              />
+            </div>
 
             <div className="flex-1 overflow-y-auto">
               {selected.length === 0 ? (

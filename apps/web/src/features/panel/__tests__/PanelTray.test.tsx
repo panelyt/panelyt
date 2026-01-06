@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { renderWithQueryClient } from "@/test/utils";
@@ -82,5 +82,22 @@ describe("PanelTray", () => {
     await user.click(screen.getByTestId("panel-tray-mobile"));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("focuses the tray search when pressing /", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    const input = await screen.findByRole("combobox", {
+      name: "Search biomarkers to add...",
+    });
+
+    expect(input).not.toHaveFocus();
+
+    fireEvent.keyDown(window, { key: "/" });
+
+    expect(input).toHaveFocus();
   });
 });

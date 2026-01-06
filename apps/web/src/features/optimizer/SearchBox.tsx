@@ -24,9 +24,14 @@ interface TemplateSelection {
 interface Props {
   onSelect: (biomarker: SelectedBiomarker) => void;
   onTemplateSelect: (template: TemplateSelection) => void;
+  hotkeyScope?: "global" | "panel-tray";
 }
 
-export function SearchBox({ onSelect, onTemplateSelect }: Props) {
+export function SearchBox({
+  onSelect,
+  onTemplateSelect,
+  hotkeyScope = "global",
+}: Props) {
   const t = useTranslations();
   const listId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -163,6 +168,10 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
       if (event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
+      const activeScope = document.body.dataset.searchHotkeyScope ?? "global";
+      if (activeScope !== hotkeyScope) {
+        return;
+      }
       const target = event.target as HTMLElement | null;
       if (target) {
         const tagName = target.tagName;
@@ -176,7 +185,7 @@ export function SearchBox({ onSelect, onTemplateSelect }: Props) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [hotkeyScope]);
 
   useEffect(() => {
     const handlePrefill = (event: Event) => {
