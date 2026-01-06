@@ -56,13 +56,15 @@ let listsData: Array<{
   last_notified_at: string | null;
 }> = [];
 
+let deleteMutationMock = vi.fn();
+
 const buildSavedLists = () => ({
   listsQuery: { data: listsData, isLoading: false },
   shareMutation: { isPending: false, mutateAsync: vi.fn() },
   unshareMutation: { isPending: false, mutateAsync: vi.fn() },
   notificationsMutation: { isPending: false, variables: undefined, mutate: vi.fn() },
   notificationsBulkMutation: { isPending: false, mutate: vi.fn() },
-  deleteMutation: { mutateAsync: vi.fn() },
+  deleteMutation: { mutateAsync: deleteMutationMock },
 });
 
 vi.mock("../../../../hooks/useSavedLists", () => ({
@@ -103,6 +105,7 @@ describe("ListsContent", () => {
   beforeEach(() => {
     useRouterMock.mockReturnValue(createRouter());
     usePanelStore.setState({ selected: [] });
+    deleteMutationMock = vi.fn();
   });
 
   it("includes locale prefix in shared list links", async () => {
@@ -204,6 +207,44 @@ describe("ListsContent", () => {
     );
     expect(await screen.findByRole("menuitem", { name: "Load in optimizer" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("requires confirmation before deleting a list", async () => {
+    listsData = [
+      {
+        id: "list-9",
+        name: "Checkup",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    const user = userEvent.setup();
+
+    renderWithIntl("en", enMessages);
+
+    const table = await screen.findByRole("table");
+    await user.click(
+      within(table).getByRole("button", { name: "Actions for Checkup" }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
+
+    expect(deleteMutationMock).not.toHaveBeenCalled();
+
+    const confirmButton = await screen.findByRole("button", {
+      name: enMessages.lists.deleteConfirm,
+    });
+    await user.click(confirmButton);
+
+    expect(deleteMutationMock).toHaveBeenCalledWith("list-9");
   });
 
   it("renders overflow actions on mobile cards", async () => {

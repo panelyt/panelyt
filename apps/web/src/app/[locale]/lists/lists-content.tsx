@@ -39,6 +39,13 @@ import {
 } from "../../../ui/table";
 import { Button } from "../../../ui/button";
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "../../../ui/dialog";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -67,6 +74,10 @@ export default function ListsContent() {
   const [error, setError] = useState<ReactNode | null>(null);
   const [shareActionId, setShareActionId] = useState<string | null>(null);
   const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const [deletePending, setDeletePending] = useState(false);
   const [bulkTarget, setBulkTarget] = useState<boolean | null>(null);
 
   const formattedLists = useMemo(() => {
@@ -168,9 +179,33 @@ export default function ListsContent() {
     [notificationsBulkMutation, telegramLinked, t],
   );
 
-  const handleDelete = async (id: string) => {
-    await savedLists.deleteMutation.mutateAsync(id);
-  };
+  const handleDeleteDialogChange = useCallback((open: boolean) => {
+    if (!open) {
+      setDeleteTarget(null);
+      setDeletePending(false);
+    }
+  }, []);
+
+  const handleDeleteRequest = useCallback((list: SavedList) => {
+    setDeleteTarget({ id: list.id, name: list.name });
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setDeletePending(true);
+    try {
+      await savedLists.deleteMutation.mutateAsync(deleteTarget.id);
+      setError(null);
+    } catch {
+      setError(t("errors.failedToDelete"));
+    } finally {
+      setDeletePending(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, savedLists.deleteMutation, t]);
 
   const sharePath = useCallback(
     (token: string) => getPathname({ href: `/collections/shared/${token}`, locale }),
@@ -428,7 +463,7 @@ export default function ListsContent() {
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={() => void handleDelete(item.list.id)}
+            onClick={() => handleDeleteRequest(item.list)}
             className="text-rose-300 focus:text-rose-200"
           >
             <Trash2 className="h-4 w-4" />
@@ -442,6 +477,37 @@ export default function ListsContent() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <Header />
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={handleDeleteDialogChange}>
+        <DialogContent>
+          <DialogTitle>
+            {t("lists.deleteTitle", { name: deleteTarget?.name ?? "" })}
+          </DialogTitle>
+          <DialogDescription className="mt-2">
+            {t("lists.deleteDescription")}
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                disabled={deletePending}
+              >
+                {t("common.cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              size="sm"
+              type="button"
+              loading={deletePending}
+              onClick={() => void handleDeleteConfirm()}
+            >
+              {t("lists.deleteConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
