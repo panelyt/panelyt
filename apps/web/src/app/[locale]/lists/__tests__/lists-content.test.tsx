@@ -204,4 +204,32 @@ describe("ListsContent", () => {
     expect(within(summary).getByText("1")).toBeInTheDocument();
     expect(within(summary).getByText("Last updated")).toBeInTheDocument();
   });
+
+  it("shows bulk alert actions", async () => {
+    listsData = [
+      {
+        id: "list-6",
+        name: "Alerts list",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "2024-01-01T10:00:00Z",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    expect(
+      await screen.findByRole("button", { name: "Enable all alerts" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Disable all alerts" }),
+    ).toBeInTheDocument();
+  });
 });

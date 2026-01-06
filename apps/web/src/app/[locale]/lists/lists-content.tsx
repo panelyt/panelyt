@@ -65,6 +65,7 @@ export default function ListsContent() {
   const [shareActionId, setShareActionId] = useState<string | null>(null);
   const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [bulkTarget, setBulkTarget] = useState<boolean | null>(null);
 
   const shareOrigin = useMemo(
     () => (typeof window === "undefined" ? "" : window.location.origin),
@@ -111,11 +112,14 @@ export default function ListsContent() {
 
   const telegramLinked = Boolean(account.settingsQuery.data?.telegram.chat_id);
   const allNotificationsEnabled = useMemo(
-    () => formattedLists.length > 0 && formattedLists.every((item) => item.list.notify_on_price_drop),
-    [formattedLists],
+    () => listsCount > 0 && alertsEnabledCount === listsCount,
+    [alertsEnabledCount, listsCount],
   );
+  const hasAlertsEnabled = alertsEnabledCount > 0;
   const bulkNotifyPending = notificationsBulkMutation.isPending;
-  const hasLists = formattedLists.length > 0;
+  const hasLists = listsCount > 0;
+  const enableAllDisabled = !hasLists || bulkNotifyPending || allNotificationsEnabled;
+  const disableAllDisabled = !hasLists || bulkNotifyPending || !hasAlertsEnabled;
 
   const handleToggleAlerts = useCallback(
     (id: string, currentlyEnabled: boolean) => {
@@ -162,11 +166,13 @@ export default function ListsContent() {
         return;
       }
 
+      setBulkTarget(targetState);
       notificationsBulkMutation.mutate(
         { notify: targetState },
         {
           onError: () => setError(t("errors.failedToUpdateAlerts")),
           onSuccess: () => setError(null),
+          onSettled: () => setBulkTarget(null),
         },
       );
     },
@@ -361,25 +367,29 @@ export default function ListsContent() {
               {t("lists.description")}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => handleToggleAllAlerts(!allNotificationsEnabled)}
-            className="flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!hasLists || bulkNotifyPending}
-          >
-            {bulkNotifyPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : allNotificationsEnabled ? (
-              <BellOff className="h-4 w-4" />
-            ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => handleToggleAllAlerts(true)}
+              loading={bulkNotifyPending && bulkTarget === true}
+              disabled={enableAllDisabled}
+            >
               <Bell className="h-4 w-4" />
-            )}
-            {bulkNotifyPending
-              ? t("common.loading")
-              : allNotificationsEnabled
-                ? t("lists.disableAllAlerts")
-                : t("lists.enableAllAlerts")}
-          </button>
+              {t("lists.enableAllAlerts")}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => handleToggleAllAlerts(false)}
+              loading={bulkNotifyPending && bulkTarget === false}
+              disabled={disableAllDisabled}
+            >
+              <BellOff className="h-4 w-4" />
+              {t("lists.disableAllAlerts")}
+            </Button>
+          </div>
         </div>
         <div
           className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 px-5 py-4"
