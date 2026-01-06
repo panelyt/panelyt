@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown, ChevronUp, CircleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -14,6 +14,7 @@ export function ExclusiveSection({ viewModel }: ExclusiveSectionProps) {
   const t = useTranslations();
   const { exclusive, isDark } = viewModel;
   const [isExpanded, setIsExpanded] = useState(true);
+  const contentId = useId();
 
   if (exclusive.biomarkers.length === 0) {
     return null;
@@ -29,8 +30,14 @@ export function ExclusiveSection({ viewModel }: ExclusiveSectionProps) {
         type="button"
         onClick={() => setIsExpanded((prev) => !prev)}
         className="flex w-full items-center justify-between gap-2"
+        aria-expanded={isExpanded}
+        aria-controls={contentId}
       >
-        <div className="flex items-center gap-2 text-sm font-semibold text-amber-100">
+        <div
+          className={`flex items-center gap-2 text-sm font-semibold ${
+            isDark ? "text-amber-100" : "text-amber-700"
+          }`}
+        >
           <CircleAlert className="h-4 w-4" />
           <span>{t("optimization.exclusiveToLab", { lab: exclusive.labTitle })}</span>
           <span
@@ -57,6 +64,7 @@ export function ExclusiveSection({ viewModel }: ExclusiveSectionProps) {
       </button>
 
       <div
+        id={contentId}
         className={`overflow-hidden transition-all duration-300 ${
           isExpanded ? "mt-3 max-h-96 opacity-100" : "max-h-0 opacity-0"
         }`}
