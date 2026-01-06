@@ -1,7 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
+import { Toaster } from "sonner";
 
 import ListsContent from "../lists-content";
 import enMessages from "../../../../i18n/messages/en.json";
@@ -57,10 +58,18 @@ vi.mock("../../../../hooks/useSavedLists", () => ({
 const renderWithIntl = (
   locale: "en" | "pl",
   messages: typeof enMessages | typeof plMessages,
+  withToaster = false,
 ) =>
   render(
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <ListsContent />
+      {withToaster ? (
+        <>
+          <Toaster />
+          <ListsContent />
+        </>
+      ) : (
+        <ListsContent />
+      )}
     </NextIntlClientProvider>,
   );
 
@@ -231,5 +240,38 @@ describe("ListsContent", () => {
     expect(
       screen.getByRole("button", { name: "Disable all alerts" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows a toast when the share link is copied", async () => {
+    listsData = [
+      {
+        id: "list-7",
+        name: "Shared list",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "2024-01-01T10:00:00Z",
+        share_token: "token-456",
+        shared_at: "2024-01-01T10:00:00Z",
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
+
+    const user = userEvent.setup();
+
+    renderWithIntl("en", enMessages, true);
+
+    const table = await screen.findByRole("table");
+    await user.click(within(table).getByRole("button", { name: "Copy link" }));
+
+    expect(await screen.findByText("Share link copied.")).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
   BellOff,
@@ -13,6 +13,7 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 import type { SavedList } from "@panelyt/types";
 
 import { Link, getPathname, useRouter } from "../../../i18n/navigation";
@@ -64,21 +65,12 @@ export default function ListsContent() {
   const [error, setError] = useState<ReactNode | null>(null);
   const [shareActionId, setShareActionId] = useState<string | null>(null);
   const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [bulkTarget, setBulkTarget] = useState<boolean | null>(null);
 
   const shareOrigin = useMemo(
     () => (typeof window === "undefined" ? "" : window.location.origin),
     [],
   );
-
-  useEffect(() => {
-    if (!copiedId) {
-      return;
-    }
-    const timer = setTimeout(() => setCopiedId(null), 2000);
-    return () => clearTimeout(timer);
-  }, [copiedId]);
 
   const formattedLists = useMemo(() => {
     const lists = rawLists ?? [];
@@ -194,7 +186,7 @@ export default function ListsContent() {
   );
 
   const handleCopyShare = useCallback(
-    async (token: string, listId: string) => {
+    async (token: string) => {
       try {
         const url = buildShareUrl(token);
         if (
@@ -216,10 +208,10 @@ export default function ListsContent() {
         } else {
           throw new Error("clipboard unavailable");
         }
-        setCopiedId(listId);
+        toast(t("toast.shareCopied"));
         setError(null);
       } catch {
-        setError(t("errors.failedToCopy"));
+        toast(t("toast.shareCopyFailed"));
       }
     },
     [buildShareUrl, t],
@@ -533,21 +525,16 @@ export default function ListsContent() {
                                   {t("lists.shareEnabled")}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() =>
-                                      void handleCopyShare(
-                                        shareToken,
-                                        item.list.id,
-                                      )
-                                    }
-                                  >
+                                    <Button
+                                      type="button"
+                                      variant="secondary"
+                                      size="sm"
+                                      onClick={() =>
+                                        void handleCopyShare(shareToken)
+                                      }
+                                    >
                                     <Copy className="h-3.5 w-3.5" />
-                                    {copiedId === item.list.id
-                                      ? t("common.copied")
-                                      : t("lists.copyLink")}
+                                    {t("lists.copyLink")}
                                   </Button>
                                   <span className="sr-only">{shareLink}</span>
                                 </div>
@@ -600,10 +587,7 @@ export default function ListsContent() {
                                   <>
                                     <DropdownMenuItem
                                       onClick={() =>
-                                        void handleCopyShare(
-                                          shareToken,
-                                          item.list.id,
-                                        )
+                                        void handleCopyShare(shareToken)
                                       }
                                     >
                                       <Copy className="h-4 w-4" />
@@ -766,17 +750,12 @@ export default function ListsContent() {
                               variant="secondary"
                               size="sm"
                               onClick={() =>
-                                void handleCopyShare(
-                                  shareToken,
-                                  item.list.id,
-                                )
+                                void handleCopyShare(shareToken)
                               }
                             >
-                              <Copy className="h-3.5 w-3.5" />
-                              {copiedId === item.list.id
-                                ? t("common.copied")
-                                : t("lists.copyLink")}
-                            </Button>
+                                <Copy className="h-3.5 w-3.5" />
+                                {t("lists.copyLink")}
+                              </Button>
                             <Button
                               type="button"
                               variant="secondary"
