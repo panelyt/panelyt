@@ -4,6 +4,14 @@ import { FormEvent } from "react";
 import { Loader2, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/ui/dialog";
+
 interface SaveListModalProps {
   open: boolean;
   name: string;
@@ -35,22 +43,25 @@ export function SaveListModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6 backdrop-blur">
-      <div className="relative w-full max-w-sm rounded-3xl border border-slate-800 bg-slate-900/90 p-6 text-slate-100 shadow-2xl shadow-slate-900/60">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-4 top-4 rounded-full border border-slate-700/70 bg-slate-900/70 p-1 text-slate-300 transition hover:border-slate-500 hover:text-white"
-          aria-label={t("saveList.closeDialog")}
-        >
-          <X className="h-4 w-4" />
-        </button>
+    <Dialog open={open} onOpenChange={(nextOpen) => (!nextOpen ? onClose() : null)}>
+      <DialogContent className="w-full max-w-sm rounded-3xl border border-slate-800 bg-slate-900/90 p-6 text-slate-100 shadow-2xl shadow-slate-900/60">
+        <DialogClose asChild>
+          <button
+            type="button"
+            className="absolute right-4 top-4 rounded-full border border-slate-700/70 bg-slate-900/70 p-1 text-slate-300 transition hover:border-slate-500 hover:text-white"
+            aria-label={t("saveList.closeDialog")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </DialogClose>
 
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Panelyt</p>
-        <h2 className="mt-2 text-2xl font-semibold text-white">{t("saveList.title")}</h2>
-        <p className="mt-2 text-sm text-slate-400">
+        <DialogTitle className="mt-2 text-2xl font-semibold text-white">
+          {t("saveList.title")}
+        </DialogTitle>
+        <DialogDescription className="mt-2 text-sm text-slate-400">
           {t("saveList.description")}
-        </p>
+        </DialogDescription>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
@@ -78,7 +89,7 @@ export function SaveListModal({
             {t("saveList.saveList")}
           </button>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
