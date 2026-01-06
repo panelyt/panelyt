@@ -189,4 +189,33 @@ describe('SearchBox', () => {
 
     expect(onSelect).toHaveBeenCalledWith({ code: 'CUSTOM', name: 'custom' })
   })
+
+  it('focuses the search input when pressing "/" outside of inputs', () => {
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    const input = screen.getByRole('combobox')
+    expect(input).not.toHaveFocus()
+
+    fireEvent.keyDown(window, { key: '/' })
+
+    expect(input).toHaveFocus()
+  })
+
+  it('does not steal focus when typing in another input', () => {
+    renderWithQueryClient(
+      <div>
+        <input aria-label="Other input" />
+        <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />
+      </div>,
+    )
+
+    const otherInput = screen.getByLabelText('Other input')
+    otherInput.focus()
+
+    fireEvent.keyDown(otherInput, { key: '/' })
+
+    expect(otherInput).toHaveFocus()
+  })
 })
