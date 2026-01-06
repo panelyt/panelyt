@@ -9,6 +9,7 @@ import { useUserSession } from "../hooks/useUserSession";
 import { useAuthModal } from "../hooks/useAuthModal";
 import { AuthModal } from "./auth-modal";
 import { LanguageSwitcher } from "./language-switcher";
+import { PanelPill } from "../features/panel/PanelPill";
 
 interface HeaderProps {
   onAuthSuccess?: () => void;
@@ -68,6 +69,7 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            <PanelPill className="hidden md:inline-flex" />
             <LanguageSwitcher />
             {sessionQuery.isLoading ? (
               <div className="flex items-center gap-2 text-xs text-slate-400">

@@ -43,6 +43,14 @@
     "shareCopied": "Skopiowano link do udostępnienia.",
     "shareCopyFailed": "Nie udało się skopiować linku do udostępnienia."
   },
+  "panelTray": {
+    "title": "Panel",
+    "openPanel": "Otwórz panel",
+    "runOptimize": "Uruchom optymalizację",
+    "statusCovered": "Wszystkie biomarkery pokryte",
+    "statusGaps": "Braki w pokryciu",
+    "statusPending": "Oczekiwanie na optymalizację"
+  },
   "auth": {
     "signIn": "Zaloguj się",
     "signOut": "Wyloguj się",

@@ -43,6 +43,14 @@
     "shareCopied": "Share link copied.",
     "shareCopyFailed": "Unable to copy share link."
   },
+  "panelTray": {
+    "title": "Panel",
+    "openPanel": "Open panel tray",
+    "runOptimize": "Run optimize",
+    "statusCovered": "All biomarkers covered",
+    "statusGaps": "Coverage gaps",
+    "statusPending": "Optimization pending"
+  },
   "auth": {
     "signIn": "Sign in",
     "signOut": "Sign out",
