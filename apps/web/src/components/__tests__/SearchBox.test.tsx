@@ -65,6 +65,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Search biomarkers to add...')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add to panel' })).toBeInTheDocument()
   })
@@ -81,9 +82,11 @@ describe('SearchBox', () => {
     expect(input).toHaveValue('ALT')
   })
 
-  it('renders biomarker suggestions when available', () => {
+  it('renders grouped suggestions when available', () => {
     mockUseCatalogSearch.mockImplementation(() =>
-      createSearchResult({ data: { results: [biomarkerSuggestion] } }),
+      createSearchResult({
+        data: { results: [biomarkerSuggestion, templateSuggestion] },
+      }),
     )
 
     renderWithQueryClient(
@@ -94,9 +97,14 @@ describe('SearchBox', () => {
       target: { value: 'AL' },
     })
 
+    expect(screen.getByText('Biomarkers')).toBeInTheDocument()
+    expect(screen.getByText('Templates')).toBeInTheDocument()
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    expect(screen.getAllByRole('option')).toHaveLength(2)
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
     expect(screen.getByText('DIAG: 10,00 zł')).toBeInTheDocument()
     expect(screen.getByText('ALAB: 12,50 zł')).toBeInTheDocument()
+    expect(screen.getByText('Liver bundle')).toBeInTheDocument()
   })
 
   it('calls onSelect when a biomarker suggestion is clicked', async () => {
@@ -113,7 +121,9 @@ describe('SearchBox', () => {
       target: { value: 'ALT' },
     })
 
-    await user.click(screen.getByText('Alanine aminotransferase'))
+    await user.click(
+      screen.getByRole('option', { name: /Alanine aminotransferase/ }),
+    )
 
     expect(onSelect).toHaveBeenCalledWith({
       code: 'ALT',
@@ -136,7 +146,7 @@ describe('SearchBox', () => {
       target: { value: 'Liver' },
     })
 
-    await user.click(screen.getByText('Liver bundle'))
+    await user.click(screen.getByRole('option', { name: /Liver bundle/ }))
 
     expect(onTemplateSelect).toHaveBeenCalledWith({
       slug: 'liver-bundle',
