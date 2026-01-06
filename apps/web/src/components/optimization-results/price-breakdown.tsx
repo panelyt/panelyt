@@ -4,6 +4,8 @@ import { Sparkles, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { formatGroszToPln, formatCurrency } from "../../lib/format";
+import { cn } from "../../lib/cn";
+import { Card } from "../../ui/card";
 
 import type { OptimizationViewModel } from "./view-model";
 
@@ -37,25 +39,24 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
   const labName = result.lab_name || result.lab_code.toUpperCase();
 
   return (
-    <section
-      className={`rounded-2xl border p-4 ${
-        isDark
-          ? "border-slate-800 bg-slate-900/80"
-          : "border-slate-200 bg-white"
-      }`}
+    <Card
+      className={cn(
+        "p-5",
+        isDark ? "border-border/70 bg-surface-1" : "border-slate-200 bg-white",
+      )}
     >
       <div className="flex items-center justify-between">
         <div>
           <h2
             className={`text-lg font-semibold ${
-              isDark ? "text-white" : "text-slate-900"
+              isDark ? "text-primary" : "text-slate-900"
             }`}
           >
             {t("optimization.orderFrom", { lab: labName })}
           </h2>
           <p
             className={`mt-1 text-sm ${
-              isDark ? "text-slate-400" : "text-slate-500"
+              isDark ? "text-secondary" : "text-slate-500"
             }`}
           >
             {t("optimization.itemsCount", { count: counts.items })}
@@ -73,7 +74,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
           <div key={group.kind} className="space-y-3">
             <div
               className={`flex items-center justify-between text-xs uppercase tracking-wide ${
-                isDark ? "text-slate-500" : "text-slate-400"
+                isDark ? "text-secondary" : "text-slate-400"
               }`}
             >
               <span>
@@ -85,7 +86,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                 <p
                   className={`rounded-xl border border-dashed px-4 py-3 text-sm ${
                     isDark
-                      ? "border-slate-700 bg-slate-900/60 text-slate-400"
+                      ? "border-border/70 bg-surface-2/40 text-secondary"
                       : "border-slate-200 bg-white text-slate-500"
                   }`}
                 >
@@ -99,8 +100,8 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                     key={item.id}
                     className={`rounded-xl border p-4 transition ${
                       isDark
-                        ? "border-slate-800 bg-slate-900/60 hover:border-emerald-400/40 hover:bg-slate-900"
-                        : "border-slate-100 bg-slate-50 hover:border-emerald-200 hover:bg-emerald-50/60"
+                        ? "border-border/70 bg-surface-2/40 hover:border-accent-emerald/40 hover:bg-surface-2"
+                        : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/50"
                     }`}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -111,7 +112,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                           rel="noreferrer"
                           className={`text-sm font-semibold ${
                             isDark
-                              ? "text-slate-100 hover:text-emerald-300"
+                              ? "text-primary hover:text-accent-emerald"
                               : "text-slate-900 hover:text-emerald-600"
                           }`}
                         >
@@ -130,7 +131,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                                       ? "bg-emerald-500/20 text-emerald-200"
                                       : "bg-emerald-200/70 text-emerald-900"
                                     : isDark
-                                      ? "bg-slate-800 text-slate-300"
+                                      ? "bg-surface-1 text-secondary"
                                       : "bg-slate-200 text-slate-700"
                                 }`}
                                 title={`${displayName} (${biomarker})${
@@ -178,15 +179,17 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                       </div>
                       <div
                         className={`text-right text-xs ${
-                          isDark ? "text-slate-400" : "text-slate-500"
+                          isDark ? "text-secondary" : "text-slate-500"
                         }`}
                       >
-                        <p className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                        <p
+                          className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-700"}`}
+                        >
                           {t("optimization.currentLabel")}
                         </p>
                         <p
                           className={`text-sm font-semibold ${
-                            isDark ? "text-white" : "text-slate-900"
+                            isDark ? "text-primary" : "text-slate-900"
                           }`}
                         >
                           {formatGroszToPln(item.price_now_grosz)}
@@ -222,20 +225,20 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
       {/* Total and savings footer */}
       <div
         className={`mt-6 border-t pt-4 ${
-          isDark ? "border-slate-700" : "border-slate-200"
+          isDark ? "border-border/70" : "border-slate-200"
         }`}
       >
         <div className="flex items-center justify-between">
           <span
             className={`text-sm font-semibold uppercase tracking-wide ${
-              isDark ? "text-slate-400" : "text-slate-500"
+              isDark ? "text-secondary" : "text-slate-500"
             }`}
           >
             {t("optimization.totalLabel")}
           </span>
           <span
             className={`text-2xl font-semibold ${
-              isDark ? "text-white" : "text-slate-900"
+              isDark ? "text-primary" : "text-slate-900"
             }`}
           >
             {formatCurrency(result.total_now)}
@@ -253,7 +256,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
           </p>
         )}
       </div>
-    </section>
+    </Card>
   );
 }
 
