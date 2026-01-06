@@ -43,7 +43,7 @@ function HomeContent() {
 
   // Auth callbacks for Header
   const handleAuthSuccess = useCallback(() => {
-    selection.setSelected([]);
+    selection.replaceAll([]);
     selection.setError(null);
   }, [selection]);
 
@@ -67,7 +67,7 @@ function HomeContent() {
     selected: selection.selected,
     onLoadFromUrl: useCallback(
       (biomarkers) => {
-        selection.setSelected(biomarkers);
+        selection.replaceAll(biomarkers);
         labOptimization.resetLabChoice();
       },
       [selection, labOptimization],
@@ -86,15 +86,20 @@ function HomeContent() {
   // URL parameter sync
   useUrlParamSync({
     onLoadTemplate: (biomarkers) => {
-      selection.setSelected(biomarkers);
+      selection.replaceAll(biomarkers);
       labOptimization.resetLabChoice();
     },
     onLoadShared: (biomarkers) => {
-      selection.setSelected(biomarkers);
+      selection.replaceAll(biomarkers);
       labOptimization.resetLabChoice();
     },
     onLoadList: (list) => {
-      selection.handleLoadList(list);
+      selection.replaceAll(
+        list.biomarkers.map((entry) => ({
+          code: entry.code,
+          name: entry.display_name,
+        })),
+      );
       labOptimization.resetLabChoice();
     },
     onError: selection.setError,
