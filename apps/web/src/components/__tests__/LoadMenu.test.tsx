@@ -1,4 +1,5 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { LoadMenu } from '../load-menu'
 import { renderWithIntl } from '../../test/utils'
@@ -30,16 +31,23 @@ const sampleLists = [
 ]
 
 describe('LoadMenu', () => {
-  it('opens with saved lists and keeps the menu layered above content', () => {
+  it('opens and allows selecting a saved list', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
     renderWithIntl(
-      <LoadMenu lists={sampleLists} isLoading={false} onSelect={vi.fn()} />,
+      <LoadMenu lists={sampleLists} isLoading={false} onSelect={onSelect} />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /load/i }))
+    await user.click(screen.getByRole('button', { name: /load/i }))
 
-    const menu = screen.getByRole('menu', { name: /saved lists/i })
-    expect(menu).toBeInTheDocument()
-    expect(menu).toHaveClass('z-30')
-    expect(screen.getByText('Metabolic panel')).toBeInTheDocument()
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getByText(/saved lists/i)).toBeInTheDocument()
+
+    const listItem = screen.getByRole('menuitem', { name: /metabolic panel/i })
+    expect(listItem).toBeInTheDocument()
+
+    await user.click(listItem)
+
+    expect(onSelect).toHaveBeenCalledWith(sampleLists[0])
   })
 })

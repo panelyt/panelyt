@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { SavedList } from "@panelyt/types";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/ui/dropdown-menu";
 
 export interface LoadMenuProps {
   lists: SavedList[];
@@ -13,76 +20,42 @@ export interface LoadMenuProps {
 
 export function LoadMenu({ lists, isLoading, onSelect }: LoadMenuProps) {
   const t = useTranslations();
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
-  const handleSelect = (list: SavedList) => {
-    onSelect(list);
-    setIsOpen(false);
-  };
 
   return (
-    <div className="relative z-30" ref={menuRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen((open) => !open)}
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-        className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-      >
-        {t("common.load")}
-      </button>
-      {isOpen && (
-        <div
-          role="menu"
-          aria-label={t("loadMenu.savedLists")}
-          className="absolute right-0 z-30 mt-2 w-56 rounded-xl border border-slate-800 bg-slate-900/95 p-3 shadow-xl shadow-slate-900/50"
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
         >
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            {t("loadMenu.savedLists")}
-          </p>
-          {isLoading && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-300">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              {t("common.loading")}
-            </div>
-          )}
-          {!isLoading && lists.length === 0 && (
-            <p className="mt-3 text-xs text-slate-400">{t("loadMenu.noSavedLists")}</p>
-          )}
-          <div className="mt-3 space-y-2">
-            {lists.map((list) => (
-              <button
-                key={list.id}
-                type="button"
-                onClick={() => handleSelect(list)}
-                className="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-left text-xs text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-              >
-                <span className="font-semibold">{list.name}</span>
-                <span className="text-[11px] text-slate-400">
-                  {t("common.biomarkersCount", { count: list.biomarkers.length })}
-                </span>
-              </button>
-            ))}
+          {t("common.load")}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>{t("loadMenu.savedLists")}</DropdownMenuLabel>
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-secondary">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {t("common.loading")}
           </div>
-        </div>
-      )}
-    </div>
+        )}
+        {!isLoading && lists.length === 0 && (
+          <p className="px-3 py-2 text-xs text-secondary">{t("loadMenu.noSavedLists")}</p>
+        )}
+        {!isLoading &&
+          lists.map((list) => (
+            <DropdownMenuItem
+              key={list.id}
+              onSelect={() => onSelect(list)}
+              className="flex w-full items-center justify-between"
+            >
+              <span className="font-semibold">{list.name}</span>
+              <span className="text-[11px] text-secondary">
+                {t("common.biomarkersCount", { count: list.biomarkers.length })}
+              </span>
+            </DropdownMenuItem>
+          ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
