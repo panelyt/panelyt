@@ -198,9 +198,38 @@ describe("ListsContent", () => {
     expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Actions for Checkup" }));
+    const table = await screen.findByRole("table");
+    await user.click(
+      within(table).getByRole("button", { name: "Actions for Checkup" }),
+    );
     expect(await screen.findByRole("menuitem", { name: "Load in optimizer" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("renders overflow actions on mobile cards", async () => {
+    listsData = [
+      {
+        id: "list-3",
+        name: "Checkup",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    const actionButtons = await screen.findAllByRole("button", {
+      name: "Actions for Checkup",
+    });
+    expect(actionButtons).toHaveLength(2);
   });
 
   it("shows summary metrics for lists and alerts", async () => {
@@ -348,8 +377,9 @@ describe("ListsContent", () => {
 
     renderWithIntl("en", enMessages);
 
+    const table = await screen.findByRole("table");
     await user.click(
-      screen.getByRole("button", { name: "Actions for Optimizer list" }),
+      within(table).getByRole("button", { name: "Actions for Optimizer list" }),
     );
     await user.click(
       await screen.findByRole("menuitem", { name: "Load in optimizer" }),

@@ -334,7 +334,6 @@ export default function ListsContent() {
       notificationsMutation.isPending &&
       notificationsMutation.variables?.id === item.list.id;
     const notificationsEnabled = item.list.notify_on_price_drop;
-    const sharedTimestamp = item.list.shared_at ?? item.list.updated_at;
     const updatedAt = resolveUpdatedAt(item.list);
 
     return {
@@ -344,7 +343,6 @@ export default function ListsContent() {
       isUnsharePending,
       notifyPending,
       notificationsEnabled,
-      sharedTimestamp,
       updatedAt,
     };
   };
@@ -361,6 +359,84 @@ export default function ListsContent() {
     },
     [replaceAll, router],
   );
+
+  const renderActionsMenu = (
+    item: ListWithTotals,
+    listState: ReturnType<typeof buildListState>,
+  ) => {
+    const shareToken = listState.shareToken;
+    const shareLink = listState.shareLink;
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            aria-label={t("lists.actionsFor", {
+              name: item.list.name,
+            })}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => handleLoadInOptimizer(item.list)}>
+            {t("lists.loadInOptimizer")}
+          </DropdownMenuItem>
+          {shareToken && shareLink ? (
+            <>
+              <DropdownMenuItem onClick={() => void handleCopyShare(shareToken)}>
+                <Copy className="h-4 w-4" />
+                {t("lists.copyLink")}
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href={shareLink} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  {t("lists.openShare")}
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => void handleShare(item.list.id, true)}
+                disabled={listState.isSharePending}
+              >
+                <RefreshCcw className="h-4 w-4" />
+                {listState.isSharePending
+                  ? t("lists.regenerating")
+                  : t("lists.regenerate")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => void handleUnshare(item.list.id)}
+                disabled={listState.isUnsharePending}
+              >
+                {listState.isUnsharePending
+                  ? t("lists.disabling")
+                  : t("lists.disableShare")}
+              </DropdownMenuItem>
+            </>
+          ) : (
+            <DropdownMenuItem
+              onClick={() => void handleShare(item.list.id)}
+              disabled={listState.isSharePending}
+            >
+              {listState.isSharePending
+                ? t("lists.generating")
+                : t("lists.enableShare")}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => void handleDelete(item.list.id)}
+            className="text-rose-300 focus:text-rose-200"
+          >
+            <Trash2 className="h-4 w-4" />
+            {t("common.delete")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -574,83 +650,7 @@ export default function ListsContent() {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="secondary"
-                                  size="icon"
-                                  aria-label={t("lists.actionsFor", {
-                                    name: item.list.name,
-                                  })}
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => handleLoadInOptimizer(item.list)}
-                                >
-                                  {t("lists.loadInOptimizer")}
-                                </DropdownMenuItem>
-                                {shareToken && shareLink ? (
-                                  <>
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        void handleCopyShare(shareToken)
-                                      }
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                      {t("lists.copyLink")}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                      <a
-                                        href={shareLink}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                      >
-                                        <ExternalLink className="h-4 w-4" />
-                                        {t("lists.openShare")}
-                                      </a>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => void handleShare(item.list.id, true)}
-                                      disabled={listState.isSharePending}
-                                    >
-                                      <RefreshCcw className="h-4 w-4" />
-                                      {listState.isSharePending
-                                        ? t("lists.regenerating")
-                                        : t("lists.regenerate")}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => void handleUnshare(item.list.id)}
-                                      disabled={listState.isUnsharePending}
-                                    >
-                                      {listState.isUnsharePending
-                                        ? t("lists.disabling")
-                                        : t("lists.disableShare")}
-                                    </DropdownMenuItem>
-                                  </>
-                                ) : (
-                                  <DropdownMenuItem
-                                    onClick={() => void handleShare(item.list.id)}
-                                    disabled={listState.isSharePending}
-                                  >
-                                    {listState.isSharePending
-                                      ? t("lists.generating")
-                                      : t("lists.enableShare")}
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => void handleDelete(item.list.id)}
-                                  className="text-rose-300 focus:text-rose-200"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  {t("common.delete")}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            {renderActionsMenu(item, listState)}
                           </TableCell>
                         </TableRow>
                       );
@@ -668,9 +668,9 @@ export default function ListsContent() {
                 return (
                   <div
                     key={item.list.id}
-                    className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/80 px-6 py-4 shadow-lg shadow-slate-900/40"
+                    className="rounded-2xl border border-slate-800 bg-slate-900/80 px-5 py-4 shadow-lg shadow-slate-900/40"
                   >
-                    <div className="flex flex-col gap-4">
+                    <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-lg font-semibold text-white">{item.list.name}</p>
                         <p className="text-xs text-slate-400">
@@ -679,131 +679,60 @@ export default function ListsContent() {
                           })}
                         </p>
                       </div>
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-slate-300">
-                        <div>
-                          <span className="text-xs uppercase tracking-wide text-slate-500">
-                            {t("results.currentTotal")}
-                          </span>
-                          <p className="font-semibold text-white">{formatTotal(item)}</p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            loading={listState.notifyPending}
-                            onClick={() =>
-                              handleToggleAlerts(
-                                item.list.id,
-                                listState.notificationsEnabled,
-                              )
-                            }
-                          >
-                            {listState.notificationsEnabled ? (
-                              <Bell className="h-3.5 w-3.5" />
-                            ) : (
-                              <BellOff className="h-3.5 w-3.5" />
-                            )}
-                            {listState.notificationsEnabled
-                              ? t("lists.disableAlerts")
-                              : t("lists.enableAlerts")}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleLoadInOptimizer(item.list)}
-                          >
-                            {t("lists.loadInOptimizer")}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => void handleDelete(item.list.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            {t("common.delete")}
-                          </Button>
-                        </div>
+                      <div className="text-right">
+                        <span className="text-[11px] uppercase tracking-wide text-slate-500">
+                          {t("results.currentTotal")}
+                        </span>
+                        <p className="font-mono text-sm text-white">{formatTotal(item)}</p>
                       </div>
                     </div>
-
-                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs text-slate-300">
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        loading={listState.notifyPending}
+                        onClick={() =>
+                          handleToggleAlerts(
+                            item.list.id,
+                            listState.notificationsEnabled,
+                          )
+                        }
+                      >
+                        {listState.notificationsEnabled ? (
+                          <Bell className="h-3.5 w-3.5" />
+                        ) : (
+                          <BellOff className="h-3.5 w-3.5" />
+                        )}
+                        {listState.notificationsEnabled
+                          ? t("lists.disableAlerts")
+                          : t("lists.enableAlerts")}
+                      </Button>
                       {shareToken && shareLink ? (
-                        <div className="flex flex-col gap-3">
-                          <div className="flex flex-col gap-1">
-                            <span className="flex items-center gap-2 text-slate-400">
-                              <LinkIcon className="h-4 w-4" />
-                              <span className="font-semibold text-slate-200">
-                                {t("lists.shareLink")}
-                              </span>
-                            </span>
-                            <span className="truncate font-mono text-sm text-slate-200">
-                              {shareLink}
-                            </span>
-                            {listState.sharedTimestamp && (
-                              <span className="text-[11px] text-slate-500">
-                                {t("common.updated")}{" "}
-                                {new Date(listState.sharedTimestamp).toLocaleString("pl-PL")}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() =>
-                                void handleCopyShare(shareToken)
-                              }
-                            >
-                                <Copy className="h-3.5 w-3.5" />
-                                {t("lists.copyLink")}
-                              </Button>
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              loading={listState.isSharePending}
-                              onClick={() => void handleShare(item.list.id, true)}
-                            >
-                              <RefreshCcw className="h-3.5 w-3.5" />
-                              {listState.isSharePending
-                                ? t("lists.regenerating")
-                                : t("lists.regenerate")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              loading={listState.isUnsharePending}
-                              onClick={() => void handleUnshare(item.list.id)}
-                            >
-                              {listState.isUnsharePending
-                                ? t("lists.disabling")
-                                : t("lists.disableShare")}
-                            </Button>
-                          </div>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => void handleCopyShare(shareToken)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          {t("lists.copyLink")}
+                        </Button>
                       ) : (
-                        <div className="flex flex-col gap-2">
-                          <p className="text-slate-400">
-                            {t("lists.shareDescription")}
-                          </p>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            loading={listState.isSharePending}
-                            onClick={() => void handleShare(item.list.id)}
-                          >
-                            {listState.isSharePending
-                              ? t("lists.generating")
-                              : t("lists.enableShare")}
-                          </Button>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          loading={listState.isSharePending}
+                          onClick={() => void handleShare(item.list.id)}
+                        >
+                          <LinkIcon className="h-3.5 w-3.5" />
+                          {listState.isSharePending
+                            ? t("lists.generating")
+                            : t("lists.enableShare")}
+                        </Button>
                       )}
+                      <div className="ml-auto">{renderActionsMenu(item, listState)}</div>
                     </div>
                   </div>
                 );
