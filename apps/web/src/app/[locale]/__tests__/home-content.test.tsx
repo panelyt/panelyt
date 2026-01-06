@@ -94,7 +94,11 @@ const selectionStub = {
   handleApplyAddon: vi.fn(),
   handleLoadList: vi.fn(),
   replaceAll: vi.fn(),
+  setSelected: vi.fn(),
   setError: vi.fn(),
+  setNotice: vi.fn(),
+  clearError: vi.fn(),
+  clearNotice: vi.fn(),
 };
 
 const saveListModalStub = {
@@ -134,15 +138,19 @@ describe("HomeContent", () => {
       isLoading: false,
     } as ReturnType<typeof useUserSession>);
 
-    mockUseSavedLists.mockReturnValue({
-      listsQuery: { data: [], isFetching: false },
-    } as ReturnType<typeof useSavedLists>);
+    mockUseSavedLists.mockReturnValue(
+      {
+        listsQuery: { data: [], isFetching: false },
+      } as unknown as ReturnType<typeof useSavedLists>,
+    );
 
     mockUseLabOptimization.mockReturnValue({
       activeResult: undefined,
       activeLoading: false,
       activeError: null,
       labCards: [],
+      labChoice: null,
+      selectLab: vi.fn(),
       addonSuggestions: [],
       addonSuggestionsLoading: false,
       resetLabChoice: vi.fn(),
@@ -155,6 +163,8 @@ describe("HomeContent", () => {
     mockUseUrlParamSync.mockImplementation(() => undefined);
 
     mockUseUrlBiomarkerSync.mockReturnValue({
+      isLoadingFromUrl: false,
+      getShareUrl: vi.fn(() => ""),
       copyShareUrl: vi.fn(),
     } as ReturnType<typeof useUrlBiomarkerSync>);
 
