@@ -175,11 +175,13 @@ export function useBiomarkerSelection(
       const additions = normalized.filter((entry) => !existing.has(entry.code));
 
       if (additions.length === 0) {
+        const message = t("selection.alreadySelected", { name: packageName });
         setError(null);
         setNotice({
           tone: "info",
-          message: t("selection.alreadySelected", { name: packageName }),
+          message,
         });
+        toast(message);
         return;
       }
 
@@ -188,13 +190,15 @@ export function useBiomarkerSelection(
       // Signal significant change
       onSelectionChange?.();
       setError(null);
+      const message = t("selection.addedFrom", {
+        count: additions.length,
+        name: packageName,
+      });
       setNotice({
         tone: "success",
-        message: t("selection.addedFrom", {
-          count: additions.length,
-          name: packageName,
-        }),
+        message,
       });
+      toast(message);
     },
     [addMany, onSelectionChange, t],
   );

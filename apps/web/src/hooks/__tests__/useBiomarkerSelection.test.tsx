@@ -1,9 +1,11 @@
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
+import { Toaster } from 'sonner'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 import { useBiomarkerSelection } from '../useBiomarkerSelection'
+import enMessages from '../../i18n/messages/en.json'
 import plMessages from '../../i18n/messages/pl.json'
 import { usePanelStore, PANEL_STORAGE_KEY } from '../../stores/panelStore'
 
@@ -23,6 +25,17 @@ const createWrapper = () => {
     return (
       <NextIntlClientProvider locale="pl" messages={plMessages}>
         {children}
+      </NextIntlClientProvider>
+    )
+  }
+}
+
+const createWrapperWithToaster = () => {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        {children}
+        <Toaster />
       </NextIntlClientProvider>
     )
   }
@@ -68,6 +81,19 @@ describe('useBiomarkerSelection', () => {
     expect(result.current.notice?.message).toBe(
       plMessages.selection.alreadySelected.replace('{name}', 'Liver Panel'),
     )
+  })
+
+  it('shows a toast when addon biomarkers are applied', async () => {
+    const wrapper = createWrapperWithToaster()
+    const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
+
+    act(() => {
+      result.current.handleApplyAddon([{ code: 'ALT', name: 'ALT' }], 'Liver Panel')
+    })
+
+    expect(
+      await screen.findByText('Added 1 biomarker from Liver Panel.'),
+    ).toBeInTheDocument()
   })
 
   describe('sessionStorage persistence', () => {
