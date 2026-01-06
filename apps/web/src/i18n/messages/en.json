@@ -147,7 +147,12 @@
     "shareDescription": "Generate a shareable link to let others view this list without editing rights.",
     "linkTelegramFirst": "Link your Telegram chat in <link>Account settings</link> before enabling alerts.",
     "accountSettings": "Account settings",
-    "actionsFor": "Actions for {name}"
+    "actionsFor": "Actions for {name}",
+    "summary": {
+      "lists": "Lists",
+      "alertsEnabled": "Alerts enabled",
+      "lastUpdated": "Last updated"
+    }
   },
   "saveList": {
     "title": "Save current selection",

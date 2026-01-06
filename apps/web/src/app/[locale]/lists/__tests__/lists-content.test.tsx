@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
@@ -161,5 +161,47 @@ describe("ListsContent", () => {
     await user.click(screen.getByRole("button", { name: "Actions for Checkup" }));
     expect(await screen.findByRole("menuitem", { name: "Load in optimizer" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("shows summary metrics for lists and alerts", async () => {
+    listsData = [
+      {
+        id: "list-4",
+        name: "Baseline",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "2024-01-01T10:00:00Z",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: true,
+        last_known_total_grosz: null,
+        last_total_updated_at: "2024-01-02T10:00:00Z",
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+      {
+        id: "list-5",
+        name: "Follow-up",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "2024-01-03T10:00:00Z",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    const summary = await screen.findByTestId("lists-summary");
+    expect(within(summary).getByText("Lists")).toBeInTheDocument();
+    expect(within(summary).getByText("2")).toBeInTheDocument();
+    expect(within(summary).getByText("Alerts enabled")).toBeInTheDocument();
+    expect(within(summary).getByText("1")).toBeInTheDocument();
+    expect(within(summary).getByText("Last updated")).toBeInTheDocument();
   });
 });

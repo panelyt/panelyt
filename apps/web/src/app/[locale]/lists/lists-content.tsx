@@ -99,6 +99,16 @@ export default function ListsContent() {
     });
   }, [rawLists]);
 
+  const listsCount = formattedLists.length;
+  const alertsEnabledCount = useMemo(
+    () =>
+      formattedLists.reduce(
+        (count, item) => count + (item.list.notify_on_price_drop ? 1 : 0),
+        0,
+      ),
+    [formattedLists],
+  );
+
   const telegramLinked = Boolean(account.settingsQuery.data?.telegram.chat_id);
   const allNotificationsEnabled = useMemo(
     () => formattedLists.length > 0 && formattedLists.every((item) => item.list.notify_on_price_drop),
@@ -283,6 +293,26 @@ export default function ListsContent() {
     [locale],
   );
 
+  const lastUpdatedAt = useMemo(() => {
+    if (formattedLists.length === 0) {
+      return null;
+    }
+    let latestTimestamp = -Infinity;
+    let latestValue: string | null = null;
+    for (const item of formattedLists) {
+      const value = resolveUpdatedAt(item.list);
+      const timestamp = new Date(value).getTime();
+      if (Number.isNaN(timestamp)) {
+        continue;
+      }
+      if (timestamp > latestTimestamp) {
+        latestTimestamp = timestamp;
+        latestValue = value;
+      }
+    }
+    return latestValue;
+  }, [formattedLists, resolveUpdatedAt]);
+
   const formatTotal = (item: ListWithTotals) => {
     if (item.total === null || item.currency === null) {
       return "—";
@@ -350,6 +380,52 @@ export default function ListsContent() {
                 ? t("lists.disableAllAlerts")
                 : t("lists.enableAllAlerts")}
           </button>
+        </div>
+        <div
+          className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 px-5 py-4"
+          data-testid="lists-summary"
+        >
+          <TooltipProvider delayDuration={0}>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+              <div className="flex items-center gap-2">
+                <span className="uppercase tracking-wide text-slate-500">
+                  {t("lists.summary.lists")}
+                </span>
+                <span className="font-mono text-sm text-slate-100">
+                  {listsCount}
+                </span>
+              </div>
+              <span className="text-slate-600">|</span>
+              <div className="flex items-center gap-2">
+                <span className="uppercase tracking-wide text-slate-500">
+                  {t("lists.summary.alertsEnabled")}
+                </span>
+                <span className="font-mono text-sm text-slate-100">
+                  {alertsEnabledCount}
+                </span>
+              </div>
+              <span className="text-slate-600">|</span>
+              <div className="flex items-center gap-2">
+                <span className="uppercase tracking-wide text-slate-500">
+                  {t("lists.summary.lastUpdated")}
+                </span>
+                {lastUpdatedAt ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-default font-mono text-sm text-slate-100">
+                        {formatRelativeTimestamp(lastUpdatedAt)}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {formatExactTimestamp(lastUpdatedAt)}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <span className="font-mono text-sm text-slate-500">—</span>
+                )}
+              </div>
+            </div>
+          </TooltipProvider>
         </div>
         {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
       </div>

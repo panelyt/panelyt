@@ -147,7 +147,12 @@
     "shareDescription": "Wygeneruj link do udostępnienia, aby inni mogli zobaczyć tę listę bez możliwości edycji.",
     "linkTelegramFirst": "Połącz swój czat Telegram w <link>Ustawieniach konta</link>, aby włączyć alerty.",
     "accountSettings": "Ustawienia konta",
-    "actionsFor": "Akcje dla {name}"
+    "actionsFor": "Akcje dla {name}",
+    "summary": {
+      "lists": "Listy",
+      "alertsEnabled": "Alerty włączone",
+      "lastUpdated": "Ostatnia aktualizacja"
+    }
   },
   "saveList": {
     "title": "Zapisz bieżącą selekcję",
