@@ -90,6 +90,7 @@ const selectionStub = {
   error: null,
   handleSelect: vi.fn(),
   handleRemove: vi.fn(),
+  clearAll: vi.fn(),
   handleTemplateSelect: vi.fn(),
   handleApplyAddon: vi.fn(),
   handleLoadList: vi.fn(),

@@ -6,13 +6,20 @@ import { renderWithIntl } from '../../test/utils'
 
 describe('SelectedBiomarkers', () => {
   const mockOnRemove = vi.fn()
+  const mockOnClearAll = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('shows empty state when no biomarkers are selected', () => {
-    renderWithIntl(<SelectedBiomarkers biomarkers={[]} onRemove={mockOnRemove} />)
+    renderWithIntl(
+      <SelectedBiomarkers
+        biomarkers={[]}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
+    )
 
     expect(
       screen.getByText(
@@ -29,7 +36,11 @@ describe('SelectedBiomarkers', () => {
     ]
 
     renderWithIntl(
-      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+      <SelectedBiomarkers
+        biomarkers={biomarkers}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
     )
 
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
@@ -45,7 +56,11 @@ describe('SelectedBiomarkers', () => {
     const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
 
     renderWithIntl(
-      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+      <SelectedBiomarkers
+        biomarkers={biomarkers}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
     )
 
     expect(
@@ -61,7 +76,11 @@ describe('SelectedBiomarkers', () => {
     ]
 
     renderWithIntl(
-      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+      <SelectedBiomarkers
+        biomarkers={biomarkers}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
     )
 
     const removeButton = screen.getByRole('button', {
@@ -76,10 +95,34 @@ describe('SelectedBiomarkers', () => {
     const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
 
     renderWithIntl(
-      <SelectedBiomarkers biomarkers={biomarkers} onRemove={mockOnRemove} />,
+      <SelectedBiomarkers
+        biomarkers={biomarkers}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
     )
 
     const code = screen.getByText('ALT')
     expect(code).toHaveClass('font-mono')
+  })
+
+  it('opens the clear all dialog and confirms removal', async () => {
+    const user = userEvent.setup()
+    const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
+
+    renderWithIntl(
+      <SelectedBiomarkers
+        biomarkers={biomarkers}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Clear all/i }))
+
+    expect(screen.getByText(/Clear all biomarkers\?/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Yes, clear/i }))
+
+    expect(mockOnClearAll).toHaveBeenCalledTimes(1)
   })
 })

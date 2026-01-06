@@ -77,7 +77,11 @@
     "pasteTooLong": "Limit to {limit} biomarkerów.",
     "pasteAdded": "Dodano {count, plural, one {# biomarker} few {# biomarkery} many {# biomarkerów} other {# biomarkerów}}.",
     "saveAsTemplate": "Zapisz jako szablon",
-    "emptyBiomarkers": "Dodaj biomarkery, aby porównać ceny pojedynczych badań i pakietów. Podświetlimy pakiety, które oferują dodatkowe badania w cenie."
+    "emptyBiomarkers": "Dodaj biomarkery, aby porównać ceny pojedynczych badań i pakietów. Podświetlimy pakiety, które oferują dodatkowe badania w cenie.",
+    "clearAll": "Wyczyść wszystko",
+    "clearAllTitle": "Wyczyścić wszystkie biomarkery?",
+    "clearAllDescription": "Ta akcja usunie wszystkie biomarkery z panelu.",
+    "clearAllConfirm": "Tak, usuń"
   },
   "selection": {
     "alreadySelected": "Wszystkie biomarkery z {name} są już wybrane.",

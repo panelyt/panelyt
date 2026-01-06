@@ -77,7 +77,11 @@
     "pasteTooLong": "Limit is {limit} biomarkers.",
     "pasteAdded": "Added {count, plural, one {# biomarker} other {# biomarkers}}.",
     "saveAsTemplate": "Save as template",
-    "emptyBiomarkers": "Add biomarkers to compare prices across single tests and bundles. We'll highlight packages that introduce bonus coverage along the way."
+    "emptyBiomarkers": "Add biomarkers to compare prices across single tests and bundles. We'll highlight packages that introduce bonus coverage along the way.",
+    "clearAll": "Clear all",
+    "clearAllTitle": "Clear all biomarkers?",
+    "clearAllDescription": "This will remove every biomarker from your panel.",
+    "clearAllConfirm": "Yes, clear"
   },
   "selection": {
     "alreadySelected": "All biomarkers from {name} are already selected.",

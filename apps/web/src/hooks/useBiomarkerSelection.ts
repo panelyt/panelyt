@@ -29,6 +29,7 @@ export interface UseBiomarkerSelectionResult {
   error: string | null;
   handleSelect: (biomarker: SelectedBiomarker) => void;
   handleRemove: (code: string) => void;
+  clearAll: () => void;
   handleTemplateSelect: (selection: { slug: string; name: string }) => Promise<void>;
   handleApplyAddon: (
     biomarkers: { code: string; name: string }[],
@@ -53,6 +54,7 @@ export function useBiomarkerSelection(
   const addOne = usePanelStore((state) => state.addOne);
   const addMany = usePanelStore((state) => state.addMany);
   const remove = usePanelStore((state) => state.remove);
+  const clearAll = usePanelStore((state) => state.clearAll);
   const replaceAll = usePanelStore((state) => state.replaceAll);
 
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +88,12 @@ export function useBiomarkerSelection(
     },
     [remove],
   );
+
+  const handleClearAll = useCallback(() => {
+    clearAll();
+    setError(null);
+    setNotice(null);
+  }, [clearAll]);
 
   const handleTemplateSelect = useCallback(
     async (selection: { slug: string; name: string }) => {
@@ -213,6 +221,7 @@ export function useBiomarkerSelection(
     error,
     handleSelect,
     handleRemove,
+    clearAll: handleClearAll,
     handleTemplateSelect,
     handleApplyAddon,
     handleLoadList,

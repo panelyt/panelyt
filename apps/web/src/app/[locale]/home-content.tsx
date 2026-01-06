@@ -189,6 +189,7 @@ function HomeContent() {
                   <SelectedBiomarkers
                     biomarkers={selection.selected}
                     onRemove={selection.handleRemove}
+                    onClearAll={selection.clearAll}
                   />
                   {selection.selected.length > 0 && (
                     <p className="text-sm text-slate-400">
