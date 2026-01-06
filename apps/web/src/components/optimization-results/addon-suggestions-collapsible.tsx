@@ -9,6 +9,28 @@ import { formatCurrency } from "../../lib/format";
 
 const STORAGE_KEY = "panelyt:addons-expanded";
 
+const readExpansionState = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
+
+const persistExpansionState = (value: boolean) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(STORAGE_KEY, String(value));
+  } catch {
+    // Ignore storage errors (e.g., private mode restrictions).
+  }
+};
+
 interface AddonSuggestionsCollapsibleProps {
   suggestions?: OptimizeResponse["addon_suggestions"];
   isLoading?: boolean;
@@ -23,13 +45,10 @@ export function AddonSuggestionsCollapsible({
   isDark = true,
 }: AddonSuggestionsCollapsibleProps) {
   const t = useTranslations();
-  const [isExpanded, setIsExpanded] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(STORAGE_KEY) === "true";
-  });
+  const [isExpanded, setIsExpanded] = useState(readExpansionState);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(isExpanded));
+    persistExpansionState(isExpanded);
   }, [isExpanded]);
 
   // Don't render if no suggestions and not loading
