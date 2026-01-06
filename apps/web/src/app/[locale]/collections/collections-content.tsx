@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { Link } from "../../../i18n/navigation";
 import { Header } from "../../../components/header";
@@ -21,6 +22,7 @@ import {
 import { useTemplateAdmin } from "../../../hooks/useTemplateAdmin";
 import { useUserSession } from "../../../hooks/useUserSession";
 import { usePanelStore } from "../../../stores/panelStore";
+import { track } from "../../../lib/analytics";
 import { slugify } from "../../../lib/slug";
 import { Button, buttonVariants } from "../../../ui/button";
 import {
@@ -197,6 +199,8 @@ export default function CollectionsContent() {
         name: entry.display_name,
       })),
     );
+    track("panel_apply_template", { mode: "append" });
+    toast(t("collections.appliedAppend", { name: template.name }));
   };
 
   const handleReplacePanel = (template: (typeof templates)[number]) => {
@@ -206,6 +210,8 @@ export default function CollectionsContent() {
         name: entry.display_name,
       })),
     );
+    track("panel_apply_template", { mode: "replace" });
+    toast(t("collections.appliedReplace", { name: template.name }));
   };
 
   const toggleExpanded = (slug: string) => {

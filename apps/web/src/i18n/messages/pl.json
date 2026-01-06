@@ -192,6 +192,8 @@
     "expandRow": "Pokaż biomarkery",
     "collapseRow": "Ukryj biomarkery",
     "moreBiomarkers": "+{count} więcej",
+    "appliedAppend": "Dodano {name} do panelu.",
+    "appliedReplace": "Zastąpiono panel szablonem {name}.",
     "loadingTemplates": "Ładowanie szablonów...",
     "failedToLoad": "Nie udało się załadować szablonów. Spróbuj ponownie.",
     "noTemplates": "Brak opublikowanych szablonów. Sprawdź później!",

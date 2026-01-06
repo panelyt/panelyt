@@ -3,11 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Toaster } from "sonner";
 
 import CollectionsContent from "../collections-content";
 import enMessages from "../../../../i18n/messages/en.json";
 import plMessages from "../../../../i18n/messages/pl.json";
 import { usePanelStore } from "../../../../stores/panelStore";
+import { track } from "../../../../lib/analytics";
 
 vi.mock("../../../../components/header", () => ({
   Header: () => <div data-testid="header" />,
@@ -72,13 +74,27 @@ vi.mock("../../../../hooks/useTemplateAdmin", () => ({
   }),
 }));
 
+vi.mock("../../../../lib/analytics", () => ({
+  track: vi.fn(),
+}));
+
+const trackMock = vi.mocked(track);
+
 const renderWithIntl = (
   locale: "en" | "pl",
   messages: typeof enMessages | typeof plMessages,
+  withToaster = false,
 ) =>
   render(
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <CollectionsContent />
+      {withToaster ? (
+        <>
+          <Toaster />
+          <CollectionsContent />
+        </>
+      ) : (
+        <CollectionsContent />
+      )}
     </NextIntlClientProvider>,
   );
 
@@ -127,6 +143,7 @@ describe("CollectionsContent", () => {
     updateMutation.mutateAsync.mockClear();
     deleteMutation.mutateAsync.mockClear();
     usePanelStore.setState({ selected: [] });
+    trackMock.mockClear();
   });
 
   it("hides inactive templates for non-admin users", () => {
@@ -420,5 +437,55 @@ describe("CollectionsContent", () => {
     );
 
     expect(deleteMutation.mutateAsync).toHaveBeenCalledWith("delete-me");
+  });
+
+  it("tracks and toasts when templates are appended to the panel", async () => {
+    templatesData = [
+      makeTemplate({ id: 17, name: "Appendable", slug: "appendable" }),
+    ];
+
+    renderWithIntl("en", enMessages, true);
+
+    const user = userEvent.setup();
+    const table = getTable();
+    await user.click(
+      within(table).getByRole("button", { name: enMessages.collections.addToPanel }),
+    );
+
+    const toastMessage = enMessages.collections.appliedAppend.replace(
+      "{name}",
+      "Appendable",
+    );
+    expect(await screen.findByText(toastMessage)).toBeInTheDocument();
+    expect(trackMock).toHaveBeenCalledWith("panel_apply_template", { mode: "append" });
+  });
+
+  it("tracks and toasts when templates replace the panel selection", async () => {
+    templatesData = [
+      makeTemplate({ id: 18, name: "Replacement", slug: "replacement" }),
+    ];
+
+    renderWithIntl("en", enMessages, true);
+
+    const user = userEvent.setup();
+    const table = getTable();
+    await user.click(
+      within(table).getByRole("button", { name: enMessages.collections.expandRow }),
+    );
+
+    const details = document.getElementById("template-replacement-details");
+    expect(details).not.toBeNull();
+    if (!details) return;
+
+    await user.click(
+      within(details).getByRole("button", { name: enMessages.collections.replacePanel }),
+    );
+
+    const toastMessage = enMessages.collections.appliedReplace.replace(
+      "{name}",
+      "Replacement",
+    );
+    expect(await screen.findByText(toastMessage)).toBeInTheDocument();
+    expect(trackMock).toHaveBeenCalledWith("panel_apply_template", { mode: "replace" });
   });
 });

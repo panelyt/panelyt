@@ -192,6 +192,8 @@
     "expandRow": "Show biomarkers",
     "collapseRow": "Hide biomarkers",
     "moreBiomarkers": "+{count} more",
+    "appliedAppend": "Added {name} to your panel.",
+    "appliedReplace": "Replaced your panel with {name}.",
     "loadingTemplates": "Loading curated templates...",
     "failedToLoad": "Failed to load templates. Please try again.",
     "noTemplates": "No templates published yet. Check back soon!",
