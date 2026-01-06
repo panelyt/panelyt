@@ -1,9 +1,16 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import type { LabChoiceCard } from "./types";
+import { SegmentedControl } from "../../ui/segmented-control";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../ui/tooltip";
 
 interface LabTabsProps {
   labCards: LabChoiceCard[];
@@ -20,6 +27,12 @@ export function LabTabs({ labCards, isDark }: LabTabsProps) {
   const cardTone = isDark
     ? "border-slate-800 bg-slate-900/70"
     : "border-slate-200 bg-white";
+  const activeKey = labCards.find((card) => card.active)?.key ?? labCards[0]?.key ?? "";
+  const options = labCards.map((card) => ({
+    value: card.key,
+    label: <LabSegmentLabel card={card} isDark={isDark} />,
+    disabled: card.disabled || card.loading,
+  }));
 
   return (
     <section
@@ -37,10 +50,25 @@ export function LabTabs({ labCards, isDark }: LabTabsProps) {
           {t("optimization.bestPrices")}
         </h2>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {labCards.map((card) => (
-          <LabSegment key={card.key} card={card} isDark={isDark} />
-        ))}
+      <div className="mt-3">
+        <TooltipProvider delayDuration={0}>
+          <SegmentedControl
+            value={activeKey}
+            onValueChange={(value) => {
+              const selectedCard = labCards.find((card) => card.key === value);
+              selectedCard?.onSelect();
+            }}
+            ariaLabel={t("optimization.bestPrices")}
+            options={options}
+            className={[
+              "flex w-full flex-wrap gap-2 border-border/60 bg-surface-1/80",
+              "[&>button]:flex [&>button]:min-w-[190px] [&>button]:flex-1 [&>button]:items-start",
+              "[&>button]:justify-between [&>button]:gap-3 [&>button]:px-4 [&>button]:py-3",
+              "[&>button]:text-left [&>button]:shadow-none [&>button]:transition",
+              "[&>button]:focus-ring [&>button]:normal-case",
+            ].join(" ")}
+          />
+        </TooltipProvider>
       </div>
     </section>
   );
@@ -51,104 +79,112 @@ interface LabSegmentProps {
   isDark: boolean;
 }
 
-function LabSegment({ card, isDark }: LabSegmentProps) {
+function LabSegmentLabel({ card, isDark }: LabSegmentProps) {
   const t = useTranslations();
   const isActive = card.active;
-  const isDisabled = card.disabled || card.loading;
   const isUnavailable = !card.coversAll && card.missing && card.missing.count > 0;
   const hasSavings = Boolean(card.savings && card.savings.amount > 0);
   const hasBonus = Boolean(card.bonus && card.bonus.count > 0);
   const missingCount = card.missing?.count ?? 0;
   const savingsLabel = card.savings?.label ?? "";
   const bonusCount = card.bonus?.count ?? 0;
+  const bonusValue = card.bonus?.valueLabel;
+  const missingTokens = card.missing?.tokens ?? [];
+  const hasMissingTokens = missingTokens.length > 0;
 
   const labName = card.shortLabel ?? card.title.replace(/^ONLY\s+/i, "");
 
-  const segmentTone = isDark
-    ? "border-slate-800/80 bg-slate-950/40 hover:border-slate-700 hover:bg-slate-900/60"
-    : "border-slate-200 bg-white/70 hover:border-emerald-100 hover:bg-white";
-
-  const activeTone = isDark
-    ? "border-emerald-400/70 bg-slate-900 shadow-[0_10px_30px_-18px_rgba(16,185,129,0.65)] ring-1 ring-emerald-300/50"
-    : "border-emerald-200 bg-white shadow-[0_10px_30px_-18px_rgba(16,185,129,0.65)] ring-1 ring-emerald-200";
-
   const labelTone = isActive
-    ? isDark
-      ? "text-emerald-200"
-      : "text-emerald-700"
+    ? "text-slate-950"
     : isDark
       ? "text-slate-400"
       : "text-slate-500";
 
   const priceTone = isActive
-    ? isDark
-      ? "text-emerald-200"
-      : "text-emerald-700"
+    ? "text-slate-950"
     : isDark
       ? "text-white"
       : "text-slate-900";
 
-  return (
-    <button
-      type="button"
-      onClick={card.onSelect}
-      disabled={isDisabled}
-      aria-pressed={isActive}
-      className={`group relative flex flex-1 flex-col rounded-lg border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 ${
-        isActive ? activeTone : segmentTone
-      } ${isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+  const metaTone = isActive
+    ? "text-slate-800"
+    : isDark
+      ? "text-slate-500"
+      : "text-slate-400";
+
+  const badgeTone = isActive
+    ? "bg-slate-950/10 text-slate-950"
+    : "bg-surface-2 text-secondary";
+
+  const missingChip = (
+    <span
+      className={`inline-flex items-center gap-1 rounded-pill border px-2.5 py-1 text-[11px] font-medium normal-case ${
+        isDark
+          ? "border-amber-300/40 bg-amber-500/10 text-amber-200"
+          : "border-amber-200 bg-amber-50 text-amber-700"
+      }`}
     >
+      <AlertTriangle className="h-3 w-3" />
+      <span>{t("optimization.missingCount", { count: missingCount })}</span>
+    </span>
+  );
+
+  return (
+    <div className="flex w-full flex-col gap-3 text-left normal-case">
       <div className="flex w-full items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <span
-            className={`text-[11px] font-semibold uppercase tracking-wide ${labelTone}`}
-          >
+          <span className={`text-[11px] font-semibold uppercase tracking-wide ${labelTone}`}>
             {labName}
           </span>
-          {card.meta && (
+          {card.badge && (
             <span
-              className={`text-[11px] ${
-                isDark ? "text-slate-500" : "text-slate-500"
-              }`}
+              className={`inline-flex w-fit items-center rounded-pill px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badgeTone}`}
             >
-              {card.meta}
+              {card.badge}
             </span>
           )}
         </div>
 
         {isUnavailable ? (
           <span
-            className={`text-sm font-medium ${
-              isDark ? "text-amber-300" : "text-amber-600"
+            className={`text-sm font-semibold ${
+              isDark ? "text-amber-200" : "text-amber-600"
             }`}
           >
             {t("common.notAvailable")}
           </span>
         ) : (
-          <span
-            className={`flex items-baseline gap-1 text-lg font-semibold ${priceTone}`}
-          >
+          <span className={`text-lg font-semibold ${priceTone}`}>
             {card.loading ? "—" : card.priceLabel}
           </span>
         )}
       </div>
 
-      <div className="mt-3 flex w-full flex-wrap items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         {isUnavailable ? (
-          <div
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 ${
-              isDark
-                ? "border-amber-300/50 bg-amber-500/10 text-amber-200"
-                : "border-amber-200 bg-amber-50 text-amber-700"
-            }`}
-          >
-            <AlertTriangle className="h-3 w-3" />
-            <span>{t("optimization.missingCount", { count: missingCount })}</span>
-          </div>
+          hasMissingTokens ? (
+            <Tooltip>
+              <TooltipTrigger asChild>{missingChip}</TooltipTrigger>
+              <TooltipContent>
+                <p className={`text-[10px] uppercase tracking-wide ${metaTone}`}>
+                  {t("optimization.missingTokensLabel")}
+                </p>
+                <div className="mt-1 flex flex-wrap gap-1.5 font-mono text-[11px] text-primary">
+                  {missingTokens.map((token) => (
+                    <span key={token} className="rounded-pill bg-surface-1 px-2 py-0.5">
+                      {token}
+                    </span>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            missingChip
+          )
         ) : (
           <>
             <span
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium ${
+              className={`inline-flex items-center gap-1 rounded-pill border px-2.5 py-1 text-[11px] font-medium normal-case ${
                 hasSavings
                   ? isDark
                     ? "border-emerald-400/60 bg-emerald-500/10 text-emerald-200"
@@ -165,18 +201,36 @@ function LabSegment({ card, isDark }: LabSegmentProps) {
 
             {hasBonus && (
               <span
-                className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium ${
+                className={`inline-flex items-center gap-1 rounded-pill border px-2.5 py-1 text-[11px] font-medium normal-case ${
                   isDark
                     ? "border-slate-700 bg-slate-900 text-slate-300"
                     : "border-slate-200 bg-white text-slate-600"
                 }`}
               >
-                {t("optimization.bonusCountShort", { count: bonusCount })}
+                <Sparkles className="h-3 w-3" />
+                {bonusValue
+                  ? t("optimization.bonusShortWithValue", {
+                      count: bonusCount,
+                      value: bonusValue,
+                    })
+                  : t("optimization.bonusShort", { count: bonusCount })}
+              </span>
+            )}
+
+            {card.missing && card.missing.count > 0 && (
+              <span
+                className={`inline-flex items-center gap-1 rounded-pill border px-2.5 py-1 text-[11px] font-medium normal-case ${
+                  isDark
+                    ? "border-amber-300/40 bg-amber-500/10 text-amber-200"
+                    : "border-amber-200 bg-amber-50 text-amber-700"
+                }`}
+              >
+                {t("optimization.missingCount", { count: missingCount })}
               </span>
             )}
           </>
         )}
       </div>
-    </button>
+    </div>
   );
 }

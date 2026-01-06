@@ -1,4 +1,5 @@
-import { screen, within } from '@testing-library/react'
+import { screen, within, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { LabTabs } from '../lab-tabs'
 import { renderWithIntl } from '../../../test/utils'
@@ -32,21 +33,31 @@ describe('LabTabs', () => {
       icon: null,
       accentLight: '',
       accentDark: '',
-      missing: { count: 2 },
+      missing: { count: 2, tokens: ['ALT', 'AST'] },
       coversAll: false,
     },
   ]
 
-  it('marks the active lab as pressed and surfaces savings/missing details', () => {
+  it('marks the active lab and exposes missing details with a tooltip', async () => {
+    const user = userEvent.setup()
     renderTabs()
 
     const region = screen.getByRole('region', { name: /best prices/i })
-    const segments = within(region).getAllByRole('button')
+    const segments = within(region).getAllByRole('tab')
     expect(segments).toHaveLength(2)
-    expect(segments[0]).toHaveAttribute('aria-pressed', 'true')
-    expect(segments[1]).toHaveAttribute('aria-pressed', 'false')
+    expect(segments[0]).toHaveAttribute('aria-selected', 'true')
+    expect(segments[1]).toHaveAttribute('aria-selected', 'false')
 
     expect(within(region).getByText('Save $12')).toBeInTheDocument()
-    expect(within(region).getByText('Missing 2')).toBeInTheDocument()
+    const missingChip = within(region).getByText('Missing 2')
+    expect(missingChip).toBeInTheDocument()
+
+    await user.hover(missingChip)
+
+    await waitFor(() => {
+      expect(document.body.textContent).toContain('Missing biomarkers')
+      expect(document.body.textContent).toContain('ALT')
+      expect(document.body.textContent).toContain('AST')
+    })
   })
 })
