@@ -67,7 +67,12 @@ const createPanelStorage = (): PersistStorage<
 
   return {
     getItem: (name) => {
-      const raw = sessionStorage.getItem(name);
+      let raw: string | null = null;
+      try {
+        raw = sessionStorage.getItem(name);
+      } catch {
+        return null;
+      }
       if (!raw) return null;
       try {
         const parsed = JSON.parse(raw) as unknown;

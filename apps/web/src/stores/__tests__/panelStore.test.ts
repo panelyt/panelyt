@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
 import { usePanelStore, PANEL_STORAGE_KEY } from "../panelStore";
 
@@ -14,6 +14,10 @@ const readPersistedSelection = () => {
 };
 
 describe("panelStore", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     sessionStorage.clear();
     usePanelStore.setState({ selected: [], lastOptimizationSummary: undefined });
@@ -38,6 +42,20 @@ describe("panelStore", () => {
       { code: "ALT", name: "ALT" },
       { code: "B12", name: "B12" },
     ]);
+  });
+
+  it("ignores storage errors when reading persisted data", () => {
+    const storage = usePanelStore.persist.getOptions().storage;
+    expect(storage).toBeDefined();
+    const getItemSpy = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("storage blocked");
+      });
+
+    expect(() => storage?.getItem(PANEL_STORAGE_KEY)).not.toThrow();
+    expect(storage?.getItem(PANEL_STORAGE_KEY)).toBeNull();
+    getItemSpy.mockRestore();
   });
 
   it("persists selection changes to sessionStorage", () => {
