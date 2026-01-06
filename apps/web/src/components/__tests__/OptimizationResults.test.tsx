@@ -115,6 +115,24 @@ describe('OptimizationResults', () => {
     expect(screen.getByText(/Start by adding biomarkers above/)).toBeInTheDocument()
   })
 
+  it('uses light styling for the empty state when variant is light', () => {
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={[]}
+        result={undefined}
+        isLoading={false}
+        error={null}
+        variant="light"
+      />,
+    )
+
+    const container = screen.getByText(/Start by adding biomarkers above/)
+
+    expect(container).toHaveClass('border-slate-200')
+    expect(container).toHaveClass('bg-white')
+    expect(container).toHaveClass('text-slate-600')
+  })
+
   it('shows loading state', () => {
     renderWithQueryClient(
       <OptimizationResults
@@ -126,6 +144,26 @@ describe('OptimizationResults', () => {
     )
 
     expect(screen.getByText('Crunching the optimal basket...')).toBeInTheDocument()
+  })
+
+  it('uses light styling for the loading state when variant is light', () => {
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT']}
+        result={undefined}
+        isLoading={true}
+        error={null}
+        variant="light"
+      />,
+    )
+
+    const container = screen
+      .getByText('Crunching the optimal basket...')
+      .closest('div') as HTMLElement
+
+    expect(container).toHaveClass('border-slate-200')
+    expect(container).toHaveClass('bg-white')
+    expect(container).toHaveClass('text-slate-700')
   })
 
   it('shows error state', () => {
@@ -141,6 +179,28 @@ describe('OptimizationResults', () => {
 
     expect(screen.getByText('Optimization failed')).toBeInTheDocument()
     expect(screen.getByText('Network error')).toBeInTheDocument()
+  })
+
+  it('uses light styling for the error state when variant is light', () => {
+    const error = new Error('Network error')
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT']}
+        result={undefined}
+        isLoading={false}
+        error={error}
+        variant="light"
+      />,
+    )
+
+    const outer = screen
+      .getByText('Optimization failed')
+      .closest('div')
+      ?.parentElement as HTMLElement
+
+    expect(outer).toHaveClass('border-red-200')
+    expect(outer).toHaveClass('bg-red-50')
+    expect(outer).toHaveClass('text-red-700')
   })
 
   it('renders optimization results with single test and package', () => {

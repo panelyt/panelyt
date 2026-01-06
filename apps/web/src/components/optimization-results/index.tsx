@@ -41,6 +41,7 @@ export function OptimizationResults({
   onSearchAlternative,
 }: OptimizationResultsProps) {
   const t = useTranslations();
+  const isDark = variant === "dark";
   const missingCodes = useMemo(() => {
     if (!result) {
       return [] as string[];
@@ -70,7 +71,13 @@ export function OptimizationResults({
 
   if (selected.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/70 p-8 text-sm text-slate-200">
+      <div
+        className={`rounded-2xl border border-dashed p-8 text-sm ${
+          isDark
+            ? "border-slate-800 bg-slate-900/70 text-slate-200"
+            : "border-slate-200 bg-white text-slate-600"
+        }`}
+      >
         {t("results.emptyState")}
       </div>
     );
@@ -78,7 +85,13 @@ export function OptimizationResults({
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-200">
+      <div
+        className={`flex items-center gap-3 rounded-2xl border p-6 text-sm ${
+          isDark
+            ? "border-slate-800 bg-slate-900/70 text-slate-200"
+            : "border-slate-200 bg-white text-slate-700"
+        }`}
+      >
         <Loader2 className="h-4 w-4 animate-spin" />
         <span>{t("results.optimizing")}</span>
       </div>
@@ -87,11 +100,19 @@ export function OptimizationResults({
 
   if (error) {
     return (
-      <div className="flex items-start gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-100">
+      <div
+        className={`flex items-start gap-3 rounded-2xl border p-6 text-sm ${
+          isDark
+            ? "border-red-500/40 bg-red-500/10 text-red-100"
+            : "border-red-200 bg-red-50 text-red-700"
+        }`}
+      >
         <CircleAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <div>
           <p className="font-semibold">{t("results.optimizationFailed")}</p>
-          <p className="text-xs text-red-200/80">{error.message}</p>
+          <p className={`text-xs ${isDark ? "text-red-200/80" : "text-red-600/80"}`}>
+            {error.message}
+          </p>
         </div>
       </div>
     );
