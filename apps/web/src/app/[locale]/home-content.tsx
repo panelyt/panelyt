@@ -21,6 +21,8 @@ import { TemplateModal } from "../../components/template-modal";
 import { LoadMenu } from "../../components/load-menu";
 import { OptimizerLayout } from "../../features/optimizer/OptimizerLayout";
 import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
+import { Button } from "../../ui/button";
+import { Card } from "../../ui/card";
 
 function HomeContent() {
   const t = useTranslations();
@@ -175,7 +177,7 @@ function HomeContent() {
         <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6">
           <OptimizerLayout
             left={
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl shadow-slate-900/30">
+              <Card className="p-6">
                 <h2 className="text-lg font-semibold text-white">
                   {t("home.buildPanel")}
                 </h2>
@@ -217,7 +219,9 @@ function HomeContent() {
                       onSelect={handleLoadFromMenu}
                     />
 
-                    <button
+                    <Button
+                      variant="primary"
+                      size="sm"
                       type="button"
                       onClick={() =>
                         saveListModal.open(
@@ -228,15 +232,15 @@ function HomeContent() {
                             : "",
                         )
                       }
-                      className="rounded-full border border-emerald-500/60 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                     >
                       {t("common.save")}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       type="button"
                       onClick={() => void handleSharePanel()}
                       disabled={selection.selected.length === 0}
-                      className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {shareCopied ? (
                         <>
@@ -249,19 +253,20 @@ function HomeContent() {
                           {t("common.share")}
                         </>
                       )}
-                    </button>
+                    </Button>
                     {isAdmin && (
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         type="button"
                         onClick={templateModal.open}
-                        className="rounded-full border border-sky-500/60 px-3 py-1.5 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20"
                       >
                         {t("home.saveAsTemplate")}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
-              </div>
+              </Card>
             }
             right={
               <>
