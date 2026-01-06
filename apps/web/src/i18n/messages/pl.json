@@ -41,7 +41,9 @@
   },
   "toast": {
     "shareCopied": "Skopiowano link do udostępnienia.",
-    "shareCopyFailed": "Nie udało się skopiować linku do udostępnienia."
+    "shareCopyFailed": "Nie udało się skopiować linku do udostępnienia.",
+    "telegramCommandCopied": "Skopiowano komendę Telegrama.",
+    "telegramBotOpened": "Otworzono bota Telegrama."
   },
   "panelTray": {
     "title": "Panel",

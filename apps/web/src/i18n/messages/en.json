@@ -41,7 +41,9 @@
   },
   "toast": {
     "shareCopied": "Share link copied.",
-    "shareCopyFailed": "Unable to copy share link."
+    "shareCopyFailed": "Unable to copy share link.",
+    "telegramCommandCopied": "Telegram command copied.",
+    "telegramBotOpened": "Telegram bot opened."
   },
   "panelTray": {
     "title": "Panel",
