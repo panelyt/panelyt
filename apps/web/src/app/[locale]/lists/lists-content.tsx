@@ -735,7 +735,8 @@ export default function ListsContent() {
                 return (
                   <div
                     key={item.list.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/80 px-5 py-4 shadow-lg shadow-slate-900/40"
+                    data-testid={`list-card-${item.list.id}`}
+                    className="rounded-2xl border border-slate-800 bg-slate-900/80 px-5 py-4"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>

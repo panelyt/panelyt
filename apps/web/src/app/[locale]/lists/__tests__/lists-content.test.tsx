@@ -273,6 +273,30 @@ describe("ListsContent", () => {
     expect(actionButtons).toHaveLength(2);
   });
 
+  it("renders mobile cards without shadows", async () => {
+    listsData = [
+      {
+        id: "list-10",
+        name: "Checkup",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    const card = await screen.findByTestId("list-card-list-10");
+    expect(card.className).not.toMatch(/shadow/);
+  });
+
   it("shows summary metrics for lists and alerts", async () => {
     listsData = [
       {
