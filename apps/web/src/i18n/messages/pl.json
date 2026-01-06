@@ -49,7 +49,14 @@
     "runOptimize": "Uruchom optymalizację",
     "statusCovered": "Wszystkie biomarkery pokryte",
     "statusGaps": "Braki w pokryciu",
-    "statusPending": "Oczekiwanie na optymalizację"
+    "statusPending": "Oczekiwanie na optymalizację",
+    "selectedTitle": "Wybrane biomarkery",
+    "empty": "Brak biomarkerów w panelu.",
+    "openOptimizer": "Otwórz optymalizator",
+    "sharePanel": "Udostępnij panel",
+    "saveList": "Zapisz listę",
+    "bestLab": "Najlepsze: {lab}",
+    "savings": "Oszczędzasz {amount} względem minimum z 30 dni"
   },
   "auth": {
     "signIn": "Zaloguj się",

@@ -49,7 +49,14 @@
     "runOptimize": "Run optimize",
     "statusCovered": "All biomarkers covered",
     "statusGaps": "Coverage gaps",
-    "statusPending": "Optimization pending"
+    "statusPending": "Optimization pending",
+    "selectedTitle": "Selected biomarkers",
+    "empty": "No biomarkers selected yet.",
+    "openOptimizer": "Open Optimizer",
+    "sharePanel": "Share panel",
+    "saveList": "Save list",
+    "bestLab": "Best: {lab}",
+    "savings": "Save {amount} vs 30-day floor"
   },
   "auth": {
     "signIn": "Sign in",
