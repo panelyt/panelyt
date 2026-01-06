@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 
@@ -85,7 +86,8 @@ describe("ListsContent", () => {
     renderWithIntl("en", enMessages);
 
     const expectedUrl = `${window.location.origin}/en/collections/shared/token-123`;
-    expect(await screen.findByText(expectedUrl)).toBeInTheDocument();
+    const links = await screen.findAllByText(expectedUrl);
+    expect(links.length).toBeGreaterThan(0);
   });
 
   it("shows a placeholder when totals are missing", async () => {
@@ -117,12 +119,47 @@ describe("ListsContent", () => {
 
     renderWithIntl("pl", plMessages);
 
-    await waitFor(() => {
-      expect(screen.getByText("Totals list")).toBeInTheDocument();
-      expect(screen.getAllByText("—").length).toBeGreaterThan(0);
-    });
+    await screen.findAllByText("Totals list");
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     expect(
       screen.queryByText(plMessages.errors.failedToCalculateTotals),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders the lists table with actions", async () => {
+    listsData = [
+      {
+        id: "list-3",
+        name: "Checkup",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Biomarkers" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Total" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Updated" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Alerts" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Share" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Actions for Checkup" }));
+    expect(await screen.findByRole("menuitem", { name: "Load in optimizer" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
   });
 });
