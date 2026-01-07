@@ -16,6 +16,8 @@ export interface UseSaveListModalOptions {
   onSuccess?: () => void;
   /** Called when an error should be shown outside the modal */
   onExternalError?: (message: string) => void;
+  /** Called when authentication is required */
+  onRequireAuth?: () => void;
 }
 
 export interface UseSaveListModalResult {
@@ -33,7 +35,7 @@ export function useSaveListModal(
   options: UseSaveListModalOptions,
 ): UseSaveListModalResult {
   const t = useTranslations();
-  const { isAuthenticated, biomarkers, onSuccess, onExternalError } = options;
+  const { isAuthenticated, biomarkers, onSuccess, onExternalError, onRequireAuth } = options;
 
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
@@ -43,10 +45,14 @@ export function useSaveListModal(
   const savedLists = useSavedLists(isAuthenticated);
 
   const open = useCallback((defaultName?: string) => {
+    if (!isAuthenticated) {
+      onRequireAuth?.();
+      return;
+    }
     setName(defaultName ?? "");
     setError(null);
     setIsOpen(true);
-  }, []);
+  }, [isAuthenticated, onRequireAuth]);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -54,6 +60,11 @@ export function useSaveListModal(
   }, []);
 
   const handleConfirm = useCallback(async () => {
+    if (!isAuthenticated) {
+      onRequireAuth?.();
+      close();
+      return;
+    }
     const trimmed = name.trim();
     if (!trimmed) {
       setError(t("errors.listNameEmpty"));
@@ -86,6 +97,8 @@ export function useSaveListModal(
       setIsSaving(false);
     }
   }, [
+    isAuthenticated,
+    onRequireAuth,
     name,
     biomarkers,
     savedLists.createMutation,

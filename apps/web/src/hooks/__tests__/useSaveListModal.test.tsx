@@ -106,4 +106,52 @@ describe('useSaveListModal', () => {
 
     expect(trackMock).toHaveBeenCalledWith('save_list_submit', { status: 'failure' })
   })
+
+  it('requests auth instead of opening when unauthenticated', () => {
+    const onRequireAuth = vi.fn()
+    const wrapper = createWrapper()
+    const { result } = renderHook(
+      () =>
+        useSaveListModal({
+          isAuthenticated: false,
+          biomarkers: [{ code: 'ALT', name: 'ALT' }],
+          onExternalError: vi.fn(),
+          onRequireAuth,
+        }),
+      { wrapper },
+    )
+
+    act(() => {
+      result.current.open('Baseline panel')
+    })
+
+    expect(onRequireAuth).toHaveBeenCalledTimes(1)
+    expect(result.current.isOpen).toBe(false)
+  })
+
+  it('requests auth instead of saving when unauthenticated', async () => {
+    const onRequireAuth = vi.fn()
+    const wrapper = createWrapper()
+    const { result } = renderHook(
+      () =>
+        useSaveListModal({
+          isAuthenticated: false,
+          biomarkers: [{ code: 'ALT', name: 'ALT' }],
+          onExternalError: vi.fn(),
+          onRequireAuth,
+        }),
+      { wrapper },
+    )
+
+    act(() => {
+      result.current.setName('Baseline panel')
+    })
+
+    await act(async () => {
+      await result.current.handleConfirm()
+    })
+
+    expect(onRequireAuth).toHaveBeenCalledTimes(1)
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
+  })
 })

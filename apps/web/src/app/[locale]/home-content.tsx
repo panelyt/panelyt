@@ -24,6 +24,7 @@ import { OptimizerLayout } from "../../features/optimizer/OptimizerLayout";
 import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
 import { dispatchSearchPrefill } from "../../features/optimizer/search-events";
 import { track } from "../../lib/analytics";
+import { requestAuthModal } from "../../lib/auth-events";
 import { formatCurrency } from "../../lib/format";
 import { buildOptimizationKey } from "../../lib/optimization";
 import { usePanelStore } from "../../stores/panelStore";
@@ -80,6 +81,7 @@ function HomeContent() {
     isAuthenticated: Boolean(userSession),
     biomarkers: selection.selectionPayload,
     onExternalError: selection.setError,
+    onRequireAuth: requestAuthModal,
   });
 
   // Template modal

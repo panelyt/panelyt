@@ -16,6 +16,7 @@ import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/format";
 import { track } from "@/lib/analytics";
+import { requestAuthModal } from "@/lib/auth-events";
 import { usePanelStore } from "@/stores/panelStore";
 import { Button } from "@/ui/button";
 import {
@@ -42,6 +43,7 @@ export function PanelTray() {
   const saveListModal = useSaveListModal({
     isAuthenticated,
     biomarkers: selected,
+    onRequireAuth: requestAuthModal,
   });
 
   const shareSync = useUrlBiomarkerSync({

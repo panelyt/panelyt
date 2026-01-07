@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -10,6 +11,7 @@ import { useAuthModal } from "../hooks/useAuthModal";
 import { AuthModal } from "./auth-modal";
 import { LanguageSwitcher } from "./language-switcher";
 import { PanelTray } from "../features/panel/PanelTray";
+import { AUTH_REQUIRED_EVENT } from "../lib/auth-events";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +35,17 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
     onAuthSuccess,
     onLogoutError,
   });
+
+  useEffect(() => {
+    const handleAuthRequired = () => {
+      authModal.open("login");
+    };
+
+    window.addEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired);
+    return () => {
+      window.removeEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired);
+    };
+  }, [authModal]);
 
   const navItems = [
     { href: "/", label: t("nav.optimizer") },
