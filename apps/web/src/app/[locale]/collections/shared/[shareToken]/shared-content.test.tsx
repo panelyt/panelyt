@@ -98,7 +98,7 @@ const sampleResult = {
 const renderContent = async () => {
   await act(async () => {
     renderWithQueryClient(
-      <SharedContent params={Promise.resolve({ shareToken: "token-123" })} />,
+      <SharedContent shareToken="token-123" />,
     );
   });
 };

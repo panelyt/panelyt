@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo } from "react";
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -17,13 +17,12 @@ import { Button } from "../../../../ui/button";
 import { Card } from "../../../../ui/card";
 
 interface TemplateDetailContentProps {
-  params: Promise<{ slug: string }>;
+  slug: string;
 }
 
-export default function TemplateDetailContent({ params }: TemplateDetailContentProps) {
+export default function TemplateDetailContent({ slug }: TemplateDetailContentProps) {
   const t = useTranslations();
   const locale = useLocale();
-  const { slug } = use(params);
   const router = useRouter();
   const templateQuery = useTemplateDetail(slug, Boolean(slug));
   const template = templateQuery.data;

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo } from "react";
+import { useMemo } from "react";
 import { CalendarDays, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -12,12 +12,11 @@ import { useLabOptimization } from "../../../../../hooks/useLabOptimization";
 import { useBiomarkerSelection } from "../../../../../hooks/useBiomarkerSelection";
 
 interface SharedContentProps {
-  params: Promise<{ shareToken: string }>;
+  shareToken: string;
 }
 
-export default function SharedContent({ params }: SharedContentProps) {
+export default function SharedContent({ shareToken }: SharedContentProps) {
   const t = useTranslations();
-  const { shareToken } = use(params);
   const router = useRouter();
   const sharedQuery = useSharedList(shareToken, Boolean(shareToken));
   const sharedList = sharedQuery.data;

@@ -44,7 +44,7 @@ describe("shared list metadata", () => {
 
     const pageModule = (await import("./page")) as unknown as {
       generateMetadata?: (args: {
-        params: Promise<{ locale: string; shareToken: string }>;
+        params: { locale: string; shareToken: string };
       }) => Promise<Metadata>;
     };
 
@@ -54,7 +54,7 @@ describe("shared list metadata", () => {
     }
 
     const metadata = await pageModule.generateMetadata({
-      params: Promise.resolve({ locale: "en", shareToken: "token-123" }),
+      params: { locale: "en", shareToken: "token-123" },
     });
 
     expect(metadata).toMatchObject({
@@ -83,7 +83,7 @@ describe("shared list metadata", () => {
 
     const pageModule = (await import("./page")) as unknown as {
       generateMetadata?: (args: {
-        params: Promise<{ locale: string; shareToken: string }>;
+        params: { locale: string; shareToken: string };
       }) => Promise<Metadata>;
     };
 
@@ -93,7 +93,7 @@ describe("shared list metadata", () => {
     }
 
     const metadata = await pageModule.generateMetadata({
-      params: Promise.resolve({ locale: "pl", shareToken: "token-456" }),
+      params: { locale: "pl", shareToken: "token-456" },
     });
 
     expect(metadata).toMatchObject({

@@ -86,7 +86,7 @@ const renderContent = async () => {
     renderWithIntl(
       <>
         <Toaster />
-        <TemplateDetailContent params={Promise.resolve({ slug: templateData.slug })} />
+        <TemplateDetailContent slug={templateData.slug} />
       </>,
     );
   });
