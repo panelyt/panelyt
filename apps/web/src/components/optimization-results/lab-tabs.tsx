@@ -59,13 +59,17 @@ export function LabTabs({ labCards, isDark }: LabTabsProps) {
               selectedCard?.onSelect();
             }}
             ariaLabel={t("optimization.bestPrices")}
+            unstyled
             options={options}
             className={[
-              "flex w-full flex-wrap gap-2 border-border/60 bg-surface-1/80",
-              "[&>button]:flex [&>button]:min-w-[190px] [&>button]:flex-1 [&>button]:items-start",
+              "flex w-full flex-wrap gap-2 rounded-2xl border-0 bg-surface-1/80 p-1",
+              "[&>button]:flex [&>button]:min-w-[190px] [&>button]:flex-1 [&>button]:min-h-[104px] [&>button]:items-stretch",
               "[&>button]:justify-between [&>button]:gap-3 [&>button]:px-4 [&>button]:py-3",
               "[&>button]:text-left [&>button]:shadow-none [&>button]:transition",
               "[&>button]:focus-ring [&>button]:normal-case",
+              "[&>button]:rounded-2xl",
+              "[&>button]:bg-surface-1/70 [&>button]:hover:bg-surface-2/70",
+              "[&>button[aria-selected=true]]:ring-1 [&>button[aria-selected=true]]:ring-accent-cyan/40",
             ].join(" ")}
           />
         </TooltipProvider>
@@ -95,27 +99,13 @@ function LabSegmentLabel({ card, isDark }: LabSegmentProps) {
 
   const labName = card.shortLabel ?? card.title.replace(/^ONLY\s+/i, "");
 
-  const labelTone = isActive
-    ? "text-slate-950"
-    : isDark
-      ? "text-slate-400"
-      : "text-slate-500";
+  const labelTone = isDark ? "text-slate-400" : "text-slate-500";
 
-  const priceTone = isActive
-    ? "text-slate-950"
-    : isDark
-      ? "text-white"
-      : "text-slate-900";
+  const priceTone = isDark ? "text-white" : "text-slate-900";
 
-  const metaTone = isActive
-    ? "text-slate-800"
-    : isDark
-      ? "text-slate-500"
-      : "text-slate-400";
+  const metaTone = isDark ? "text-slate-500" : "text-slate-400";
 
-  const badgeTone = isActive
-    ? "bg-slate-950/10 text-slate-950"
-    : "bg-surface-2 text-secondary";
+  const badgeTone = "bg-surface-2 text-secondary";
 
   const missingChip = (
     <span
@@ -131,24 +121,24 @@ function LabSegmentLabel({ card, isDark }: LabSegmentProps) {
   );
 
   return (
-    <div className="flex w-full flex-col gap-3 text-left normal-case">
-      <div className="flex w-full items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <span className={`text-[11px] font-semibold uppercase tracking-wide ${labelTone}`}>
-            {labName}
+    <div className="flex h-full w-full flex-col text-left normal-case">
+      <div className="flex items-center gap-2">
+        <span className={`text-[11px] font-semibold uppercase tracking-wide ${labelTone}`}>
+          {labName}
+        </span>
+        {card.badge && (
+          <span
+            className={`inline-flex items-center rounded-pill px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${badgeTone}`}
+          >
+            {card.badge}
           </span>
-          {card.badge && (
-            <span
-              className={`inline-flex w-fit items-center rounded-pill px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badgeTone}`}
-            >
-              {card.badge}
-            </span>
-          )}
-        </div>
+        )}
+      </div>
 
+      <div className="mt-2 flex w-full justify-end">
         {isUnavailable ? (
           <span
-            className={`text-sm font-semibold ${
+            className={`text-lg font-semibold ${
               isDark ? "text-amber-200" : "text-amber-600"
             }`}
           >
@@ -161,7 +151,7 @@ function LabSegmentLabel({ card, isDark }: LabSegmentProps) {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
         {isUnavailable ? (
           hasMissingTokens ? (
             <Tooltip>

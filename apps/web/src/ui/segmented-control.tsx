@@ -16,6 +16,7 @@ interface SegmentedControlProps {
   onValueChange: (value: string) => void;
   ariaLabel: string;
   className?: string;
+  unstyled?: boolean;
 }
 
 function SegmentedControl({
@@ -24,18 +25,28 @@ function SegmentedControl({
   onValueChange,
   ariaLabel,
   className,
+  unstyled = false,
 }: SegmentedControlProps) {
+  const containerClasses = unstyled
+    ? "inline-flex"
+    : "inline-flex rounded-pill border border-border/70 bg-surface-1 p-1";
+  const buttonBaseClasses = unstyled
+    ? "transition focus-ring"
+    : "rounded-pill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition focus-ring";
+
   return (
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className={cn(
-        "inline-flex rounded-pill border border-border/70 bg-surface-1 p-1",
-        className,
-      )}
+      className={cn(containerClasses, className)}
     >
       {options.map((option) => {
         const isActive = option.value === value;
+        const buttonStateClasses = unstyled
+          ? ""
+          : isActive
+            ? "bg-accent-cyan text-slate-950"
+            : "text-secondary hover:bg-surface-2";
         return (
           <button
             key={option.value}
@@ -44,12 +55,7 @@ function SegmentedControl({
             aria-selected={isActive}
             disabled={option.disabled}
             onClick={() => onValueChange(option.value)}
-            className={cn(
-              "rounded-pill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition focus-ring",
-              isActive
-                ? "bg-accent-cyan text-slate-950"
-                : "text-secondary hover:bg-surface-2",
-            )}
+            className={cn(buttonBaseClasses, buttonStateClasses)}
           >
             {option.label}
           </button>
