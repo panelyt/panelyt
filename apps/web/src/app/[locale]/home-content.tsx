@@ -87,8 +87,19 @@ function HomeContent() {
     biomarkers: selection.selected,
   });
 
+  const selectionKey = useMemo(
+    () => buildOptimizationKey(selection.biomarkerCodes),
+    [selection.biomarkerCodes],
+  );
+
   const summary = useMemo(() => {
     if (!labOptimization.activeResult) {
+      return null;
+    }
+    if (!selectionKey || !labOptimization.optimizationKey) {
+      return null;
+    }
+    if (selectionKey !== labOptimization.optimizationKey) {
       return null;
     }
 
@@ -123,17 +134,18 @@ function HomeContent() {
       savingsAmount,
       savingsLabel,
     };
-  }, [labOptimization.activeResult, labOptimization.labCards, t]);
+  }, [
+    labOptimization.activeResult,
+    labOptimization.labCards,
+    labOptimization.optimizationKey,
+    selectionKey,
+    t,
+  ]);
 
   const summaryReady =
     summary !== null &&
     !labOptimization.activeLoading &&
     !labOptimization.activeError;
-
-  const selectionKey = useMemo(
-    () => buildOptimizationKey(selection.biomarkerCodes),
-    [selection.biomarkerCodes],
-  );
 
   useEffect(() => {
     if (!labOptimization.activeResult) return;

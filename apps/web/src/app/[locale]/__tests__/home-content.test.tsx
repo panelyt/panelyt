@@ -276,6 +276,47 @@ describe("HomeContent", () => {
     expect(savingsStat).toHaveTextContent(/20,00/);
   });
 
+  it("does not render optimization summary values when selection changes", () => {
+    const activeResult: OptimizeResponse = {
+      total_now: 120,
+      total_min30: 100,
+      currency: "PLN",
+      items: [],
+      bonus_total_now: 0,
+      explain: {},
+      uncovered: [],
+      lab_code: "diag",
+      lab_name: "",
+      exclusive: {},
+      labels: {},
+      mode: "single_lab",
+      lab_options: [],
+      lab_selections: [],
+      addon_suggestions: [],
+    };
+
+    mockUseLabOptimization.mockReturnValueOnce({
+      activeResult,
+      activeLoading: false,
+      activeError: null,
+      optimizationKey: "b12",
+      labCards: [],
+      labChoice: null,
+      selectLab: vi.fn(),
+      addonSuggestions: [],
+      addonSuggestionsLoading: false,
+      resetLabChoice: vi.fn(),
+    } as ReturnType<typeof useLabOptimization>);
+
+    renderWithIntl(<Home />);
+
+    const bar = screen.getByTestId("sticky-summary-bar");
+    const summary = within(bar);
+
+    expect(summary.queryByText("Best prices")).not.toBeInTheDocument();
+    expect(summary.queryByText("Current total")).not.toBeInTheDocument();
+  });
+
   it("stores the optimization summary in the panel store when results load", () => {
     const activeResult: OptimizeResponse = {
       total_now: 180,
