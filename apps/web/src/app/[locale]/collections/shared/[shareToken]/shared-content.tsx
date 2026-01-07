@@ -8,7 +8,8 @@ import { Header } from "../../../../../components/header";
 import { useRouter } from "../../../../../i18n/navigation";
 import { OptimizationResults } from "../../../../../components/optimization-results";
 import { useSharedList } from "../../../../../hooks/useSharedList";
-import { useOptimization } from "../../../../../hooks/useOptimization";
+import { useLabOptimization } from "../../../../../hooks/useLabOptimization";
+import { useBiomarkerSelection } from "../../../../../hooks/useBiomarkerSelection";
 
 interface SharedContentProps {
   params: Promise<{ shareToken: string }>;
@@ -21,11 +22,20 @@ export default function SharedContent({ params }: SharedContentProps) {
   const sharedQuery = useSharedList(shareToken, Boolean(shareToken));
   const sharedList = sharedQuery.data;
 
-  const biomarkerCodes = useMemo(
-    () => sharedList?.biomarkers.map((entry) => entry.code) ?? [],
+  const sharedSelection = useMemo(
+    () =>
+      sharedList?.biomarkers.map((entry) => ({
+        code: entry.code,
+        name: entry.display_name,
+      })) ?? [],
     [sharedList],
   );
-  const optimization = useOptimization(biomarkerCodes, 'auto');
+  const biomarkerCodes = useMemo(
+    () => sharedSelection.map((entry) => entry.code),
+    [sharedSelection],
+  );
+  const labOptimization = useLabOptimization(biomarkerCodes);
+  const selection = useBiomarkerSelection();
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -104,10 +114,14 @@ export default function SharedContent({ params }: SharedContentProps) {
               <div className="mt-6">
                 <OptimizationResults
                   selected={biomarkerCodes}
-                  result={optimization.data}
-                  isLoading={optimization.isLoading}
-                  error={optimization.error}
+                  result={labOptimization.activeResult}
+                  isLoading={labOptimization.activeLoading}
+                  error={labOptimization.activeError}
                   variant="dark"
+                  labCards={labOptimization.labCards}
+                  addonSuggestions={labOptimization.addonSuggestions}
+                  addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
+                  onApplyAddon={selection.handleApplyAddon}
                 />
               </div>
             </section>
