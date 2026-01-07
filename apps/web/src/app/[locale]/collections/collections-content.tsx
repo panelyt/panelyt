@@ -23,6 +23,11 @@ import { useTemplateAdmin } from "../../../hooks/useTemplateAdmin";
 import { useUserSession } from "../../../hooks/useUserSession";
 import { usePanelStore } from "../../../stores/panelStore";
 import { track } from "../../../lib/analytics";
+import {
+  formatExactTimestamp,
+  formatRelativeTimestamp,
+  resolveTimestamp,
+} from "../../../lib/dates";
 import { slugify } from "../../../lib/slug";
 import { Button, buttonVariants } from "../../../ui/button";
 import {
@@ -47,6 +52,12 @@ import {
   TableHeader,
   TableRow,
 } from "../../../ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../../ui/tooltip";
 import { cn } from "../../../lib/cn";
 
 const sortOptions = [
@@ -93,10 +104,15 @@ export default function CollectionsContent() {
   const [showInactive, setShowInactive] = useState(false);
   const [expandedSlugs, setExpandedSlugs] = useState<string[]>([]);
 
-  const dateFormatter = useMemo(
+  const relativeTimeFormatter = useMemo(
+    () => new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
+    [locale],
+  );
+  const exactTimeFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(locale, {
         dateStyle: "medium",
+        timeStyle: "short",
       }),
     [locale],
   );
@@ -257,12 +273,15 @@ export default function CollectionsContent() {
     return sorted;
   }, [filteredTemplates, pricingBySlug, sortKey]);
 
-  const formatUpdatedAt = (value: string) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return value;
+  const getUpdatedLabels = (value: string) => {
+    const resolved = resolveTimestamp(value);
+    if (!resolved) {
+      return { relative: value, exact: null };
     }
-    return dateFormatter.format(date);
+    return {
+      relative: formatRelativeTimestamp(resolved.timestamp, relativeTimeFormatter),
+      exact: formatExactTimestamp(resolved.date, exactTimeFormatter),
+    };
   };
 
   return (
@@ -344,7 +363,8 @@ export default function CollectionsContent() {
             {t("collections.noTemplates")}
           </div>
         ) : (
-          <>
+          <TooltipProvider delayDuration={0}>
+            <>
             <div className="hidden md:block">
               <Table dense>
                 <TableHeader>
@@ -364,6 +384,7 @@ export default function CollectionsContent() {
                     const detailsId = `template-${template.slug}-details`;
                     const preview = template.biomarkers.slice(0, 10);
                     const remaining = template.biomarkers.length - preview.length;
+                    const updatedLabels = getUpdatedLabels(template.updated_at);
                     return (
                       <Fragment key={template.id}>
                         <TableRow>
@@ -410,7 +431,18 @@ export default function CollectionsContent() {
                             })}
                           </TableCell>
                           <TableCell className="text-xs text-secondary">
-                            {formatUpdatedAt(template.updated_at)}
+                            {updatedLabels.exact ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-default underline decoration-dotted decoration-border/70 underline-offset-2">
+                                    {updatedLabels.relative}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{updatedLabels.exact}</TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span>{updatedLabels.relative}</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <TemplatePriceSummary
@@ -522,6 +554,7 @@ export default function CollectionsContent() {
                 const isExpanded = expandedSlugs.includes(template.slug);
                 const preview = template.biomarkers.slice(0, 10);
                 const remaining = template.biomarkers.length - preview.length;
+                const updatedLabels = getUpdatedLabels(template.updated_at);
                 return (
                   <div
                     key={template.id}
@@ -544,9 +577,24 @@ export default function CollectionsContent() {
                     <p className="mt-3 text-xs text-secondary">
                       {t("common.biomarkersCount", { count: template.biomarkers.length })}
                       {" · "}
-                      {t("collections.updatedLabel", {
-                        date: formatUpdatedAt(template.updated_at),
-                      })}
+                      {updatedLabels.exact ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default underline decoration-dotted decoration-border/70 underline-offset-2">
+                              {t("collections.updatedLabel", {
+                                date: updatedLabels.relative,
+                              })}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>{updatedLabels.exact}</TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <span>
+                          {t("collections.updatedLabel", {
+                            date: updatedLabels.relative,
+                          })}
+                        </span>
+                      )}
                     </p>
                     {!template.is_active ? (
                       <span className="mt-2 inline-flex rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
@@ -638,7 +686,8 @@ export default function CollectionsContent() {
                 );
               })}
             </div>
-          </>
+            </>
+          </TooltipProvider>
         )}
       </section>
 

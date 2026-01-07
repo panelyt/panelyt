@@ -22,6 +22,11 @@ import { useSavedLists } from "../../../hooks/useSavedLists";
 import { useUserSession } from "../../../hooks/useUserSession";
 import { useAccountSettings } from "../../../hooks/useAccountSettings";
 import { track } from "../../../lib/analytics";
+import {
+  formatExactTimestamp as formatExactTimestampValue,
+  formatRelativeTimestamp as formatRelativeTimestampValue,
+  resolveTimestamp,
+} from "../../../lib/dates";
 import { usePanelStore } from "../../../stores/panelStore";
 import {
   DropdownMenu,
@@ -294,44 +299,42 @@ export default function ListsContent() {
     return list.last_total_updated_at ?? list.updated_at;
   }, []);
 
-  const formatExactTimestamp = useCallback(
-    (value: string) => {
-      const timestamp = new Date(value);
-      if (Number.isNaN(timestamp.getTime())) {
-        return "—";
-      }
-      return new Intl.DateTimeFormat(locale, {
+  const exactTimestampFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
         dateStyle: "medium",
         timeStyle: "short",
-      }).format(timestamp);
-    },
+      }),
     [locale],
+  );
+  const relativeTimestampFormatter = useMemo(
+    () => new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
+    [locale],
+  );
+
+  const formatExactTimestamp = useCallback(
+    (value: string) => {
+      const resolved = resolveTimestamp(value);
+      if (!resolved) {
+        return "—";
+      }
+      return formatExactTimestampValue(resolved.date, exactTimestampFormatter);
+    },
+    [exactTimestampFormatter],
   );
 
   const formatRelativeTimestamp = useCallback(
     (value: string) => {
-      const timestamp = new Date(value).getTime();
-      if (Number.isNaN(timestamp)) {
+      const resolved = resolveTimestamp(value);
+      if (!resolved) {
         return "—";
       }
-      const diff = timestamp - Date.now();
-      const ranges: Array<{ unit: Intl.RelativeTimeFormatUnit; ms: number }> = [
-        { unit: "year", ms: 1000 * 60 * 60 * 24 * 365 },
-        { unit: "month", ms: 1000 * 60 * 60 * 24 * 30 },
-        { unit: "day", ms: 1000 * 60 * 60 * 24 },
-        { unit: "hour", ms: 1000 * 60 * 60 },
-        { unit: "minute", ms: 1000 * 60 },
-        { unit: "second", ms: 1000 },
-      ];
-      const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-      for (const range of ranges) {
-        if (Math.abs(diff) >= range.ms || range.unit === "second") {
-          return formatter.format(Math.round(diff / range.ms), range.unit);
-        }
-      }
-      return formatter.format(0, "second");
+      return formatRelativeTimestampValue(
+        resolved.timestamp,
+        relativeTimestampFormatter,
+      );
     },
-    [locale],
+    [relativeTimestampFormatter],
   );
 
   const lastUpdatedAt = useMemo(() => {

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -272,6 +272,43 @@ describe("CollectionsContent", () => {
     expect(within(table).getByText(enMessages.collections.columnUpdated)).toBeInTheDocument();
     expect(within(table).getByText(enMessages.collections.columnBiomarkers)).toBeInTheDocument();
     expect(within(table).getByText(enMessages.collections.columnTotal)).toBeInTheDocument();
+  });
+
+  it("shows updated timestamps as relative time with an exact tooltip", async () => {
+    const nowSpy = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(new Date("2024-01-10T12:00:00Z").getTime());
+
+    try {
+      templatesData = [
+        makeTemplate({
+          id: 19,
+          name: "Relative Time",
+          updated_at: "2024-01-08T12:00:00Z",
+        }),
+      ];
+
+      renderWithIntl("en", enMessages);
+
+      const relativeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+      const expectedRelative = relativeFormatter.format(-2, "day");
+      const expectedExact = new Intl.DateTimeFormat("en", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date("2024-01-08T12:00:00Z"));
+
+      const user = userEvent.setup();
+      const relativeText = screen.getByText(expectedRelative);
+      expect(relativeText).toBeInTheDocument();
+
+      await user.hover(relativeText);
+
+      await waitFor(() => {
+        expect(document.body.textContent).toContain(expectedExact);
+      });
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it("reveals a biomarker preview and overflow count when expanded", async () => {
