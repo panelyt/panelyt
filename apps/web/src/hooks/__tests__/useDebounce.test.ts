@@ -34,6 +34,7 @@ describe('useDebounce', () => {
   })
 
   it('cancels previous timeout when value changes quickly', async () => {
+    vi.useFakeTimers()
     const { result, rerender } = renderHook(
       ({ value, delay }) => useDebounce(value, delay),
       {
@@ -50,12 +51,12 @@ describe('useDebounce', () => {
     expect(result.current).toBe('initial')
 
     // Should only get the final value after delay
-    await waitFor(
-      () => {
-        expect(result.current).toBe('final')
-      },
-      { timeout: 250 }
-    )
+    await act(async () => {
+      vi.advanceTimersByTime(110)
+    })
+
+    expect(result.current).toBe('final')
+    vi.useRealTimers()
   })
 
   it('uses custom delay', async () => {

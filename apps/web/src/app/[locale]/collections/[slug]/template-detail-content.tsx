@@ -2,7 +2,7 @@
 
 import { use, useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { useRouter } from "../../../../i18n/navigation";
@@ -22,6 +22,7 @@ interface TemplateDetailContentProps {
 
 export default function TemplateDetailContent({ params }: TemplateDetailContentProps) {
   const t = useTranslations();
+  const locale = useLocale();
   const { slug } = use(params);
   const router = useRouter();
   const templateQuery = useTemplateDetail(slug, Boolean(slug));
@@ -97,7 +98,7 @@ export default function TemplateDetailContent({ params }: TemplateDetailContentP
                 )}
                 <p className="text-xs text-secondary">
                   {t("common.biomarkersCount", { count: template.biomarkers.length })} •{" "}
-                  {t("common.updated")} {new Date(template.updated_at).toLocaleString("pl-PL")}
+                  {t("common.updated")} {new Date(template.updated_at).toLocaleString(locale)}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -154,6 +155,7 @@ export default function TemplateDetailContent({ params }: TemplateDetailContentP
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-primary">{entry.display_name}</span>
+                      <span className="font-mono text-xs text-secondary">{entry.code}</span>
                     </div>
                     {entry.biomarker && (
                       <p className="text-xs text-secondary">

@@ -65,15 +65,15 @@ const templateData = {
     {
       id: 1,
       code: "ALT",
-      display_name: "ALT",
+      display_name: "Alanine aminotransferase",
       sort_order: 0,
       biomarker: null,
-      notes: null,
+      notes: "Fast for 12 hours before the test.",
     },
     {
       id: 2,
       code: "AST",
-      display_name: "AST",
+      display_name: "Aspartate aminotransferase",
       sort_order: 1,
       biomarker: null,
       notes: null,
@@ -231,5 +231,23 @@ describe("TemplateDetailContent", () => {
         variant: "dark",
       }),
     );
+  });
+
+  it("renders biomarker codes, notes, and locale-aware updated timestamp", async () => {
+    await renderContent();
+
+    expect(await screen.findByText("Alanine aminotransferase")).toBeInTheDocument();
+    const codeBadge = screen.getByText("ALT", { selector: "span" });
+    expect(codeBadge).toHaveClass("font-mono");
+    expect(screen.getByText("Fast for 12 hours before the test.")).toBeInTheDocument();
+
+    const expectedUpdatedAt = new Date(templateData.updated_at).toLocaleString("en");
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName.toLowerCase() === "p" &&
+          element.textContent?.includes(expectedUpdatedAt),
+      ),
+    ).toBeInTheDocument();
   });
 });
