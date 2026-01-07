@@ -82,7 +82,7 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => router.push({ pathname: "/", query: { shared: shareToken } })}
+                  onClick={() => router.push(`/?shared=${shareToken}`)}
                   className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                 >
                   {t("lists.loadInOptimizer")}

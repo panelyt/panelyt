@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { renderWithQueryClient } from "../../../../../test/utils";
 import enMessages from "../../../../../i18n/messages/en.json";
@@ -104,7 +105,10 @@ const renderContent = async () => {
 };
 
 describe("SharedContent", () => {
+  const push = vi.fn();
+
   beforeEach(() => {
+    push.mockReset();
     mockUseSharedList.mockReturnValue({
       data: sharedListData,
       isLoading: false,
@@ -141,7 +145,7 @@ describe("SharedContent", () => {
       addonSuggestionsLoading: false,
     } as ReturnType<typeof useLabOptimization>);
     mockUseRouter.mockReturnValue({
-      push: vi.fn(),
+      push,
       replace: vi.fn(),
       prefetch: vi.fn(),
       back: vi.fn(),
@@ -156,5 +160,17 @@ describe("SharedContent", () => {
     expect(
       await screen.findByText(enMessages.optimization.bestPrices),
     ).toBeInTheDocument();
+  });
+
+  it("navigates to the shared optimizer URL when loading the list", async () => {
+    const user = userEvent.setup();
+
+    await renderContent();
+
+    await user.click(
+      screen.getByRole("button", { name: enMessages.lists.loadInOptimizer }),
+    );
+
+    expect(push).toHaveBeenCalledWith("/?shared=token-123");
   });
 });
