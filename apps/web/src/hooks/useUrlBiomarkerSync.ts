@@ -177,7 +177,9 @@ export function useUrlBiomarkerSync(
       }
 
       const query = params.toString();
-      const newUrl = query ? `/?${query}` : "/";
+      const basePath =
+        locale && locale !== defaultLocale ? `/${locale}` : "/";
+      const newUrl = query ? `${basePath}?${query}` : basePath;
 
       // Use replace to avoid cluttering browser history
       router.replace(newUrl, { scroll: false });
@@ -188,7 +190,7 @@ export function useUrlBiomarkerSync(
         clearTimeout(updateTimerRef.current);
       }
     };
-  }, [selected, searchParams, skipSync, hasOtherParams, router]);
+  }, [selected, searchParams, skipSync, hasOtherParams, router, locale]);
 
   const getShareUrl = useCallback(() => {
     if (typeof window === "undefined") {
