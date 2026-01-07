@@ -484,7 +484,7 @@ export default function ListsContent() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-app text-primary">
       <Header />
       <Dialog open={Boolean(deleteTarget)} onOpenChange={handleDeleteDialogChange}>
         <DialogContent>
@@ -521,8 +521,8 @@ export default function ListsContent() {
       <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold text-white">{t("lists.title")}</h1>
-            <p className="mt-2 text-sm text-slate-400">
+            <h1 className="text-3xl font-semibold text-primary">{t("lists.title")}</h1>
+            <p className="mt-2 text-sm text-secondary">
               {t("lists.description")}
             </p>
           </div>
@@ -551,37 +551,37 @@ export default function ListsContent() {
           </div>
         </div>
         <div
-          className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/70 px-5 py-4"
+          className="mt-6 rounded-2xl border border-border/80 bg-surface-1/70 px-5 py-4"
           data-testid="lists-summary"
         >
           <TooltipProvider delayDuration={0}>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-secondary">
               <div className="flex items-center gap-2">
-                <span className="uppercase tracking-wide text-slate-500">
+                <span className="uppercase tracking-wide text-secondary/80">
                   {t("lists.summary.lists")}
                 </span>
-                <span className="font-mono text-sm text-slate-100">
+                <span className="font-mono text-sm text-primary">
                   {listsCount}
                 </span>
               </div>
-              <span className="text-slate-600">|</span>
+              <span className="text-secondary/60">|</span>
               <div className="flex items-center gap-2">
-                <span className="uppercase tracking-wide text-slate-500">
+                <span className="uppercase tracking-wide text-secondary/80">
                   {t("lists.summary.alertsEnabled")}
                 </span>
-                <span className="font-mono text-sm text-slate-100">
+                <span className="font-mono text-sm text-primary">
                   {alertsEnabledCount}
                 </span>
               </div>
-              <span className="text-slate-600">|</span>
+              <span className="text-secondary/60">|</span>
               <div className="flex items-center gap-2">
-                <span className="uppercase tracking-wide text-slate-500">
+                <span className="uppercase tracking-wide text-secondary/80">
                   {t("lists.summary.lastUpdated")}
                 </span>
                 {lastUpdatedAt ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="cursor-default font-mono text-sm text-slate-100">
+                      <span className="cursor-default font-mono text-sm text-primary">
                         {formatRelativeTimestamp(lastUpdatedAt)}
                       </span>
                     </TooltipTrigger>
@@ -590,7 +590,7 @@ export default function ListsContent() {
                     </TooltipContent>
                   </Tooltip>
                 ) : (
-                  <span className="font-mono text-sm text-slate-500">{placeholderDash}</span>
+                  <span className="font-mono text-sm text-secondary/80">{placeholderDash}</span>
                 )}
               </div>
             </div>
@@ -601,11 +601,11 @@ export default function ListsContent() {
 
       <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
         {savedLists.listsQuery.isLoading ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
+          <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-surface-1/80 px-4 py-6 text-sm text-secondary">
             <Loader2 className="h-5 w-5 animate-spin" /> {t("lists.loadingLists")}
           </div>
         ) : formattedLists.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/70 px-6 py-8 text-center text-sm text-slate-400">
+          <div className="rounded-2xl border border-dashed border-border/80 bg-surface-1/70 px-6 py-8 text-center text-sm text-secondary">
             {t.rich("lists.noLists", { saveButton: (chunks) => <span className="text-emerald-300">{chunks}</span> })}
           </div>
         ) : (
@@ -635,18 +635,18 @@ export default function ListsContent() {
 
                       return (
                         <TableRow key={item.list.id}>
-                          <TableCell className="min-w-[12rem] font-semibold text-white">
+                          <TableCell className="min-w-[12rem] font-semibold text-primary">
                             {item.list.name}
                           </TableCell>
-                          <TableCell className="text-slate-400">
+                          <TableCell className="text-secondary">
                             {t("common.biomarkersCount", {
                               count: item.list.biomarkers.length,
                             })}
                           </TableCell>
-                          <TableCell className="font-mono text-slate-100">
+                          <TableCell className="font-mono text-primary">
                             {formatTotal(item)}
                           </TableCell>
-                          <TableCell className="text-slate-300">
+                          <TableCell className="text-secondary">
                             {listState.updatedAt ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -688,7 +688,7 @@ export default function ListsContent() {
                           <TableCell className="min-w-[14rem]">
                             {shareToken && shareLink ? (
                               <div className="flex flex-col gap-2">
-                                <span className="text-xs text-slate-400">
+                                <span className="text-xs text-secondary">
                                   {t("lists.shareEnabled")}
                                 </span>
                                 <div className="flex items-center gap-2">
@@ -708,7 +708,7 @@ export default function ListsContent() {
                               </div>
                             ) : (
                               <div className="flex flex-col gap-2">
-                                <span className="text-xs text-slate-400">
+                                <span className="text-xs text-secondary">
                                   {t("lists.shareDisabled")}
                                 </span>
                                 <Button
@@ -745,22 +745,22 @@ export default function ListsContent() {
                   <div
                     key={item.list.id}
                     data-testid={`list-card-${item.list.id}`}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/80 px-5 py-4"
+                    className="rounded-2xl border border-border/80 bg-surface-1/80 px-5 py-4"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-lg font-semibold text-white">{item.list.name}</p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-lg font-semibold text-primary">{item.list.name}</p>
+                        <p className="text-xs text-secondary">
                           {t("common.biomarkersCount", {
                             count: item.list.biomarkers.length,
                           })}
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="text-[11px] uppercase tracking-wide text-slate-500">
+                        <span className="text-[11px] uppercase tracking-wide text-secondary/80">
                           {t("results.currentTotal")}
                         </span>
-                        <p className="font-mono text-sm text-white">{formatTotal(item)}</p>
+                        <p className="font-mono text-sm text-primary">{formatTotal(item)}</p>
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-2">

@@ -40,10 +40,10 @@ interface SummaryStatProps {
 
 const SummaryStat = ({ label, value, valueTone }: SummaryStatProps) => (
   <div className="flex flex-col gap-1">
-    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+    <span className="text-[11px] font-semibold uppercase tracking-wide text-secondary">
       {label}
     </span>
-    <span className={`text-base font-semibold ${valueTone ?? "text-white"}`}>
+    <span className={`text-base font-semibold ${valueTone ?? "text-primary"}`}>
       {value}
     </span>
   </div>
@@ -273,7 +273,7 @@ function HomeContent() {
   );
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-app text-primary">
       <Header
         onAuthSuccess={handleAuthSuccess}
         onLogoutError={selection.setError}
@@ -312,7 +312,7 @@ function HomeContent() {
           <OptimizerLayout
             left={
               <Card className="p-6">
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-primary">
                   {t("home.buildPanel")}
                 </h2>
                 <div className="mt-6 flex flex-col gap-4">
@@ -328,14 +328,14 @@ function HomeContent() {
                     />
                   ) : (
                     <div
-                      className="rounded-xl border border-dashed border-slate-700/70 bg-slate-950/40 p-4 text-sm text-slate-400"
+                      className="rounded-xl border border-dashed border-border/70 bg-surface-2/40 p-4 text-sm text-secondary"
                       aria-busy="true"
                     >
                       {t("common.loading")}
                     </div>
                   )}
                   {hasSelection && (
-                    <p className="text-sm text-slate-400">
+                    <p className="text-sm text-secondary">
                       {t("home.comparePrices")}
                     </p>
                   )}
@@ -415,7 +415,7 @@ function HomeContent() {
                         valueTone={
                           summary.savingsAmount > 0
                             ? "text-emerald-300"
-                            : "text-slate-300"
+                            : "text-secondary"
                         }
                       />
                     ) : undefined
@@ -459,7 +459,7 @@ function HomeContent() {
                   />
                 ) : (
                   <div
-                    className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-200"
+                    className="rounded-2xl border border-border/80 bg-surface-1/70 p-6 text-sm text-secondary"
                     aria-busy="true"
                   >
                     {t("common.loading")}

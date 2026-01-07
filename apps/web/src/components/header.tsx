@@ -62,11 +62,11 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 border-b border-border/80 bg-app/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-sm font-bold tracking-wider text-white">
+              <span className="text-sm font-bold tracking-wider text-primary">
                 PANELYT
               </span>
             </Link>
@@ -78,8 +78,8 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
                   href={item.href}
                   className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                     isActive(item.href)
-                      ? "bg-slate-800 text-white"
-                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                      ? "bg-surface-2 text-primary"
+                      : "text-secondary hover:bg-surface-2/60 hover:text-primary"
                   }`}
                 >
                   {item.label}
@@ -92,7 +92,7 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
             <PanelTray />
             <LanguageSwitcher />
             {sessionQuery.isLoading ? (
-              <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="flex items-center gap-2 text-xs text-secondary">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               </div>
             ) : userSession?.registered ? (
@@ -102,8 +102,8 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
                     type="button"
                     className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
                       pathname === "/account"
-                        ? "bg-slate-800 text-white"
-                        : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                        ? "bg-surface-2 text-primary"
+                        : "text-secondary hover:bg-surface-2/60 hover:text-primary"
                     }`}
                   >
                     {userSession.username}
@@ -129,7 +129,7 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
                 <button
                   type="button"
                   onClick={() => authModal.open("login")}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition hover:bg-slate-800/50 hover:text-slate-200"
+                  className="rounded-lg px-3 py-2 text-sm font-medium text-secondary transition hover:bg-surface-2/60 hover:text-primary"
                 >
                   {t("auth.signIn")}
                 </button>
@@ -146,15 +146,15 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
         </div>
 
         {/* Mobile nav */}
-        <nav className="flex items-center gap-1 overflow-x-auto border-t border-slate-800/50 px-6 py-2 sm:hidden">
+        <nav className="flex items-center gap-1 overflow-x-auto border-t border-border/60 px-6 py-2 sm:hidden">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                 isActive(item.href)
-                  ? "bg-slate-800 text-white"
-                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                  ? "bg-surface-2 text-primary"
+                  : "text-secondary hover:bg-surface-2/60 hover:text-primary"
               }`}
             >
               {item.label}

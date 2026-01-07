@@ -37,23 +37,23 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
   const selection = useBiomarkerSelection();
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-app text-primary">
       <Header />
 
       <div className="mx-auto max-w-5xl px-6 py-8">
         {sharedList ? (
           <div className="space-y-3">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-secondary">
               <span className="font-mono">shared/{shareToken}</span>
             </p>
-            <h1 className="text-3xl font-semibold text-white">{sharedList.name}</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="text-3xl font-semibold text-primary">{sharedList.name}</h1>
+            <p className="text-xs text-secondary">
               <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
               {t("sharedList.shared")} {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString("pl-PL") : ""}
             </p>
           </div>
         ) : sharedQuery.isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-slate-300">
+          <div className="flex items-center gap-2 text-sm text-secondary">
             <Loader2 className="h-4 w-4 animate-spin" /> {t("sharedList.loadingList")}
           </div>
         ) : sharedQuery.isError ? (
@@ -63,7 +63,7 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
 
       <section className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pb-10">
         {sharedQuery.isLoading ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
+          <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-surface-1/80 px-4 py-6 text-sm text-secondary">
             <Loader2 className="h-5 w-5 animate-spin" /> {t("sharedList.fetchingList")}
           </div>
         ) : sharedQuery.isError || !sharedList ? (
@@ -72,13 +72,13 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+            <section className="space-y-4 rounded-2xl border border-border/80 bg-surface-1/80 p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
                     {t("sharedList.sharedBiomarkers")}
                   </p>
-                  <h2 className="text-xl font-semibold text-white">{t("sharedList.selectionOverview")}</h2>
+                  <h2 className="text-xl font-semibold text-primary">{t("sharedList.selectionOverview")}</h2>
                 </div>
                 <button
                   type="button"
@@ -88,26 +88,26 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
                   {t("lists.loadInOptimizer")}
                 </button>
               </div>
-              <ul className="space-y-3 text-sm text-slate-200">
+              <ul className="space-y-3 text-sm text-primary">
                 {sharedList.biomarkers.map((entry) => (
                   <li
                     key={entry.id}
-                    className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3"
+                    className="flex flex-col gap-1 rounded-xl border border-border/80 bg-surface-2/60 px-4 py-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-white">{entry.display_name}</span>
+                      <span className="font-semibold text-primary">{entry.display_name}</span>
                     </div>
                     {entry.biomarker_id && (
-                      <p className="text-xs text-slate-400">{t("sharedList.mappedBiomarkerId")}: {entry.biomarker_id}</p>
+                      <p className="text-xs text-secondary">{t("sharedList.mappedBiomarkerId")}: {entry.biomarker_id}</p>
                     )}
                   </li>
                 ))}
               </ul>
             </section>
 
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-xl font-semibold text-white">{t("sharedList.livePricing")}</h2>
-              <p className="mt-2 text-sm text-slate-300">
+            <section className="rounded-2xl border border-border/80 bg-surface-1/80 p-6">
+              <h2 className="text-xl font-semibold text-primary">{t("sharedList.livePricing")}</h2>
+              <p className="mt-2 text-sm text-secondary">
                 {t("sharedList.livePricingDescription")}
               </p>
               <div className="mt-6">
