@@ -13,6 +13,95 @@ import {
 import { getParsedJson, postParsedJson } from "../lib/http";
 import { buildOptimizationKey } from "../lib/optimization";
 
+const TEMPLATE_PRICING_CONCURRENCY = 4;
+
+type LimitedQueueEntry = {
+  start: () => void;
+  signal?: AbortSignal;
+  started: boolean;
+  cancelled: boolean;
+};
+
+let activeTemplatePricing = 0;
+const templatePricingQueue: LimitedQueueEntry[] = [];
+
+function drainTemplatePricingQueue() {
+  while (
+    templatePricingQueue.length > 0 &&
+    activeTemplatePricing < TEMPLATE_PRICING_CONCURRENCY
+  ) {
+    const entry = templatePricingQueue.shift();
+    if (!entry) {
+      return;
+    }
+    if (entry.cancelled || entry.signal?.aborted) {
+      entry.cancelled = true;
+      continue;
+    }
+    entry.start();
+  }
+}
+
+function runTemplatePricingLimited<T>(
+  task: () => Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const abortError =
+      typeof DOMException === "undefined"
+        ? new Error("Aborted")
+        : new DOMException("Aborted", "AbortError");
+    const entry: LimitedQueueEntry = {
+      start: () => {
+        if (entry.cancelled || signal?.aborted) {
+          entry.cancelled = true;
+          reject(abortError);
+          return;
+        }
+        entry.started = true;
+        signal?.removeEventListener("abort", onAbort);
+        activeTemplatePricing += 1;
+        task()
+          .then(resolve)
+          .catch(reject)
+          .finally(() => {
+            activeTemplatePricing = Math.max(0, activeTemplatePricing - 1);
+            drainTemplatePricingQueue();
+          });
+      },
+      signal,
+      started: false,
+      cancelled: false,
+    };
+
+    const onAbort = () => {
+      if (entry.started || entry.cancelled) {
+        return;
+      }
+      entry.cancelled = true;
+      const index = templatePricingQueue.indexOf(entry);
+      if (index >= 0) {
+        templatePricingQueue.splice(index, 1);
+      }
+      reject(abortError);
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+
+    if (activeTemplatePricing < TEMPLATE_PRICING_CONCURRENCY) {
+      entry.start();
+    } else {
+      templatePricingQueue.push(entry);
+    }
+  });
+}
+
 export function useTemplateCatalog(options: { includeAll?: boolean } = {}) {
   const includeAll = Boolean(options.includeAll);
   return useQuery<BiomarkerListTemplate[], Error>({
@@ -53,11 +142,15 @@ export function useTemplatePricing(templates: BiomarkerListTemplate[]) {
       return {
         queryKey: ["optimize", key, "auto", null],
         queryFn: async ({ signal }: { signal?: AbortSignal }) => {
-          return postParsedJson(
-            "/optimize",
-            OptimizeResponseSchema,
-            { biomarkers: codes, mode: "auto" },
-            { signal },
+          return runTemplatePricingLimited(
+            () =>
+              postParsedJson(
+                "/optimize",
+                OptimizeResponseSchema,
+                { biomarkers: codes, mode: "auto" },
+                { signal },
+              ),
+            signal,
           );
         },
         enabled: codes.length > 0,
