@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/format";
+import { usePanelHydrated } from "@/hooks/usePanelHydrated";
 import { usePanelStore } from "@/stores/panelStore";
 
 export type PanelPillProps = React.ButtonHTMLAttributes<HTMLButtonElement>;
@@ -30,11 +31,12 @@ const statusConfig: Record<StatusTone, { icon: React.ReactNode; className: strin
 export const PanelPill = React.forwardRef<HTMLButtonElement, PanelPillProps>(
   ({ className, type = "button", ...props }, ref) => {
     const t = useTranslations();
+    const isHydrated = usePanelHydrated();
     const selectedCount = usePanelStore((state) => state.selected.length);
     const summary = usePanelStore((state) => state.lastOptimizationSummary);
 
-    const hasSelection = selectedCount > 0;
-    const hasSummary = Boolean(summary) && hasSelection;
+    const hasSelection = isHydrated && selectedCount > 0;
+    const hasSummary = isHydrated && Boolean(summary) && hasSelection;
 
     const status: StatusTone = hasSummary
       ? summary!.uncoveredCount > 0
@@ -50,15 +52,20 @@ export const PanelPill = React.forwardRef<HTMLButtonElement, PanelPillProps>(
           : t("panelTray.statusPending");
 
     const statusStyles = statusConfig[status];
-    const countLabel = t("common.biomarkersCount", { count: selectedCount });
-    const summaryLabel = hasSummary
-      ? formatCurrency(summary!.totalNow)
-      : t("panelTray.runOptimize");
+    const countLabel = isHydrated
+      ? t("common.biomarkersCount", { count: selectedCount })
+      : t("common.loading");
+    const summaryLabel = isHydrated
+      ? hasSummary
+        ? formatCurrency(summary!.totalNow)
+        : t("panelTray.runOptimize")
+      : t("common.loading");
 
     return (
       <button
         ref={ref}
         type={type}
+        aria-busy={!isHydrated}
         aria-label={t("panelTray.openPanel")}
         className={cn(
           "inline-flex items-center gap-3 rounded-full border border-border/80 bg-surface-1/90 px-4 py-2 text-xs text-primary transition hover:border-emerald-400/60 hover:bg-surface-2 focus-ring",

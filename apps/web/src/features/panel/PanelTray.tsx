@@ -11,6 +11,7 @@ import { useUserSession } from "@/hooks/useUserSession";
 import { useSaveListModal } from "@/hooks/useSaveListModal";
 import { useUrlBiomarkerSync } from "@/hooks/useUrlBiomarkerSync";
 import { PanelPill } from "@/features/panel/PanelPill";
+import { usePanelHydrated } from "@/hooks/usePanelHydrated";
 import { SaveListModal } from "@/components/save-list-modal";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/cn";
@@ -30,13 +31,20 @@ import {
 export function PanelTray() {
   const t = useTranslations();
   const locale = useLocale();
+  const isHydrated = usePanelHydrated();
   const [open, setOpen] = useState(false);
   const selection = useBiomarkerSelection();
   const selected = selection.selected;
   const remove = usePanelStore((state) => state.remove);
   const summary = usePanelStore((state) => state.lastOptimizationSummary);
-  const countLabel = t("common.biomarkersCount", { count: selected.length });
-  const summaryLabel = summary ? formatCurrency(summary.totalNow) : t("panelTray.runOptimize");
+  const countLabel = isHydrated
+    ? t("common.biomarkersCount", { count: selected.length })
+    : t("common.loading");
+  const summaryLabel = isHydrated
+    ? summary
+      ? formatCurrency(summary.totalNow)
+      : t("panelTray.runOptimize")
+    : t("common.loading");
 
   const sessionQuery = useUserSession();
   const isAuthenticated = Boolean(sessionQuery.data?.registered);
@@ -135,7 +143,7 @@ export function PanelTray() {
               </DialogClose>
             </div>
 
-            {summary && (
+            {isHydrated && summary && (
               <div className="rounded-2xl border border-border/80 bg-surface-2 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-xs font-semibold uppercase tracking-wide text-secondary">
@@ -162,7 +170,14 @@ export function PanelTray() {
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {selected.length === 0 ? (
+              {!isHydrated ? (
+                <p
+                  className="rounded-xl border border-dashed border-border/80 bg-surface-2/60 p-4 text-sm text-secondary"
+                  aria-busy="true"
+                >
+                  {t("common.loading")}
+                </p>
+              ) : selected.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border/80 bg-surface-2/60 p-4 text-sm text-secondary">
                   {t("panelTray.empty")}
                 </p>
@@ -206,7 +221,7 @@ export function PanelTray() {
                 variant="secondary"
                 type="button"
                 onClick={() => void handleShare()}
-                disabled={selected.length === 0}
+                disabled={!isHydrated || selected.length === 0}
               >
                 {t("panelTray.sharePanel")}
               </Button>
@@ -214,7 +229,7 @@ export function PanelTray() {
                 variant="primary"
                 type="button"
                 onClick={handleOpenSaveList}
-                disabled={selected.length === 0}
+                disabled={!isHydrated || selected.length === 0}
               >
                 {t("panelTray.saveList")}
               </Button>

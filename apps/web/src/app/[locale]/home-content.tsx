@@ -13,6 +13,7 @@ import { useUrlParamSync } from "../../hooks/useUrlParamSync";
 import { useUrlBiomarkerSync } from "../../hooks/useUrlBiomarkerSync";
 import { useSaveListModal } from "../../hooks/useSaveListModal";
 import { useTemplateModal } from "../../hooks/useTemplateModal";
+import { usePanelHydrated } from "../../hooks/usePanelHydrated";
 import { Header } from "../../components/header";
 import { OptimizationResults } from "../../components/optimization-results";
 import { SearchBox } from "../../components/search-box";
@@ -60,6 +61,7 @@ function HomeContent() {
   // Biomarker selection
   const selection = useBiomarkerSelection();
   const setOptimizationSummary = usePanelStore((state) => state.setOptimizationSummary);
+  const isPanelHydrated = usePanelHydrated();
 
   // Lab optimization
   const labOptimization = useLabOptimization(selection.biomarkerCodes);
@@ -148,6 +150,7 @@ function HomeContent() {
     summary !== null &&
     !labOptimization.activeLoading &&
     !labOptimization.activeError;
+  const hasSelection = isPanelHydrated && selection.selected.length > 0;
 
   useEffect(() => {
     if (!labOptimization.activeResult) return;
@@ -315,12 +318,21 @@ function HomeContent() {
                     onSelect={selection.handleSelect}
                     onTemplateSelect={handleTemplateSelect}
                   />
-                  <SelectedBiomarkers
-                    biomarkers={selection.selected}
-                    onRemove={selection.handleRemove}
-                    onClearAll={selection.clearAll}
-                  />
-                  {selection.selected.length > 0 && (
+                  {isPanelHydrated ? (
+                    <SelectedBiomarkers
+                      biomarkers={selection.selected}
+                      onRemove={selection.handleRemove}
+                      onClearAll={selection.clearAll}
+                    />
+                  ) : (
+                    <div
+                      className="rounded-xl border border-dashed border-slate-700/70 bg-slate-950/40 p-4 text-sm text-slate-400"
+                      aria-busy="true"
+                    >
+                      {t("common.loading")}
+                    </div>
+                  )}
+                  {hasSelection && (
                     <p className="text-sm text-slate-400">
                       {t("home.comparePrices")}
                     </p>
@@ -343,6 +355,7 @@ function HomeContent() {
                       size="sm"
                       type="button"
                       onClick={handleSaveList}
+                      disabled={!isPanelHydrated}
                     >
                       {t("common.save")}
                     </Button>
@@ -351,7 +364,7 @@ function HomeContent() {
                       size="sm"
                       type="button"
                       onClick={() => void handleSharePanel()}
-                      disabled={selection.selected.length === 0}
+                      disabled={!isPanelHydrated || selection.selected.length === 0}
                     >
                       <Link2 className="h-3.5 w-3.5" />
                       {t("common.share")}
@@ -362,6 +375,7 @@ function HomeContent() {
                         size="sm"
                         type="button"
                         onClick={templateModal.open}
+                        disabled={!isPanelHydrated}
                       >
                         {t("home.saveAsTemplate")}
                       </Button>
@@ -373,7 +387,7 @@ function HomeContent() {
             right={
               <>
                 <StickySummaryBar
-                  isVisible={selection.selected.length > 0}
+                  isVisible={hasSelection}
                   isLoading={labOptimization.activeLoading}
                   bestLab={
                     summaryReady ? (
@@ -419,7 +433,7 @@ function HomeContent() {
                         size="sm"
                         type="button"
                         onClick={() => void handleSharePanel()}
-                        disabled={selection.selected.length === 0}
+                        disabled={!isPanelHydrated || selection.selected.length === 0}
                       >
                         <Link2 className="h-3.5 w-3.5" />
                         {t("common.share")}
@@ -427,19 +441,28 @@ function HomeContent() {
                     </>
                   }
                 />
-                <OptimizationResults
-                  selected={selection.biomarkerCodes}
-                  result={labOptimization.activeResult}
-                  isLoading={labOptimization.activeLoading}
-                  error={labOptimization.activeError ?? undefined}
-                  variant="dark"
-                  labCards={labOptimization.labCards}
-                  addonSuggestions={labOptimization.addonSuggestions}
-                  addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
-                  onApplyAddon={handleApplyAddon}
-                  onRemoveFromPanel={selection.handleRemove}
-                  onSearchAlternative={dispatchSearchPrefill}
-                />
+                {isPanelHydrated ? (
+                  <OptimizationResults
+                    selected={selection.biomarkerCodes}
+                    result={labOptimization.activeResult}
+                    isLoading={labOptimization.activeLoading}
+                    error={labOptimization.activeError ?? undefined}
+                    variant="dark"
+                    labCards={labOptimization.labCards}
+                    addonSuggestions={labOptimization.addonSuggestions}
+                    addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
+                    onApplyAddon={handleApplyAddon}
+                    onRemoveFromPanel={selection.handleRemove}
+                    onSearchAlternative={dispatchSearchPrefill}
+                  />
+                ) : (
+                  <div
+                    className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-200"
+                    aria-busy="true"
+                  >
+                    {t("common.loading")}
+                  </div>
+                )}
               </>
             }
           />
