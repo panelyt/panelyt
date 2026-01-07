@@ -200,9 +200,7 @@ export function useUrlBiomarkerSync(
       }
 
       const query = params.toString();
-      const basePath =
-        locale && locale !== defaultLocale ? `/${locale}` : "/";
-      const newUrl = query ? `${basePath}?${query}` : basePath;
+      const newUrl = query ? `/?${query}` : "/";
 
       // Use replace to avoid cluttering browser history
       router.replace(newUrl, { scroll: false });

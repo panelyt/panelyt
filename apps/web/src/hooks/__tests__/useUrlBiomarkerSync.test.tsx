@@ -57,7 +57,7 @@ describe('useUrlBiomarkerSync', () => {
     expect(result.current.getShareUrl()).toBe(`${origin}/?biomarkers=A1C`)
   })
 
-  it('updates the url with locale prefix when selection changes', () => {
+  it('updates the url without duplicating the locale prefix when selection changes', () => {
     vi.useFakeTimers()
     const replace = vi.fn()
     useRouterMock.mockReturnValue({
@@ -85,7 +85,7 @@ describe('useUrlBiomarkerSync', () => {
       vi.advanceTimersByTime(300)
     })
 
-    expect(replace).toHaveBeenCalledWith('/en?biomarkers=A1C', { scroll: false })
+    expect(replace).toHaveBeenCalledWith('/?biomarkers=A1C', { scroll: false })
     vi.useRealTimers()
   })
 
