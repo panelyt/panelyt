@@ -7,7 +7,7 @@ vi.mock("../../lib/analytics", () => ({
 }));
 
 import { track, markTtorStart, resetTtorStart } from "../../lib/analytics";
-import { usePanelStore, PANEL_STORAGE_KEY } from "../panelStore";
+import { usePanelStore, PANEL_STORAGE_KEY, type OptimizationSummary } from "../panelStore";
 
 const trackMock = vi.mocked(track);
 const markTtorStartMock = vi.mocked(markTtorStart);
@@ -196,5 +196,43 @@ describe("panelStore", () => {
       { code: "AST", name: "AST" },
       { code: "ALT", name: "ALT" },
     ]);
+  });
+
+  it("stores the latest optimization summary", () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "ALT" }],
+      lastOptimizationSummary: undefined,
+    });
+
+    const summary: OptimizationSummary = {
+      key: "alt",
+      labCode: "diag",
+      totalNow: 120,
+      totalMin30: 100,
+      uncoveredCount: 0,
+      updatedAt: "2026-01-02T00:00:00Z",
+    };
+
+    usePanelStore.getState().setOptimizationSummary(summary);
+
+    expect(usePanelStore.getState().lastOptimizationSummary).toEqual(summary);
+  });
+
+  it("clears the optimization summary when the selection changes", () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "ALT" }],
+      lastOptimizationSummary: {
+        key: "alt",
+        labCode: "diag",
+        totalNow: 120,
+        totalMin30: 100,
+        uncoveredCount: 0,
+        updatedAt: "2026-01-02T00:00:00Z",
+      },
+    });
+
+    usePanelStore.getState().addOne({ code: "AST", name: "AST" });
+
+    expect(usePanelStore.getState().lastOptimizationSummary).toBeUndefined();
   });
 });

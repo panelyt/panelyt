@@ -13,6 +13,7 @@ export interface PanelBiomarker {
 }
 
 export interface OptimizationSummary {
+  key: string;
   labCode: string;
   totalNow: number;
   totalMin30: number;
@@ -29,6 +30,7 @@ interface PanelStoreState {
   selected: PanelBiomarker[];
   lastOptimizationSummary?: OptimizationSummary;
   lastRemoved?: LastRemovedSnapshot;
+  setOptimizationSummary: (summary: OptimizationSummary) => void;
   addOne: (biomarker: PanelBiomarker) => void;
   addMany: (biomarkers: PanelBiomarker[]) => void;
   remove: (code: string) => void;
@@ -61,6 +63,7 @@ const isValidSummary = (value: unknown): value is OptimizationSummary => {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return (
+    typeof candidate.key === "string" &&
     typeof candidate.labCode === "string" &&
     typeof candidate.totalNow === "number" &&
     typeof candidate.totalMin30 === "number" &&
@@ -158,6 +161,9 @@ export const usePanelStore = create<PanelStoreState>()(
       selected: [],
       lastOptimizationSummary: undefined,
       lastRemoved: undefined,
+      setOptimizationSummary: (summary) => {
+        set({ lastOptimizationSummary: summary });
+      },
       addOne: (biomarker) => {
         const code = biomarker.code.trim();
         if (!code) return;
@@ -171,6 +177,7 @@ export const usePanelStore = create<PanelStoreState>()(
           didAdd = true;
           return {
             selected: [...state.selected, { code, name: biomarker.name }],
+            lastOptimizationSummary: undefined,
           };
         });
         if (didAdd) {
@@ -196,7 +203,10 @@ export const usePanelStore = create<PanelStoreState>()(
           }
           if (additions.length === 0) return state;
           addedCount = additions.length;
-          return { selected: [...state.selected, ...additions] };
+          return {
+            selected: [...state.selected, ...additions],
+            lastOptimizationSummary: undefined,
+          };
         });
         if (addedCount > 0) {
           track("panel_add_biomarker", { count: addedCount });
@@ -218,6 +228,7 @@ export const usePanelStore = create<PanelStoreState>()(
             didEmpty = nextSelected.length === 0;
             return {
               selected: nextSelected,
+              lastOptimizationSummary: undefined,
               lastRemoved: { biomarker: removed, removedAt: Date.now() },
             };
           });
@@ -236,7 +247,7 @@ export const usePanelStore = create<PanelStoreState>()(
         let hadSelection = false;
         set((state) => {
           hadSelection = state.selected.length > 0;
-          return { selected: [], lastRemoved: undefined };
+          return { selected: [], lastOptimizationSummary: undefined, lastRemoved: undefined };
         });
         if (hadSelection) {
           resetTtorStart();
@@ -249,7 +260,7 @@ export const usePanelStore = create<PanelStoreState>()(
           const next = dedupeSelection(biomarkers);
           shouldMark = state.selected.length === 0 && next.length > 0;
           shouldReset = state.selected.length > 0 && next.length === 0;
-          return { selected: next };
+          return { selected: next, lastOptimizationSummary: undefined };
         });
         if (shouldMark) {
           markTtorStart();
@@ -275,6 +286,7 @@ export const usePanelStore = create<PanelStoreState>()(
           shouldMark = state.selected.length === 0;
           return {
             selected: [...state.selected, biomarker],
+            lastOptimizationSummary: undefined,
             lastRemoved: undefined,
           };
         });

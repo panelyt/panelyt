@@ -11,6 +11,7 @@ import {
 } from "@panelyt/types";
 
 import { getParsedJson, postParsedJson } from "../lib/http";
+import { buildOptimizationKey } from "../lib/optimization";
 
 export function useTemplateCatalog(options: { includeAll?: boolean } = {}) {
   const includeAll = Boolean(options.includeAll);
@@ -43,9 +44,6 @@ export type TemplatePricingState = {
   status: "idle" | "loading" | "error" | "success";
   totalNow?: number;
 };
-
-const buildOptimizationKey = (codes: string[]) =>
-  codes.map((code) => code.trim().toLowerCase()).sort().join("|");
 
 export function useTemplatePricing(templates: BiomarkerListTemplate[]) {
   const queries = useQueries({

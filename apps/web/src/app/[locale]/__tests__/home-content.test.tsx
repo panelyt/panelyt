@@ -81,6 +81,7 @@ import { useUrlBiomarkerSync } from "../../../hooks/useUrlBiomarkerSync";
 import { useSaveListModal } from "../../../hooks/useSaveListModal";
 import { useTemplateModal } from "../../../hooks/useTemplateModal";
 import { track } from "../../../lib/analytics";
+import { usePanelStore } from "../../../stores/panelStore";
 import Home from "../home-content";
 
 const mockUseUserSession = vi.mocked(useUserSession);
@@ -142,6 +143,7 @@ describe("HomeContent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     trackMock.mockClear();
+    usePanelStore.setState({ selected: [], lastOptimizationSummary: undefined, lastRemoved: undefined });
 
     mockUseUserSession.mockReturnValue({
       data: { is_admin: false, registered: true, username: "User" },
@@ -158,6 +160,7 @@ describe("HomeContent", () => {
       activeResult: undefined,
       activeLoading: false,
       activeError: null,
+      optimizationKey: "",
       labCards: [],
       labChoice: null,
       selectLab: vi.fn(),
@@ -246,6 +249,7 @@ describe("HomeContent", () => {
       activeResult,
       activeLoading: false,
       activeError: null,
+      optimizationKey: "alt",
       labCards: [],
       labChoice: null,
       selectLab: vi.fn(),
@@ -266,5 +270,55 @@ describe("HomeContent", () => {
 
     expect(totalStat).toHaveTextContent(/120,00/);
     expect(savingsStat).toHaveTextContent(/20,00/);
+  });
+
+  it("stores the optimization summary in the panel store when results load", () => {
+    const activeResult: OptimizeResponse = {
+      total_now: 180,
+      total_min30: 150,
+      currency: "PLN",
+      items: [],
+      bonus_total_now: 0,
+      explain: {},
+      uncovered: ["b12"],
+      lab_code: "diag",
+      lab_name: "",
+      exclusive: {},
+      labels: {},
+      mode: "single_lab",
+      lab_options: [],
+      lab_selections: [],
+      addon_suggestions: [],
+    };
+
+    mockUseLabOptimization.mockReturnValueOnce({
+      activeResult,
+      activeLoading: false,
+      activeError: null,
+      optimizationKey: "b12",
+      labCards: [],
+      labChoice: null,
+      selectLab: vi.fn(),
+      addonSuggestions: [],
+      addonSuggestionsLoading: false,
+      resetLabChoice: vi.fn(),
+    } as ReturnType<typeof useLabOptimization>);
+
+    mockUseBiomarkerSelection.mockReturnValueOnce({
+      ...selectionStub,
+      selected: [{ code: "B12", name: "Vitamin B12" }],
+      biomarkerCodes: ["B12"],
+    } as ReturnType<typeof useBiomarkerSelection>);
+
+    renderWithIntl(<Home />);
+
+    expect(usePanelStore.getState().lastOptimizationSummary).toEqual({
+      key: "b12",
+      labCode: "diag",
+      totalNow: 180,
+      totalMin30: 150,
+      uncoveredCount: 1,
+      updatedAt: expect.any(String),
+    });
   });
 });

@@ -22,6 +22,7 @@ import { useAddonSuggestions } from "./useOptimization";
 import { useDebounce } from "./useDebounce";
 import { postParsedJson } from "../lib/http";
 import { formatCurrency } from "../lib/format";
+import { buildOptimizationKey } from "../lib/optimization";
 
 export interface LabCard {
   key: string;
@@ -59,6 +60,7 @@ export interface UseLabOptimizationResult {
   activeResult: OptimizeResponse | undefined;
   activeLoading: boolean;
   activeError: Error | null;
+  optimizationKey: string;
   labChoice: string | "all" | null;
   selectLab: (code: string | "all") => void;
   resetLabChoice: () => void;
@@ -84,7 +86,7 @@ export function useLabOptimization(
   const debouncedBiomarkerCodes = useDebounce(biomarkerCodes, OPTIMIZATION_DEBOUNCE_MS);
 
   const optimizationKey = useMemo(
-    () => debouncedBiomarkerCodes.map((item) => item.toLowerCase()).sort().join("|"),
+    () => buildOptimizationKey(debouncedBiomarkerCodes),
     [debouncedBiomarkerCodes],
   );
 
@@ -451,6 +453,7 @@ export function useLabOptimization(
     activeResult,
     activeLoading,
     activeError,
+    optimizationKey,
     labChoice: selectedLabChoice,
     selectLab,
     resetLabChoice,

@@ -37,6 +37,7 @@ describe("PanelPill", () => {
     setSelection(3);
     usePanelStore.setState({
       lastOptimizationSummary: {
+        key: "t1|t2|t3",
         labCode: "diag",
         totalNow: 120,
         totalMin30: 100,

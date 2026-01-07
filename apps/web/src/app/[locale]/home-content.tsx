@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useMemo } from "react";
+import { Suspense, useCallback, useEffect, useMemo } from "react";
 import { Link2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -25,6 +25,8 @@ import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
 import { dispatchSearchPrefill } from "../../features/optimizer/search-events";
 import { track } from "../../lib/analytics";
 import { formatCurrency } from "../../lib/format";
+import { buildOptimizationKey } from "../../lib/optimization";
+import { usePanelStore } from "../../stores/panelStore";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 
@@ -55,6 +57,7 @@ function HomeContent() {
 
   // Biomarker selection
   const selection = useBiomarkerSelection();
+  const setOptimizationSummary = usePanelStore((state) => state.setOptimizationSummary);
 
   // Lab optimization
   const labOptimization = useLabOptimization(selection.biomarkerCodes);
@@ -126,6 +129,46 @@ function HomeContent() {
     summary !== null &&
     !labOptimization.activeLoading &&
     !labOptimization.activeError;
+
+  const selectionKey = useMemo(
+    () => buildOptimizationKey(selection.biomarkerCodes),
+    [selection.biomarkerCodes],
+  );
+
+  useEffect(() => {
+    if (!labOptimization.activeResult) return;
+    if (labOptimization.activeLoading || labOptimization.activeError) return;
+    if (!selectionKey || !labOptimization.optimizationKey) return;
+    if (selectionKey !== labOptimization.optimizationKey) return;
+
+    const activeResult = labOptimization.activeResult;
+    const activeLabCard =
+      labOptimization.labCards.find((card) => card.active) ??
+      labOptimization.labCards[0];
+    const labCode =
+      activeResult.lab_code ||
+      activeLabCard?.shortLabel ||
+      activeLabCard?.title ||
+      activeResult.lab_name ||
+      "lab";
+
+    setOptimizationSummary({
+      key: selectionKey,
+      labCode,
+      totalNow: activeResult.total_now,
+      totalMin30: activeResult.total_min30,
+      uncoveredCount: activeResult.uncovered?.length ?? 0,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [
+    labOptimization.activeError,
+    labOptimization.activeLoading,
+    labOptimization.activeResult,
+    labOptimization.labCards,
+    labOptimization.optimizationKey,
+    selectionKey,
+    setOptimizationSummary,
+  ]);
 
   // URL biomarker sync (two-way)
   const urlBiomarkerSync = useUrlBiomarkerSync({

@@ -64,6 +64,7 @@ describe("PanelTray", () => {
     usePanelStore.setState({
       selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
       lastOptimizationSummary: {
+        key: "alt",
         labCode: "diag",
         totalNow: 120,
         totalMin30: 100,
