@@ -154,7 +154,7 @@ function PriceGauge({
 
       {/* Position marker */}
       <div
-        className="absolute top-1/2 h-3 w-1 -translate-y-1/2 rounded-full shadow-sm transition-all duration-500"
+        className="absolute top-1/2 h-3 w-1 -translate-y-1/2 rounded-full shadow-sm transition-all duration-500 motion-reduce:transition-none"
         style={{
           left: `${Math.max(1, Math.min(position, 99))}%`,
           backgroundColor: atFloor
@@ -170,9 +170,10 @@ function PriceGauge({
                   ? "#fbbf24"
                   : "#f59e0b"
                 : isDark
-                  ? "#f87171"
-                  : "#ef4444",
+              ? "#f87171"
+              : "#ef4444",
         }}
+        data-testid="price-gauge-marker"
       />
     </div>
   );
