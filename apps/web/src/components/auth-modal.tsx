@@ -53,21 +53,44 @@ export function AuthModal({
   }
 
   const isSubmitting = mode === "login" ? isLoggingIn : isRegistering;
+  const normalizedUsername = username.trim().toLowerCase();
+  const usernameLength = normalizedUsername.length;
+  const usernameError =
+    usernameLength === 0
+      ? null
+      : usernameLength < 3
+        ? t("auth.usernameTooShort")
+        : usernameLength > 64
+          ? t("auth.usernameTooLong")
+          : null;
+  const passwordError =
+    password.length === 0
+      ? null
+      : password.length < 8
+        ? t("auth.passwordTooShort")
+        : password.length > 128
+          ? t("auth.passwordTooLong")
+          : null;
+  const confirmError =
+    mode === "register" && confirmPassword.length > 0 && password !== confirmPassword
+      ? t("auth.passwordMismatch")
+      : null;
+  const isFormValid =
+    usernameLength >= 3 &&
+    usernameLength <= 64 &&
+    password.length >= 8 &&
+    password.length <= 128 &&
+    (mode !== "register" ||
+      (confirmPassword.length > 0 && password === confirmPassword));
+  const isSubmitDisabled = isSubmitting || !isFormValid;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalized = username.trim().toLowerCase();
-    if (normalized.length < 3 || normalized.length > 64) {
-      return;
-    }
-    if (password.length < 8 || password.length > 128) {
-      return;
-    }
-    if (mode === "register" && password !== confirmPassword) {
+    if (!isFormValid) {
       return;
     }
 
-    const payload = { username: normalized, password };
+    const payload = { username: normalizedUsername, password };
     if (mode === "login") {
       await onLogin(payload);
     } else {
@@ -110,8 +133,15 @@ export function AuthModal({
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               placeholder={t("auth.usernamePlaceholder")}
+              aria-invalid={usernameError ? "true" : "false"}
+              aria-describedby={usernameError ? "auth-username-error" : undefined}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
+            {usernameError ? (
+              <p id="auth-username-error" className="mt-1 text-xs text-red-300">
+                {usernameError}
+              </p>
+            ) : null}
             <p className="mt-1 text-[11px] text-slate-500">{t("auth.usernameHint")}</p>
           </div>
 
@@ -125,8 +155,15 @@ export function AuthModal({
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder={t("auth.passwordPlaceholder")}
+              aria-invalid={passwordError ? "true" : "false"}
+              aria-describedby={passwordError ? "auth-password-error" : undefined}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
+            {passwordError ? (
+              <p id="auth-password-error" className="mt-1 text-xs text-red-300">
+                {passwordError}
+              </p>
+            ) : null}
           </div>
 
           {mode === "register" && (
@@ -140,8 +177,15 @@ export function AuthModal({
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 placeholder={t("auth.confirmPasswordPlaceholder")}
+                aria-invalid={confirmError ? "true" : "false"}
+                aria-describedby={confirmError ? "auth-confirm-error" : undefined}
                 className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               />
+              {confirmError ? (
+                <p id="auth-confirm-error" className="mt-1 text-xs text-red-300">
+                  {confirmError}
+                </p>
+              ) : null}
             </div>
           )}
 
@@ -149,7 +193,7 @@ export function AuthModal({
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitDisabled}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 via-sky-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-md shadow-emerald-500/30 transition focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
