@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "../i18n/navigation";
+import { defaultLocale } from "../i18n/config";
 import { BiomarkerSearchResponseSchema } from "@panelyt/types";
 
 import { getJson } from "../lib/http";
@@ -59,6 +60,8 @@ export interface UseUrlBiomarkerSyncOptions {
   onLoadFromUrl: (biomarkers: SelectedBiomarker[]) => void;
   /** Whether to skip URL sync (e.g., when other params like ?template= are being processed) */
   skipSync?: boolean;
+  /** Current locale for share URL generation */
+  locale?: string;
 }
 
 export interface UseUrlBiomarkerSyncResult {
@@ -82,7 +85,7 @@ export interface UseUrlBiomarkerSyncResult {
 export function useUrlBiomarkerSync(
   options: UseUrlBiomarkerSyncOptions,
 ): UseUrlBiomarkerSyncResult {
-  const { selected, onLoadFromUrl, skipSync = false } = options;
+  const { selected, onLoadFromUrl, skipSync = false, locale } = options;
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -192,13 +195,16 @@ export function useUrlBiomarkerSync(
       return "";
     }
 
+    const basePath =
+      locale && locale !== defaultLocale ? `/${locale}` : "/";
+    const baseUrl = `${window.location.origin}${basePath}`;
     const codes = selected.map((b) => b.code).join(",");
     if (!codes) {
-      return window.location.origin + "/";
+      return baseUrl;
     }
 
-    return `${window.location.origin}/?${URL_PARAM_NAME}=${encodeURIComponent(codes)}`;
-  }, [selected]);
+    return `${baseUrl}?${URL_PARAM_NAME}=${encodeURIComponent(codes)}`;
+  }, [locale, selected]);
 
   const copyShareUrl = useCallback(async () => {
     const url = getShareUrl();

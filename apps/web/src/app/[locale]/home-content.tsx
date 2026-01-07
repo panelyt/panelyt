@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo } from "react";
 import { Link2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { useSavedLists } from "../../hooks/useSavedLists";
@@ -49,6 +49,7 @@ const SummaryStat = ({ label, value, valueTone }: SummaryStatProps) => (
 
 function HomeContent() {
   const t = useTranslations();
+  const locale = useLocale();
 
   // Core data hooks
   const sessionQuery = useUserSession();
@@ -180,6 +181,7 @@ function HomeContent() {
       },
       [selection, labOptimization],
     ),
+    locale,
   });
 
   // Handle share button click

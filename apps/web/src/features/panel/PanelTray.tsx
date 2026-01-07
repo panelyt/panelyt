@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { SearchBox } from "@/components/search-box";
@@ -28,6 +28,7 @@ import {
 
 export function PanelTray() {
   const t = useTranslations();
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const selection = useBiomarkerSelection();
   const selected = selection.selected;
@@ -47,6 +48,7 @@ export function PanelTray() {
     selected,
     onLoadFromUrl: () => {},
     skipSync: true,
+    locale,
   });
 
   const savings = useMemo(() => {
