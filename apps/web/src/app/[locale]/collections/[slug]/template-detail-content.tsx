@@ -9,7 +9,8 @@ import { useRouter } from "../../../../i18n/navigation";
 import { Header } from "../../../../components/header";
 import { OptimizationResults } from "../../../../components/optimization-results";
 import { useTemplateDetail } from "../../../../hooks/useBiomarkerListTemplates";
-import { useOptimization } from "../../../../hooks/useOptimization";
+import { useBiomarkerSelection } from "../../../../hooks/useBiomarkerSelection";
+import { useLabOptimization } from "../../../../hooks/useLabOptimization";
 import { usePanelStore } from "../../../../stores/panelStore";
 import { track } from "../../../../lib/analytics";
 import { Button } from "../../../../ui/button";
@@ -25,6 +26,7 @@ export default function TemplateDetailContent({ params }: TemplateDetailContentP
   const router = useRouter();
   const templateQuery = useTemplateDetail(slug, Boolean(slug));
   const template = templateQuery.data;
+  const selection = useBiomarkerSelection();
   const addMany = usePanelStore((state) => state.addMany);
   const replaceAll = usePanelStore((state) => state.replaceAll);
 
@@ -32,7 +34,7 @@ export default function TemplateDetailContent({ params }: TemplateDetailContentP
     () => template?.biomarkers.map((entry) => entry.code) ?? [],
     [template],
   );
-  const optimization = useOptimization(biomarkerCodes, 'auto');
+  const labOptimization = useLabOptimization(biomarkerCodes);
 
   const templateSelection = useMemo(
     () =>
@@ -174,9 +176,13 @@ export default function TemplateDetailContent({ params }: TemplateDetailContentP
               <div className="mt-6">
                 <OptimizationResults
                   selected={biomarkerCodes}
-                  result={optimization.data}
-                  isLoading={optimization.isLoading}
-                  error={optimization.error}
+                  result={labOptimization.activeResult}
+                  isLoading={labOptimization.activeLoading}
+                  error={labOptimization.activeError}
+                  labCards={labOptimization.labCards}
+                  addonSuggestions={labOptimization.addonSuggestions}
+                  addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
+                  onApplyAddon={selection.handleApplyAddon}
                   variant="dark"
                 />
               </div>

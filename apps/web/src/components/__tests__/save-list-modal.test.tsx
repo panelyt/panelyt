@@ -10,7 +10,7 @@ describe("SaveListModal", () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();
 
-    renderWithIntl(
+    const { unmount } = renderWithIntl(
       <SaveListModal
         open
         name=""
@@ -30,13 +30,16 @@ describe("SaveListModal", () => {
     await user.click(screen.getByRole("button", { name: "Save list" }));
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
+
+    unmount();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
   it("calls onClose when the close button is pressed", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
 
-    renderWithIntl(
+    const { unmount } = renderWithIntl(
       <SaveListModal
         open
         name=""
@@ -51,5 +54,8 @@ describe("SaveListModal", () => {
     await user.click(screen.getByLabelText("Close save dialog"));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+
+    unmount();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 });

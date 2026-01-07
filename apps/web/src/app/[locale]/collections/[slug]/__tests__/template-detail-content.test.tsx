@@ -6,9 +6,11 @@ import { Toaster } from "sonner";
 import { renderWithIntl } from "../../../../../test/utils";
 import enMessages from "../../../../../i18n/messages/en.json";
 import { track } from "../../../../../lib/analytics";
+import type { OptimizationResultsProps } from "../../../../../components/optimization-results";
 import { usePanelStore } from "../../../../../stores/panelStore";
 import { useTemplateDetail } from "../../../../../hooks/useBiomarkerListTemplates";
-import { useOptimization } from "../../../../../hooks/useOptimization";
+import { useBiomarkerSelection } from "../../../../../hooks/useBiomarkerSelection";
+import { useLabOptimization } from "../../../../../hooks/useLabOptimization";
 import { useRouter } from "../../../../../i18n/navigation";
 import TemplateDetailContent from "../template-detail-content";
 
@@ -22,8 +24,12 @@ vi.mock("../../../../../components/header", () => ({
   Header: () => <div data-testid="header" />,
 }));
 
+const optimizationResultsMock = vi.hoisted(() =>
+  vi.fn((_: OptimizationResultsProps) => <div data-testid="optimization-results" />),
+);
+
 vi.mock("../../../../../components/optimization-results", () => ({
-  OptimizationResults: () => <div data-testid="optimization-results" />,
+  OptimizationResults: optimizationResultsMock,
 }));
 
 vi.mock("../../../../../i18n/navigation", () => ({
@@ -34,12 +40,16 @@ vi.mock("../../../../../hooks/useBiomarkerListTemplates", () => ({
   useTemplateDetail: vi.fn(),
 }));
 
-vi.mock("../../../../../hooks/useOptimization", () => ({
-  useOptimization: vi.fn(),
+vi.mock("../../../../../hooks/useLabOptimization", () => ({
+  useLabOptimization: vi.fn(),
+}));
+vi.mock("../../../../../hooks/useBiomarkerSelection", () => ({
+  useBiomarkerSelection: vi.fn(),
 }));
 
 const mockUseTemplateDetail = vi.mocked(useTemplateDetail);
-const mockUseOptimization = vi.mocked(useOptimization);
+const mockUseLabOptimization = vi.mocked(useLabOptimization);
+const mockUseBiomarkerSelection = vi.mocked(useBiomarkerSelection);
 const mockUseRouter = vi.mocked(useRouter);
 const trackMock = vi.mocked(track);
 
@@ -96,11 +106,37 @@ describe("TemplateDetailContent", () => {
       isLoading: false,
       isError: false,
     } as ReturnType<typeof useTemplateDetail>);
-    mockUseOptimization.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      error: null,
-    } as ReturnType<typeof useOptimization>);
+    mockUseLabOptimization.mockReturnValue({
+      labCards: [
+        {
+          key: "diag",
+          title: "DIAG",
+          priceLabel: "100",
+          priceValue: 100,
+          meta: "",
+          badge: undefined,
+          active: true,
+          loading: false,
+          disabled: false,
+          onSelect: vi.fn(),
+          icon: null,
+          accentLight: "",
+          accentDark: "",
+        },
+      ],
+      activeResult: undefined,
+      activeLoading: false,
+      activeError: null,
+      optimizationKey: "alt-ast",
+      labChoice: null,
+      selectLab: vi.fn(),
+      resetLabChoice: vi.fn(),
+      addonSuggestions: [],
+      addonSuggestionsLoading: false,
+    } as ReturnType<typeof useLabOptimization>);
+    mockUseBiomarkerSelection.mockReturnValue({
+      handleApplyAddon: vi.fn(),
+    } as unknown as ReturnType<typeof useBiomarkerSelection>);
     mockUseRouter.mockReturnValue({
       push: vi.fn(),
       replace: vi.fn(),
@@ -177,5 +213,23 @@ describe("TemplateDetailContent", () => {
     );
     expect(await screen.findByText(replacedToast)).toBeInTheDocument();
     expect(trackMock).toHaveBeenCalledWith("panel_apply_template", { mode: "replace" });
+  });
+
+  it("wires compare optimization data into OptimizationResults", async () => {
+    await renderContent();
+
+    expect(mockUseLabOptimization).toHaveBeenCalledWith(["ALT", "AST"]);
+    const props = optimizationResultsMock.mock.calls[0]?.[0];
+    expect(props).toEqual(
+      expect.objectContaining({
+        selected: ["ALT", "AST"],
+        labCards: expect.any(Array),
+        addonSuggestions: [],
+        addonSuggestionsLoading: false,
+        isLoading: false,
+        error: null,
+        variant: "dark",
+      }),
+    );
   });
 });
