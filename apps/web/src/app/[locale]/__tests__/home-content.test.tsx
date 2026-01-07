@@ -45,7 +45,11 @@ vi.mock("../../../hooks/useTemplateModal", () => ({
 }));
 
 vi.mock("../../../components/header", () => ({
-  Header: () => <div data-testid="header" />,
+  Header: ({ onAuthSuccess }: { onAuthSuccess?: () => void }) => (
+    <button type="button" data-testid="header-auth" onClick={onAuthSuccess}>
+      Header
+    </button>
+  ),
 }));
 
 vi.mock("../../../components/search-box", () => ({
@@ -320,5 +324,15 @@ describe("HomeContent", () => {
       uncoveredCount: 1,
       updatedAt: expect.any(String),
     });
+  });
+
+  it("does not clear selection on auth success", async () => {
+    const user = userEvent.setup();
+
+    renderWithIntl(<Home />);
+
+    await user.click(screen.getByTestId("header-auth"));
+
+    expect(selectionStub.replaceAll).not.toHaveBeenCalled();
   });
 });

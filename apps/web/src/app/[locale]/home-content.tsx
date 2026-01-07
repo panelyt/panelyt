@@ -72,7 +72,6 @@ function HomeContent() {
 
   // Auth callbacks for Header
   const handleAuthSuccess = useCallback(() => {
-    selection.replaceAll([]);
     selection.setError(null);
   }, [selection]);
 
