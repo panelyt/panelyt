@@ -127,22 +127,45 @@ export function useUrlBiomarkerSync(
       return;
     }
 
-    // Mark as loading and look up names
+    // Mark as loading and populate immediate fallbacks
     setIsLoadingFromUrl(true);
     initialLoadDoneRef.current = true;
     lastWrittenCodesRef.current = codes.join(",");
+    const fallbackBiomarkers = codes.map((code) => ({
+      code,
+      name: code,
+    }));
+    onLoadFromUrl(fallbackBiomarkers);
+
+    let cancelled = false;
 
     lookupBiomarkerNames(codes)
       .then((nameMap) => {
+        if (cancelled) {
+          return;
+        }
         const biomarkers = codes.map((code) => ({
           code,
           name: nameMap[code] || code,
         }));
-        onLoadFromUrl(biomarkers);
+        const hasUpdates = biomarkers.some(
+          (biomarker) =>
+            fallbackBiomarkers.find((entry) => entry.code === biomarker.code)?.name !==
+            biomarker.name,
+        );
+        if (hasUpdates) {
+          onLoadFromUrl(biomarkers);
+        }
       })
       .finally(() => {
-        setIsLoadingFromUrl(false);
+        if (!cancelled) {
+          setIsLoadingFromUrl(false);
+        }
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams, skipSync, hasOtherParams, onLoadFromUrl]);
 
   // Write to URL when selection changes
