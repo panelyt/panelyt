@@ -239,6 +239,8 @@ function HomeContent() {
       labOptimization.resetLabChoice();
     },
     onError: selection.setError,
+    isAuthenticated: Boolean(userSession),
+    onRequireAuth: requestAuthModal,
     savedLists: savedListsData,
     isFetchingSavedLists: savedLists.listsQuery.isFetching,
   });
