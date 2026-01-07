@@ -7,12 +7,13 @@ import { Link } from "../i18n/navigation";
 
 export function Footer() {
   const t = useTranslations("footer");
+  const tCommon = useTranslations("common");
 
   return (
     <footer className="border-t border-slate-800 bg-slate-950 py-6">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6">
         <span className="text-sm text-slate-500">
-          &copy; {new Date().getFullYear()} Panelyt
+          &copy; {new Date().getFullYear()} {tCommon("brandName")}
         </span>
         <div className="flex items-center gap-4">
           <a

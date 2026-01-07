@@ -75,6 +75,7 @@ export function useLabOptimization(
   biomarkerCodes: string[],
 ): UseLabOptimizationResult {
   const t = useTranslations();
+  const placeholderDash = t("common.placeholderDash");
   const [selectedLabChoice, setSelectedLabChoice] = useState<string | "all" | null>(null);
   const [cachedLabOptions, setCachedLabOptions] = useState<LabAvailability[]>([]);
   const autoSelectionRef = useRef<string | null>(null);
@@ -259,9 +260,11 @@ export function useLabOptimization(
     if (normalizedCode === "alab" || normalizedName.includes("alab")) {
       return "ALAB";
     }
-    const fallback = (code || name || t("optimization.labFallback")).trim();
-    return fallback ? fallback.toUpperCase() : "LAB";
-  }, [t]);
+    const fallbackLabel = t("optimization.labFallback").trim();
+    const fallback = (code || name || fallbackLabel).trim();
+    const resolved = fallback || fallbackLabel || placeholderDash;
+    return resolved.toUpperCase();
+  }, [placeholderDash, t]);
 
   // User action: select a lab (clears auto-selection tracking)
   const selectLab = useCallback((code: string | "all") => {
@@ -286,7 +289,7 @@ export function useLabOptimization(
       const option = labOptions.find((lab) => lab.code === code);
       const labShort = labelForLab(code, option?.name ?? labResult?.lab_name);
       const labTitle = t("optimization.labOnly", { lab: labShort });
-      const priceLabel = labResult ? formatCurrency(labResult.total_now) : "—";
+      const priceLabel = labResult ? formatCurrency(labResult.total_now) : placeholderDash;
       const missingTokensCount = option?.missing_tokens?.length ?? 0;
       const hasGaps = option ? !option.covers_all && missingTokensCount > 0 : false;
       const uncoveredTotal = labResult ? labResult.uncovered.length : 0;
@@ -316,7 +319,7 @@ export function useLabOptimization(
       const coverageLabel = !hasCounts
         ? debouncedBiomarkerCodes.length === 0
           ? t("optimization.addBiomarkersToCompare")
-          : "—"
+          : placeholderDash
         : [
             t("optimization.missingShort", { count: missingCount }),
             bonusLabel,
@@ -384,7 +387,7 @@ export function useLabOptimization(
     const splitMeta = !splitHasCounts
       ? debouncedBiomarkerCodes.length === 0
         ? t("optimization.addBiomarkersToCompare")
-        : "—"
+        : placeholderDash
       : [
           t("optimization.missingShort", { count: splitMissingCount }),
           splitBonusLabel,
@@ -402,7 +405,7 @@ export function useLabOptimization(
       key: "all",
       title: t("optimization.bothLabs"),
       shortLabel: t("optimization.bothLabs"),
-      priceLabel: splitResult ? formatCurrency(splitResult.total_now) : "—",
+      priceLabel: splitResult ? formatCurrency(splitResult.total_now) : placeholderDash,
       priceValue: splitResult?.total_now ?? null,
       meta: splitMeta,
       badge: undefined,
@@ -441,6 +444,7 @@ export function useLabOptimization(
     debouncedBiomarkerCodes,
     labOptions,
     labelForLab,
+    placeholderDash,
     primaryLabCodes,
     selectLab,
     selectedLabChoice,

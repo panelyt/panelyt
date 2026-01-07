@@ -1,3 +1,5 @@
+import { screen } from '@testing-library/react'
+
 import { renderWithIntl } from '../../../test/utils'
 import { SummarySection } from '../summary-section'
 import { buildOptimizationViewModel } from '../view-model'
@@ -75,5 +77,36 @@ describe('SummarySection', () => {
     expect(document.body.textContent).toContain('Tylko w laboratorium Diagnostyka')
     expect(document.body.textContent).toContain('Nakładanie pakietów')
     expect(document.body.textContent).toContain('Kliknij, aby zobaczyć biomarkery w wielu pakietach')
+  })
+
+  it('uses translated placeholder when savings and bonus are empty', () => {
+    const viewModel = buildOptimizationViewModel({
+      selected: ['ALT', 'AST'],
+      result: {
+        ...buildResult(),
+        total_now: 100,
+        total_min30: 100,
+        bonus_total_now: 0,
+      },
+      variant: 'light',
+    })
+
+    const messages = {
+      ...plMessages,
+      common: {
+        ...plMessages.common,
+        placeholderDash: 'N/A',
+      },
+    } as typeof plMessages
+
+    renderWithIntl(
+      <SummarySection
+        viewModel={viewModel}
+        labCards={[]}
+      />,
+      { locale: 'pl', messages }
+    )
+
+    expect(screen.getAllByText('N/A').length).toBeGreaterThan(0)
   })
 })

@@ -81,6 +81,7 @@ interface LabSegmentProps {
 
 function LabSegmentLabel({ card, isDark }: LabSegmentProps) {
   const t = useTranslations();
+  const placeholderDash = t("common.placeholderDash");
   const isActive = card.active;
   const isUnavailable = !card.coversAll && card.missing && card.missing.count > 0;
   const hasSavings = Boolean(card.savings && card.savings.amount > 0);
@@ -155,7 +156,7 @@ function LabSegmentLabel({ card, isDark }: LabSegmentProps) {
           </span>
         ) : (
           <span className={`text-lg font-semibold ${priceTone}`}>
-            {card.loading ? "—" : card.priceLabel}
+            {card.loading ? placeholderDash : card.priceLabel}
           </span>
         )}
       </div>

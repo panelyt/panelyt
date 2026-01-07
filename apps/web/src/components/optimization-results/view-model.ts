@@ -79,7 +79,7 @@ export function buildOptimizationViewModel({
 
   const potentialSavingsRaw = Math.max(result.total_now - result.total_min30, 0);
   const highlightSavings = potentialSavingsRaw > 0.01;
-  const potentialSavingsLabel = potentialSavingsRaw > 0 ? formatCurrency(potentialSavingsRaw) : "—";
+  const potentialSavingsLabel = potentialSavingsRaw > 0 ? formatCurrency(potentialSavingsRaw) : "";
   const totalMin30Label = formatCurrency(result.total_min30);
   const bonusTotalNowValue = Math.max(result.bonus_total_now ?? 0, 0);
   const bonusTotalNowLabel = formatCurrency(bonusTotalNowValue);

@@ -2,6 +2,7 @@
   "meta": {
     "title": "Panelyt - Blood Test Optimizer",
     "description": "Optimize blood test panel costs using current prices and 30-day minimums.",
+    "siteName": "Panelyt",
     "templatesTitle": "Templates | Panelyt",
     "templatesDescription": "Browse science-backed blood test templates.",
     "templateDetailTitle": "{name} | Panelyt",
@@ -21,6 +22,8 @@
   },
   "common": {
     "loading": "Loading...",
+    "brandName": "Panelyt",
+    "placeholderDash": "—",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",

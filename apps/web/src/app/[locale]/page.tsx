@@ -39,7 +39,7 @@ export default async function Page({ params }: PageProps) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "Panelyt",
+    name: t("siteName"),
     url: BASE_URL,
     description: t("description"),
     inLanguage: locale === "pl" ? "pl-PL" : "en-US",

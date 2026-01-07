@@ -16,7 +16,7 @@ export class HttpError extends Error {
  */
 export function extractErrorMessage(
   error: unknown,
-  fallback = "Something went wrong",
+  fallback: string,
 ): string {
   if (error instanceof HttpError) {
     if (error.body) {

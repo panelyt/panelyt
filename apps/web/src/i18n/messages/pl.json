@@ -2,6 +2,7 @@
   "meta": {
     "title": "Panelyt - Optymalizator badań krwi",
     "description": "Zoptymalizuj koszt paneli badań krwi korzystając z aktualnych cen i minimów z 30 dni.",
+    "siteName": "Panelyt",
     "templatesTitle": "Szablony | Panelyt",
     "templatesDescription": "Przeglądaj gotowe szablony badań krwi oparte na nauce.",
     "templateDetailTitle": "{name} | Panelyt",
@@ -21,6 +22,8 @@
   },
   "common": {
     "loading": "Ładowanie...",
+    "brandName": "Panelyt",
+    "placeholderDash": "—",
     "save": "Zapisz",
     "cancel": "Anuluj",
     "delete": "Usuń",

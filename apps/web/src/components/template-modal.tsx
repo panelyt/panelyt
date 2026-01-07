@@ -75,7 +75,7 @@ export function TemplateModal({
         </DialogClose>
 
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-secondary">
-          Panelyt
+          {t("common.brandName")}
         </p>
         <DialogTitle className="mt-2 text-2xl font-semibold text-primary">
           {title}

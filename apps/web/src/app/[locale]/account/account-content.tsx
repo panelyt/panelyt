@@ -20,8 +20,8 @@ import { track } from "../../../lib/analytics";
 import { cn } from "../../../lib/cn";
 import { Button, buttonVariants } from "../../../ui/button";
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
+function formatDate(value: string | null | undefined, placeholderDash: string) {
+  if (!value) return placeholderDash;
   try {
     return new Date(value).toLocaleString("pl-PL");
   } catch {
@@ -31,6 +31,7 @@ function formatDate(value: string | null | undefined) {
 
 export default function AccountContent() {
   const t = useTranslations();
+  const placeholderDash = t("common.placeholderDash");
   const session = useUserSession();
   const account = useAccountSettings(Boolean(session.data));
   const [chatIdInput, setChatIdInput] = useState("");
@@ -211,7 +212,7 @@ export default function AccountContent() {
                         )}
                       </div>
                       <p className="mt-3 text-xs text-secondary">
-                        {t("account.expires")} {formatDate(telegram.link_token_expires_at)}
+                        {t("account.expires")} {formatDate(telegram.link_token_expires_at, placeholderDash)}
                       </p>
                     </>
                   ) : (
@@ -241,11 +242,11 @@ export default function AccountContent() {
                   <dl className="mt-3 space-y-2 text-xs text-secondary">
                     <div className="flex justify-between gap-3">
                       <dt className="text-secondary">{t("account.chatId")}</dt>
-                      <dd className="font-mono text-primary">{telegram.chat_id ?? "—"}</dd>
+                      <dd className="font-mono text-primary">{telegram.chat_id ?? placeholderDash}</dd>
                     </div>
                     <div className="flex justify-between gap-3">
                       <dt className="text-secondary">{t("account.linkedAt")}</dt>
-                      <dd>{formatDate(telegram.linked_at)}</dd>
+                      <dd>{formatDate(telegram.linked_at, placeholderDash)}</dd>
                     </div>
                   </dl>
                   <div className="mt-4 flex flex-col gap-3">

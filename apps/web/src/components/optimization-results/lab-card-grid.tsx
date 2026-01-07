@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl";
+
 import type { LabChoiceCard } from "./types";
 
 interface LabCardGridProps {
@@ -6,6 +8,8 @@ interface LabCardGridProps {
 }
 
 export function LabCardGrid({ labCards, isDark }: LabCardGridProps) {
+  const t = useTranslations();
+  const placeholderDash = t("common.placeholderDash");
   if (labCards.length === 0) {
     return null;
   }
@@ -65,7 +69,7 @@ export function LabCardGrid({ labCards, isDark }: LabCardGridProps) {
                       isDark ? "text-white" : "text-slate-900"
                     }`}
                   >
-                    {card.loading ? "—" : card.priceLabel}
+                    {card.loading ? placeholderDash : card.priceLabel}
                   </p>
                   {card.badge && (
                     <span
@@ -80,7 +84,7 @@ export function LabCardGrid({ labCards, isDark }: LabCardGridProps) {
                   )}
                 </div>
                 <div className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  {card.meta ? card.meta : <span className="invisible">placeholder</span>}
+                  {card.meta ? card.meta : <span className="invisible">{placeholderDash}</span>}
                 </div>
               </div>
             </div>

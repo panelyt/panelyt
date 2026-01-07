@@ -68,6 +68,7 @@ const CURRENCY_CODE = "PLN";
 
 export default function ListsContent() {
   const t = useTranslations();
+  const placeholderDash = t("common.placeholderDash");
   const session = useUserSession();
   const savedLists = useSavedLists(Boolean(session.data));
   const account = useAccountSettings(Boolean(session.data));
@@ -316,25 +317,25 @@ export default function ListsContent() {
     (value: string) => {
       const resolved = resolveTimestamp(value);
       if (!resolved) {
-        return "—";
+        return placeholderDash;
       }
       return formatExactTimestampValue(resolved.date, exactTimestampFormatter);
     },
-    [exactTimestampFormatter],
+    [exactTimestampFormatter, placeholderDash],
   );
 
   const formatRelativeTimestamp = useCallback(
     (value: string) => {
       const resolved = resolveTimestamp(value);
       if (!resolved) {
-        return "—";
+        return placeholderDash;
       }
       return formatRelativeTimestampValue(
         resolved.timestamp,
         relativeTimestampFormatter,
       );
     },
-    [relativeTimestampFormatter],
+    [relativeTimestampFormatter, placeholderDash],
   );
 
   const lastUpdatedAt = useMemo(() => {
@@ -359,7 +360,7 @@ export default function ListsContent() {
 
   const formatTotal = (item: ListWithTotals) => {
     if (item.total === null || item.currency === null) {
-      return "—";
+      return placeholderDash;
     }
     const formatter = new Intl.NumberFormat("pl-PL", {
       style: "currency",
@@ -589,7 +590,7 @@ export default function ListsContent() {
                     </TooltipContent>
                   </Tooltip>
                 ) : (
-                  <span className="font-mono text-sm text-slate-500">—</span>
+                  <span className="font-mono text-sm text-slate-500">{placeholderDash}</span>
                 )}
               </div>
             </div>
@@ -630,7 +631,7 @@ export default function ListsContent() {
                       const shareLink = listState.shareLink;
                       const updatedLabel = listState.updatedAt
                         ? formatRelativeTimestamp(listState.updatedAt)
-                        : "—";
+                        : placeholderDash;
 
                       return (
                         <TableRow key={item.list.id}>
@@ -658,7 +659,7 @@ export default function ListsContent() {
                                 </TooltipContent>
                               </Tooltip>
                             ) : (
-                              "—"
+                              placeholderDash
                             )}
                           </TableCell>
                           <TableCell>

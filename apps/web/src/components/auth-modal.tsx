@@ -88,7 +88,9 @@ export function AuthModal({
           </button>
         </DialogClose>
 
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Panelyt</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+          {t("common.brandName")}
+        </p>
         <DialogTitle className="mt-2 text-2xl font-semibold text-white">
           {mode === "login" ? t("auth.signIn") : t("auth.createAccount")}
         </DialogTitle>
