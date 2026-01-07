@@ -56,4 +56,19 @@ describe('usePanelHydrated', () => {
 
     expect(result.current).toBe(true)
   })
+
+  it('defaults to hydrated when persistence is unavailable', () => {
+    const store = usePanelStore as Omit<typeof usePanelStore, 'persist'> & {
+      persist?: typeof usePanelStore.persist
+    }
+    const originalPersist = store.persist
+    store.persist = undefined
+
+    try {
+      const { result } = renderHook(() => usePanelHydrated())
+      expect(result.current).toBe(true)
+    } finally {
+      store.persist = originalPersist
+    }
+  })
 })

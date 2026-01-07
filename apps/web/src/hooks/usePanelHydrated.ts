@@ -5,22 +5,30 @@ import { useEffect, useState } from "react";
 import { usePanelStore } from "../stores/panelStore";
 
 export function usePanelHydrated() {
-  const [hydrated, setHydrated] = useState(() => usePanelStore.persist.hasHydrated());
+  const persist = usePanelStore.persist;
+  const hasPersist = typeof persist?.hasHydrated === "function";
+  const [hydrated, setHydrated] = useState(() =>
+    hasPersist ? persist.hasHydrated() : true,
+  );
 
   useEffect(() => {
-    if (usePanelStore.persist.hasHydrated()) {
+    if (!hasPersist) {
+      return;
+    }
+
+    if (persist.hasHydrated()) {
       if (!hydrated) {
         setHydrated(true);
       }
       return;
     }
 
-    const unsubscribe = usePanelStore.persist.onFinishHydration(() => {
+    const unsubscribe = persist.onFinishHydration(() => {
       setHydrated(true);
     });
 
     return unsubscribe;
-  }, [hydrated]);
+  }, [hasPersist, hydrated, persist]);
 
   return hydrated;
 }
