@@ -24,8 +24,26 @@ import { OptimizerLayout } from "../../features/optimizer/OptimizerLayout";
 import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
 import { dispatchSearchPrefill } from "../../features/optimizer/search-events";
 import { track } from "../../lib/analytics";
+import { formatCurrency } from "../../lib/format";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
+
+interface SummaryStatProps {
+  label: string;
+  value: string;
+  valueTone?: string;
+}
+
+const SummaryStat = ({ label, value, valueTone }: SummaryStatProps) => (
+  <div className="flex flex-col gap-1">
+    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+      {label}
+    </span>
+    <span className={`text-base font-semibold ${valueTone ?? "text-white"}`}>
+      {value}
+    </span>
+  </div>
+);
 
 function HomeContent() {
   const t = useTranslations();
@@ -66,6 +84,49 @@ function HomeContent() {
     biomarkers: selection.selected,
   });
 
+  const summary = useMemo(() => {
+    if (!labOptimization.activeResult) {
+      return null;
+    }
+
+    const activeResult = labOptimization.activeResult;
+    const activeLabCard =
+      labOptimization.labCards.find((card) => card.active) ??
+      labOptimization.labCards[0];
+
+    let bestLabLabel = "";
+    if (activeResult.mode === "split") {
+      bestLabLabel = t("optimization.bothLabs");
+    } else if (activeLabCard?.shortLabel) {
+      bestLabLabel = activeLabCard.shortLabel;
+    } else if (activeLabCard?.title) {
+      bestLabLabel = activeLabCard.title;
+    } else if (activeResult.lab_name) {
+      bestLabLabel = activeResult.lab_name;
+    } else if (activeResult.lab_code) {
+      bestLabLabel = activeResult.lab_code.toUpperCase();
+    } else {
+      bestLabLabel = t("optimization.labFallback");
+    }
+
+    const totalNowLabel = formatCurrency(activeResult.total_now);
+    const savingsAmount = Math.max(activeResult.total_now - activeResult.total_min30, 0);
+    const savingsLabel =
+      savingsAmount > 0 ? formatCurrency(savingsAmount) : t("optimization.atFloor");
+
+    return {
+      bestLabLabel,
+      totalNowLabel,
+      savingsAmount,
+      savingsLabel,
+    };
+  }, [labOptimization.activeResult, labOptimization.labCards, t]);
+
+  const summaryReady =
+    summary !== null &&
+    !labOptimization.activeLoading &&
+    !labOptimization.activeError;
+
   // URL biomarker sync (two-way)
   const urlBiomarkerSync = useUrlBiomarkerSync({
     selected: selection.selected,
@@ -88,6 +149,14 @@ function HomeContent() {
     }
     toast(t("toast.shareCopyFailed"));
   }, [t, urlBiomarkerSync]);
+
+  const handleSaveList = useCallback(() => {
+    saveListModal.open(
+      selection.selected.length
+        ? t("saveList.defaultName", { date: new Date().toLocaleDateString() })
+        : "",
+    );
+  }, [saveListModal, selection.selected.length, t]);
 
   // URL parameter sync
   useUrlParamSync({
@@ -215,15 +284,7 @@ function HomeContent() {
                       variant="primary"
                       size="sm"
                       type="button"
-                      onClick={() =>
-                        saveListModal.open(
-                          selection.selected.length
-                            ? t("saveList.defaultName", {
-                                date: new Date().toLocaleDateString(),
-                              })
-                            : "",
-                        )
-                      }
+                      onClick={handleSaveList}
                     >
                       {t("common.save")}
                     </Button>
@@ -253,7 +314,61 @@ function HomeContent() {
             }
             right={
               <>
-                <StickySummaryBar isVisible={selection.selected.length > 0} />
+                <StickySummaryBar
+                  isVisible={selection.selected.length > 0}
+                  isLoading={labOptimization.activeLoading}
+                  bestLab={
+                    summaryReady ? (
+                      <SummaryStat
+                        label={t("optimization.bestPrices")}
+                        value={summary.bestLabLabel}
+                      />
+                    ) : undefined
+                  }
+                  total={
+                    summaryReady ? (
+                      <SummaryStat
+                        label={t("results.currentTotal")}
+                        value={summary.totalNowLabel}
+                      />
+                    ) : undefined
+                  }
+                  savings={
+                    summaryReady ? (
+                      <SummaryStat
+                        label={t("optimization.potentialSavings")}
+                        value={summary.savingsLabel}
+                        valueTone={
+                          summary.savingsAmount > 0
+                            ? "text-emerald-300"
+                            : "text-slate-300"
+                        }
+                      />
+                    ) : undefined
+                  }
+                  actions={
+                    <>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        type="button"
+                        onClick={handleSaveList}
+                      >
+                        {t("common.save")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        onClick={() => void handleSharePanel()}
+                        disabled={selection.selected.length === 0}
+                      >
+                        <Link2 className="h-3.5 w-3.5" />
+                        {t("common.share")}
+                      </Button>
+                    </>
+                  }
+                />
                 <OptimizationResults
                   selected={selection.biomarkerCodes}
                   result={labOptimization.activeResult}

@@ -1,7 +1,8 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Toaster } from "sonner";
+import type { OptimizeResponse } from "@panelyt/types";
 
 import { renderWithIntl } from "../../../test/utils";
 
@@ -214,10 +215,56 @@ describe("HomeContent", () => {
       </>,
     );
 
-    await user.click(screen.getByRole("button", { name: /share/i }));
+    const bar = screen.getByTestId("sticky-summary-bar");
+    await user.click(within(bar).getByRole("button", { name: /share/i }));
 
     expect(copyShareUrl).toHaveBeenCalled();
     expect(trackMock).toHaveBeenCalledWith("share_copy_url", { status: "success" });
     expect(await screen.findByText("Share link copied.")).toBeInTheDocument();
+  });
+
+  it("renders optimization summary values when data is available", () => {
+    const activeResult: OptimizeResponse = {
+      total_now: 120,
+      total_min30: 100,
+      currency: "PLN",
+      items: [],
+      bonus_total_now: 0,
+      explain: {},
+      uncovered: [],
+      lab_code: "diag",
+      lab_name: "",
+      exclusive: {},
+      labels: {},
+      mode: "single_lab",
+      lab_options: [],
+      lab_selections: [],
+      addon_suggestions: [],
+    };
+
+    mockUseLabOptimization.mockReturnValueOnce({
+      activeResult,
+      activeLoading: false,
+      activeError: null,
+      labCards: [],
+      labChoice: null,
+      selectLab: vi.fn(),
+      addonSuggestions: [],
+      addonSuggestionsLoading: false,
+      resetLabChoice: vi.fn(),
+    } as ReturnType<typeof useLabOptimization>);
+
+    renderWithIntl(<Home />);
+
+    const bar = screen.getByTestId("sticky-summary-bar");
+    const summary = within(bar);
+
+    expect(summary.getByText("Best prices")).toBeInTheDocument();
+    expect(summary.getByText("DIAG")).toBeInTheDocument();
+    const totalStat = summary.getByText("Current total").closest("div") as HTMLElement;
+    const savingsStat = summary.getByText("Potential savings").closest("div") as HTMLElement;
+
+    expect(totalStat).toHaveTextContent(/120,00/);
+    expect(savingsStat).toHaveTextContent(/20,00/);
   });
 });

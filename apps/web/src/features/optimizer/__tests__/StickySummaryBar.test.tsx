@@ -16,7 +16,7 @@ describe("StickySummaryBar", () => {
         isVisible
         bestLab={<span>Best lab</span>}
         total={<span>Total</span>}
-        coverage={<span>Coverage</span>}
+        savings={<span>Savings</span>}
         actions={<button type="button">Share</button>}
       />,
     );
@@ -24,7 +24,7 @@ describe("StickySummaryBar", () => {
     expect(screen.getByTestId("sticky-summary-bar")).toBeInTheDocument();
     expect(screen.getByText("Best lab")).toBeInTheDocument();
     expect(screen.getByText("Total")).toBeInTheDocument();
-    expect(screen.getByText("Coverage")).toBeInTheDocument();
+    expect(screen.getByText("Savings")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Share" })).toBeInTheDocument();
   });
 });
