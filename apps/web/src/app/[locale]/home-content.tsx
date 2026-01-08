@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo } from "react";
-import { Link2 } from "lucide-react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, Link2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -72,6 +72,9 @@ function HomeContent() {
     () => savedLists.listsQuery.data ?? [],
     [savedLists.listsQuery.data],
   );
+
+  const [shareCopied, setShareCopied] = useState(false);
+  const shareResetTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auth callbacks for Header
   const handleAuthSuccess = useCallback(() => {
@@ -207,10 +210,38 @@ function HomeContent() {
     track("share_copy_url", { status: success ? "success" : "failure" });
     if (success) {
       toast(t("toast.shareCopied"));
+      setShareCopied(true);
+      if (shareResetTimeout.current) {
+        clearTimeout(shareResetTimeout.current);
+      }
+      shareResetTimeout.current = setTimeout(() => {
+        setShareCopied(false);
+      }, 2000);
       return;
     }
+    setShareCopied(false);
     toast(t("toast.shareCopyFailed"));
   }, [t, urlBiomarkerSync]);
+
+  useEffect(() => {
+    return () => {
+      if (shareResetTimeout.current) {
+        clearTimeout(shareResetTimeout.current);
+      }
+    };
+  }, []);
+
+  const shareButtonContent = shareCopied ? (
+    <>
+      <Check className="h-3.5 w-3.5" />
+      {t("common.copied")}
+    </>
+  ) : (
+    <>
+      <Link2 className="h-3.5 w-3.5" />
+      {t("common.share")}
+    </>
+  );
 
   const handleSaveList = useCallback(() => {
     saveListModal.open(
@@ -369,8 +400,7 @@ function HomeContent() {
                       onClick={() => void handleSharePanel()}
                       disabled={!isPanelHydrated || selection.selected.length === 0}
                     >
-                      <Link2 className="h-3.5 w-3.5" />
-                      {t("common.share")}
+                      {shareButtonContent}
                     </Button>
                     {isAdmin && (
                       <Button
@@ -438,8 +468,7 @@ function HomeContent() {
                         onClick={() => void handleSharePanel()}
                         disabled={!isPanelHydrated || selection.selected.length === 0}
                       >
-                        <Link2 className="h-3.5 w-3.5" />
-                        {t("common.share")}
+                        {shareButtonContent}
                       </Button>
                     </>
                   }

@@ -230,6 +230,24 @@ describe("HomeContent", () => {
     expect(await screen.findByText("Share link copied.")).toBeInTheDocument();
   });
 
+  it("shows copied feedback on the share button after a successful copy", async () => {
+    const copyShareUrl = vi.fn().mockResolvedValue(true);
+    mockUseUrlBiomarkerSync.mockReturnValue({
+      isLoadingFromUrl: false,
+      getShareUrl: vi.fn(() => ""),
+      copyShareUrl,
+    } as ReturnType<typeof useUrlBiomarkerSync>);
+
+    const user = userEvent.setup();
+
+    renderWithIntl(<Home />);
+
+    const bar = screen.getByTestId("sticky-summary-bar");
+    await user.click(within(bar).getByRole("button", { name: /share/i }));
+
+    expect(await within(bar).findByRole("button", { name: /copied/i })).toBeInTheDocument();
+  });
+
   it("renders optimization summary values when data is available", () => {
     const activeResult: OptimizeResponse = {
       total_now: 120,
