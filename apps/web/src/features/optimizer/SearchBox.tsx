@@ -8,7 +8,6 @@ import { type CatalogSearchResult } from "@panelyt/types";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useCatalogSearch } from "@/hooks/useCatalogSearch";
 import { formatGroszToPln } from "@/lib/format";
-import { PasteCodesDialog } from "@/features/optimizer/PasteCodesDialog";
 import { SEARCH_PREFILL_EVENT } from "@/features/optimizer/search-events";
 
 interface SelectedBiomarker {
@@ -395,7 +394,6 @@ export function SearchBox({
             ),
           })}
         </p>
-        <PasteCodesDialog />
       </div>
     </div>
   );
