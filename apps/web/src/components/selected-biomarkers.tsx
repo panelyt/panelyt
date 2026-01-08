@@ -3,7 +3,6 @@
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { cn } from "@/lib/cn";
 import { Button } from "@/ui/button";
 import {
   Dialog,
@@ -74,19 +73,10 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
         {biomarkers.map((biomarker) => (
           <li
             key={biomarker.code}
-            className="group flex items-center gap-3 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-emerald-100 transition hover:border-emerald-300/60"
+            className="flex items-center gap-3 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-emerald-100 transition hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-100"
           >
             <div className="flex flex-col">
               <span className="text-sm font-semibold">{biomarker.name}</span>
-              <span
-                className={cn(
-                  "max-h-0 overflow-hidden text-xs font-mono text-emerald-200/80 opacity-0 transition-all duration-150",
-                  "group-hover:max-h-5 group-hover:opacity-100",
-                  "group-focus-within:max-h-5 group-focus-within:opacity-100",
-                )}
-              >
-                {biomarker.code}
-              </span>
             </div>
             <button
               type="button"

@@ -89,6 +89,26 @@ describe('useUrlBiomarkerSync', () => {
     vi.useRealTimers()
   })
 
+  it('keeps existing selection when url codes match selected', async () => {
+    useSearchParamsMock.mockReturnValue(
+      new URLSearchParams('biomarkers=TSH,T4') as ReturnType<typeof useSearchParams>,
+    )
+    const onLoadFromUrl = vi.fn()
+
+    renderHook(() =>
+      useUrlBiomarkerSync({
+        selected: [
+          { code: 'TSH', name: 'Thyroid Stimulating Hormone' },
+          { code: 'T4', name: 'Thyroxine' },
+        ],
+        onLoadFromUrl,
+      }),
+    )
+
+    await waitFor(() => expect(onLoadFromUrl).not.toHaveBeenCalled())
+    expect(getJsonMock).not.toHaveBeenCalled()
+  })
+
   it('loads biomarker codes immediately before resolving names', async () => {
     useSearchParamsMock.mockReturnValue(
       new URLSearchParams('biomarkers=TSH,T4') as ReturnType<typeof useSearchParams>,

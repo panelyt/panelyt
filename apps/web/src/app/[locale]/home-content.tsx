@@ -197,6 +197,7 @@ function HomeContent() {
       },
       [selection, labOptimization],
     ),
+    skipSync: !isPanelHydrated,
     locale,
   });
 

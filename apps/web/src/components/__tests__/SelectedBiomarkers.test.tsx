@@ -28,7 +28,7 @@ describe('SelectedBiomarkers', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders selected biomarkers with name and code', () => {
+  it('renders selected biomarkers with names only', () => {
     const biomarkers = [
       { code: 'ALT', name: 'Alanine aminotransferase' },
       { code: 'AST', name: 'Aspartate aminotransferase' },
@@ -47,9 +47,9 @@ describe('SelectedBiomarkers', () => {
     expect(screen.getByText('Aspartate aminotransferase')).toBeInTheDocument()
     expect(screen.getByText('Total cholesterol')).toBeInTheDocument()
 
-    expect(screen.getByText('ALT')).toBeInTheDocument()
-    expect(screen.getByText('AST')).toBeInTheDocument()
-    expect(screen.getByText('CHOL')).toBeInTheDocument()
+    expect(screen.queryByText('ALT')).not.toBeInTheDocument()
+    expect(screen.queryByText('AST')).not.toBeInTheDocument()
+    expect(screen.queryByText('CHOL')).not.toBeInTheDocument()
   })
 
   it('renders a remove button with an accessible label', () => {
@@ -89,21 +89,6 @@ describe('SelectedBiomarkers', () => {
     await user.click(removeButton)
 
     expect(mockOnRemove).toHaveBeenCalledWith('ALT')
-  })
-
-  it('keeps the code in a monospace style element', () => {
-    const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
-
-    renderWithIntl(
-      <SelectedBiomarkers
-        biomarkers={biomarkers}
-        onRemove={mockOnRemove}
-        onClearAll={mockOnClearAll}
-      />,
-    )
-
-    const code = screen.getByText('ALT')
-    expect(code).toHaveClass('font-mono')
   })
 
   it('opens the clear all dialog and confirms removal', async () => {

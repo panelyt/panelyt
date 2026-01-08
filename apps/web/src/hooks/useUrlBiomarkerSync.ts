@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "../i18n/navigation";
 import { defaultLocale } from "../i18n/config";
@@ -35,12 +35,23 @@ async function lookupBiomarkerNames(codes: string[]): Promise<Record<string, str
 
   // Try to find names by searching for each code
   const searchPromises = codes.map(async (code) => {
+    const normalizedCode = code.trim().toLowerCase();
     try {
       const payload = await getJson(`/catalog/biomarkers?query=${encodeURIComponent(code)}`);
       const response = BiomarkerSearchResponseSchema.parse(payload);
 
-      // Find exact match by elab_code
-      const match = response.results.find((b) => b.elab_code === code);
+      // Find exact match by elab_code, slug, or name (case-insensitive)
+      const exactMatch = response.results.find((b) => {
+        const normalizedElab = b.elab_code?.trim().toLowerCase();
+        const normalizedSlug = b.slug?.trim().toLowerCase();
+        const normalizedName = b.name.trim().toLowerCase();
+        return (
+          normalizedElab === normalizedCode ||
+          normalizedSlug === normalizedCode ||
+          normalizedName === normalizedCode
+        );
+      });
+      const match = exactMatch ?? (response.results.length === 1 ? response.results[0] : null);
       if (match) {
         lookup[code] = match.name;
       }
@@ -97,6 +108,19 @@ export function useUrlBiomarkerSync(
   const lastWrittenCodesRef = useRef<string>("");
   // Debounce timer for URL updates
   const updateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectedRef = useRef<SelectedBiomarker[]>(selected);
+  const selectedKey = useMemo(
+    () =>
+      selected
+        .map((entry) => entry.code.trim().toUpperCase())
+        .filter((code) => code.length > 0)
+        .join(","),
+    [selected],
+  );
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected, selectedKey]);
 
   // Check if other URL params are present that take precedence
   const hasOtherParams = Boolean(
@@ -127,13 +151,24 @@ export function useUrlBiomarkerSync(
       return;
     }
 
+    const urlKey = codes.join(",");
+
+    if (selectedKey && selectedKey === urlKey) {
+      initialLoadDoneRef.current = true;
+      lastWrittenCodesRef.current = urlKey;
+      return;
+    }
+
     // Mark as loading and populate immediate fallbacks
     setIsLoadingFromUrl(true);
     initialLoadDoneRef.current = true;
     lastWrittenCodesRef.current = codes.join(",");
+    const selectedNames = new Map(
+      selectedRef.current.map((entry) => [entry.code.trim().toUpperCase(), entry.name]),
+    );
     const fallbackBiomarkers = codes.map((code) => ({
       code,
-      name: code,
+      name: selectedNames.get(code) ?? code,
     }));
     onLoadFromUrl(fallbackBiomarkers);
 
@@ -166,7 +201,7 @@ export function useUrlBiomarkerSync(
     return () => {
       cancelled = true;
     };
-  }, [searchParams, skipSync, hasOtherParams, onLoadFromUrl]);
+  }, [searchParams, skipSync, hasOtherParams, onLoadFromUrl, selectedKey]);
 
   // Write to URL when selection changes
   useEffect(() => {
