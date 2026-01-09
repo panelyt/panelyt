@@ -157,9 +157,10 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
   }, [biomarkers]);
 
   useEffect(() => {
+    const timeouts = highlightTimeouts.current;
     return () => {
-      highlightTimeouts.current.forEach((timeout) => clearTimeout(timeout));
-      highlightTimeouts.current.clear();
+      timeouts.forEach((timeout) => clearTimeout(timeout));
+      timeouts.clear();
     };
   }, []);
 

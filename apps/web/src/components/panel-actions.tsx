@@ -40,11 +40,11 @@ interface ActionTooltipProps {
 }
 
 const ActionTooltip = ({ disabled, reason, children }: ActionTooltipProps) => {
+  const [open, setOpen] = useState(false);
+
   if (!disabled || !reason) {
     return children;
   }
-
-  const [open, setOpen] = useState(false);
 
   return (
     <Tooltip open={open} onOpenChange={setOpen}>
