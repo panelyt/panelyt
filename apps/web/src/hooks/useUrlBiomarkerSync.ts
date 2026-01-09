@@ -108,7 +108,6 @@ export function useUrlBiomarkerSync(
   const lastWrittenCodesRef = useRef<string>("");
   // Debounce timer for URL updates
   const updateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const selectedRef = useRef<SelectedBiomarker[]>(selected);
   const selectedKey = useMemo(
     () =>
       selected
@@ -117,10 +116,18 @@ export function useUrlBiomarkerSync(
         .join(","),
     [selected],
   );
+  const selectedRef = useRef<SelectedBiomarker[]>(selected);
+  const selectedKeyRef = useRef<string>(selectedKey);
+  const onLoadFromUrlRef = useRef(onLoadFromUrl);
 
   useEffect(() => {
     selectedRef.current = selected;
+    selectedKeyRef.current = selectedKey;
   }, [selected, selectedKey]);
+
+  useEffect(() => {
+    onLoadFromUrlRef.current = onLoadFromUrl;
+  }, [onLoadFromUrl]);
 
   // Check if other URL params are present that take precedence
   const hasOtherParams = Boolean(
@@ -153,7 +160,7 @@ export function useUrlBiomarkerSync(
 
     const urlKey = codes.join(",");
 
-    if (selectedKey && selectedKey === urlKey) {
+    if (selectedKeyRef.current && selectedKeyRef.current === urlKey) {
       initialLoadDoneRef.current = true;
       lastWrittenCodesRef.current = urlKey;
       return;
@@ -170,7 +177,7 @@ export function useUrlBiomarkerSync(
       code,
       name: selectedNames.get(code) ?? code,
     }));
-    onLoadFromUrl(fallbackBiomarkers);
+    onLoadFromUrlRef.current(fallbackBiomarkers);
 
     let cancelled = false;
 
@@ -189,7 +196,7 @@ export function useUrlBiomarkerSync(
             biomarker.name,
         );
         if (hasUpdates) {
-          onLoadFromUrl(biomarkers);
+          onLoadFromUrlRef.current(biomarkers);
         }
       })
       .finally(() => {
@@ -201,7 +208,7 @@ export function useUrlBiomarkerSync(
     return () => {
       cancelled = true;
     };
-  }, [searchParams, skipSync, hasOtherParams, onLoadFromUrl, selectedKey]);
+  }, [searchParams, skipSync, hasOtherParams]);
 
   // Write to URL when selection changes
   useEffect(() => {

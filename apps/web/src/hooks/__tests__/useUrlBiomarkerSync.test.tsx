@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
+import { useCallback, useState } from 'react'
 import { useUrlBiomarkerSync, type SelectedBiomarker } from '../useUrlBiomarkerSync'
 import { useRouter } from '../../i18n/navigation'
 import { useSearchParams } from 'next/navigation'
@@ -159,6 +160,52 @@ describe('useUrlBiomarkerSync', () => {
     expect(onLoadFromUrl.mock.calls[1]?.[0]).toEqual([
       { code: 'TSH', name: 'Thyroid Stimulating Hormone' },
       { code: 'T4', name: 'Thyroxine' },
+    ])
+  })
+
+  it('resolves biomarker names after fallback even when selection updates', async () => {
+    useSearchParamsMock.mockReturnValue(
+      new URLSearchParams('biomarkers=124') as ReturnType<typeof useSearchParams>,
+    )
+    const onLoadFromUrl = vi.fn()
+    const resolvers: Array<(value: unknown) => void> = []
+
+    getJsonMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve)
+        }),
+    )
+
+    renderHook(() => {
+      const [selected, setSelected] = useState<SelectedBiomarker[]>([])
+      const handleLoad = useCallback((biomarkers: SelectedBiomarker[]) => {
+        onLoadFromUrl(biomarkers)
+        setSelected(biomarkers)
+      }, [])
+
+      return useUrlBiomarkerSync({
+        selected,
+        onLoadFromUrl: handleLoad,
+      })
+    })
+
+    await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(1))
+    expect(onLoadFromUrl).toHaveBeenCalledWith([{ code: '124', name: '124' }])
+
+    resolvers[0]?.({
+      results: [{
+        id: 1,
+        name: 'Testosterone',
+        elab_code: '124',
+        slug: 'testosterone',
+        price_now_grosz: 1000,
+      }],
+    })
+
+    await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(2))
+    expect(onLoadFromUrl.mock.calls[1]?.[0]).toEqual([
+      { code: '124', name: 'Testosterone' },
     ])
   })
 })
