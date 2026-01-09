@@ -50,7 +50,6 @@ export function useBiomarkerSelection(
   const remove = usePanelStore((state) => state.remove);
   const clearAll = usePanelStore((state) => state.clearAll);
   const replaceAll = usePanelStore((state) => state.replaceAll);
-  const undoLastRemoved = usePanelStore((state) => state.undoLastRemoved);
 
   const [error, setError] = useState<string | null>(null);
   // Derived values
@@ -67,27 +66,37 @@ export function useBiomarkerSelection(
 
   const handleRemove = useCallback(
     (code: string) => {
-      const removed = usePanelStore
-        .getState()
-        .selected.find((item) => item.code === code);
+      const snapshot = usePanelStore.getState().selected;
+      const removed = snapshot.find((item) => item.code === code);
       remove(code);
       if (removed) {
         toast(t("selection.removed", { name: removed.name }), {
-          duration: 10_000,
+          duration: 8_000,
           action: {
             label: t("selection.undo"),
-            onClick: () => undoLastRemoved(),
+            onClick: () => replaceAll(snapshot),
           },
         });
       }
     },
-    [remove, t, undoLastRemoved],
+    [remove, replaceAll, t],
   );
 
   const handleClearAll = useCallback(() => {
+    const snapshot = usePanelStore.getState().selected;
+    const count = snapshot.length;
     clearAll();
     setError(null);
-  }, [clearAll]);
+    if (count > 0) {
+      toast(t("selection.cleared", { count }), {
+        duration: 8_000,
+        action: {
+          label: t("selection.undo"),
+          onClick: () => replaceAll(snapshot),
+        },
+      });
+    }
+  }, [clearAll, replaceAll, t]);
 
   const handleTemplateSelect = useCallback(
     async (selection: { slug: string; name: string }) => {

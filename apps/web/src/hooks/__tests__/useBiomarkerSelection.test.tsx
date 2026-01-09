@@ -1,4 +1,5 @@
 import { renderHook, act, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
 import { Toaster } from 'sonner'
@@ -133,6 +134,61 @@ describe('useBiomarkerSelection', () => {
       await screen.findByText('Added 1 biomarker from Liver Panel.'),
     ).toBeInTheDocument()
     expect(trackMock).toHaveBeenCalledWith('panel_apply_addon', { count: 1 })
+  })
+
+  it('restores the exact selection when undoing a single removal', async () => {
+    const user = userEvent.setup()
+    const wrapper = createWrapperWithToaster()
+    const initialSelection = [
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'AST', name: 'Aspartate aminotransferase' },
+    ]
+    await act(async () => {
+      usePanelStore.setState({ selected: initialSelection })
+    })
+    const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
+
+    act(() => {
+      result.current.handleRemove('ALT')
+    })
+
+    expect(
+      await screen.findByText('Removed Alanine aminotransferase.'),
+    ).toBeInTheDocument()
+
+    const undoButton = await screen.findByRole('button', { name: 'Undo' })
+    undoButton.focus()
+    expect(undoButton).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    expect(usePanelStore.getState().selected).toEqual(initialSelection)
+  })
+
+  it('restores the exact selection when undoing clear all via keyboard', async () => {
+    const user = userEvent.setup()
+    const wrapper = createWrapperWithToaster()
+    const initialSelection = [
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'AST', name: 'Aspartate aminotransferase' },
+    ]
+    await act(async () => {
+      usePanelStore.setState({ selected: initialSelection })
+    })
+    const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
+
+    act(() => {
+      result.current.clearAll()
+    })
+
+    expect(await screen.findByText('Cleared 2 biomarkers.')).toBeInTheDocument()
+    expect(usePanelStore.getState().selected).toEqual([])
+
+    const undoButton = await screen.findByRole('button', { name: 'Undo' })
+    undoButton.focus()
+    expect(undoButton).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    expect(usePanelStore.getState().selected).toEqual(initialSelection)
   })
 
   describe('sessionStorage persistence', () => {
