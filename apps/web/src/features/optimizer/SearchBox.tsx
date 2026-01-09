@@ -36,6 +36,7 @@ export function SearchBox({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [enterHintVisible, setEnterHintVisible] = useState(false);
   const debounced = useDebounce(query, 200);
   const { data, isFetching } = useCatalogSearch(debounced);
   const suggestions = useMemo<CatalogSearchResult[]>(
@@ -85,6 +86,7 @@ export function SearchBox({
 
   const commitSuggestion = useCallback(
     (suggestion: CatalogSearchResult) => {
+      setEnterHintVisible(false);
       if (suggestion.type === "template") {
         onTemplateSelect({ slug: suggestion.slug, name: suggestion.name });
       } else {
@@ -104,6 +106,7 @@ export function SearchBox({
   );
 
   const handleSubmit = () => {
+    setEnterHintVisible(false);
     if (highlightedIndex >= 0 && highlightedIndex < flatSuggestions.length) {
       const selectedResult = flatSuggestions[highlightedIndex];
       commitSuggestion(selectedResult);
@@ -127,13 +130,7 @@ export function SearchBox({
       setPendingQuery(trimmedLower);
       return;
     }
-
-    const shouldNormalize = !/[^a-z0-9-]/i.test(trimmed);
-    const normalized = shouldNormalize ? trimmed.toUpperCase() : trimmed;
-    onSelect({ code: normalized, name: trimmed });
-    setQuery("");
-    setHighlightedIndex(-1);
-    setPendingQuery(null);
+    setEnterHintVisible(true);
   };
 
   useEffect(() => {
@@ -150,6 +147,7 @@ export function SearchBox({
     if (flatSuggestions.length === 0) {
       if (!isFetching) {
         setPendingQuery(null);
+        setEnterHintVisible(true);
       }
       return;
     }
@@ -194,6 +192,7 @@ export function SearchBox({
         return;
       }
       setQuery(next);
+      setEnterHintVisible(false);
       setPendingQuery(null);
       setHighlightedIndex(-1);
       inputRef.current?.focus();
@@ -211,7 +210,10 @@ export function SearchBox({
           <input
             ref={inputRef}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setEnterHintVisible(false);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
@@ -228,6 +230,7 @@ export function SearchBox({
                 event.preventDefault();
                 setHighlightedIndex(-1);
                 setQuery("");
+                setEnterHintVisible(false);
               }
             }}
             className="w-full rounded-xl border border-slate-700 bg-slate-950/60 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
@@ -240,14 +243,6 @@ export function SearchBox({
             aria-autocomplete="list"
           />
         </div>
-        <button
-          type="button"
-          onClick={() => handleSubmit()}
-          className="rounded-xl bg-gradient-to-r from-emerald-400 via-sky-400 to-blue-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-md shadow-emerald-500/30 transition focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={(isFetching && flatSuggestions.length === 0) || pendingQuery !== null}
-        >
-          {t("home.addToPanel")}
-        </button>
       </div>
       {showSuggestions && (
         <div className="absolute z-40 mt-2 w-full overflow-hidden rounded-xl border border-slate-700/60 bg-slate-950/95 shadow-2xl shadow-slate-950/40 backdrop-blur">
@@ -380,6 +375,9 @@ export function SearchBox({
             ),
           })}
         </p>
+        {enterHintVisible && (
+          <p className="text-xs text-slate-500">{t("home.enterHint")}</p>
+        )}
       </div>
     </div>
   );

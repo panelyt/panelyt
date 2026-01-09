@@ -61,7 +61,7 @@ describe('SearchBox', () => {
     delete document.body.dataset.searchHotkeyScope
   })
 
-  it('renders search input and action button', () => {
+  it('renders the search input', () => {
     renderWithQueryClient(
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
@@ -70,7 +70,7 @@ describe('SearchBox', () => {
       screen.getByRole('combobox', { name: 'Search biomarkers to add...' }),
     ).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Search biomarkers to add...')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Add to panel' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add to panel' })).not.toBeInTheDocument()
   })
 
   it('updates the query when the user types', async () => {
@@ -179,7 +179,28 @@ describe('SearchBox', () => {
     })
   })
 
-  it('falls back to manual entry when no suggestions exist', async () => {
+  it('pressing Enter selects the top suggestion when none is highlighted', async () => {
+    mockUseCatalogSearch.mockImplementation(() =>
+      createSearchResult({ data: { results: [biomarkerSuggestion] } }),
+    )
+
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    const input = screen.getByPlaceholderText('Search biomarkers to add...')
+    fireEvent.change(input, { target: { value: 'ALT' } })
+    await screen.findByText('Alanine aminotransferase')
+
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onSelect).toHaveBeenCalledWith({
+      code: 'ALT',
+      name: 'Alanine aminotransferase',
+    })
+  })
+
+  it('shows a hint and does nothing when Enter is pressed without suggestions', async () => {
     const user = userEvent.setup()
     renderWithQueryClient(
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
@@ -187,9 +208,11 @@ describe('SearchBox', () => {
 
     const input = screen.getByPlaceholderText('Search biomarkers to add...')
     await user.type(input, 'custom')
-    await user.click(screen.getByRole('button', { name: 'Add to panel' }))
+    fireEvent.keyDown(input, { key: 'Enter' })
 
-    expect(onSelect).toHaveBeenCalledWith({ code: 'CUSTOM', name: 'custom' })
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(onTemplateSelect).not.toHaveBeenCalled()
+    expect(screen.getByText('Select a suggestion to add it.')).toBeInTheDocument()
   })
 
   it('focuses the search input when pressing "/" outside of inputs', () => {

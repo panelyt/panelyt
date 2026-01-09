@@ -12,7 +12,7 @@ describe('SelectedBiomarkers', () => {
     vi.clearAllMocks()
   })
 
-  it('shows empty state when no biomarkers are selected', () => {
+  it('shows the selected count and disables clear all when empty', () => {
     renderWithIntl(
       <SelectedBiomarkers
         biomarkers={[]}
@@ -21,6 +21,8 @@ describe('SelectedBiomarkers', () => {
       />,
     )
 
+    expect(screen.getByText('Selected (0)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Clear all/i })).toBeDisabled()
     expect(
       screen.getByText(
         /Add biomarkers to compare prices across single tests and bundles/i,
@@ -43,6 +45,8 @@ describe('SelectedBiomarkers', () => {
       />,
     )
 
+    expect(screen.getByText('Selected (3)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Clear all/i })).toBeEnabled()
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
     expect(screen.getByText('Aspartate aminotransferase')).toBeInTheDocument()
     expect(screen.getByText('Total cholesterol')).toBeInTheDocument()
