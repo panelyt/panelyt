@@ -10,7 +10,7 @@ from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.core.settings import Settings
 from panelyt_api.ingest.client import DiagClient, _normalize_identifier, _pln_to_grosz
 from panelyt_api.ingest.service import IngestionService
-from panelyt_api.ingest.types import LabIngestionResult, RawLabBiomarker, RawLabItem
+from panelyt_api.ingest.types import DiagIngestionResult, RawDiagBiomarker, RawDiagItem
 from panelyt_api.schemas.common import CatalogMeta
 
 
@@ -33,14 +33,14 @@ class TestIngestionService:
         repo.last_user_activity.return_value = None
         repo.create_run_log.return_value = 1
         repo.finalize_run_log.return_value = None
-        repo.stage_lab_items.return_value = MagicMock()
-        repo.synchronize_catalog.return_value = None
+        repo.upsert_diag_catalog.return_value = None
         repo.prune_snapshots.return_value = None
+        repo.prune_orphan_biomarkers.return_value = None
         repo.write_raw_snapshot.return_value = None
         return repo
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_ensure_fresh_data_no_stale_data(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -59,7 +59,7 @@ class TestIngestionService:
             mock_run.assert_not_awaited()
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_ensure_fresh_data_stale_data(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -80,7 +80,7 @@ class TestIngestionService:
             mock_run.assert_awaited_once_with(reason="staleness_check", blocking=False)
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_ensure_fresh_data_missing_snapshot(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -101,7 +101,7 @@ class TestIngestionService:
             mock_run.assert_awaited_once_with(reason="staleness_check", blocking=False)
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_ensure_fresh_data_does_not_block_when_running(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -128,7 +128,7 @@ class TestIngestionService:
                 mock_schedule.assert_not_called()
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_run_successful_ingestion(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -142,7 +142,7 @@ class TestIngestionService:
         mock_repo.create_run_log.return_value = 1
         mock_repo_class.return_value = mock_repo
 
-        sample_item = RawLabItem(
+        sample_item = RawDiagItem(
             external_id="1",
             kind="single",
             name="ALT Test",
@@ -152,7 +152,7 @@ class TestIngestionService:
             currency="PLN",
             is_available=True,
             biomarkers=[
-                RawLabBiomarker(
+                RawDiagBiomarker(
                     external_id="alt",
                     name="ALT",
                     elab_code="ALT",
@@ -162,38 +162,31 @@ class TestIngestionService:
             sale_price_grosz=None,
             regular_price_grosz=1000,
         )
-        lab_result = LabIngestionResult(
-            lab_code="diag",
+        lab_result = DiagIngestionResult(
             fetched_at=datetime.now(UTC),
             items=[sample_item],
             raw_payload={"sample": "payload"},
         )
 
         with patch.object(
-            ingestion_service, "_fetch_all_labs", new_callable=AsyncMock
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
         ) as mock_fetch, patch.object(
-            ingestion_service, "_stage_lab_result", new_callable=AsyncMock
-        ) as mock_stage, patch(
-            "panelyt_api.ingest.service.apply_matching_if_needed", new_callable=AsyncMock
-        ) as mock_apply:
+            ingestion_service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ):
             mock_fetch.return_value = [lab_result]
-            stage_context = MagicMock()
-            mock_stage.return_value = stage_context
 
             await ingestion_service.run(reason="test")
 
             mock_fetch.assert_awaited_once()
-            mock_stage.assert_awaited_once()
-            args, _ = mock_stage.await_args
-            assert args[0] is mock_repo
-            assert args[1] == lab_result
-            mock_apply.assert_awaited_once()
-            mock_repo.synchronize_catalog.assert_awaited_once_with(stage_context)
+            mock_repo.write_raw_snapshot.assert_awaited_once()
+            mock_repo.upsert_diag_catalog.assert_awaited_once_with(
+                lab_result.items, fetched_at=lab_result.fetched_at
+            )
             mock_repo.prune_snapshots.assert_called_once()
             mock_repo.finalize_run_log.assert_called_with(1, status="completed")
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_run_clears_catalog_cache_after_ingestion(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -221,19 +214,17 @@ class TestIngestionService:
         mock_repo.prune_snapshots.return_value = None
         mock_repo.prune_orphan_biomarkers.return_value = None
         mock_repo.write_raw_snapshot.return_value = None
-        mock_repo.stage_lab_items.return_value = MagicMock()
-        mock_repo.synchronize_catalog.return_value = None
+        mock_repo.upsert_diag_catalog.return_value = None
         mock_repo_class.return_value = mock_repo
 
-        lab_result = LabIngestionResult(
-            lab_code="diag",
+        lab_result = DiagIngestionResult(
             fetched_at=datetime.now(UTC),
             items=[],
             raw_payload={"sample": "payload"},
         )
 
         with patch.object(
-            ingestion_service, "_fetch_all_labs", new_callable=AsyncMock
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = [lab_result]
             await ingestion_service.run(reason="test-cache-clear")
@@ -242,7 +233,7 @@ class TestIngestionService:
         clear_all_caches()
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_run_failed_ingestion(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -257,7 +248,7 @@ class TestIngestionService:
         mock_repo_class.return_value = mock_repo
 
         with patch.object(
-            ingestion_service, "_fetch_all_labs", new_callable=AsyncMock
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.side_effect = Exception("Network error")
 
@@ -267,63 +258,43 @@ class TestIngestionService:
         mock_repo.create_run_log.assert_called_once()
         mock_repo.finalize_run_log.assert_called_with(1, status="failed", note="Network error")
 
-    @pytest.mark.asyncio
-    async def test_stage_lab_result_stages_items(self, mock_repo, ingestion_service):
-        fetched_at = datetime.now(UTC)
-        lab_result = LabIngestionResult(
-            lab_code="diag",
-            fetched_at=fetched_at,
-            items=[
-                RawLabItem(
-                    external_id="1",
-                    kind="single",
-                    name="ALT",
-                    slug="alt",
-                    price_now_grosz=1000,
-                    price_min30_grosz=900,
-                    currency="PLN",
-                    is_available=True,
-                    biomarkers=[
-                        RawLabBiomarker(
-                            external_id="alt",
-                            name="ALT",
-                            elab_code="ALT",
-                            slug="alt",
-                        )
-                    ],
-                )
-            ],
-            raw_payload={"page_1": {}},
-        )
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_run_skips_upsert_when_no_items(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        stage_context = MagicMock()
-        mock_repo.stage_lab_items = AsyncMock(return_value=stage_context)
-        mock_repo.synchronize_catalog = AsyncMock()
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo.upsert_diag_catalog.return_value = None
+        mock_repo_class.return_value = mock_repo
 
-        context = await ingestion_service._stage_lab_result(mock_repo, lab_result)
-
-        mock_repo.write_raw_snapshot.assert_called_once()
-        mock_repo.stage_lab_items.assert_awaited_once()
-        mock_repo.synchronize_catalog.assert_not_awaited()
-        assert context is stage_context
-
-    @pytest.mark.asyncio
-    async def test_stage_lab_result_without_items(self, mock_repo, ingestion_service):
-        lab_result = LabIngestionResult(
-            lab_code="diag",
+        lab_result = DiagIngestionResult(
             fetched_at=datetime.now(UTC),
             items=[],
             raw_payload={"page_1": {}},
         )
 
-        context = await ingestion_service._stage_lab_result(mock_repo, lab_result)
+        with patch.object(
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
+        ) as mock_fetch, patch.object(
+            ingestion_service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ):
+            mock_fetch.return_value = [lab_result]
+            await ingestion_service.run(reason="test-empty")
 
-        mock_repo.write_raw_snapshot.assert_called_once()
-        mock_repo.stage_lab_items.assert_not_called()
-        assert context is None
+        mock_repo.write_raw_snapshot.assert_awaited_once()
+        mock_repo.upsert_diag_catalog.assert_not_awaited()
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_should_skip_scheduled_run_inactive_users(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -343,7 +314,7 @@ class TestIngestionService:
         assert result is True
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_should_skip_scheduled_run_active_users(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -363,7 +334,7 @@ class TestIngestionService:
         assert result is False
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_background_run_schedules_task(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -388,7 +359,7 @@ class TestIngestionService:
             ingestion_service.__class__._scheduled_task = None
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_background_run_ignores_duplicate_requests(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
@@ -424,7 +395,7 @@ class TestIngestionCacheClearing:
         clear_all_caches()
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_run_clears_caches_after_successful_ingestion(
         self, mock_repo_class, mock_get_session, test_settings
     ):
@@ -445,13 +416,12 @@ class TestIngestionCacheClearing:
         mock_repo.prune_snapshots.return_value = None
         mock_repo.prune_orphan_biomarkers.return_value = None
         mock_repo.write_raw_snapshot.return_value = None
-        mock_repo.stage_lab_items.return_value = MagicMock()
-        mock_repo.synchronize_catalog.return_value = None
+        mock_repo.upsert_diag_catalog.return_value = None
         mock_repo_class.return_value = mock_repo
 
         service = IngestionService(test_settings)
 
-        with patch.object(service, "_fetch_all_labs", new_callable=AsyncMock) as mock_fetch, patch.object(
+        with patch.object(service, "_fetch_catalog", new_callable=AsyncMock) as mock_fetch, patch.object(
             service, "_dispatch_price_alerts", new_callable=AsyncMock
         ):
             mock_fetch.return_value = []
@@ -461,7 +431,7 @@ class TestIngestionCacheClearing:
         assert optimization_cache.get("test_key") is None
 
     @patch("panelyt_api.ingest.service.get_session")
-    @patch("panelyt_api.ingest.service.IngestionRepository")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_run_does_not_clear_caches_on_failure(
         self, mock_repo_class, mock_get_session, test_settings
     ):
@@ -483,7 +453,7 @@ class TestIngestionCacheClearing:
 
         service = IngestionService(test_settings)
 
-        with patch.object(service, "_fetch_all_labs", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(service, "_fetch_catalog", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.side_effect = RuntimeError("boom")
             with pytest.raises(RuntimeError, match="boom"):
                 await service.run(reason="test-failure")
@@ -538,7 +508,7 @@ class TestDiagClient:
 
         result = await diag_client.fetch_all()
 
-        assert isinstance(result, LabIngestionResult)
+        assert isinstance(result, DiagIngestionResult)
         assert len(result.items) == 2
         assert {item.kind for item in result.items} == {"package", "single"}
         assert mock_http_client.get.call_count == 2

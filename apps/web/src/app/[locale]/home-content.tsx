@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { useSavedLists } from "../../hooks/useSavedLists";
 import { useUserSession } from "../../hooks/useUserSession";
-import { useLabOptimization } from "../../hooks/useLabOptimization";
+import { useOptimization, useAddonSuggestions } from "../../hooks/useOptimization";
 import { useBiomarkerSelection } from "../../hooks/useBiomarkerSelection";
 import { useUrlParamSync } from "../../hooks/useUrlParamSync";
 import { useUrlBiomarkerSync } from "../../hooks/useUrlBiomarkerSync";
@@ -31,6 +31,7 @@ import { buildOptimizationKey } from "../../lib/optimization";
 import { usePanelStore } from "../../stores/panelStore";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
+import { DIAG_NAME } from "../../lib/diag";
 
 interface SummaryStatProps {
   label: string;
@@ -63,8 +64,18 @@ function HomeContent() {
   const setOptimizationSummary = usePanelStore((state) => state.setOptimizationSummary);
   const isPanelHydrated = usePanelHydrated();
 
-  // Lab optimization
-  const labOptimization = useLabOptimization(selection.biomarkerCodes);
+  // Optimization
+  const optimizationQuery = useOptimization(selection.biomarkerCodes);
+  const activeResult = optimizationQuery.data;
+  const activeItemIds = useMemo(
+    () => activeResult?.items?.map((item) => item.id) ?? [],
+    [activeResult?.items],
+  );
+  const addonSuggestionsQuery = useAddonSuggestions(
+    optimizationQuery.debouncedBiomarkers,
+    activeItemIds,
+    !optimizationQuery.isLoading,
+  );
 
   // Saved lists
   const savedLists = useSavedLists(Boolean(userSession));
@@ -100,35 +111,17 @@ function HomeContent() {
   );
 
   const summary = useMemo(() => {
-    if (!labOptimization.activeResult) {
+    if (!activeResult) {
       return null;
     }
-    if (!selectionKey || !labOptimization.optimizationKey) {
+    if (!selectionKey || !optimizationQuery.optimizationKey) {
       return null;
     }
-    if (selectionKey !== labOptimization.optimizationKey) {
+    if (selectionKey !== optimizationQuery.optimizationKey) {
       return null;
     }
 
-    const activeResult = labOptimization.activeResult;
-    const activeLabCard =
-      labOptimization.labCards.find((card) => card.active) ??
-      labOptimization.labCards[0];
-
-    let bestLabLabel = "";
-    if (activeResult.mode === "split") {
-      bestLabLabel = t("optimization.bothLabs");
-    } else if (activeLabCard?.shortLabel) {
-      bestLabLabel = activeLabCard.shortLabel;
-    } else if (activeLabCard?.title) {
-      bestLabLabel = activeLabCard.title;
-    } else if (activeResult.lab_name) {
-      bestLabLabel = activeResult.lab_name;
-    } else if (activeResult.lab_code) {
-      bestLabLabel = activeResult.lab_code.toUpperCase();
-    } else {
-      bestLabLabel = t("optimization.labFallback");
-    }
+    const sourceName = DIAG_NAME;
 
     const totalNowLabel = formatCurrency(activeResult.total_now);
     const savingsAmount = Math.max(activeResult.total_now - activeResult.total_min30, 0);
@@ -136,56 +129,42 @@ function HomeContent() {
       savingsAmount > 0 ? formatCurrency(savingsAmount) : t("optimization.atFloor");
 
     return {
-      bestLabLabel,
+      sourceName,
       totalNowLabel,
       savingsAmount,
       savingsLabel,
     };
   }, [
-    labOptimization.activeResult,
-    labOptimization.labCards,
-    labOptimization.optimizationKey,
+    activeResult,
+    optimizationQuery.optimizationKey,
     selectionKey,
     t,
   ]);
 
   const summaryReady =
     summary !== null &&
-    !labOptimization.activeLoading &&
-    !labOptimization.activeError;
+    !optimizationQuery.isLoading &&
+    !optimizationQuery.error;
   const hasSelection = isPanelHydrated && selection.selected.length > 0;
 
   useEffect(() => {
-    if (!labOptimization.activeResult) return;
-    if (labOptimization.activeLoading || labOptimization.activeError) return;
-    if (!selectionKey || !labOptimization.optimizationKey) return;
-    if (selectionKey !== labOptimization.optimizationKey) return;
-
-    const activeResult = labOptimization.activeResult;
-    const activeLabCard =
-      labOptimization.labCards.find((card) => card.active) ??
-      labOptimization.labCards[0];
-    const labCode =
-      activeResult.lab_code ||
-      activeLabCard?.shortLabel ||
-      activeLabCard?.title ||
-      activeResult.lab_name ||
-      "lab";
+    if (!activeResult) return;
+    if (optimizationQuery.isLoading || optimizationQuery.error) return;
+    if (!selectionKey || !optimizationQuery.optimizationKey) return;
+    if (selectionKey !== optimizationQuery.optimizationKey) return;
 
     setOptimizationSummary({
       key: selectionKey,
-      labCode,
       totalNow: activeResult.total_now,
       totalMin30: activeResult.total_min30,
       uncoveredCount: activeResult.uncovered?.length ?? 0,
       updatedAt: new Date().toISOString(),
     });
   }, [
-    labOptimization.activeError,
-    labOptimization.activeLoading,
-    labOptimization.activeResult,
-    labOptimization.labCards,
-    labOptimization.optimizationKey,
+    activeResult,
+    optimizationQuery.error,
+    optimizationQuery.isLoading,
+    optimizationQuery.optimizationKey,
     selectionKey,
     setOptimizationSummary,
   ]);
@@ -196,9 +175,8 @@ function HomeContent() {
     onLoadFromUrl: useCallback(
       (biomarkers) => {
         selection.replaceAll(biomarkers);
-        labOptimization.resetLabChoice();
       },
-      [selection, labOptimization],
+      [selection],
     ),
     skipSync: !isPanelHydrated,
     locale,
@@ -255,11 +233,9 @@ function HomeContent() {
   useUrlParamSync({
     onLoadTemplate: (biomarkers) => {
       selection.replaceAll(biomarkers);
-      labOptimization.resetLabChoice();
     },
     onLoadShared: (biomarkers) => {
       selection.replaceAll(biomarkers);
-      labOptimization.resetLabChoice();
     },
     onLoadList: (list) => {
       selection.replaceAll(
@@ -268,7 +244,6 @@ function HomeContent() {
           name: entry.display_name,
         })),
       );
-      labOptimization.resetLabChoice();
     },
     onError: selection.setError,
     isAuthenticated: Boolean(userSession),
@@ -277,31 +252,26 @@ function HomeContent() {
     isFetchingSavedLists: savedLists.listsQuery.isFetching,
   });
 
-  // Wrap template select to reset lab choice
   const handleTemplateSelect = useCallback(
     async (templateSelection: { slug: string; name: string }) => {
       await selection.handleTemplateSelect(templateSelection);
-      labOptimization.resetLabChoice();
     },
-    [selection, labOptimization],
+    [selection],
   );
 
-  // Wrap addon apply to reset lab choice
   const handleApplyAddon = useCallback(
     (biomarkers: { code: string; name: string }[], packageName: string) => {
       selection.handleApplyAddon(biomarkers, packageName);
-      labOptimization.resetLabChoice();
     },
-    [selection, labOptimization],
+    [selection],
   );
 
   // Handle list selection from menu
   const handleLoadFromMenu = useCallback(
     (list: { biomarkers: { code: string; display_name: string }[] }) => {
       selection.handleLoadList(list as Parameters<typeof selection.handleLoadList>[0]);
-      labOptimization.resetLabChoice();
     },
-    [selection, labOptimization],
+    [selection],
   );
 
   return (
@@ -421,12 +391,12 @@ function HomeContent() {
               <>
                 <StickySummaryBar
                   isVisible={hasSelection}
-                  isLoading={labOptimization.activeLoading}
-                  bestLab={
+                  isLoading={optimizationQuery.isLoading}
+                  source={
                     summaryReady ? (
                       <SummaryStat
-                        label={t("optimization.bestPrices")}
-                        value={summary.bestLabLabel}
+                        label={t("optimization.sourceLabel")}
+                        value={summary.sourceName}
                       />
                     ) : undefined
                   }
@@ -476,13 +446,12 @@ function HomeContent() {
                 {isPanelHydrated ? (
                   <OptimizationResults
                     selected={selection.biomarkerCodes}
-                    result={labOptimization.activeResult}
-                    isLoading={labOptimization.activeLoading}
-                    error={labOptimization.activeError ?? undefined}
+                    result={activeResult}
+                    isLoading={optimizationQuery.isLoading}
+                    error={optimizationQuery.error ?? undefined}
                     variant="dark"
-                    labCards={labOptimization.labCards}
-                    addonSuggestions={labOptimization.addonSuggestions}
-                    addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
+                    addonSuggestions={addonSuggestionsQuery.data?.addon_suggestions ?? []}
+                    addonSuggestionsLoading={addonSuggestionsQuery.isLoading}
                     onApplyAddon={handleApplyAddon}
                     onRemoveFromPanel={selection.handleRemove}
                     onSearchAlternative={dispatchSearchPrefill}

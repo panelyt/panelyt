@@ -7,14 +7,12 @@ from fastapi import APIRouter
 from panelyt_api.api.deps import SessionDep
 from panelyt_api.core.cache import record_user_activity_debounced
 from panelyt_api.core.settings import get_settings
-from panelyt_api.ingest.repository import IngestionRepository
+from panelyt_api.ingest.repository import CatalogRepository
 from panelyt_api.ingest.service import IngestionService
 from panelyt_api.optimization.service import OptimizationService
 from panelyt_api.schemas.optimize import (
     AddonSuggestionsRequest,
     AddonSuggestionsResponse,
-    OptimizeCompareRequest,
-    OptimizeCompareResponse,
     OptimizeRequest,
     OptimizeResponse,
 )
@@ -27,25 +25,12 @@ async def optimize(
     payload: OptimizeRequest,
     session: SessionDep,
 ) -> OptimizeResponse:
-    repo = IngestionRepository(session)
+    repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
     await ingestion_service.ensure_fresh_data()
     optimizer = OptimizationService(session)
     return await optimizer.solve_cached(payload)
-
-
-@router.post("/optimize/compare", response_model=OptimizeCompareResponse)
-async def optimize_compare(
-    payload: OptimizeCompareRequest,
-    session: SessionDep,
-) -> OptimizeCompareResponse:
-    repo = IngestionRepository(session)
-    await record_user_activity_debounced(repo, datetime.now(UTC))
-    ingestion_service = IngestionService(get_settings())
-    await ingestion_service.ensure_fresh_data()
-    optimizer = OptimizationService(session)
-    return await optimizer.compare(payload)
 
 
 @router.post("/optimize/addons", response_model=AddonSuggestionsResponse)

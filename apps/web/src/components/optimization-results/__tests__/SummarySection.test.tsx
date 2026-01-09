@@ -23,8 +23,6 @@ const buildResult = (): OptimizeResponse => ({
       biomarkers: ['ALT', 'AST', 'CHOL'],
       url: 'https://diag.pl/sklep/pakiety/liver-panel',
       on_sale: false,
-      lab_code: 'diag',
-      lab_name: 'Diagnostyka',
     },
     {
       id: 2,
@@ -37,20 +35,12 @@ const buildResult = (): OptimizeResponse => ({
       biomarkers: ['ALT', 'GLU'],
       url: 'https://diag.pl/sklep/pakiety/metabolic-panel',
       on_sale: false,
-      lab_code: 'diag',
-      lab_name: 'Diagnostyka',
     },
   ],
   bonus_total_now: 15,
   explain: {},
   uncovered: [],
-  lab_code: 'diag',
-  lab_name: 'Diagnostyka',
-  exclusive: { ALT: 'Diagnostyka' },
   labels: { ALT: 'ALT', AST: 'AST', CHOL: 'CHOL', GLU: 'GLU' },
-  mode: 'auto',
-  lab_options: [],
-  lab_selections: [],
   addon_suggestions: [],
 })
 
@@ -65,7 +55,6 @@ describe('SummarySection', () => {
     renderWithIntl(
       <SummarySection
         viewModel={viewModel}
-        labCards={[]}
       />,
       { locale: 'pl', messages: plMessages }
     )
@@ -74,7 +63,6 @@ describe('SummarySection', () => {
     expect(document.body.textContent).toContain('Potencjalne oszczędności')
     expect(document.body.textContent).toContain('Wartość bonusu')
     expect(document.body.textContent).toContain('Pozycja ceny')
-    expect(document.body.textContent).toContain('Tylko w laboratorium Diagnostyka')
     expect(document.body.textContent).toContain('Nakładanie pakietów')
     expect(document.body.textContent).toContain('Kliknij, aby zobaczyć biomarkery w wielu pakietach')
   })
@@ -102,7 +90,6 @@ describe('SummarySection', () => {
     renderWithIntl(
       <SummarySection
         viewModel={viewModel}
-        labCards={[]}
       />,
       { locale: 'pl', messages }
     )

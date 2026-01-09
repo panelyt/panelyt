@@ -5,12 +5,6 @@ from types import SimpleNamespace
 from panelyt_api.db import session as session_module
 
 
-@pytest.fixture(autouse=True)
-def ensure_default_labs():
-    """Override the autouse fixture from conftest to avoid DB setup for these unit tests."""
-    return
-
-
 def _reset_engine_state() -> None:
     session_module._engine = None
     session_module._session_factory = None

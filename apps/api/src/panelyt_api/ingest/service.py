@@ -9,12 +9,12 @@ from datetime import UTC, datetime, timedelta
 
 from panelyt_api.core import metrics
 from panelyt_api.core.cache import clear_all_caches, freshness_cache
+from panelyt_api.core.diag import DIAG_CODE
 from panelyt_api.core.settings import Settings
 from panelyt_api.db.session import get_session
-from panelyt_api.ingest.client import AlabClient, DiagClient
-from panelyt_api.ingest.repository import IngestionRepository, StageContext
-from panelyt_api.ingest.types import LabIngestionResult
-from panelyt_api.matching import apply_matching_if_needed, config_hash, load_config
+from panelyt_api.ingest.client import DiagClient
+from panelyt_api.ingest.repository import CatalogRepository
+from panelyt_api.ingest.types import DiagIngestionResult
 from panelyt_api.services.alerts import TelegramPriceAlertService
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class IngestionService:
 
         now_utc = datetime.now(UTC)
         async with get_session() as session:
-            repo = IngestionRepository(session)
+            repo = CatalogRepository(session)
             latest_fetch = await repo.latest_fetched_at()
             latest_snapshot = await repo.latest_snapshot_date()
 
@@ -74,27 +74,23 @@ class IngestionService:
         async with self._ingestion_session() as repo:
             log_id = await repo.create_run_log(started_at=now_utc, reason=reason or "manual")
             try:
-                results = await self._fetch_all_labs()
+                results = await self._fetch_catalog()
 
                 if not any(result.items for result in results):
-                    logger.warning("Ingestion returned no lab items")
-
-                matching_config = load_config()
-                matching_digest = config_hash()
-                contexts = []
+                    logger.warning("Ingestion returned no catalog items")
 
                 for result in results:
-                    context = await self._stage_lab_result(repo, result)
-                    if context is not None:
-                        contexts.append(context)
-
-                if contexts:
-                    await apply_matching_if_needed(
-                        repo.session, matching_config, matching_digest
-                    )
-
-                for context in contexts:
-                    await repo.synchronize_catalog(context)
+                    if result.raw_payload:
+                        await repo.write_raw_snapshot(
+                            source=f"{DIAG_CODE}:catalog",
+                            payload={
+                                "source": DIAG_CODE,
+                                "fetched_at": result.fetched_at.isoformat(),
+                                "payload": result.raw_payload,
+                            },
+                        )
+                    if result.items:
+                        await repo.upsert_diag_catalog(result.items, fetched_at=result.fetched_at)
 
                 await repo.prune_snapshots(now_utc.date())
                 await repo.prune_orphan_biomarkers()
@@ -119,7 +115,7 @@ class IngestionService:
     async def _should_skip_scheduled_run(self) -> bool:
         now_utc = datetime.now(UTC)
         async with get_session() as session:
-            repo = IngestionRepository(session)
+            repo = CatalogRepository(session)
             last_activity = await repo.last_user_activity()
             latest_snapshot = await repo.latest_snapshot_date()
 
@@ -132,9 +128,9 @@ class IngestionService:
         return inactivity and has_today_snapshot
 
     @asynccontextmanager
-    async def _ingestion_session(self) -> AsyncGenerator[IngestionRepository, None]:
+    async def _ingestion_session(self) -> AsyncGenerator[CatalogRepository, None]:
         async with get_session() as session:
-            repo = IngestionRepository(session)
+            repo = CatalogRepository(session)
             yield repo
 
     async def _run_with_lock(
@@ -185,57 +181,23 @@ class IngestionService:
         task.add_done_callback(_cleanup)
         self.__class__._scheduled_task = task
 
-    async def _dispatch_price_alerts(self, repo: IngestionRepository) -> None:
+    async def _dispatch_price_alerts(self, repo: CatalogRepository) -> None:
         try:
             service = TelegramPriceAlertService(repo.session, settings=self._settings)
             await service.run()
         except Exception as exc:  # pragma: no cover - failures logged but ingestion continues
             logger.exception("Failed to deliver Telegram price alerts: %s", exc)
 
-    async def _fetch_all_labs(self) -> list[LabIngestionResult]:
-        clients: list[DiagClient | AlabClient] = [DiagClient(), AlabClient()]
+    async def _fetch_catalog(self) -> list[DiagIngestionResult]:
+        client = DiagClient()
         try:
-            tasks = [asyncio.create_task(self._fetch_lab_catalog(client)) for client in clients]
-            return await asyncio.gather(*tasks)
+            result = await self._fetch_diag_catalog(client)
+            return [result]
         finally:
-            await asyncio.gather(*(client.close() for client in clients), return_exceptions=True)
+            await client.close()
 
-    async def _fetch_lab_catalog(
-        self, client: DiagClient | AlabClient
-    ) -> LabIngestionResult:
-        logger.info("Fetching catalog for lab %s", client.lab_code)
-        lab_result = await client.fetch_all()
-        logger.info(
-            "Fetched %s items for lab %s", len(lab_result.items), client.lab_code
-        )
-        return lab_result
-
-    async def _stage_lab_result(
-        self,
-        repo: IngestionRepository,
-        result: LabIngestionResult,
-    ) -> StageContext | None:
-        if result.raw_payload:
-            await repo.write_raw_snapshot(
-                source=f"{result.lab_code}:catalog",
-                payload={
-                    "lab": result.lab_code,
-                    "fetched_at": result.fetched_at.isoformat(),
-                    "payload": result.raw_payload,
-                },
-            )
-
-        if not result.items:
-            logger.info("Lab %s returned no items", result.lab_code)
-            return None
-
-        logger.info(
-            "Staging %s items for lab %s", len(result.items), result.lab_code
-        )
-
-        context = await repo.stage_lab_items(
-            result.lab_code,
-            result.items,
-            fetched_at=result.fetched_at,
-        )
-        return context
+    async def _fetch_diag_catalog(self, client: DiagClient) -> DiagIngestionResult:
+        logger.info("Fetching %s catalog", DIAG_CODE)
+        result = await client.fetch_all()
+        logger.info("Fetched %s items for %s", len(result.items), DIAG_CODE)
+        return result

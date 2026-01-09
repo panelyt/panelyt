@@ -35,12 +35,12 @@ class BiomarkerResolver:
 
         search_tokens = {entry.normalized for entry in normalized_inputs}
         rows = await self._fetch_biomarkers(search_tokens)
-        match_index = self._build_biomarker_match_index(rows, search_tokens)
+        token_index = self._build_biomarker_token_index(rows, search_tokens)
 
         resolved: list[ResolvedBiomarker] = []
         unresolved: list[str] = []
         for entry in normalized_inputs:
-            biomarker = self._pick_biomarker(match_index, entry.normalized)
+            biomarker = self._pick_biomarker(token_index, entry.normalized)
             if biomarker is None:
                 unresolved.append(entry.raw)
                 continue
@@ -90,12 +90,12 @@ class BiomarkerResolver:
         rows = (await self._session.execute(statement)).all()
         return [(row[0], row[1]) for row in rows]
 
-    def _build_biomarker_match_index(
+    def _build_biomarker_token_index(
         self,
         rows: Sequence[tuple[models.Biomarker, str | None]],
         search_tokens: set[str],
     ) -> dict[str, list[tuple[int, models.Biomarker]]]:
-        match_index: dict[str, list[tuple[int, models.Biomarker]]] = {}
+        token_index: dict[str, list[tuple[int, models.Biomarker]]] = {}
         seen: set[tuple[str, int, int]] = set()
         for biomarker, alias in rows:
             candidate_sources = (
@@ -111,19 +111,19 @@ class BiomarkerResolver:
                 key = (normalized, int(biomarker.id), priority)
                 if key in seen:
                     continue
-                match_index.setdefault(normalized, []).append((priority, biomarker))
+                token_index.setdefault(normalized, []).append((priority, biomarker))
                 seen.add(key)
 
-        for candidates in match_index.values():
+        for candidates in token_index.values():
             candidates.sort(key=lambda item: (item[0], item[1].id))
-        return match_index
+        return token_index
 
     @staticmethod
     def _pick_biomarker(
-        match_index: dict[str, list[tuple[int, models.Biomarker]]],
+        token_index: dict[str, list[tuple[int, models.Biomarker]]],
         token: str,
     ) -> models.Biomarker | None:
-        candidates = match_index.get(token)
+        candidates = token_index.get(token)
         if not candidates:
             return None
         return candidates[0][1]

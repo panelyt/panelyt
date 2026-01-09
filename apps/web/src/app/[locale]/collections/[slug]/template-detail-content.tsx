@@ -10,7 +10,7 @@ import { Header } from "../../../../components/header";
 import { OptimizationResults } from "../../../../components/optimization-results";
 import { useTemplateDetail } from "../../../../hooks/useBiomarkerListTemplates";
 import { useBiomarkerSelection } from "../../../../hooks/useBiomarkerSelection";
-import { useLabOptimization } from "../../../../hooks/useLabOptimization";
+import { useOptimization, useAddonSuggestions } from "../../../../hooks/useOptimization";
 import { usePanelStore } from "../../../../stores/panelStore";
 import { track } from "../../../../lib/analytics";
 import { Button } from "../../../../ui/button";
@@ -34,7 +34,17 @@ export default function TemplateDetailContent({ slug }: TemplateDetailContentPro
     () => template?.biomarkers.map((entry) => entry.code) ?? [],
     [template],
   );
-  const labOptimization = useLabOptimization(biomarkerCodes);
+  const optimizationQuery = useOptimization(biomarkerCodes);
+  const activeResult = optimizationQuery.data;
+  const activeItemIds = useMemo(
+    () => activeResult?.items?.map((item) => item.id) ?? [],
+    [activeResult?.items],
+  );
+  const addonSuggestionsQuery = useAddonSuggestions(
+    optimizationQuery.debouncedBiomarkers,
+    activeItemIds,
+    !optimizationQuery.isLoading,
+  );
 
   const templateSelection = useMemo(
     () =>
@@ -177,12 +187,11 @@ export default function TemplateDetailContent({ slug }: TemplateDetailContentPro
               <div className="mt-6">
                 <OptimizationResults
                   selected={biomarkerCodes}
-                  result={labOptimization.activeResult}
-                  isLoading={labOptimization.activeLoading}
-                  error={labOptimization.activeError}
-                  labCards={labOptimization.labCards}
-                  addonSuggestions={labOptimization.addonSuggestions}
-                  addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
+                  result={activeResult}
+                  isLoading={optimizationQuery.isLoading}
+                  error={optimizationQuery.error}
+                  addonSuggestions={addonSuggestionsQuery.data?.addon_suggestions ?? []}
+                  addonSuggestionsLoading={addonSuggestionsQuery.isLoading}
                   onApplyAddon={selection.handleApplyAddon}
                   variant="dark"
                 />

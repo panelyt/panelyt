@@ -262,12 +262,10 @@ export function SearchBox({
                 const optionKey = `${item.type}-${item.id}`;
                 const optionIndex = optionIndexByKey.get(optionKey) ?? -1;
                 const isHighlighted = optionIndex === highlightedIndex;
-                const labPriceEntries = Object.entries(item.lab_prices).sort(([labA], [labB]) =>
-                  labA.localeCompare(labB),
-                );
-                const lowestPrice = labPriceEntries.length
-                  ? Math.min(...labPriceEntries.map(([, value]) => value))
-                  : null;
+                const priceLabel =
+                  item.price_now_grosz !== null && item.price_now_grosz !== undefined
+                    ? formatGroszToPln(item.price_now_grosz)
+                    : t("common.placeholderDash");
                 return (
                   <li key={optionKey}>
                     <button
@@ -292,26 +290,14 @@ export function SearchBox({
                         </span>
                       </div>
                       <div className="flex flex-col items-end gap-0.5 text-xs">
-                        {labPriceEntries.map(([labCode, price]) => {
-                          const isBest = lowestPrice !== null && price === lowestPrice;
-                          return (
-                            <span
-                              key={`${labCode}-${price}`}
-                              className={[
-                                "font-semibold",
-                                isBest
-                                  ? isHighlighted
-                                    ? "text-white"
-                                    : "text-emerald-200"
-                                  : isHighlighted
-                                    ? "text-rose-200"
-                                    : "text-rose-300/80",
-                              ].join(" ")}
-                            >
-                              {labCode.toUpperCase()}: {formatGroszToPln(price)}
-                            </span>
-                          );
-                        })}
+                        <span
+                          className={[
+                            "font-semibold",
+                            isHighlighted ? "text-white" : "text-emerald-200",
+                          ].join(" ")}
+                        >
+                          {priceLabel}
+                        </span>
                       </div>
                     </button>
                   </li>

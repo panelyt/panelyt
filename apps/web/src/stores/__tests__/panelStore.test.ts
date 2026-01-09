@@ -206,7 +206,6 @@ describe("panelStore", () => {
 
     const summary: OptimizationSummary = {
       key: "alt",
-      labCode: "diag",
       totalNow: 120,
       totalMin30: 100,
       uncoveredCount: 0,
@@ -223,7 +222,6 @@ describe("panelStore", () => {
       selected: [{ code: "ALT", name: "ALT" }],
       lastOptimizationSummary: {
         key: "alt",
-        labCode: "diag",
         totalNow: 120,
         totalMin30: 100,
         uncoveredCount: 0,

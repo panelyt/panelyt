@@ -6,7 +6,7 @@ import { Card } from "@/ui/card";
 interface StickySummaryBarProps {
   isVisible: boolean;
   isLoading?: boolean;
-  bestLab?: ReactNode;
+  source?: ReactNode;
   total?: ReactNode;
   savings?: ReactNode;
   actions?: ReactNode;
@@ -33,7 +33,7 @@ const Placeholder = ({
 export function StickySummaryBar({
   isVisible,
   isLoading = false,
-  bestLab,
+  source,
   total,
   savings,
   actions,
@@ -54,8 +54,8 @@ export function StickySummaryBar({
     >
       <div className="flex flex-col gap-4 px-5 py-4 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
-          <div data-slot="best-lab">
-            {bestLab ?? <Placeholder className="w-32" isLoading={isLoading} />}
+          <div data-slot="source">
+            {source ?? <Placeholder className="w-32" isLoading={isLoading} />}
           </div>
           <div data-slot="total">
             {total ?? <Placeholder className="w-24" isLoading={isLoading} />}

@@ -7,7 +7,7 @@ from typing import Any
 
 
 @dataclass(slots=True)
-class RawLabBiomarker:
+class RawDiagBiomarker:
     external_id: str
     name: str
     elab_code: str | None
@@ -16,7 +16,7 @@ class RawLabBiomarker:
 
 
 @dataclass(slots=True)
-class RawLabItem:
+class RawDiagItem:
     external_id: str
     kind: str
     name: str
@@ -25,15 +25,14 @@ class RawLabItem:
     price_min30_grosz: int
     currency: str
     is_available: bool
-    biomarkers: Sequence[RawLabBiomarker] = field(default_factory=list)
+    biomarkers: Sequence[RawDiagBiomarker] = field(default_factory=list)
     sale_price_grosz: int | None = None
     regular_price_grosz: int | None = None
     metadata: Mapping[str, Any] | None = None
 
 
 @dataclass(slots=True)
-class LabIngestionResult:
-    lab_code: str
+class DiagIngestionResult:
     fetched_at: datetime
-    items: list[RawLabItem]
+    items: list[RawDiagItem]
     raw_payload: Mapping[str, Any]

@@ -1,70 +1,68 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import {
-  OptimizeModeSchema,
-  type OptimizeMode,
   OptimizeResponseSchema,
   type OptimizeResponse,
   AddonSuggestionsResponseSchema,
   type AddonSuggestionsResponse,
 } from "@panelyt/types";
 
+import { useDebounce } from "./useDebounce";
 import { postParsedJson } from "../lib/http";
+
+const OPTIMIZATION_DEBOUNCE_MS = 400;
 
 export function useOptimization(
   biomarkers: string[],
-  mode: OptimizeMode,
-  labCode?: string | null,
-) {
-  const key = biomarkers.map((b) => b.toLowerCase()).sort().join("|");
-  const normalizedLab = labCode?.trim().toLowerCase() ?? null;
-  const resolvedMode = OptimizeModeSchema.parse(mode ?? "auto");
-  return useQuery<OptimizeResponse, Error>({
-    queryKey: ["optimize", key, resolvedMode, normalizedLab],
+): UseQueryResult<OptimizeResponse, Error> & {
+  optimizationKey: string;
+  debouncedBiomarkers: string[];
+} {
+  const debouncedBiomarkers = useDebounce(biomarkers, OPTIMIZATION_DEBOUNCE_MS);
+  const key = debouncedBiomarkers.map((b) => b.toLowerCase()).sort().join("|");
+  const query = useQuery<OptimizeResponse, Error>({
+    queryKey: ["optimize", key],
     queryFn: async ({ signal }) => {
       return postParsedJson(
         "/optimize",
         OptimizeResponseSchema,
         {
-          biomarkers,
-          mode: resolvedMode,
-          ...(resolvedMode === "single_lab" && normalizedLab
-            ? { lab_code: normalizedLab }
-            : {}),
+          biomarkers: debouncedBiomarkers,
         },
         { signal },
       );
     },
-    enabled:
-      biomarkers.length > 0 &&
-      (resolvedMode !== "single_lab" || Boolean(normalizedLab)),
+    enabled: debouncedBiomarkers.length > 0,
   });
+  return {
+    ...query,
+    optimizationKey: key,
+    debouncedBiomarkers,
+  };
 }
 
 export function useAddonSuggestions(
   biomarkers: string[],
   selectedItemIds: number[],
-  labCode?: string | null,
   enabled: boolean = true,
 ) {
-  const key = biomarkers.map((b) => b.toLowerCase()).sort().join("|");
+  const debouncedBiomarkers = useDebounce(biomarkers, OPTIMIZATION_DEBOUNCE_MS);
+  const key = debouncedBiomarkers.map((b) => b.toLowerCase()).sort().join("|");
   const itemsKey = [...selectedItemIds].sort((a, b) => a - b).join(",");
-  const normalizedLab = labCode?.trim().toLowerCase() ?? null;
   return useQuery<AddonSuggestionsResponse, Error>({
-    queryKey: ["optimize-addons", key, itemsKey, normalizedLab],
+    queryKey: ["optimize-addons", key, itemsKey],
     queryFn: async ({ signal }) => {
       return postParsedJson(
         "/optimize/addons",
         AddonSuggestionsResponseSchema,
         {
-          biomarkers,
+          biomarkers: debouncedBiomarkers,
           selected_item_ids: selectedItemIds,
-          ...(normalizedLab ? { lab_code: normalizedLab } : {}),
         },
         { signal },
       );
     },
-    enabled: enabled && biomarkers.length > 0 && selectedItemIds.length > 0,
+    enabled: enabled && debouncedBiomarkers.length > 0 && selectedItemIds.length > 0,
   });
 }

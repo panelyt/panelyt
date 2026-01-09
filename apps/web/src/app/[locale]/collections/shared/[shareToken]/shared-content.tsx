@@ -8,7 +8,7 @@ import { Header } from "../../../../../components/header";
 import { useRouter } from "../../../../../i18n/navigation";
 import { OptimizationResults } from "../../../../../components/optimization-results";
 import { useSharedList } from "../../../../../hooks/useSharedList";
-import { useLabOptimization } from "../../../../../hooks/useLabOptimization";
+import { useOptimization, useAddonSuggestions } from "../../../../../hooks/useOptimization";
 import { useBiomarkerSelection } from "../../../../../hooks/useBiomarkerSelection";
 
 interface SharedContentProps {
@@ -33,7 +33,17 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
     () => sharedSelection.map((entry) => entry.code),
     [sharedSelection],
   );
-  const labOptimization = useLabOptimization(biomarkerCodes);
+  const optimizationQuery = useOptimization(biomarkerCodes);
+  const activeResult = optimizationQuery.data;
+  const activeItemIds = useMemo(
+    () => activeResult?.items?.map((item) => item.id) ?? [],
+    [activeResult?.items],
+  );
+  const addonSuggestionsQuery = useAddonSuggestions(
+    optimizationQuery.debouncedBiomarkers,
+    activeItemIds,
+    !optimizationQuery.isLoading,
+  );
   const selection = useBiomarkerSelection();
 
   return (
@@ -113,13 +123,12 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
               <div className="mt-6">
                 <OptimizationResults
                   selected={biomarkerCodes}
-                  result={labOptimization.activeResult}
-                  isLoading={labOptimization.activeLoading}
-                  error={labOptimization.activeError}
+                  result={activeResult}
+                  isLoading={optimizationQuery.isLoading}
+                  error={optimizationQuery.error}
                   variant="dark"
-                  labCards={labOptimization.labCards}
-                  addonSuggestions={labOptimization.addonSuggestions}
-                  addonSuggestionsLoading={labOptimization.addonSuggestionsLoading}
+                  addonSuggestions={addonSuggestionsQuery.data?.addon_suggestions ?? []}
+                  addonSuggestionsLoading={addonSuggestionsQuery.isLoading}
                   onApplyAddon={selection.handleApplyAddon}
                 />
               </div>

@@ -36,7 +36,7 @@
 **Repo context**
 - Header is used on all pages (`apps/web/src/components/header.tsx`).
 - Optimizer orchestration is in `apps/web/src/app/[locale]/home-content.tsx`.
-- Solver compare endpoint is already used via `useLabOptimization` (`apps/web/src/hooks/useLabOptimization.tsx`).
+- Solver endpoint is already used via `useOptimization` (`apps/web/src/hooks/useOptimization.ts`).
 - Lists/Templates pages are in:
   - `apps/web/src/app/[locale]/lists/lists-content.tsx`
   - `apps/web/src/app/[locale]/collections/collections-content.tsx`
@@ -113,7 +113,7 @@ Introduce the design-system layer and baseline styling rules to build redesigned
   - [ ] `Dialog` wrapper on Radix (focus trap, esc close) (Spec §8, §10.4)
   - [ ] `DropdownMenu` wrapper on Radix (Spec §10.4)
   - [ ] `Tooltip` wrapper on Radix (focus + hover) (Spec §8)
-  - [ ] `SegmentedControl` (used for Lab tabs styling) (Spec §10.1)
+  - [ ] `SegmentedControl` (used for summary controls if needed) (Spec §10.1)
   - [ ] `Table` (dense, sticky header option) (Spec §5.6)
 - [ ] Add `ui` unit tests for at least `Button` + `Dialog` keyboard basics (vitest + testing-library).
 
@@ -146,7 +146,7 @@ Adopt a single global panel selection store persisted to **sessionStorage**, rea
 - [ ] Implement `usePanelStore` (Zustand) with `persist` to `sessionStorage` (Spec §10.2):
   - state:
     - [ ] `selected: {code, name}[]`
-    - [ ] `lastOptimizationSummary?: { labCode, totalNow, totalMin30, uncoveredCount, updatedAt }` (optional cache pointer; Spec §10.2)
+    - [ ] `lastOptimizationSummary?: { totalNow, totalMin30, uncoveredCount, updatedAt }` (optional cache pointer; Spec §10.2)
   - actions:
     - [ ] `addOne(biomarker)`
     - [ ] `addMany(biomarkers)` (used for paste + template append)
@@ -169,7 +169,7 @@ Adopt a single global panel selection store persisted to **sessionStorage**, rea
 ### Acceptance criteria
 - Biomarker selection persists across refresh **in session** (same behavior as today).
 - URL loading flows (`?biomarkers`, `?template`, `?shared`, `?list`) still populate selection.
-- No regressions to `/optimize/compare` calls (still driven by selected codes).
+- No regressions to `/optimize` calls (still driven by selected codes).
 
 ---
 
@@ -195,7 +195,7 @@ Restructure Optimizer UI into the two-rail layout and add a sticky summary bar c
   - [ ] Responsive stacking for < 1024px (Spec §4.2)
 - [ ] Create `features/optimizer/StickySummaryBar.tsx` (structure only):
   - [ ] Visible when selection non-empty
-  - [ ] Placeholder slots for: best lab, total, coverage status, actions (Spec §7.1.3)
+  - [ ] Placeholder slots for: best price, total, coverage status, actions (Spec §7.1.3)
 - [ ] Move current “Build panel” UI into left rail; results into right rail.
 - [ ] Replace ad-hoc card wrappers with `ui/Card` and `ui/Button` variants for consistent styling.
 
@@ -280,27 +280,25 @@ Upgrade the selection display and actions area to match redesigned UX.
 
 ---
 
-## Batch 6 — Results: lab comparison + addons + coverage gaps
+## Batch 6 — Results summary + addons + coverage gaps
 
 ### Outcome
-Recompose the right rail into clearer sections: lab compare, addons, coverage gaps, and order breakdown.
+Recompose the right rail into clearer sections: results summary, addons, coverage gaps, and order breakdown.
 
 ### Spec references
-- Lab comparison: **§7.1.6**
+- Results summary: **§7.1.6**
 - Add-ons: **§7.1.7**
 - Coverage gaps: **§7.1.8**
 - Price breakdown: **§7.1.9**
 
 ### Files / areas
 - `apps/web/src/components/optimization-results/*`
-- `apps/web/src/hooks/useLabOptimization.tsx`
+- `apps/web/src/hooks/useOptimization.ts`
 - New: `apps/web/src/features/optimizer/CoverageGaps.tsx`
 
 ### Tasks
-- [ ] Update “Best prices” lab tabs UI to use `ui/SegmentedControl` styling:
-  - [ ] Show “not available” state clearly (Spec §7.1.6)
-  - [ ] Add tooltip showing missing token list when missing > 0 (Spec §7.1.6, §8)
-    - Use `LabCard.missing.tokens` from `useLabOptimization`
+- [ ] Update the results summary header to use `ui/Card` + compact totals styling (Spec §7.1.6):
+  - [ ] Show total now, savings vs floor, bonus count/value
 - [ ] Add “Coverage gaps” section (Spec §7.1.8):
   - [ ] Render when `activeResult.uncovered.length > 0`
   - [ ] Show list of uncovered codes with mono styling
@@ -314,9 +312,9 @@ Recompose the right rail into clearer sections: lab compare, addons, coverage ga
 - [ ] Add “result update highlight” effect on totals change (Spec §5.5).
 
 ### Acceptance criteria
-- Selecting labs updates coverage gaps and breakdown consistently.
-- Missing tokens tooltip is accessible and never blocks core flows.
+- Changing selection updates coverage gaps and breakdown consistently.
 - Add-on apply shows a toast and adds biomarkers without duplicates.
+- Results summary renders total + savings without layout regressions.
 
 ---
 
@@ -548,7 +546,7 @@ Emit all required analytics events from the redesigned interactions.
   - [ ] `panel_remove_biomarker`
   - [ ] `panel_apply_template` (append vs replace)
   - [ ] `panel_apply_addon`
-  - [ ] `optimize_result_rendered` (labChoice, total, uncoveredCount)
+  - [ ] `optimize_result_rendered` (total, uncoveredCount)
   - [ ] `share_copy_url` (success/failure)
   - [ ] `save_list_submit` (success/failure)
   - [ ] `alerts_toggle` (single/bulk)
@@ -577,7 +575,7 @@ Finalize as production-ready.
 ### Tasks
 - [ ] Create a manual regression checklist doc in `apps/web/QA-REDESIGN.md`:
   - [ ] URL param loads: template/shared/list/biomarkers
-  - [ ] lab compare toggling
+  - [ ] results summary rendering
   - [ ] add-on apply
   - [ ] save/share
   - [ ] lists alerts + share flows
@@ -643,4 +641,3 @@ Recommended PR sequence (mirrors batches):
 Keep each PR “reviewable”:
 - ideally 200–600 lines net change unless it’s a mechanical refactor.
 - prefer introducing new components alongside old ones, then swapping imports.
-

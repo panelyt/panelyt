@@ -16,6 +16,7 @@ import { SaveListModal } from "@/components/save-list-modal";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/format";
+import { DIAG_NAME } from "@/lib/diag";
 import { track } from "@/lib/analytics";
 import { requestAuthModal } from "@/lib/auth-events";
 import { usePanelStore } from "@/stores/panelStore";
@@ -147,7 +148,7 @@ export function PanelTray() {
               <div className="rounded-2xl border border-border/80 bg-surface-2 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <span className="text-xs font-semibold uppercase tracking-wide text-secondary">
-                    {t("panelTray.bestLab", { lab: summary.labCode.toUpperCase() })}
+                    {t("panelTray.sourceLabel", { source: DIAG_NAME })}
                   </span>
                   <span className="text-sm font-semibold text-primary">
                     {formatCurrency(summary.totalNow)}

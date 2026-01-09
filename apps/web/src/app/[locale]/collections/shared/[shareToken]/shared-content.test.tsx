@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { renderWithQueryClient } from "../../../../../test/utils";
 import enMessages from "../../../../../i18n/messages/en.json";
 import { useSharedList } from "../../../../../hooks/useSharedList";
-import { useLabOptimization } from "../../../../../hooks/useLabOptimization";
+import { useOptimization, useAddonSuggestions } from "../../../../../hooks/useOptimization";
 import { useRouter } from "../../../../../i18n/navigation";
 import SharedContent from "./shared-content";
 
@@ -21,12 +21,14 @@ vi.mock("../../../../../hooks/useSharedList", () => ({
   useSharedList: vi.fn(),
 }));
 
-vi.mock("../../../../../hooks/useLabOptimization", () => ({
-  useLabOptimization: vi.fn(),
+vi.mock("../../../../../hooks/useOptimization", () => ({
+  useOptimization: vi.fn(),
+  useAddonSuggestions: vi.fn(),
 }));
 
 const mockUseSharedList = vi.mocked(useSharedList);
-const mockUseLabOptimization = vi.mocked(useLabOptimization);
+const mockUseOptimization = vi.mocked(useOptimization);
+const mockUseAddonSuggestions = vi.mocked(useAddonSuggestions);
 const mockUseRouter = vi.mocked(useRouter);
 
 const sharedListData = {
@@ -77,22 +79,14 @@ const sampleResult = {
       biomarkers: ["ALT"],
       url: "https://example.com/alt",
       on_sale: false,
-      lab_code: "diag",
-      lab_name: "Diag",
     },
   ],
   bonus_total_now: 0,
   explain: {},
   uncovered: [],
-  lab_code: "diag",
-  lab_name: "Diag",
-  exclusive: {},
   labels: {
     ALT: "ALT",
   },
-  mode: "auto",
-  lab_options: [],
-  lab_selections: [],
   addon_suggestions: [],
 };
 
@@ -114,36 +108,17 @@ describe("SharedContent", () => {
       isLoading: false,
       isError: false,
     } as ReturnType<typeof useSharedList>);
-    mockUseLabOptimization.mockReturnValue({
-      labCards: [
-        {
-          key: "diag",
-          title: "DIAG",
-          shortLabel: "DIAG",
-          priceLabel: "120",
-          priceValue: 120,
-          meta: "",
-          badge: undefined,
-          active: true,
-          loading: false,
-          disabled: false,
-          onSelect: vi.fn(),
-          icon: null,
-          accentLight: "",
-          accentDark: "",
-          coversAll: true,
-        },
-      ],
-      activeResult: sampleResult,
-      activeLoading: false,
-      activeError: null,
+    mockUseOptimization.mockReturnValue({
+      data: sampleResult,
+      isLoading: false,
+      error: null,
       optimizationKey: "alt-ast",
-      labChoice: "diag",
-      selectLab: vi.fn(),
-      resetLabChoice: vi.fn(),
-      addonSuggestions: [],
-      addonSuggestionsLoading: false,
-    } as ReturnType<typeof useLabOptimization>);
+      debouncedBiomarkers: ["ALT", "AST"],
+    } as unknown as ReturnType<typeof useOptimization>);
+    mockUseAddonSuggestions.mockReturnValue({
+      data: { addon_suggestions: [] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useAddonSuggestions>);
     mockUseRouter.mockReturnValue({
       push,
       replace: vi.fn(),
@@ -154,11 +129,11 @@ describe("SharedContent", () => {
     } as ReturnType<typeof useRouter>);
   });
 
-  it("shows compare lab tabs for shared list pricing", async () => {
+  it("shows live pricing content for shared list", async () => {
     await renderContent();
 
     expect(
-      await screen.findByText(enMessages.optimization.bestPrices),
+      await screen.findByText(enMessages.sharedList.livePricing),
     ).toBeInTheDocument();
   });
 

@@ -14,7 +14,6 @@ export interface PanelBiomarker {
 
 export interface OptimizationSummary {
   key: string;
-  labCode: string;
   totalNow: number;
   totalMin30: number;
   uncoveredCount: number;
@@ -64,7 +63,6 @@ const isValidSummary = (value: unknown): value is OptimizationSummary => {
   const candidate = value as Record<string, unknown>;
   return (
     typeof candidate.key === "string" &&
-    typeof candidate.labCode === "string" &&
     typeof candidate.totalNow === "number" &&
     typeof candidate.totalMin30 === "number" &&
     typeof candidate.uncoveredCount === "number" &&

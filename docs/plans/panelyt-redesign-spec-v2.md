@@ -11,7 +11,7 @@ Scope: Full web app UX + visual redesign (desktop-first, responsive)
 This is the **opinionated** redesign spec that keeps the intent of v1 (faster panel building + clearer optimization outcomes) while aligning with how the app actually works today in code:
 
 - Next.js app with pages: Optimizer (/), Templates (/collections), Lists (/lists), Account (/account), Privacy (/privacy)
-- Core solver endpoints: `/optimize`, `/optimize/compare`, `/optimize/addons`
+- Core solver endpoints: `/optimize`, `/optimize/addons`
 - Saved lists support: create/update/delete/share + notifications toggle (per list and bulk)
 - Templates support: browse + detail, admin create/edit/delete, share links
 - URL share: `?biomarkers=...` plus `?template=...`, `?shared=...`, `?list=...`
@@ -33,7 +33,7 @@ This is the **opinionated** redesign spec that keeps the intent of v1 (faster pa
 Track at minimum:
 1. **TTOR (Time to Optimal Route)**  
    - Start: first biomarker added to empty panel (or panel loaded)
-   - End: user sees a computed “Best price” lab route (solver result rendered)
+   - End: user sees a computed “Best price” route (solver result rendered)
 2. Panel building friction:
    - avg biomarkers added per session
    - % sessions using paste/multi-add
@@ -112,11 +112,11 @@ A persistent UI element that exposes the *current panel* outside the Optimizer.
 **Expanded tray shows**
 - Selected biomarkers list (chips, removable)
 - Quick actions: Open Optimizer, Share link, Save list
-- If optimization cached: best lab chip + total + savings vs floor
+- If optimization cached: best price chip + total + savings vs floor
 
 **Data source**
 - Panel selection is persisted (currently sessionStorage). Redesign requires a single global store (recommended: Zustand persist to sessionStorage).
-- Optimization summary can be pulled from React Query cache (compare/active result) or computed lazily.
+- Optimization summary can be pulled from React Query cache (latest result) or computed lazily.
 
 Acceptance criteria:
 - Panel tray appears on Templates, Lists, Account without requiring the user to navigate home.
@@ -166,7 +166,7 @@ Core tokens (conceptual):
 - Use borders more than shadows.
 - Shadows only for:
   - modal surfaces
-  - active/selected lab option emphasis
+  - active/selected result emphasis
 
 ### 5.5 Motion
 - 100–200ms transitions, low-amplitude.
@@ -210,7 +210,7 @@ All visible strings, aria labels, and loading placeholders must come from `next-
 ## 7.1 Optimizer (Home)
 
 ### 7.1.1 Primary job
-Fastest path from selecting biomarkers to seeing the best lab route + what to buy.
+Fastest path from selecting biomarkers to seeing the best price route + what to buy.
 
 ### 7.1.2 Layout (desktop)
 Two-rail layout:
@@ -218,19 +218,19 @@ Two-rail layout:
 - **Left rail (40%)**: input + selection + actions  
   1) Search/typeahead  
   2) Selected biomarkers  
-  3) Helper text (“We compare prices across labs”)  
+  3) Helper text (“We optimize Diagnostyka prices”)  
   4) Quick actions row (Save / Share / Load / Templates)  
   5) Optional “recent panels” (future)
 
 - **Right rail (60%)**: results  
-  1) Lab comparison (tabs/segments)  
+  1) Results summary  
   2) Add-on suggestions (collapsible)  
   3) Coverage gaps (new)  
   4) Price breakdown (packages + singles)
 
 ### 7.1.3 Sticky summary bar
 Always visible when selection is non-empty:
-- Best lab chip + total now
+- Best price chip + total now
 - Savings vs 30-day floor
 - Coverage indicator (100% or “missing N”)
 - Quick actions: Share, Save
@@ -239,7 +239,7 @@ Desktop placement: top of the right rail (sticky within results column).
 Mobile placement: bottom sticky bar.
 
 ### 7.1.4 Search/typeahead
-**Must keep:** current behavior (suggest biomarkers and templates, show per-lab prices).
+**Must keep:** current behavior (suggest biomarkers and templates, show prices).
 
 Redesign improvements:
 - Suggestions are grouped:
@@ -264,21 +264,14 @@ Redesign:
   - Clear all (destructive, requires confirmation when > 0)
   - Undo last remove (optional; could be cmd+z if feasible)
 
-### 7.1.6 Results: Lab comparison (“Best prices”)
-Use compact segments (already implemented) with:
-- Lab short name
+### 7.1.6 Results summary (“Best price”)
+Use a compact summary header with:
 - Total now (prominent)
 - Savings vs 30-day floor
 - Bonus count/value
-- Cheapest badge
-
-Unavailable labs:
-- show “Not available”
-- show “missing N” chip
-- add tooltip explaining missing biomarkers (new: show actual tokens)
 
 ### 7.1.7 Add-on suggestions (“Add more for less”)
-Position: after lab tabs.
+Position: after results summary.
 
 Collapsed: single-line summary  
 Expanded: list of upgrade packages, each shows:
@@ -295,7 +288,7 @@ When active optimization result has `uncovered.length > 0`, show a dedicated car
 
 Card content:
 - Title: “Coverage gaps”
-- Summary: “N biomarkers cannot be covered by this lab/route”
+- Summary: “N biomarkers cannot be covered by this basket”
 - List of uncovered biomarkers:
   - display name (if known)
   - code in mono
@@ -303,9 +296,9 @@ Card content:
     - remove from selection
     - search alternatives (focus search with code prefilled)
 
-If multiple labs are compared, coverage gaps should reflect the **currently selected lab route**.
+Coverage gaps should reflect the **current basket**.
 
-### 7.1.9 Price breakdown (“Your order from LAB”)
+### 7.1.9 Price breakdown (“Your order”)
 Always visible; grouped into:
 - Packages
 - Single tests
@@ -489,8 +482,8 @@ Adopt a single “panel selection store”:
 
 ### 10.3 Data fetching
 Keep React Query (`@tanstack/react-query`):
-- Use `/optimize/compare` for lab tabs.
-- Use `/optimize/addons` lazily after selecting active route items.
+- Use `/optimize` for main results.
+- Use `/optimize/addons` lazily after selecting current items.
 - Ensure debouncing stays (~300–500ms) to avoid spam.
 
 ### 10.4 Replace custom popovers/modals with accessible primitives
@@ -519,7 +512,7 @@ Emit client events:
 - `panel_remove_biomarker`
 - `panel_apply_template` (append vs replace)
 - `panel_apply_addon`
-- `optimize_result_rendered` (include: labChoice, total, uncoveredCount)
+- `optimize_result_rendered` (include: total, uncoveredCount)
 - `share_copy_url` (success/failure)
 - `save_list_submit` (success/failure)
 - `alerts_toggle` (single/bulk)
@@ -552,9 +545,8 @@ Phase 3: Templates + Account + Privacy
 ## Appendix B: Glossary
 
 - **Biomarker**: requested measurement (code + display name)
-- **Package**: lab bundle that covers multiple biomarkers
-- **Single test**: an individual lab test
+- **Package**: bundle that covers multiple biomarkers
+- **Single test**: an individual test
 - **Bonus biomarkers**: included by chosen packages beyond what user selected
 - **30-day floor**: minimum total price over last 30 days
-- **Route**: chosen lab + basket of packages/singles to cover selection
-
+- **Route**: basket of packages/singles to cover selection

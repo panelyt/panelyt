@@ -36,10 +36,7 @@ describe('SearchBox', () => {
     name: 'Alanine aminotransferase',
     elab_code: 'ALT',
     slug: 'alt',
-    lab_prices: {
-      diag: 1000,
-      alab: 1250,
-    },
+    price_now_grosz: 1000,
   }
 
   const templateSuggestion = {
@@ -108,8 +105,7 @@ describe('SearchBox', () => {
     expect(screen.getByRole('listbox')).toBeInTheDocument()
     expect(screen.getAllByRole('option')).toHaveLength(2)
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
-    expect(screen.getByText('DIAG: 10,00 zł')).toBeInTheDocument()
-    expect(screen.getByText('ALAB: 12,50 zł')).toBeInTheDocument()
+    expect(screen.getByText('10,00 zł')).toBeInTheDocument()
     expect(screen.getByText('Liver bundle')).toBeInTheDocument()
   })
 

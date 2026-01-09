@@ -39,10 +39,6 @@ export interface OptimizationViewModel {
     singles: number;
     onSale: number;
   };
-  exclusive: {
-    labTitle: string;
-    biomarkers: Array<{ code: string; displayName: string }>;
-  };
   overlaps: Array<{
     code: string;
     displayName: string;
@@ -90,13 +86,6 @@ export function buildOptimizationViewModel({
   const onSaleCount = result.items.filter((item) => item.on_sale).length;
   const totalNowGrosz = result.items.reduce((sum, item) => sum + item.price_now_grosz, 0);
   const totalMin30Grosz = result.items.reduce((sum, item) => sum + item.price_min30_grosz, 0);
-
-  const exclusiveEntries = Object.entries(result.exclusive ?? {});
-  const exclusiveBiomarkers = exclusiveEntries.map(([code]) => ({
-    code,
-    displayName: displayNameFor(code),
-  }));
-  const labTitle = result.lab_name || result.lab_code.toUpperCase();
 
   const overlaps = Array.from(
     result.items.reduce((acc, item) => {
@@ -150,10 +139,6 @@ export function buildOptimizationViewModel({
       packages: packagesCount,
       singles: singlesCount,
       onSale: onSaleCount,
-    },
-    exclusive: {
-      labTitle,
-      biomarkers: exclusiveBiomarkers,
     },
     overlaps,
   };

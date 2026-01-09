@@ -60,7 +60,7 @@
     "openOptimizer": "Otwórz optymalizator",
     "sharePanel": "Udostępnij panel",
     "saveList": "Zapisz listę",
-    "bestLab": "Najlepsze: {lab}",
+    "sourceLabel": "Źródło: {source}",
     "savings": "Oszczędzasz {amount} względem minimum z 30 dni"
   },
   "auth": {
@@ -91,7 +91,7 @@
     "buildPanel": "Zbuduj swój panel badań",
     "searchPlaceholder": "Szukaj biomarkerów do dodania...",
     "addToPanel": "Dodaj do panelu",
-    "comparePrices": "Porównujemy ceny w różnych laboratoriach",
+    "comparePrices": "Porównujemy ceny badań i pakietów",
     "searchTip": "Wskazówka: naciśnij <key>Enter</key>, aby dodać pierwszy wynik.",
     "noMatches": "Brak bezpośrednich dopasowań. Spróbuj wpisać nazwę biomarkera.",
     "searching": "Szukanie...",
@@ -218,7 +218,7 @@
     "pricingDescription": "Optymalizator automatycznie przelicza ceny z diag.pl. Dostosuj szablon w głównej aplikacji, aby sprawdzić alternatywy."
   },
   "optimization": {
-    "orderFrom": "Twoje zamówienie: {lab}",
+    "orderLabel": "Twoje zamówienie",
     "itemsCount": "{count, plural, one {# pozycja} few {# pozycje} many {# pozycji} other {# pozycji}}",
     "packages": "Pakiety",
     "singleTests": "Badania pojedyncze",
@@ -230,11 +230,11 @@
     "min30Label": "Minimum z 30 dni",
     "totalLabel": "Suma",
     "savingVsFloor": "Oszczędzasz {amount} względem minimum z 30 dni",
-    "bestPrices": "Najlepsze ceny",
+    "sourceLabel": "Źródło",
     "missingCount": "Brakuje {count}",
     "missingTokensLabel": "Brakujące biomarkery",
     "coverageGapsTitle": "Braki pokrycia",
-    "coverageGapsSummary": "{count, plural, one {# biomarker nie jest dostępny w tym laboratorium} other {# biomarkery nie są dostępne w tym laboratorium}}",
+    "coverageGapsSummary": "{count, plural, one {# biomarker nie jest teraz dostępny} other {# biomarkery nie są teraz dostępne}}",
     "removeFromPanel": "Usuń z panelu",
     "searchAlternatives": "Szukaj alternatyw",
     "saveLabel": "Oszczędzasz {amount}",
@@ -258,15 +258,10 @@
     "optimizationSummaryTitle": "Podsumowanie optymalizacji",
     "optimizationSummaryDescription": "Pokrywa {count, plural, one {# biomarker} few {# biomarkery} many {# biomarkerów} other {# biomarkerów}} w najkorzystniejszym koszyku dostępnym teraz. Porównaj aktualne ceny z minimum z ostatnich 30 dni, aby ocenić oszczędności.",
     "bonusBiomarkersSummary": "{count, plural, one {# bonusowy biomarker} few {# bonusowe biomarkery} many {# bonusowych biomarkerów} other {# bonusowych biomarkerów}} ({total})",
-    "exclusiveToLab": "Tylko w laboratorium {lab}",
     "packageOverlaps": "Nakładanie pakietów",
     "packageOverlapsExpanded": "Biomarkery występujące w wielu pakietach",
     "packageOverlapsCollapsed": "Kliknij, aby zobaczyć biomarkery w wielu pakietach",
     "packagesCount": "{count, plural, one {# pakiet} few {# pakiety} many {# pakietów} other {# pakietów}}",
-    "labOnly": "Tylko {lab}",
-    "bothLabs": "Oba laboratoria",
-    "labFallback": "Lab",
-    "addBiomarkersToCompare": "Dodaj biomarkery, aby porównać laboratoria",
     "missingShort": "Brakuje {count}",
     "bonusShort": "{count} Gratis",
     "bonusShortWithValue": "{count} Gratis ({value})",
@@ -390,7 +385,7 @@
   "seo": {
     "siteName": "Panelyt",
     "homeOgTitle": "Panelyt - Optymalizator badań krwi",
-    "homeOgDescription": "Znajdź najtańszą kombinację badań krwi. Porównuj ceny w laboratoriach i oszczędzaj."
+    "homeOgDescription": "Znajdź najtańszą kombinację badań krwi. Porównuj ceny badań i pakietów, aby oszczędzać."
   },
   "language": {
     "switch": "English"

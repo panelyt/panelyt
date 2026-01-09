@@ -7,12 +7,11 @@ import { useTranslations } from "next-intl";
 
 import { useBiomarkerLookup } from "../../hooks/useBiomarkerLookup";
 import { track, consumeTtorDuration } from "../../lib/analytics";
-import type { LabChoiceCard } from "./types";
 import { PriceBreakdownSection } from "./price-breakdown";
-import { LabTabs } from "./lab-tabs";
 import { AddonSuggestionsCollapsible } from "./addon-suggestions-collapsible";
 import { buildOptimizationViewModel } from "./view-model";
 import { CoverageGaps } from "../../features/optimizer/CoverageGaps";
+import { DIAG_CODE } from "../../lib/diag";
 
 export interface OptimizationResultsProps {
   selected: string[];
@@ -20,7 +19,6 @@ export interface OptimizationResultsProps {
   isLoading: boolean;
   error?: Error | null;
   variant?: "light" | "dark";
-  labCards?: LabChoiceCard[];
   addonSuggestions?: OptimizeResponse["addon_suggestions"];
   addonSuggestionsLoading?: boolean;
   onApplyAddon?: (biomarkers: { code: string; name: string }[], packageName: string) => void;
@@ -34,7 +32,6 @@ export function OptimizationResults({
   isLoading,
   error,
   variant = "light",
-  labCards = [],
   addonSuggestions = [],
   addonSuggestionsLoading = false,
   onApplyAddon,
@@ -71,16 +68,12 @@ export function OptimizationResults({
   );
 
   const lastEventKeyRef = useRef<string | null>(null);
-  const labChoice = useMemo(() => {
-    if (!result) return "";
-    if (result.mode === "split") return "split";
-    return result.lab_code || result.lab_name || result.mode || "auto";
-  }, [result]);
+  const sourceCode = useMemo(() => (result ? DIAG_CODE : ""), [result]);
   const uncoveredCount = result?.uncovered?.length ?? 0;
   const eventKey = useMemo(() => {
     if (!result) return null;
-    return [labChoice, result.total_now, uncoveredCount, selected.join(",")].join("|");
-  }, [labChoice, result, selected, uncoveredCount]);
+    return [sourceCode, result.total_now, uncoveredCount, selected.join(",")].join("|");
+  }, [sourceCode, result, selected, uncoveredCount]);
 
   useEffect(() => {
     if (!result || isLoading || error || selected.length === 0) {
@@ -92,7 +85,7 @@ export function OptimizationResults({
     lastEventKeyRef.current = eventKey;
     const ttorMs = consumeTtorDuration();
     const payload: Record<string, number | string> = {
-      labChoice,
+      source: sourceCode,
       total: result.total_now,
       uncoveredCount,
     };
@@ -102,7 +95,7 @@ export function OptimizationResults({
     track("optimize_result_rendered", {
       ...payload,
     });
-  }, [eventKey, error, isLoading, labChoice, result, selected.length, uncoveredCount]);
+  }, [eventKey, error, isLoading, sourceCode, result, selected.length, uncoveredCount]);
 
   if (selected.length === 0) {
     return (
@@ -159,7 +152,6 @@ export function OptimizationResults({
 
   return (
     <div className="space-y-6">
-      <LabTabs labCards={labCards} isDark={viewModel.isDark} />
       <AddonSuggestionsCollapsible
         suggestions={addonSuggestions}
         isLoading={addonSuggestionsLoading}
@@ -176,5 +168,3 @@ export function OptimizationResults({
     </div>
   );
 }
-
-export type { LabChoiceCard };

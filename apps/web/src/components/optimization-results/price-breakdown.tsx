@@ -66,9 +66,6 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
     overlapMap.set(overlap.code, overlap.packages);
   }
 
-  // Get lab name from result
-  const labName = result.lab_name || result.lab_code.toUpperCase();
-
   return (
     <Card
       className={cn(
@@ -83,7 +80,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
               isDark ? "text-primary" : "text-slate-900"
             }`}
           >
-            {t("optimization.orderFrom", { lab: labName })}
+            {t("optimization.orderLabel")}
           </h2>
           <p
             className={`mt-1 text-sm ${

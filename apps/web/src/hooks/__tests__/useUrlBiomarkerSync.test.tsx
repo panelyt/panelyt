@@ -137,9 +137,23 @@ describe('useUrlBiomarkerSync', () => {
     ])
 
     resolvers[0]?.({
-      results: [{ name: 'Thyroid Stimulating Hormone', elab_code: 'TSH', slug: 'tsh' }],
+      results: [{
+        id: 11,
+        name: 'Thyroid Stimulating Hormone',
+        elab_code: 'TSH',
+        slug: 'tsh',
+        price_now_grosz: 1200,
+      }],
     })
-    resolvers[1]?.({ results: [{ name: 'Thyroxine', elab_code: 'T4', slug: 't4' }] })
+    resolvers[1]?.({
+      results: [{
+        id: 12,
+        name: 'Thyroxine',
+        elab_code: 'T4',
+        slug: 't4',
+        price_now_grosz: 800,
+      }],
+    })
 
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(2))
     expect(onLoadFromUrl.mock.calls[1]?.[0]).toEqual([

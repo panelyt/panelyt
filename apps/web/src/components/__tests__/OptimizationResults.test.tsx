@@ -1,9 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
-import { Sparkles } from 'lucide-react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
 import type { OptimizeResponse } from '@panelyt/types'
-import type { ReactNode } from 'react'
 import { renderWithQueryClient } from '../../test/utils'
 import plMessages from '../../i18n/messages/pl.json'
 import { track, consumeTtorDuration } from '../../lib/analytics'
@@ -39,22 +37,6 @@ const createLookupResult = (
     ...overrides,
   } as unknown as ReturnType<typeof useBiomarkerLookup>)
 
-interface LabChoiceCardStub {
-  key: string;
-  title: string;
-  priceLabel: string;
-  priceValue: number | null;
-  meta?: string;
-  badge?: string;
-  active: boolean;
-  loading?: boolean;
-  disabled?: boolean;
-  onSelect: () => void;
-  icon: ReactNode;
-  accentLight: string;
-  accentDark: string;
-}
-
 type OptimizeResponseOverrides = Partial<Omit<OptimizeResponse, 'items'>> & {
   items?: Array<Partial<OptimizeResponse['items'][number]>>;
 };
@@ -63,15 +45,32 @@ const makeOptimizeResponse = (
   overrides: OptimizeResponseOverrides,
 ): OptimizeResponse => {
   const { items: overrideItems, ...rest } = overrides
-  const items: OptimizeResponse['items'] = (overrideItems ?? []).map((item) => {
+  const items: OptimizeResponse['items'] = (overrideItems ?? []).map((item, index) => {
     const {
-      lab_code = 'diag',
-      lab_name = 'Diagnostyka',
+      id = index + 1,
+      kind = 'single',
+      name = `Item ${index + 1}`,
+      slug = `item-${index + 1}`,
+      price_now_grosz = 0,
+      price_min30_grosz = 0,
+      currency = 'PLN',
+      biomarkers = [],
+      url = 'https://example.com',
+      on_sale = false,
       ...restItem
     } = item
+
     return {
-      lab_code,
-      lab_name,
+      id,
+      kind,
+      name,
+      slug,
+      price_now_grosz,
+      price_min30_grosz,
+      currency,
+      biomarkers,
+      url,
+      on_sale,
       ...restItem,
     } as OptimizeResponse['items'][number]
   })
@@ -84,13 +83,7 @@ const makeOptimizeResponse = (
     bonus_total_now: 0,
     explain: {},
     uncovered: [],
-    lab_code: 'diag',
-    lab_name: 'Diagnostyka',
-    exclusive: {},
     labels: {},
-    mode: 'auto',
-    lab_options: [],
-    lab_selections: [],
     addon_suggestions: [],
     ...rest,
   }
@@ -116,7 +109,6 @@ describe('OptimizationResults', () => {
     consumeTtorDurationMock.mockReturnValueOnce(1500)
     const result = makeOptimizeResponse({
       total_now: 25,
-      lab_code: 'diag',
       uncovered: ['ALT', 'AST'],
       items: [
         {
@@ -143,7 +135,7 @@ describe('OptimizationResults', () => {
 
     await waitFor(() => {
       expect(trackMock).toHaveBeenCalledWith('optimize_result_rendered', {
-        labChoice: 'diag',
+        source: 'diag',
         total: 25,
         uncoveredCount: 2,
         ttorMs: 1500,
@@ -296,42 +288,11 @@ describe('OptimizationResults', () => {
         result={mockResult}
         isLoading={false}
         error={null}
-        labCards={[
-          {
-            key: 'diag',
-            title: 'ONLY DIAG',
-            priceLabel: '$25.00',
-            meta: '0 Missing · 0 Bonus',
-            badge: 'Cheapest',
-            active: true,
-            loading: false,
-            disabled: false,
-            onSelect: vi.fn(),
-            priceValue: 25,
-            icon: <Sparkles className="h-4 w-4" />,
-            accentLight: 'bg-emerald-500/10 text-emerald-600',
-            accentDark: 'bg-emerald-500/20 text-emerald-200',
-          },
-          {
-            key: 'all',
-            title: 'BOTH LABS',
-            priceLabel: '$25.00',
-            meta: '0 Missing · 1 Bonus',
-            active: false,
-            loading: false,
-            disabled: false,
-            onSelect: vi.fn(),
-            priceValue: 25,
-            icon: <Sparkles className="h-4 w-4" />,
-            accentLight: 'bg-indigo-500/10 text-indigo-500',
-            accentDark: 'bg-indigo-500/20 text-indigo-200',
-          },
-        ]}
       />
     )
 
     // Check header information from price breakdown
-    expect(screen.getByText('Your order from Diagnostyka')).toBeInTheDocument()
+    expect(screen.getByText('Your order')).toBeInTheDocument()
     expect(screen.getByText('Total')).toBeInTheDocument()
 
     // Check items are displayed
@@ -341,8 +302,6 @@ describe('OptimizationResults', () => {
     // Check sections
     expect(screen.getByText(/Packages/)).toBeInTheDocument()
     expect(screen.getByText(/Single tests/)).toBeInTheDocument()
-    expect(screen.getByText('DIAG')).toBeInTheDocument()
-    expect(screen.getByText('BOTH LABS')).toBeInTheDocument()
 
     // Check coverage summary
   })
@@ -383,7 +342,7 @@ describe('OptimizationResults', () => {
     expect(screen.getByRole('heading', { name: 'Coverage gaps' })).toBeInTheDocument()
     expect(screen.getAllByText('UNKNOWN_BIOMARKER')).toHaveLength(2)
     expect(
-      screen.getByText('1 biomarker cannot be covered by this lab'),
+      screen.getByText('1 biomarker cannot be covered right now'),
     ).toBeInTheDocument()
   })
 
@@ -599,114 +558,8 @@ describe('OptimizationResults', () => {
     ])
   })
 
-  it('shows lab splitting summary and per-lab breakdown', () => {
+  it('renders a single-lab summary with optimization results', () => {
     const mockResult = makeOptimizeResponse({
-      mode: 'split',
-      lab_code: 'mixed',
-      lab_name: 'Multiple labs',
-      lab_selections: [
-        { code: 'diag', name: 'Diagnostyka', total_now_grosz: 1500, items: 2 },
-        { code: 'alab', name: 'ALAB', total_now_grosz: 900, items: 1 },
-      ],
-      items: [
-        {
-          id: 1,
-          kind: 'single',
-          name: 'ALT Test',
-          slug: 'alt-test',
-          price_now_grosz: 600,
-          price_min30_grosz: 500,
-          currency: 'PLN',
-          biomarkers: ['ALT'],
-          url: 'https://diag.pl/sklep/badania/alt-test',
-          on_sale: false,
-          lab_code: 'diag',
-          lab_name: 'Diagnostyka',
-        },
-        {
-          id: 2,
-          kind: 'single',
-          name: 'AST Test',
-          slug: 'ast-test',
-          price_now_grosz: 900,
-          price_min30_grosz: 850,
-          currency: 'PLN',
-          biomarkers: ['AST'],
-          url: 'https://diag.pl/sklep/badania/ast-test',
-          on_sale: false,
-          lab_code: 'diag',
-          lab_name: 'Diagnostyka',
-        },
-        {
-          id: 3,
-          kind: 'single',
-          name: 'CRP Test',
-          slug: 'crp-test',
-          price_now_grosz: 900,
-          price_min30_grosz: 850,
-          currency: 'PLN',
-          biomarkers: ['CRP'],
-          url: 'https://alab.pl/badania/crp-test',
-          on_sale: false,
-          lab_code: 'alab',
-          lab_name: 'ALAB',
-        },
-      ],
-      explain: {},
-      uncovered: [],
-    })
-
-    const labCards = [
-      {
-        key: 'diag',
-        title: 'ONLY DIAG',
-        priceLabel: '$100.00',
-        priceValue: 10000,
-        meta: '0 Missing · 0 Bonus',
-        badge: 'Cheapest',
-        active: true,
-        loading: false,
-        disabled: false,
-        onSelect: vi.fn(),
-        icon: <Sparkles className="h-4 w-4" />,
-        accentLight: 'bg-emerald-500/10 text-emerald-600',
-        accentDark: 'bg-emerald-500/20 text-emerald-200',
-      },
-      {
-        key: 'alab',
-        title: 'ONLY ALAB',
-        priceLabel: '$110.00',
-        priceValue: 11000,
-        meta: '2 Missing · 1 Bonus',
-        badge: undefined,
-        active: false,
-        loading: false,
-        disabled: false,
-        onSelect: vi.fn(),
-        icon: <Sparkles className="h-4 w-4" />,
-        accentLight: 'bg-sky-500/10 text-sky-500',
-        accentDark: 'bg-sky-500/20 text-sky-200',
-      },
-    ] satisfies LabChoiceCardStub[]
-
-    renderWithQueryClient(
-      <OptimizationResults
-        selected={['ALT', 'AST', 'CRP']}
-        result={mockResult}
-        isLoading={false}
-        error={null}
-        labCards={labCards}
-      />
-    )
-
-    expect(screen.getByText('Your order from Multiple labs')).toBeInTheDocument()
-    expect(screen.getByText('DIAG')).toBeInTheDocument()
-    expect(screen.getByText('ALAB')).toBeInTheDocument()
-  })
-
-  it('suggests lab splitting when exclusive biomarkers block other labs', () => {
-    const mockResult = makeOptimizeResponse({
-      exclusive: { ALT: 'Diagnostyka' },
       items: [
         {
           id: 1,
@@ -732,7 +585,7 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('Your order from Diagnostyka')).toBeInTheDocument()
+    expect(screen.getByText('Your order')).toBeInTheDocument()
     expect(screen.getByText('ALT Test')).toBeInTheDocument()
   })
 
@@ -819,31 +672,13 @@ describe('OptimizationResults', () => {
         result={mockResult}
         isLoading={false}
         error={null}
-        labCards={[
-          {
-            key: 'diag',
-            title: 'Tylko DIAG',
-            priceLabel: '$25.00',
-            meta: '0 Brakuje · 0 Bonus',
-            badge: 'Najtaniej',
-            active: true,
-            loading: false,
-            disabled: false,
-            onSelect: vi.fn(),
-            priceValue: 25,
-            icon: <Sparkles className="h-4 w-4" />,
-            accentLight: 'bg-emerald-500/10 text-emerald-600',
-            accentDark: 'bg-emerald-500/20 text-emerald-200',
-          },
-        ]}
         addonSuggestionsLoading={true}
       />,
       { locale: 'pl', messages: plMessages }
     )
 
-    expect(screen.getByText('Twoje zamówienie: Diagnostyka')).toBeInTheDocument()
+    expect(screen.getByText('Twoje zamówienie')).toBeInTheDocument()
     expect(screen.getByText('Suma')).toBeInTheDocument()
-    expect(screen.getByText('Najlepsze ceny')).toBeInTheDocument()
     expect(screen.getByText('Szukamy sugestii...')).toBeInTheDocument()
     expect(screen.getByText(/Pakiety/)).toBeInTheDocument()
     expect(screen.getByText(/Badania pojedyncze/)).toBeInTheDocument()

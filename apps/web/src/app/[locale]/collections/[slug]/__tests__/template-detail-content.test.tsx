@@ -10,7 +10,7 @@ import type { OptimizationResultsProps } from "../../../../../components/optimiz
 import { usePanelStore } from "../../../../../stores/panelStore";
 import { useTemplateDetail } from "../../../../../hooks/useBiomarkerListTemplates";
 import { useBiomarkerSelection } from "../../../../../hooks/useBiomarkerSelection";
-import { useLabOptimization } from "../../../../../hooks/useLabOptimization";
+import { useOptimization, useAddonSuggestions } from "../../../../../hooks/useOptimization";
 import { useRouter } from "../../../../../i18n/navigation";
 import TemplateDetailContent from "../template-detail-content";
 
@@ -40,15 +40,17 @@ vi.mock("../../../../../hooks/useBiomarkerListTemplates", () => ({
   useTemplateDetail: vi.fn(),
 }));
 
-vi.mock("../../../../../hooks/useLabOptimization", () => ({
-  useLabOptimization: vi.fn(),
+vi.mock("../../../../../hooks/useOptimization", () => ({
+  useOptimization: vi.fn(),
+  useAddonSuggestions: vi.fn(),
 }));
 vi.mock("../../../../../hooks/useBiomarkerSelection", () => ({
   useBiomarkerSelection: vi.fn(),
 }));
 
 const mockUseTemplateDetail = vi.mocked(useTemplateDetail);
-const mockUseLabOptimization = vi.mocked(useLabOptimization);
+const mockUseOptimization = vi.mocked(useOptimization);
+const mockUseAddonSuggestions = vi.mocked(useAddonSuggestions);
 const mockUseBiomarkerSelection = vi.mocked(useBiomarkerSelection);
 const mockUseRouter = vi.mocked(useRouter);
 const trackMock = vi.mocked(track);
@@ -106,34 +108,17 @@ describe("TemplateDetailContent", () => {
       isLoading: false,
       isError: false,
     } as ReturnType<typeof useTemplateDetail>);
-    mockUseLabOptimization.mockReturnValue({
-      labCards: [
-        {
-          key: "diag",
-          title: "DIAG",
-          priceLabel: "100",
-          priceValue: 100,
-          meta: "",
-          badge: undefined,
-          active: true,
-          loading: false,
-          disabled: false,
-          onSelect: vi.fn(),
-          icon: null,
-          accentLight: "",
-          accentDark: "",
-        },
-      ],
-      activeResult: undefined,
-      activeLoading: false,
-      activeError: null,
+    mockUseOptimization.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
       optimizationKey: "alt-ast",
-      labChoice: null,
-      selectLab: vi.fn(),
-      resetLabChoice: vi.fn(),
-      addonSuggestions: [],
-      addonSuggestionsLoading: false,
-    } as ReturnType<typeof useLabOptimization>);
+      debouncedBiomarkers: ["ALT", "AST"],
+    } as unknown as ReturnType<typeof useOptimization>);
+    mockUseAddonSuggestions.mockReturnValue({
+      data: { addon_suggestions: [] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useAddonSuggestions>);
     mockUseBiomarkerSelection.mockReturnValue({
       handleApplyAddon: vi.fn(),
     } as unknown as ReturnType<typeof useBiomarkerSelection>);
@@ -218,12 +203,11 @@ describe("TemplateDetailContent", () => {
   it("wires compare optimization data into OptimizationResults", async () => {
     await renderContent();
 
-    expect(mockUseLabOptimization).toHaveBeenCalledWith(["ALT", "AST"]);
+    expect(mockUseOptimization).toHaveBeenCalledWith(["ALT", "AST"]);
     const props = optimizationResultsMock.mock.calls[0]?.[0];
     expect(props).toEqual(
       expect.objectContaining({
         selected: ["ALT", "AST"],
-        labCards: expect.any(Array),
         addonSuggestions: [],
         addonSuggestionsLoading: false,
         isLoading: false,

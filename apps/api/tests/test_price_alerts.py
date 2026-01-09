@@ -178,8 +178,6 @@ async def test_alert_message_escapes_item_name(db_session, test_settings) -> Non
         biomarkers=["ALT"],
         url="https://bad.example",
         on_sale=False,
-        lab_code="LAB",
-        lab_name="Lab",
     )
     alert = AlertPayload(
         saved_list=saved_list,
@@ -259,7 +257,6 @@ async def _create_item_with_biomarker(
     await db_session.execute(
         insert(models.Item).values({
             "id": item_id,
-            "lab_id": 1,
             "external_id": str(item_id),
             "kind": "single",
             "name": "ALT Test",

@@ -20,8 +20,9 @@ vi.mock("../../../hooks/useSavedLists", () => ({
   useSavedLists: vi.fn(),
 }));
 
-vi.mock("../../../hooks/useLabOptimization", () => ({
-  useLabOptimization: vi.fn(),
+vi.mock("../../../hooks/useOptimization", () => ({
+  useOptimization: vi.fn(),
+  useAddonSuggestions: vi.fn(),
 }));
 
 vi.mock("../../../hooks/useBiomarkerSelection", () => ({
@@ -78,7 +79,7 @@ vi.mock("../../../components/load-menu", () => ({
 
 import { useUserSession } from "../../../hooks/useUserSession";
 import { useSavedLists } from "../../../hooks/useSavedLists";
-import { useLabOptimization } from "../../../hooks/useLabOptimization";
+import { useOptimization, useAddonSuggestions } from "../../../hooks/useOptimization";
 import { useBiomarkerSelection } from "../../../hooks/useBiomarkerSelection";
 import { useUrlParamSync } from "../../../hooks/useUrlParamSync";
 import { useUrlBiomarkerSync } from "../../../hooks/useUrlBiomarkerSync";
@@ -90,7 +91,8 @@ import Home from "../home-content";
 
 const mockUseUserSession = vi.mocked(useUserSession);
 const mockUseSavedLists = vi.mocked(useSavedLists);
-const mockUseLabOptimization = vi.mocked(useLabOptimization);
+const mockUseOptimization = vi.mocked(useOptimization);
+const mockUseAddonSuggestions = vi.mocked(useAddonSuggestions);
 const mockUseBiomarkerSelection = vi.mocked(useBiomarkerSelection);
 const mockUseUrlParamSync = vi.mocked(useUrlParamSync);
 const mockUseUrlBiomarkerSync = vi.mocked(useUrlBiomarkerSync);
@@ -160,18 +162,17 @@ describe("HomeContent", () => {
       } as unknown as ReturnType<typeof useSavedLists>,
     );
 
-    mockUseLabOptimization.mockReturnValue({
-      activeResult: undefined,
-      activeLoading: false,
-      activeError: null,
+    mockUseOptimization.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: null,
       optimizationKey: "",
-      labCards: [],
-      labChoice: null,
-      selectLab: vi.fn(),
-      addonSuggestions: [],
-      addonSuggestionsLoading: false,
-      resetLabChoice: vi.fn(),
-    } as ReturnType<typeof useLabOptimization>);
+      debouncedBiomarkers: [],
+    } as unknown as ReturnType<typeof useOptimization>);
+    mockUseAddonSuggestions.mockReturnValue({
+      data: { addon_suggestions: [] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useAddonSuggestions>);
 
     mockUseBiomarkerSelection.mockReturnValue(
       selectionStub as ReturnType<typeof useBiomarkerSelection>,
@@ -257,36 +258,25 @@ describe("HomeContent", () => {
       bonus_total_now: 0,
       explain: {},
       uncovered: [],
-      lab_code: "diag",
-      lab_name: "",
-      exclusive: {},
       labels: {},
-      mode: "single_lab",
-      lab_options: [],
-      lab_selections: [],
       addon_suggestions: [],
     };
 
-    mockUseLabOptimization.mockReturnValueOnce({
-      activeResult,
-      activeLoading: false,
-      activeError: null,
+    mockUseOptimization.mockReturnValueOnce({
+      data: activeResult,
+      isLoading: false,
+      error: null,
       optimizationKey: "alt",
-      labCards: [],
-      labChoice: null,
-      selectLab: vi.fn(),
-      addonSuggestions: [],
-      addonSuggestionsLoading: false,
-      resetLabChoice: vi.fn(),
-    } as ReturnType<typeof useLabOptimization>);
+      debouncedBiomarkers: ["ALT"],
+    } as unknown as ReturnType<typeof useOptimization>);
 
     renderWithIntl(<Home />);
 
     const bar = screen.getByTestId("sticky-summary-bar");
     const summary = within(bar);
 
-    expect(summary.getByText("Best prices")).toBeInTheDocument();
-    expect(summary.getByText("DIAG")).toBeInTheDocument();
+    expect(summary.getByText("Source")).toBeInTheDocument();
+    expect(summary.getByText("Diagnostyka")).toBeInTheDocument();
     const totalStat = summary.getByText("Current total").closest("div") as HTMLElement;
     const savingsStat = summary.getByText("Potential savings").closest("div") as HTMLElement;
 
@@ -303,35 +293,24 @@ describe("HomeContent", () => {
       bonus_total_now: 0,
       explain: {},
       uncovered: [],
-      lab_code: "diag",
-      lab_name: "",
-      exclusive: {},
       labels: {},
-      mode: "single_lab",
-      lab_options: [],
-      lab_selections: [],
       addon_suggestions: [],
     };
 
-    mockUseLabOptimization.mockReturnValueOnce({
-      activeResult,
-      activeLoading: false,
-      activeError: null,
+    mockUseOptimization.mockReturnValueOnce({
+      data: activeResult,
+      isLoading: false,
+      error: null,
       optimizationKey: "b12",
-      labCards: [],
-      labChoice: null,
-      selectLab: vi.fn(),
-      addonSuggestions: [],
-      addonSuggestionsLoading: false,
-      resetLabChoice: vi.fn(),
-    } as ReturnType<typeof useLabOptimization>);
+      debouncedBiomarkers: ["B12"],
+    } as unknown as ReturnType<typeof useOptimization>);
 
     renderWithIntl(<Home />);
 
     const bar = screen.getByTestId("sticky-summary-bar");
     const summary = within(bar);
 
-    expect(summary.queryByText("Best prices")).not.toBeInTheDocument();
+    expect(summary.queryByText("Source")).not.toBeInTheDocument();
     expect(summary.queryByText("Current total")).not.toBeInTheDocument();
   });
 
@@ -344,28 +323,17 @@ describe("HomeContent", () => {
       bonus_total_now: 0,
       explain: {},
       uncovered: ["b12"],
-      lab_code: "diag",
-      lab_name: "",
-      exclusive: {},
       labels: {},
-      mode: "single_lab",
-      lab_options: [],
-      lab_selections: [],
       addon_suggestions: [],
     };
 
-    mockUseLabOptimization.mockReturnValueOnce({
-      activeResult,
-      activeLoading: false,
-      activeError: null,
+    mockUseOptimization.mockReturnValueOnce({
+      data: activeResult,
+      isLoading: false,
+      error: null,
       optimizationKey: "b12",
-      labCards: [],
-      labChoice: null,
-      selectLab: vi.fn(),
-      addonSuggestions: [],
-      addonSuggestionsLoading: false,
-      resetLabChoice: vi.fn(),
-    } as ReturnType<typeof useLabOptimization>);
+      debouncedBiomarkers: ["B12"],
+    } as unknown as ReturnType<typeof useOptimization>);
 
     mockUseBiomarkerSelection.mockReturnValueOnce({
       ...selectionStub,
@@ -377,7 +345,6 @@ describe("HomeContent", () => {
 
     expect(usePanelStore.getState().lastOptimizationSummary).toEqual({
       key: "b12",
-      labCode: "diag",
       totalNow: 180,
       totalMin30: 150,
       uncoveredCount: 1,

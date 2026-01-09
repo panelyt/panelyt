@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from ortools.sat.python import cp_model
-from sqlalchemy import delete, insert, select
+from sqlalchemy import delete, insert
 
 from panelyt_api.db import models
 from panelyt_api.optimization.service import (
@@ -16,12 +16,11 @@ from panelyt_api.schemas.optimize import AddonSuggestionsRequest, OptimizeReques
 
 def make_candidate(**overrides) -> CandidateItem:
     defaults = {
+        "id": 1,
+        "kind": "single",
+        "name": "Test",
+        "slug": "test",
         "external_id": "item-1",
-        "lab_id": 1,
-        "lab_code": "diag",
-        "lab_name": "Diagnostyka",
-        "single_url_template": "https://diag.pl/sklep/badania/{slug}",
-        "package_url_template": "https://diag.pl/sklep/pakiety/{slug}",
         "price_now": 1000,
         "price_min30": 1000,
         "sale_price": None,
@@ -93,36 +92,6 @@ class TestOptimizationService:
             assert r.token == "ALT"
 
     @pytest.mark.asyncio
-    async def test_evaluate_lab_skips_unsatisfiable_labs(self, service, monkeypatch):
-        """Labs that cannot cover all biomarkers are skipped without solving."""
-        resolved = [
-            ResolvedBiomarker(id=1, token="ALT", display_name="ALT", original="ALT"),
-            ResolvedBiomarker(id=2, token="AST", display_name="AST", original="AST"),
-        ]
-        candidates = [
-            make_candidate(
-                id=1,
-                kind="single",
-                name="ALT",
-                slug="alt",
-                price_now=1000,
-                price_min30=1000,
-                coverage={"ALT"},
-            )
-        ]
-
-        context = service._prepare_context(resolved, [], candidates)
-        assert context is not None
-
-        async def _fail_run_solver(*args, **kwargs):
-            raise AssertionError("_run_solver should not be called for unsatisfiable labs")
-
-        monkeypatch.setattr(service, "_run_solver", _fail_run_solver)
-        result = await service._evaluate_lab_solution(1, context.grouped_candidates[1], context)
-
-        assert result is None
-
-    @pytest.mark.asyncio
     async def test_resolve_biomarkers_batches_queries(self, service, db_session, monkeypatch):
         """Ensure biomarker resolution performs a single batched query."""
         await db_session.execute(delete(models.Biomarker))
@@ -159,7 +128,7 @@ class TestOptimizationService:
         await db_session.execute(
             insert(models.Biomarker).values([
                 {"name": "Total cholesterol", "elab_code": None, "slug": "cholesterol"},
-                {"name": "Vitamin D", "elab_code": None, "slug": None},
+                {"name": "Vitamin D", "elab_code": None, "slug": "vitamin-d"},
             ])
         )
         await db_session.commit()
@@ -170,7 +139,7 @@ class TestOptimizationService:
         assert unresolved == []
 
         assert resolved[0].token == "cholesterol"  # Uses slug when no elab_code
-        assert resolved[1].token == "Vitamin D"    # Uses name when no elab_code or slug
+        assert resolved[1].token == "vitamin-d"    # Uses slug when no elab_code
 
     @pytest.mark.asyncio
     async def test_collect_candidates_empty_biomarkers(self, service):
@@ -181,7 +150,6 @@ class TestOptimizationService:
     @pytest.mark.asyncio
     async def test_collect_candidates_with_data(self, service, db_session):
         """Test candidate collection with valid data."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -200,7 +168,6 @@ class TestOptimizationService:
             insert(models.Item).values([
                 {
                     "id": 1,
-                    "lab_id": 1,
                     "external_id": "1",
                     "kind": "single",
                     "name": "ALT Test",
@@ -212,7 +179,6 @@ class TestOptimizationService:
                 },
                 {
                     "id": 2,
-                    "lab_id": 1,
                     "external_id": "2",
                     "kind": "package",
                     "name": "Liver Panel",
@@ -296,7 +262,7 @@ class TestOptimizationService:
         assert ids == {1, 2, 3}  # Both singles (cap 2) + package
 
     def test_prune_candidates_limits_single_variants(self, service):
-        """Keep only the two cheapest singles per lab/token."""
+        """Keep only the two cheapest singles per token."""
         candidates = [
             make_candidate(
                 id=1,
@@ -359,7 +325,7 @@ class TestOptimizationService:
         assert ids == {2}  # Package dominates single test
 
     def test_prune_candidates_limits_package_variants(self, service):
-        """Keep only the two cheapest packages per lab/coverage."""
+        """Keep only the two cheapest packages per coverage."""
         candidates = [
             make_candidate(
                 id=10,
@@ -431,7 +397,6 @@ class TestOptimizationService:
         self, service, db_session
     ):
         """Unresolved biomarkers remain in the original order in responses."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -450,7 +415,6 @@ class TestOptimizationService:
                 [
                     {
                         "id": 501,
-                        "lab_id": 1,
                         "external_id": "diag-alt",
                         "kind": "single",
                         "name": "Diagnostyka ALT",
@@ -462,7 +426,6 @@ class TestOptimizationService:
                     },
                     {
                         "id": 502,
-                        "lab_id": 1,
                         "external_id": "diag-ast",
                         "kind": "single",
                         "name": "Diagnostyka AST",
@@ -494,269 +457,8 @@ class TestOptimizationService:
         assert {item.id for item in response.items} == {501, 502}
 
     @pytest.mark.asyncio
-    async def test_solve_nonexclusive_with_more_expensive_alternative(
-        self, service, db_session
-    ):
-        """If another lab offers a biomarker, exclusivity should not trigger."""
-        await _ensure_default_labs(db_session)
-        await db_session.execute(delete(models.ItemBiomarker))
-        await db_session.execute(delete(models.PriceSnapshot))
-        await db_session.execute(delete(models.Item))
-        await db_session.execute(delete(models.Biomarker))
-        await db_session.commit()
-
-        biomarker_id = (
-            await db_session.execute(
-                insert(models.Biomarker)
-                .values({"name": "Żelazo", "slug": "zelazo", "elab_code": None})
-                .returning(models.Biomarker.id)
-            )
-        ).scalar_one()
-
-        await db_session.execute(
-            insert(models.Item).values(
-                {
-                    "id": 11,
-                    "lab_id": 1,
-                    "external_id": "diag-zelazo",
-                    "kind": "single",
-                    "name": "Żelazo",
-                    "slug": "zelazo",
-                    "price_now_grosz": 2500,
-                    "price_min30_grosz": 2500,
-                    "currency": "PLN",
-                    "is_available": True,
-                }
-            )
-        )
-        await db_session.execute(
-            insert(models.Item).values(
-                {
-                    "id": 22,
-                    "lab_id": 2,
-                    "external_id": "alab-zelazo",
-                    "kind": "single",
-                    "name": "Żelazo (ALAB)",
-                    "slug": "zelazo-w-surowicy",
-                    "price_now_grosz": 2900,
-                    "price_min30_grosz": 2900,
-                    "currency": "PLN",
-                    "is_available": True,
-                }
-            )
-        )
-        await db_session.execute(
-            insert(models.ItemBiomarker).values(
-                [
-                    {"item_id": 11, "biomarker_id": biomarker_id},
-                    {"item_id": 22, "biomarker_id": biomarker_id},
-                ]
-            )
-        )
-        await db_session.commit()
-
-        response = await service.solve(OptimizeRequest(biomarkers=["zelazo"]))
-
-        assert response.lab_code == "diag"
-        assert response.exclusive == {}
-
-    @pytest.mark.asyncio
-    async def test_solve_selects_cheapest_single_lab_panel(
-        self, service, db_session
-    ):
-        """Optimizer compares summed prices per lab and keeps the cheapest full panel."""
-        await _ensure_default_labs(db_session)
-        await db_session.execute(delete(models.ItemBiomarker))
-        await db_session.execute(delete(models.PriceSnapshot))
-        await db_session.execute(delete(models.Item))
-        await db_session.execute(delete(models.Biomarker))
-        await db_session.commit()
-
-        biomarker_rows = (
-            await db_session.execute(
-                insert(models.Biomarker)
-                .returning(models.Biomarker.id, models.Biomarker.slug)
-                .values(
-                    [
-                        {"name": "Marker A", "slug": "marker-a", "elab_code": None},
-                        {"name": "Marker B", "slug": "marker-b", "elab_code": None},
-                    ]
-                )
-            )
-        ).all()
-        biomarker_ids = {slug: biomarker_id for biomarker_id, slug in biomarker_rows}
-
-        await db_session.execute(
-            insert(models.Item).values(
-                [
-                    {
-                        "id": 101,
-                        "lab_id": 1,
-                        "external_id": "diag-marker-a",
-                        "kind": "single",
-                        "name": "Diagnostyka Marker A",
-                        "slug": "diag-marker-a",
-                        "price_now_grosz": 5000,
-                        "price_min30_grosz": 5000,
-                        "currency": "PLN",
-                        "is_available": True,
-                    },
-                    {
-                        "id": 102,
-                        "lab_id": 1,
-                        "external_id": "diag-marker-b",
-                        "kind": "single",
-                        "name": "Diagnostyka Marker B",
-                        "slug": "diag-marker-b",
-                        "price_now_grosz": 7000,
-                        "price_min30_grosz": 7000,
-                        "currency": "PLN",
-                        "is_available": True,
-                    },
-                    {
-                        "id": 201,
-                        "lab_id": 2,
-                        "external_id": "alab-marker-a",
-                        "kind": "single",
-                        "name": "ALAB Marker A",
-                        "slug": "alab-marker-a",
-                        "price_now_grosz": 6000,
-                        "price_min30_grosz": 6000,
-                        "currency": "PLN",
-                        "is_available": True,
-                    },
-                    {
-                        "id": 202,
-                        "lab_id": 2,
-                        "external_id": "alab-marker-b",
-                        "kind": "single",
-                        "name": "ALAB Marker B",
-                        "slug": "alab-marker-b",
-                        "price_now_grosz": 8000,
-                        "price_min30_grosz": 8000,
-                        "currency": "PLN",
-                        "is_available": True,
-                    },
-                ]
-            )
-        )
-
-        await db_session.execute(
-            insert(models.ItemBiomarker).values(
-                [
-                    {"item_id": 101, "biomarker_id": biomarker_ids["marker-a"]},
-                    {"item_id": 102, "biomarker_id": biomarker_ids["marker-b"]},
-                    {"item_id": 201, "biomarker_id": biomarker_ids["marker-a"]},
-                    {"item_id": 202, "biomarker_id": biomarker_ids["marker-b"]},
-                ]
-            )
-        )
-        await db_session.commit()
-
-        response = await service.solve(
-            OptimizeRequest(biomarkers=["marker-a", "marker-b"])
-        )
-
-        assert response.lab_code == "diag"
-        assert response.uncovered == []
-        assert {item.id for item in response.items} == {101, 102}
-        assert response.total_now == 120.0
-        assert response.items[0].biomarkers and response.items[1].biomarkers
-
-    @pytest.mark.asyncio
-    async def test_solve_skips_labs_missing_required_biomarker(
-        self, service, db_session
-    ):
-        """Labs that cannot cover the full selection are ignored."""
-        await _ensure_default_labs(db_session)
-        await db_session.execute(delete(models.ItemBiomarker))
-        await db_session.execute(delete(models.PriceSnapshot))
-        await db_session.execute(delete(models.Item))
-        await db_session.execute(delete(models.Biomarker))
-        await db_session.commit()
-
-        biomarker_rows = (
-            await db_session.execute(
-                insert(models.Biomarker)
-                .returning(models.Biomarker.id, models.Biomarker.slug)
-                .values(
-                    [
-                        {"name": "OnlyDiag", "slug": "only-diag", "elab_code": None},
-                        {"name": "Shared", "slug": "shared", "elab_code": None},
-                    ]
-                )
-            )
-        ).all()
-        biomarker_ids = {slug: biomarker_id for biomarker_id, slug in biomarker_rows}
-
-        await db_session.execute(
-            insert(models.Item).values(
-                [
-                    {
-                        "id": 301,
-                        "lab_id": 1,
-                        "external_id": "diag-only",
-                        "kind": "single",
-                        "name": "Diagnostyka Only",
-                        "slug": "diag-only",
-                        "price_now_grosz": 4000,
-                        "price_min30_grosz": 4000,
-                        "currency": "PLN",
-                        "is_available": True,
-                    },
-                    {
-                        "id": 302,
-                        "lab_id": 2,
-                        "external_id": "alab-shared",
-                        "kind": "single",
-                        "name": "ALAB Shared",
-                        "slug": "alab-shared",
-                        "price_now_grosz": 3500,
-                        "price_min30_grosz": 3500,
-                        "currency": "PLN",
-                        "is_available": True,
-                    },
-                    {
-                        "id": 303,
-                        "lab_id": 2,
-                        "external_id": "alab-only",
-                        "kind": "single",
-                        "name": "ALAB Only",
-                        "slug": "alab-only",
-                        "price_now_grosz": 4500,
-                        "price_min30_grosz": 4500,
-                        "currency": "PLN",
-                        "is_available": True,
-                    },
-                ]
-            )
-        )
-
-        await db_session.execute(
-            insert(models.ItemBiomarker).values(
-                [
-                    {"item_id": 301, "biomarker_id": biomarker_ids["only-diag"]},
-                    {"item_id": 302, "biomarker_id": biomarker_ids["shared"]},
-                    {"item_id": 303, "biomarker_id": biomarker_ids["only-diag"]},
-                    {"item_id": 303, "biomarker_id": biomarker_ids["shared"]},
-                ]
-            )
-        )
-        await db_session.commit()
-
-        response = await service.solve(
-            OptimizeRequest(biomarkers=["only-diag", "shared"])
-        )
-
-        assert response.lab_code == "alab"
-        assert response.uncovered == []
-        assert {item.id for item in response.items} == {303}
-        assert response.exclusive
-
-    @pytest.mark.asyncio
     async def test_solve_simple_optimization(self, service, db_session):
         """Test simple optimization scenario."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -774,7 +476,6 @@ class TestOptimizationService:
             insert(models.Item).values([
                 {
                     "id": 1,
-                    "lab_id": 1,
                     "external_id": "1",
                     "kind": "single",
                     "name": "ALT Test",
@@ -786,7 +487,6 @@ class TestOptimizationService:
                 },
                 {
                     "id": 2,
-                    "lab_id": 1,
                     "external_id": "2",
                     "kind": "single",
                     "name": "AST Test",
@@ -798,7 +498,6 @@ class TestOptimizationService:
                 },
                 {
                     "id": 3,
-                    "lab_id": 1,
                     "external_id": "3",
                     "kind": "package",
                     "name": "Liver Panel",
@@ -837,7 +536,6 @@ class TestOptimizationService:
     @pytest.mark.asyncio
     async def test_addon_suggestions_surface_cheapest_packages(self, service, db_session):
         """Ensure addon suggestions recommend cheapest relevant packages."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -856,7 +554,6 @@ class TestOptimizationService:
         items = [
             {
                 "id": 10,
-                "lab_id": 1,
                 "external_id": "single-a",
                 "kind": "single",
                 "name": "Single A",
@@ -868,7 +565,6 @@ class TestOptimizationService:
             },
             {
                 "id": 11,
-                "lab_id": 1,
                 "external_id": "single-b",
                 "kind": "single",
                 "name": "Single B",
@@ -880,7 +576,6 @@ class TestOptimizationService:
             },
             {
                 "id": 12,
-                "lab_id": 1,
                 "external_id": "single-c",
                 "kind": "single",
                 "name": "Single C",
@@ -892,7 +587,6 @@ class TestOptimizationService:
             },
             {
                 "id": 13,
-                "lab_id": 1,
                 "external_id": "single-d",
                 "kind": "single",
                 "name": "Single D",
@@ -904,7 +598,6 @@ class TestOptimizationService:
             },
             {
                 "id": 20,
-                "lab_id": 1,
                 "external_id": "package-ab",
                 "kind": "package",
                 "name": "Package AB Bonus",
@@ -916,7 +609,6 @@ class TestOptimizationService:
             },
             {
                 "id": 21,
-                "lab_id": 1,
                 "external_id": "package-ab-extended",
                 "kind": "package",
                 "name": "Package AB Extended",
@@ -955,7 +647,6 @@ class TestOptimizationService:
         addon_request = AddonSuggestionsRequest(
             biomarkers=["A", "B", "C", "D"],
             selected_item_ids=[item.id for item in result.items],
-            lab_code=result.lab_code,
         )
         addon_result = await service.compute_addons(addon_request)
 
@@ -974,7 +665,6 @@ class TestOptimizationService:
     @pytest.mark.asyncio
     async def test_addon_suggestion_requires_readding_tokens(self, service, db_session):
         """Addon upgrade cost accounts for re-adding tokens not covered by the new package."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -996,7 +686,6 @@ class TestOptimizationService:
             # Singles for re-adding tokens
             {
                 "id": 10,
-                "lab_id": 1,
                 "external_id": "single-a",
                 "kind": "single",
                 "name": "Single A",
@@ -1008,7 +697,6 @@ class TestOptimizationService:
             },
             {
                 "id": 11,
-                "lab_id": 1,
                 "external_id": "single-c",
                 "kind": "single",
                 "name": "Single C",
@@ -1020,7 +708,6 @@ class TestOptimizationService:
             },
             {
                 "id": 12,
-                "lab_id": 1,
                 "external_id": "single-f",
                 "kind": "single",
                 "name": "Single F",
@@ -1033,7 +720,6 @@ class TestOptimizationService:
             # Packages selected by optimizer
             {
                 "id": 20,
-                "lab_id": 1,
                 "external_id": "package-x",
                 "kind": "package",
                 "name": "Package X",
@@ -1045,7 +731,6 @@ class TestOptimizationService:
             },
             {
                 "id": 21,
-                "lab_id": 1,
                 "external_id": "package-y",
                 "kind": "package",
                 "name": "Package Y",
@@ -1058,7 +743,6 @@ class TestOptimizationService:
             # Candidate package
             {
                 "id": 22,
-                "lab_id": 1,
                 "external_id": "package-z",
                 "kind": "package",
                 "name": "Package Z",
@@ -1103,7 +787,6 @@ class TestOptimizationService:
         addon_request = AddonSuggestionsRequest(
             biomarkers=["A", "B", "C", "D", "E", "F"],
             selected_item_ids=[item.id for item in result.items],
-            lab_code=result.lab_code,
         )
         addon_result = await service.compute_addons(addon_request)
 
@@ -1118,7 +801,6 @@ class TestOptimizationService:
     @pytest.mark.asyncio
     async def test_addon_skips_when_single_cheaper(self, service, db_session):
         """Do not suggest packages when added biomarkers are cheaper purchased separately."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -1136,7 +818,6 @@ class TestOptimizationService:
         items = [
             {
                 "id": 30,
-                "lab_id": 1,
                 "external_id": "package-x",
                 "kind": "package",
                 "name": "Package X",
@@ -1148,7 +829,6 @@ class TestOptimizationService:
             },
             {
                 "id": 31,
-                "lab_id": 1,
                 "external_id": "single-d",
                 "kind": "single",
                 "name": "Single D",
@@ -1160,7 +840,6 @@ class TestOptimizationService:
             },
             {
                 "id": 32,
-                "lab_id": 1,
                 "external_id": "package-y",
                 "kind": "package",
                 "name": "Package Y",
@@ -1172,7 +851,6 @@ class TestOptimizationService:
             },
             {
                 "id": 33,
-                "lab_id": 1,
                 "external_id": "single-e",
                 "kind": "single",
                 "name": "Single E",
@@ -1207,7 +885,6 @@ class TestOptimizationService:
 
     @pytest.mark.asyncio
     async def test_addon_suggestions_marks_removed_bonus(self, service, db_session):
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -1225,7 +902,6 @@ class TestOptimizationService:
         items = [
             {
                 "id": 40,
-                "lab_id": 1,
                 "external_id": "package-base",
                 "kind": "package",
                 "name": "Package Base",
@@ -1237,7 +913,6 @@ class TestOptimizationService:
             },
             {
                 "id": 41,
-                "lab_id": 1,
                 "external_id": "single-c",
                 "kind": "single",
                 "name": "Single C",
@@ -1249,7 +924,6 @@ class TestOptimizationService:
             },
             {
                 "id": 42,
-                "lab_id": 1,
                 "external_id": "package-upgrade",
                 "kind": "package",
                 "name": "Package Upgrade",
@@ -1261,7 +935,6 @@ class TestOptimizationService:
             },
             {
                 "id": 43,
-                "lab_id": 1,
                 "external_id": "single-e",
                 "kind": "single",
                 "name": "Single E",
@@ -1300,7 +973,6 @@ class TestOptimizationService:
         addon_request = AddonSuggestionsRequest(
             biomarkers=["A", "B", "C"],
             selected_item_ids=[item.id for item in result.items],
-            lab_code=result.lab_code,
         )
         addon_result = await service.compute_addons(addon_request)
 
@@ -1314,7 +986,6 @@ class TestOptimizationService:
     @pytest.mark.asyncio
     async def test_solver_prefers_biomarker_names(self, service, db_session):
         """Returned payload should expose biomarker display names instead of slugs."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -1338,7 +1009,6 @@ class TestOptimizationService:
             insert(models.Item).values(
                 {
                     "id": 501,
-                    "lab_id": 1,
                     "external_id": "diag-lut",
                     "kind": "single",
                     "name": "Luteotropina",
@@ -1370,7 +1040,6 @@ class TestOptimizationService:
         self, service, db_session, monkeypatch
     ):
         """Solver failures should surface as empty responses with uncovered tokens."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -1384,7 +1053,6 @@ class TestOptimizationService:
             insert(models.Item).values([
                 {
                     "id": 1,
-                    "lab_id": 1,
                     "external_id": "1",
                     "kind": "single",
                     "name": "ALT Test",
@@ -1419,7 +1087,6 @@ class TestOptimizationService:
     @pytest.mark.asyncio
     async def test_solve_ignores_unavailable_items(self, service, db_session):
         """Items flagged as unavailable must not be considered by the solver."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -1434,7 +1101,6 @@ class TestOptimizationService:
             insert(models.Item).values([
                 {
                     "id": 1,
-                    "lab_id": 2,
                     "external_id": "1",
                     "kind": "single",
                     "name": "ALT Test",
@@ -1511,33 +1177,9 @@ class TestOptimizationService:
         )
         assert _item_url(package_item) == "https://diag.pl/sklep/pakiety/test-package"
 
-        alab_single = make_candidate(
-            id=3,
-            kind="single",
-            lab_id=2,
-            lab_code="alab",
-            name="ALAB Test",
-            slug="alab-test",
-            single_url_template=None,
-        )
-        assert _item_url(alab_single) == "https://www.alab.pl/badanie/alab-test"
-
-        alab_package = make_candidate(
-            id=4,
-            kind="package",
-            lab_id=2,
-            lab_code="alab",
-            name="ALAB Pakiet",
-            slug="alab-pakiet",
-            single_url_template=None,
-            package_url_template=None,
-        )
-        assert _item_url(alab_package) == "https://www.alab.pl/pakiet/alab-pakiet"
-
     @pytest.mark.asyncio
     async def test_solve_returns_empty_addon_suggestions(self, service, db_session):
         """solve() should not compute addon suggestions - they are lazy loaded."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -1556,7 +1198,6 @@ class TestOptimizationService:
         items = [
             {
                 "id": 10,
-                "lab_id": 1,
                 "external_id": "single-a",
                 "kind": "single",
                 "name": "Single A",
@@ -1568,7 +1209,6 @@ class TestOptimizationService:
             },
             {
                 "id": 11,
-                "lab_id": 1,
                 "external_id": "single-b",
                 "kind": "single",
                 "name": "Single B",
@@ -1580,7 +1220,6 @@ class TestOptimizationService:
             },
             {
                 "id": 12,
-                "lab_id": 1,
                 "external_id": "single-c",
                 "kind": "single",
                 "name": "Single C",
@@ -1592,7 +1231,6 @@ class TestOptimizationService:
             },
             {
                 "id": 13,
-                "lab_id": 1,
                 "external_id": "single-d",
                 "kind": "single",
                 "name": "Single D",
@@ -1604,7 +1242,6 @@ class TestOptimizationService:
             },
             {
                 "id": 21,
-                "lab_id": 1,
                 "external_id": "package-ab-extended",
                 "kind": "package",
                 "name": "Package AB Extended",
@@ -1640,7 +1277,6 @@ class TestOptimizationService:
     @pytest.mark.asyncio
     async def test_compute_addons_returns_suggestions(self, service, db_session):
         """compute_addons() should return addon suggestions for given item IDs."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -1659,7 +1295,6 @@ class TestOptimizationService:
         items = [
             {
                 "id": 10,
-                "lab_id": 1,
                 "external_id": "single-a",
                 "kind": "single",
                 "name": "Single A",
@@ -1671,7 +1306,6 @@ class TestOptimizationService:
             },
             {
                 "id": 11,
-                "lab_id": 1,
                 "external_id": "single-b",
                 "kind": "single",
                 "name": "Single B",
@@ -1683,7 +1317,6 @@ class TestOptimizationService:
             },
             {
                 "id": 12,
-                "lab_id": 1,
                 "external_id": "single-c",
                 "kind": "single",
                 "name": "Single C",
@@ -1695,7 +1328,6 @@ class TestOptimizationService:
             },
             {
                 "id": 13,
-                "lab_id": 1,
                 "external_id": "single-d",
                 "kind": "single",
                 "name": "Single D",
@@ -1707,7 +1339,6 @@ class TestOptimizationService:
             },
             {
                 "id": 21,
-                "lab_id": 1,
                 "external_id": "package-ab-extended",
                 "kind": "package",
                 "name": "Package AB Extended",
@@ -1742,7 +1373,6 @@ class TestOptimizationService:
         addon_request = AddonSuggestionsRequest(
             biomarkers=["A", "B", "C", "D"],
             selected_item_ids=selected_item_ids,
-            lab_code=opt_result.lab_code,
         )
         addon_result = await service.compute_addons(addon_request)
 
@@ -1755,7 +1385,6 @@ class TestOptimizationService:
     @pytest.mark.asyncio
     async def test_compute_addons_empty_when_no_suggestions(self, service, db_session):
         """compute_addons() returns empty list when no addon packages available."""
-        await _ensure_default_labs(db_session)
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.Biomarker))
@@ -1770,7 +1399,6 @@ class TestOptimizationService:
         items = [
             {
                 "id": 10,
-                "lab_id": 1,
                 "external_id": "single-a",
                 "kind": "single",
                 "name": "Single A",
@@ -1782,7 +1410,6 @@ class TestOptimizationService:
             },
             {
                 "id": 11,
-                "lab_id": 1,
                 "external_id": "single-b",
                 "kind": "single",
                 "name": "Single B",
@@ -1823,13 +1450,13 @@ class TestOptimizationCaching:
 
         service = OptimizationService(db_session)
 
-        request = OptimizeRequest(biomarkers=["TSH"], mode="auto")
+        request = OptimizeRequest(biomarkers=["TSH"])
 
         # First call - hits solver
         result1 = await service.solve_cached(request)
 
         # Verify cache was populated
-        cache_key = optimization_cache.make_key(request.biomarkers, request.mode, request.lab_code)
+        cache_key = optimization_cache.make_key(request.biomarkers)
         assert optimization_cache.get(cache_key) is not None
 
         # Second call - should return cached
@@ -1850,53 +1477,18 @@ class TestOptimizationCaching:
 
         service = OptimizationService(db_session)
 
-        request1 = OptimizeRequest(biomarkers=["TSH"], mode="auto")
-        request2 = OptimizeRequest(biomarkers=["ALT"], mode="auto")
+        request1 = OptimizeRequest(biomarkers=["TSH"])
+        request2 = OptimizeRequest(biomarkers=["ALT"])
 
         result1 = await service.solve_cached(request1)
         result2 = await service.solve_cached(request2)
 
         # Results should be different (different biomarkers)
         # Note: both might be empty if no test data, but cache keys are different
-        key1 = optimization_cache.make_key(request1.biomarkers, request1.mode, request1.lab_code)
-        key2 = optimization_cache.make_key(request2.biomarkers, request2.mode, request2.lab_code)
+        key1 = optimization_cache.make_key(request1.biomarkers)
+        key2 = optimization_cache.make_key(request2.biomarkers)
         assert key1 != key2
 
         assert result1 != result2 or (result1 == result2 and key1 != key2)
 
         clear_all_caches()
-
-
-async def _ensure_default_labs(session):
-    existing = await session.scalar(
-        select(models.Lab.id).where(models.Lab.code == "diag")
-    )
-    if existing is not None:
-        return
-    await session.execute(
-        insert(models.Lab).values(
-            {
-                "id": 1,
-                "code": "diag",
-                "name": "Diagnostyka",
-                "slug": "diag",
-                "timezone": "Europe/Warsaw",
-                "single_item_url_template": "https://diag.pl/sklep/badania/{slug}",
-                "package_item_url_template": "https://diag.pl/sklep/pakiety/{slug}",
-            }
-        )
-    )
-    await session.execute(
-        insert(models.Lab).values(
-            {
-                "id": 2,
-                "code": "alab",
-                "name": "ALAB",
-                "slug": "alab",
-                "timezone": "Europe/Warsaw",
-                "single_item_url_template": None,
-                "package_item_url_template": None,
-            }
-        )
-    )
-    await session.commit()

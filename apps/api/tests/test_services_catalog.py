@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import insert, select
+from sqlalchemy import insert
 
 from panelyt_api.db import models
 from panelyt_api.services import catalog
@@ -36,7 +36,6 @@ class TestCatalogService:
             insert(models.Item).values([
                 {
                     "id": 1,
-                    "lab_id": 1,
                     "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
@@ -49,7 +48,6 @@ class TestCatalogService:
                 },
                 {
                     "id": 2,
-                    "lab_id": 1,
                     "external_id": "item-2",
                     "kind": "single",
                     "name": "AST Test",
@@ -71,19 +69,16 @@ class TestCatalogService:
             insert(models.PriceSnapshot).values([
                 {
                     "item_id": 1,
-                    "lab_id": 1,
                     "snap_date": today,
                     "price_now_grosz": 1000,
                 },
                 {
                     "item_id": 1,
-                    "lab_id": 1,
                     "snap_date": yesterday,
                     "price_now_grosz": 1100,
                 },
                 {
                     "item_id": 2,
-                    "lab_id": 1,
                     "snap_date": today,
                     "price_now_grosz": 1200,
                 },
@@ -261,21 +256,48 @@ class TestCatalogService:
 
         result = await catalog.search_biomarkers(db_session, "ast")
         assert result.results[0].elab_code == "AST"
-    async def _ensure_lab(self, session):
-        existing = await session.scalar(select(models.Lab.id).where(models.Lab.id == 1))
-        if existing is not None:
-            return
-        await session.execute(
-            insert(models.Lab).values(
-                {
-                    "id": 1,
-                    "code": "diag",
-                    "name": "Diagnostyka",
-                    "slug": "diag",
-                    "timezone": "Europe/Warsaw",
-                }
+
+    async def test_search_biomarkers_prefers_single_item_price(self, db_session):
+        """Prefer single item prices even when a cheaper package exists."""
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                {"id": 1, "name": "Alanine aminotransferase", "elab_code": "ALT", "slug": "alt"}
             )
         )
+        await db_session.commit()
+        await self._attach_item(
+            db_session, biomarker_id=1, item_id=1701, price=500, kind="package"
+        )
+        await self._attach_item(
+            db_session, biomarker_id=1, item_id=1702, price=1000, kind="single"
+        )
+        await db_session.commit()
+
+        result = await catalog.search_biomarkers(db_session, "ALT")
+
+        assert len(result.results) == 1
+        assert result.results[0].price_now_grosz == 1000
+
+    async def test_search_biomarkers_falls_back_to_package_price(self, db_session):
+        """Fallback to the cheapest available price when no singles exist."""
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                {"id": 1, "name": "Aspartate aminotransferase", "elab_code": "AST", "slug": "ast"}
+            )
+        )
+        await db_session.commit()
+        await self._attach_item(
+            db_session, biomarker_id=1, item_id=1801, price=1200, kind="package"
+        )
+        await self._attach_item(
+            db_session, biomarker_id=1, item_id=1802, price=900, kind="package"
+        )
+        await db_session.commit()
+
+        result = await catalog.search_biomarkers(db_session, "AST")
+
+        assert len(result.results) == 1
+        assert result.results[0].price_now_grosz == 900
 
     async def _attach_item(
         self,
@@ -284,17 +306,15 @@ class TestCatalogService:
         *,
         item_id: int,
         price: int = 1000,
-        lab_id: int = 1,
+        kind: str = "single",
     ) -> None:
-        await self._ensure_lab(session)
         now = datetime.now(timezone.utc)
         await session.execute(
             insert(models.Item).values(
                 {
                     "id": item_id,
-                    "lab_id": lab_id,
                     "external_id": f"item-{item_id}",
-                    "kind": "single",
+                    "kind": kind,
                     "name": f"Item {item_id}",
                     "slug": f"item-{item_id}",
                     "price_now_grosz": price,

@@ -60,7 +60,7 @@
     "openOptimizer": "Open Optimizer",
     "sharePanel": "Share panel",
     "saveList": "Save list",
-    "bestLab": "Best: {lab}",
+    "sourceLabel": "Source: {source}",
     "savings": "Save {amount} vs 30-day floor"
   },
   "auth": {
@@ -91,7 +91,7 @@
     "buildPanel": "Build your test panel",
     "searchPlaceholder": "Search biomarkers to add...",
     "addToPanel": "Add to panel",
-    "comparePrices": "We compare prices across labs",
+    "comparePrices": "We compare prices across tests and packages",
     "searchTip": "Tip: press <key>Enter</key> to add the top match instantly.",
     "noMatches": "No direct matches yet. Try typing the biomarker name.",
     "searching": "Searching...",
@@ -218,7 +218,7 @@
     "pricingDescription": "The optimizer runs automatically against diag.pl prices. Adjust the template in the main app to explore alternatives."
   },
   "optimization": {
-    "orderFrom": "Your order from {lab}",
+    "orderLabel": "Your order",
     "itemsCount": "{count, plural, one {# item} other {# items}}",
     "packages": "Packages",
     "singleTests": "Single tests",
@@ -230,11 +230,11 @@
     "min30Label": "30-day min",
     "totalLabel": "Total",
     "savingVsFloor": "You're saving {amount} vs. 30-day floor",
-    "bestPrices": "Best prices",
+    "sourceLabel": "Source",
     "missingCount": "Missing {count}",
     "missingTokensLabel": "Missing biomarkers",
     "coverageGapsTitle": "Coverage gaps",
-    "coverageGapsSummary": "{count, plural, one {# biomarker cannot be covered by this lab} other {# biomarkers cannot be covered by this lab}}",
+    "coverageGapsSummary": "{count, plural, one {# biomarker cannot be covered right now} other {# biomarkers cannot be covered right now}}",
     "removeFromPanel": "Remove from panel",
     "searchAlternatives": "Search alternatives",
     "saveLabel": "Save {amount}",
@@ -258,15 +258,10 @@
     "optimizationSummaryTitle": "Optimization summary",
     "optimizationSummaryDescription": "Covering {count, plural, one {# biomarker} other {# biomarkers}} with the most cost-efficient mix available right now. Compare current pricing against the recent 30-day floor to understand potential savings.",
     "bonusBiomarkersSummary": "{count, plural, one {# bonus biomarker} other {# bonus biomarkers}} ({total})",
-    "exclusiveToLab": "Exclusive to {lab}",
     "packageOverlaps": "Package overlaps",
     "packageOverlapsExpanded": "Biomarkers appearing in multiple packages",
     "packageOverlapsCollapsed": "Click to see biomarkers in multiple packages",
     "packagesCount": "{count, plural, one {# package} other {# packages}}",
-    "labOnly": "Only {lab}",
-    "bothLabs": "Both labs",
-    "labFallback": "Lab",
-    "addBiomarkersToCompare": "Add biomarkers to compare labs",
     "missingShort": "{count} Missing",
     "bonusShort": "{count} Bonus",
     "bonusShortWithValue": "{count} Bonus ({value})",
@@ -390,7 +385,7 @@
   "seo": {
     "siteName": "Panelyt",
     "homeOgTitle": "Panelyt - Blood Test Optimizer",
-    "homeOgDescription": "Find the cheapest blood test combination. Compare prices across labs and save money."
+    "homeOgDescription": "Find the cheapest blood test combination. Compare prices across tests and packages to save money."
   },
   "language": {
     "switch": "Polski"
