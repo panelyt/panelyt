@@ -27,6 +27,7 @@ interface Props {
 export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) {
   const t = useTranslations();
   const count = biomarkers.length;
+  const shouldConfirmClear = count > 3;
 
   const clearAllButton = (
     <Button
@@ -35,6 +36,7 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
       type="button"
       disabled={count === 0}
       className="border-transparent text-slate-400 hover:bg-slate-900/40 hover:text-slate-200"
+      onClick={!shouldConfirmClear ? onClearAll : undefined}
     >
       {t("home.clearAll")}
     </Button>
@@ -46,9 +48,7 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
         <p className="text-sm font-semibold text-primary">
           {t("home.selectedCount", { count })}
         </p>
-        {count === 0 ? (
-          clearAllButton
-        ) : (
+        {shouldConfirmClear ? (
           <Dialog>
             <DialogTrigger asChild>{clearAllButton}</DialogTrigger>
             <DialogContent>
@@ -75,6 +75,8 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
               </div>
             </DialogContent>
           </Dialog>
+        ) : (
+          clearAllButton
         )}
       </div>
       {count === 0 ? (

@@ -95,9 +95,36 @@ describe('SelectedBiomarkers', () => {
     expect(mockOnRemove).toHaveBeenCalledWith('ALT')
   })
 
-  it('opens the clear all dialog and confirms removal', async () => {
+  it('clears immediately when three or fewer biomarkers are selected', async () => {
     const user = userEvent.setup()
-    const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
+    const biomarkers = [
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'AST', name: 'Aspartate aminotransferase' },
+      { code: 'CHOL', name: 'Total cholesterol' },
+    ]
+
+    renderWithIntl(
+      <SelectedBiomarkers
+        biomarkers={biomarkers}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Clear all/i }))
+
+    expect(screen.queryByText(/Clear all biomarkers\?/i)).not.toBeInTheDocument()
+    expect(mockOnClearAll).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the clear all dialog when more than three biomarkers are selected', async () => {
+    const user = userEvent.setup()
+    const biomarkers = [
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'AST', name: 'Aspartate aminotransferase' },
+      { code: 'CHOL', name: 'Total cholesterol' },
+      { code: 'CRP', name: 'C-reactive protein' },
+    ]
 
     renderWithIntl(
       <SelectedBiomarkers
@@ -110,6 +137,8 @@ describe('SelectedBiomarkers', () => {
     await user.click(screen.getByRole('button', { name: /Clear all/i }))
 
     expect(screen.getByText(/Clear all biomarkers\?/i)).toBeInTheDocument()
+    expect(mockOnClearAll).not.toHaveBeenCalled()
+
     await user.click(screen.getByRole('button', { name: /Yes, clear/i }))
 
     expect(mockOnClearAll).toHaveBeenCalledTimes(1)
