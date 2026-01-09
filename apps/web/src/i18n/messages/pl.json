@@ -115,6 +115,7 @@
   },
   "selection": {
     "alreadySelected": "Wszystkie biomarkery z {name} są już wybrane.",
+    "added": "Dodano: {name}",
     "addedFrom": "Dodano {count, plural, one {# biomarker} few {# biomarkery} many {# biomarkerów} other {# biomarkerów}} z {name}.",
     "cleared": "Usunięto {count, plural, one {# biomarker} few {# biomarkery} many {# biomarkerów} other {# biomarkerów}}.",
     "removed": "Usunięto {name}.",

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { cn } from "@/lib/cn";
 import { Button } from "@/ui/button";
 import {
   Dialog,
@@ -35,15 +36,26 @@ interface BiomarkerChipProps {
   biomarker: SelectedBiomarker;
   onRemove: (code: string) => void;
   removeLabel: string;
+  isHighlighted: boolean;
 }
 
-const BiomarkerChip = ({ biomarker, onRemove, removeLabel }: BiomarkerChipProps) => {
+const BiomarkerChip = ({
+  biomarker,
+  onRemove,
+  removeLabel,
+  isHighlighted,
+}: BiomarkerChipProps) => {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
 
   return (
     <li
       key={biomarker.code}
-      className="flex min-w-0 items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-emerald-100 transition hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-100"
+      className={cn(
+        "flex min-w-0 items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-emerald-100 transition hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-100",
+        isHighlighted
+          ? "ring-1 ring-emerald-300/60 motion-safe:animate-[pulse_1.2s_ease-out_1]"
+          : "",
+      )}
     >
       <Tooltip open={isTooltipOpen} onOpenChange={setIsTooltipOpen}>
         <TooltipTrigger asChild>
@@ -76,6 +88,80 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
   const t = useTranslations();
   const count = biomarkers.length;
   const shouldConfirmClear = count > 3;
+  const [highlightedCodes, setHighlightedCodes] = useState<Set<string>>(new Set());
+  const previousCodes = useRef<Set<string>>(new Set());
+  const hasMounted = useRef(false);
+  const highlightTimeouts = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  useEffect(() => {
+    const currentCodes = new Set(biomarkers.map((biomarker) => biomarker.code));
+
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      previousCodes.current = currentCodes;
+      return;
+    }
+
+    setHighlightedCodes((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const code of prev) {
+        if (currentCodes.has(code)) {
+          next.add(code);
+          continue;
+        }
+        const timeout = highlightTimeouts.current.get(code);
+        if (timeout) {
+          clearTimeout(timeout);
+          highlightTimeouts.current.delete(code);
+        }
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+
+    const additions = biomarkers.filter(
+      (biomarker) => !previousCodes.current.has(biomarker.code),
+    );
+
+    if (additions.length > 0) {
+      setHighlightedCodes((prev) => {
+        const next = new Set(prev);
+        additions.forEach((biomarker) => {
+          next.add(biomarker.code);
+        });
+        return next;
+      });
+
+      additions.forEach((biomarker) => {
+        const existingTimeout = highlightTimeouts.current.get(biomarker.code);
+        if (existingTimeout) {
+          clearTimeout(existingTimeout);
+        }
+        const timeout = setTimeout(() => {
+          setHighlightedCodes((prev) => {
+            if (!prev.has(biomarker.code)) {
+              return prev;
+            }
+            const next = new Set(prev);
+            next.delete(biomarker.code);
+            return next;
+          });
+          highlightTimeouts.current.delete(biomarker.code);
+        }, 1200);
+        highlightTimeouts.current.set(biomarker.code, timeout);
+      });
+    }
+
+    previousCodes.current = currentCodes;
+  }, [biomarkers]);
+
+  useEffect(() => {
+    return () => {
+      highlightTimeouts.current.forEach((timeout) => clearTimeout(timeout));
+      highlightTimeouts.current.clear();
+    };
+  }, []);
 
   const clearAllButton = (
     <Button
@@ -140,6 +226,7 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
                 biomarker={biomarker}
                 onRemove={onRemove}
                 removeLabel={t("common.remove", { name: biomarker.name })}
+                isHighlighted={highlightedCodes.has(biomarker.code)}
               />
             ))}
           </ul>

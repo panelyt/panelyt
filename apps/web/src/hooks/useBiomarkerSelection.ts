@@ -58,10 +58,19 @@ export function useBiomarkerSelection(
 
   const handleSelect = useCallback(
     (biomarker: SelectedBiomarker) => {
-      addOne(biomarker);
+      const code = biomarker.code.trim();
+      if (!code) {
+        return;
+      }
+      const snapshot = usePanelStore.getState().selected;
+      const alreadySelected = snapshot.some((item) => item.code === code);
+      addOne({ ...biomarker, code });
       setError(null);
+      if (!alreadySelected) {
+        toast(t("selection.added", { name: biomarker.name }));
+      }
     },
-    [addOne],
+    [addOne, t],
   );
 
   const handleRemove = useCallback(

@@ -136,6 +136,17 @@ describe('useBiomarkerSelection', () => {
     expect(trackMock).toHaveBeenCalledWith('panel_apply_addon', { count: 1 })
   })
 
+  it('shows a toast when a biomarker is added', async () => {
+    const wrapper = createWrapperWithToaster()
+    const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
+
+    act(() => {
+      result.current.handleSelect({ code: 'ALT', name: 'ALT' })
+    })
+
+    expect(await screen.findByText('Added: ALT')).toBeInTheDocument()
+  })
+
   it('restores the exact selection when undoing a single removal', async () => {
     const user = userEvent.setup()
     const wrapper = createWrapperWithToaster()
