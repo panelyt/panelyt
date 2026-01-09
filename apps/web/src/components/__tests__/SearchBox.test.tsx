@@ -53,6 +53,7 @@ describe('SearchBox', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
     useDebounceMock.mockImplementation((value: string) => value)
     mockUseCatalogSearch.mockImplementation(() => createSearchResult())
   })
@@ -272,5 +273,35 @@ describe('SearchBox', () => {
     fireEvent.keyDown(window, { key: '/' })
 
     expect(input).toHaveFocus()
+  })
+
+  it('hides the inline hint after a successful add and keeps it hidden for the session', async () => {
+    const user = userEvent.setup()
+    mockUseCatalogSearch.mockImplementation(() =>
+      createSearchResult({ data: { results: [biomarkerSuggestion] } }),
+    )
+
+    const { unmount } = renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    expect(screen.getByText('Enter')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
+      target: { value: 'ALT' },
+    })
+    await user.click(
+      await screen.findByRole('option', { name: /Alanine aminotransferase/ }),
+    )
+
+    expect(screen.queryByText('Enter')).not.toBeInTheDocument()
+
+    unmount()
+
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    expect(screen.queryByText('Enter')).not.toBeInTheDocument()
   })
 })

@@ -34,9 +34,16 @@ export function SearchBox({
   const t = useTranslations();
   const listId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const tipDismissedKey = "panelyt-search-tip-dismissed";
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [enterHintVisible, setEnterHintVisible] = useState(false);
+  const [tipDismissed, setTipDismissed] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return sessionStorage.getItem(tipDismissedKey) === "true";
+  });
   const debounced = useDebounce(query, 200);
   const { data, isFetching } = useCatalogSearch(debounced);
   const suggestions = useMemo<CatalogSearchResult[]>(
@@ -84,9 +91,20 @@ export function SearchBox({
     }
   }, [query, pendingQuery]);
 
+  const dismissTip = useCallback(() => {
+    if (tipDismissed) {
+      return;
+    }
+    setTipDismissed(true);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(tipDismissedKey, "true");
+    }
+  }, [tipDismissed, tipDismissedKey]);
+
   const commitSuggestion = useCallback(
     (suggestion: CatalogSearchResult) => {
       setEnterHintVisible(false);
+      dismissTip();
       if (suggestion.type === "template") {
         onTemplateSelect({ slug: suggestion.slug, name: suggestion.name });
       } else {
@@ -102,7 +120,7 @@ export function SearchBox({
       setHighlightedIndex(-1);
       setPendingQuery(null);
     },
-    [onSelect, onTemplateSelect],
+    [dismissTip, onSelect, onTemplateSelect],
   );
 
   const handleSubmit = () => {
@@ -233,7 +251,7 @@ export function SearchBox({
                 setEnterHintVisible(false);
               }
             }}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950/60 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="w-full rounded-xl border border-slate-700 bg-slate-950/60 pl-10 pr-16 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
             placeholder={t("home.searchPlaceholder")}
             role="combobox"
             aria-label={t("home.searchPlaceholder")}
@@ -242,6 +260,11 @@ export function SearchBox({
             aria-activedescendant={activeOptionId}
             aria-autocomplete="list"
           />
+          {!tipDismissed && !isFetching && (
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded bg-slate-800/80 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
+              {t("home.searchInlineHint")}
+            </span>
+          )}
         </div>
       </div>
       {showSuggestions && (
@@ -365,20 +388,9 @@ export function SearchBox({
           <span>{t("home.searching")}</span>
         </div>
       )}
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-400">
-          {t.rich("home.searchTip", {
-            key: (chunks) => (
-              <span className="rounded bg-slate-800 px-1 py-0.5 font-mono text-[10px]">
-                {chunks}
-              </span>
-            ),
-          })}
-        </p>
-        {enterHintVisible && (
-          <p className="text-xs text-slate-500">{t("home.enterHint")}</p>
-        )}
-      </div>
+      {enterHintVisible && (
+        <p className="mt-2 text-xs text-slate-500">{t("home.enterHint")}</p>
+      )}
     </div>
   );
 }

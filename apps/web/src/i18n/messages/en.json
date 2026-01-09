@@ -100,6 +100,7 @@
     "templateDisabledEmpty": "Add biomarkers to save a template.",
     "loadDisabledLoading": "Loading saved lists.",
     "searchTip": "Tip: press <key>Enter</key> to add the top match instantly.",
+    "searchInlineHint": "Enter",
     "enterHint": "Select a suggestion to add it.",
     "noMatches": "No direct matches yet. Try typing the biomarker name.",
     "searching": "Searching...",
