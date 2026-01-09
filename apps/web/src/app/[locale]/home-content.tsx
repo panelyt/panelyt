@@ -20,7 +20,7 @@ import { SearchBox } from "../../components/search-box";
 import { SelectedBiomarkers } from "../../components/selected-biomarkers";
 import { SaveListModal } from "../../components/save-list-modal";
 import { TemplateModal } from "../../components/template-modal";
-import { LoadMenu } from "../../components/load-menu";
+import { PanelActions } from "../../components/panel-actions";
 import { OptimizerLayout } from "../../features/optimizer/OptimizerLayout";
 import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
 import { dispatchSearchPrefill } from "../../features/optimizer/search-events";
@@ -49,6 +49,7 @@ const SummaryStat = ({ label, value, valueTone }: SummaryStatProps) => (
     </span>
   </div>
 );
+
 
 function HomeContent() {
   const t = useTranslations();
@@ -145,7 +146,8 @@ function HomeContent() {
     summary !== null &&
     !optimizationQuery.isLoading &&
     !optimizationQuery.error;
-  const hasSelection = isPanelHydrated && selection.selected.length > 0;
+  const selectionCount = selection.selected.length;
+  const hasSelection = isPanelHydrated && selectionCount > 0;
 
   useEffect(() => {
     if (!activeResult) return;
@@ -228,6 +230,7 @@ function HomeContent() {
         : "",
     );
   }, [saveListModal, selection.selected.length, t]);
+
 
   // URL parameter sync
   useUrlParamSync({
@@ -347,42 +350,19 @@ function HomeContent() {
                   {selection.error && (
                     <p className="text-sm text-red-300">{selection.error}</p>
                   )}
-                  <div className="ml-auto flex items-center gap-2">
-                    <LoadMenu
+                  <div className="ml-auto">
+                    <PanelActions
+                      isAdmin={isAdmin}
+                      isPanelHydrated={isPanelHydrated}
+                      selectionCount={selectionCount}
                       lists={savedListsData}
-                      isLoading={savedLists.listsQuery.isFetching}
-                      onSelect={handleLoadFromMenu}
+                      isLoadingLists={savedLists.listsQuery.isFetching}
+                      onSave={handleSaveList}
+                      onShare={() => void handleSharePanel()}
+                      onLoad={handleLoadFromMenu}
+                      onSaveTemplate={templateModal.open}
+                      shareButtonContent={shareButtonContent}
                     />
-
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      type="button"
-                      onClick={handleSaveList}
-                      disabled={!isPanelHydrated}
-                    >
-                      {t("common.save")}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      type="button"
-                      onClick={() => void handleSharePanel()}
-                      disabled={!isPanelHydrated || selection.selected.length === 0}
-                    >
-                      {shareButtonContent}
-                    </Button>
-                    {isAdmin && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        type="button"
-                        onClick={templateModal.open}
-                        disabled={!isPanelHydrated}
-                      >
-                        {t("home.saveAsTemplate")}
-                      </Button>
-                    )}
                   </div>
                 </div>
               </Card>

@@ -11,25 +11,30 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/ui/dropdown-menu";
+import { Button } from "@/ui/button";
 
 export interface LoadMenuProps {
   lists: SavedList[];
   isLoading: boolean;
   onSelect: (list: SavedList) => void;
+  disabled?: boolean;
 }
 
-export function LoadMenu({ lists, isLoading, onSelect }: LoadMenuProps) {
+export function LoadMenu({ lists, isLoading, onSelect, disabled = false }: LoadMenuProps) {
   const t = useTranslations();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
           type="button"
-          className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
+          disabled={disabled}
+          className="border-transparent text-slate-400 hover:bg-surface-2/60 hover:text-slate-200"
         >
           {t("common.load")}
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>{t("loadMenu.savedLists")}</DropdownMenuLabel>

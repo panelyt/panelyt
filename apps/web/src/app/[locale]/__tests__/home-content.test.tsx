@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import type { OptimizeResponse } from "@panelyt/types";
 
 import { renderWithIntl } from "../../../test/utils";
+import enMessages from "../../../i18n/messages/en.json";
 
 vi.mock("../../../lib/analytics", () => ({
   track: vi.fn(),
@@ -73,9 +74,6 @@ vi.mock("../../../components/template-modal", () => ({
   TemplateModal: () => <div data-testid="template-modal" />,
 }));
 
-vi.mock("../../../components/load-menu", () => ({
-  LoadMenu: () => <div data-testid="load-menu" />,
-}));
 
 import { useUserSession } from "../../../hooks/useUserSession";
 import { useSavedLists } from "../../../hooks/useSavedLists";
@@ -360,5 +358,132 @@ describe("HomeContent", () => {
     await user.click(screen.getByTestId("header-auth"));
 
     expect(selectionStub.replaceAll).not.toHaveBeenCalled();
+  });
+
+  it("prioritizes save/share actions and tucks template behind more menu", async () => {
+    const user = userEvent.setup();
+    const list = {
+      id: "1",
+      name: "Metabolic panel",
+      created_at: "",
+      updated_at: "",
+      share_token: null,
+      shared_at: null,
+      notify_on_price_drop: false,
+      last_known_total_grosz: null,
+      last_total_updated_at: null,
+      last_notified_total_grosz: null,
+      last_notified_at: null,
+      biomarkers: [
+        {
+          id: "entry-1",
+          code: "ALT",
+          display_name: "Alanine aminotransferase",
+          sort_order: 0,
+          biomarker_id: null,
+          created_at: "",
+        },
+      ],
+    };
+
+    mockUseUserSession.mockReturnValueOnce({
+      data: { is_admin: true, registered: true, username: "User" },
+      isLoading: false,
+    } as ReturnType<typeof useUserSession>);
+
+    mockUseSavedLists.mockReturnValueOnce(
+      {
+        listsQuery: { data: [list], isFetching: false },
+      } as unknown as ReturnType<typeof useSavedLists>,
+    );
+
+    renderWithIntl(<Home />);
+
+    const layout = screen.getByTestId("optimizer-layout");
+    const leftRail = layout.querySelector('[data-slot="left"]') as HTMLElement;
+    const leftActions = within(leftRail);
+
+    const saveButton = leftActions.getByRole("button", { name: enMessages.common.save });
+    const shareButton = leftActions.getByRole("button", { name: enMessages.common.share });
+    const loadButton = leftActions.getByRole("button", { name: enMessages.common.load });
+    const moreButton = leftActions.getByRole("button", { name: enMessages.common.more });
+
+    expect(
+      saveButton.compareDocumentPosition(shareButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      shareButton.compareDocumentPosition(loadButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    expect(
+      leftActions.queryByRole("button", { name: enMessages.home.saveAsTemplate }),
+    ).not.toBeInTheDocument();
+
+    await user.click(moreButton);
+    const templateItem = await screen.findByRole("menuitem", {
+      name: enMessages.home.saveAsTemplate,
+    });
+    await user.click(templateItem);
+
+    expect(templateModalStub.open).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables actions and shows reasons when selection is empty", async () => {
+    const user = userEvent.setup();
+
+    mockUseUserSession.mockReturnValueOnce({
+      data: { is_admin: true, registered: true, username: "User" },
+      isLoading: false,
+    } as ReturnType<typeof useUserSession>);
+
+    mockUseBiomarkerSelection.mockReturnValueOnce({
+      ...selectionStub,
+      selected: [],
+      biomarkerCodes: [],
+      selectionPayload: [],
+    } as ReturnType<typeof useBiomarkerSelection>);
+
+    renderWithIntl(<Home />);
+
+    const layout = screen.getByTestId("optimizer-layout");
+    const leftRail = layout.querySelector('[data-slot="left"]') as HTMLElement;
+    const leftActions = within(leftRail);
+
+    const saveButton = leftActions.getByRole("button", { name: enMessages.common.save });
+    const shareButton = leftActions.getByRole("button", { name: enMessages.common.share });
+    const loadButton = leftActions.getByRole("button", { name: enMessages.common.load });
+    const moreButton = leftActions.getByRole("button", { name: enMessages.common.more });
+
+    expect(saveButton).toBeDisabled();
+    expect(shareButton).toBeDisabled();
+    expect(loadButton).toBeDisabled();
+    expect(moreButton).toBeDisabled();
+
+    const saveTrigger = saveButton.parentElement as HTMLElement;
+    await user.hover(saveTrigger);
+    expect(
+      await screen.findByRole("tooltip", { name: enMessages.home.saveDisabledEmpty }),
+    ).toBeInTheDocument();
+    await user.unhover(saveTrigger);
+
+    const shareTrigger = shareButton.parentElement as HTMLElement;
+    await user.hover(shareTrigger);
+    expect(
+      await screen.findByRole("tooltip", { name: enMessages.home.shareDisabledEmpty }),
+    ).toBeInTheDocument();
+    await user.unhover(shareTrigger);
+
+    const loadTrigger = loadButton.parentElement as HTMLElement;
+    await user.hover(loadTrigger);
+    expect(
+      await screen.findByRole("tooltip", { name: enMessages.loadMenu.noSavedLists }),
+    ).toBeInTheDocument();
+    await user.unhover(loadTrigger);
+
+    const moreTrigger = moreButton.parentElement as HTMLElement;
+    await user.hover(moreTrigger);
+    expect(
+      await screen.findByRole("tooltip", { name: enMessages.home.templateDisabledEmpty }),
+    ).toBeInTheDocument();
   });
 });
