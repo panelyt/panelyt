@@ -90,7 +90,7 @@ class IngestionService:
                             },
                         )
                     if result.items:
-                        await repo.upsert_diag_catalog(result.items, fetched_at=result.fetched_at)
+                        await repo.upsert_catalog(result.items, fetched_at=result.fetched_at)
 
                 await repo.prune_snapshots(now_utc.date())
                 await repo.prune_orphan_biomarkers()

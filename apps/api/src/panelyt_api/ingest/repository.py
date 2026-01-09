@@ -66,7 +66,7 @@ class CatalogRepository:
         )
         await self.session.execute(stmt)
 
-    async def upsert_diag_catalog(
+    async def upsert_catalog(
         self, items: Sequence[RawDiagItem], *, fetched_at: datetime
     ) -> None:
         if not items:
@@ -97,6 +97,9 @@ class CatalogRepository:
         item_ids = await self._upsert_diag_items(item_map, fetched_at)
         await self._replace_diag_item_biomarkers(item_ids, item_to_biomarkers, biomarker_ids)
         await self._upsert_diag_snapshots(item_map, item_ids, fetched_at)
+
+    # Deprecated: use upsert_catalog.
+    upsert_diag_catalog = upsert_catalog
 
     async def write_raw_snapshot(self, source: str, payload: dict[str, object]) -> None:
         stmt = insert(models.RawSnapshot).values(source=source, payload=payload)

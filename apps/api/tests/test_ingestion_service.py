@@ -33,7 +33,7 @@ class TestIngestionService:
         repo.last_user_activity.return_value = None
         repo.create_run_log.return_value = 1
         repo.finalize_run_log.return_value = None
-        repo.upsert_diag_catalog.return_value = None
+        repo.upsert_catalog.return_value = None
         repo.prune_snapshots.return_value = None
         repo.prune_orphan_biomarkers.return_value = None
         repo.write_raw_snapshot.return_value = None
@@ -179,7 +179,7 @@ class TestIngestionService:
 
             mock_fetch.assert_awaited_once()
             mock_repo.write_raw_snapshot.assert_awaited_once()
-            mock_repo.upsert_diag_catalog.assert_awaited_once_with(
+            mock_repo.upsert_catalog.assert_awaited_once_with(
                 lab_result.items, fetched_at=lab_result.fetched_at
             )
             mock_repo.prune_snapshots.assert_called_once()
@@ -214,7 +214,7 @@ class TestIngestionService:
         mock_repo.prune_snapshots.return_value = None
         mock_repo.prune_orphan_biomarkers.return_value = None
         mock_repo.write_raw_snapshot.return_value = None
-        mock_repo.upsert_diag_catalog.return_value = None
+        mock_repo.upsert_catalog.return_value = None
         mock_repo_class.return_value = mock_repo
 
         lab_result = DiagIngestionResult(
@@ -273,7 +273,7 @@ class TestIngestionService:
         mock_repo.prune_snapshots.return_value = None
         mock_repo.prune_orphan_biomarkers.return_value = None
         mock_repo.write_raw_snapshot.return_value = None
-        mock_repo.upsert_diag_catalog.return_value = None
+        mock_repo.upsert_catalog.return_value = None
         mock_repo_class.return_value = mock_repo
 
         lab_result = DiagIngestionResult(
@@ -291,7 +291,7 @@ class TestIngestionService:
             await ingestion_service.run(reason="test-empty")
 
         mock_repo.write_raw_snapshot.assert_awaited_once()
-        mock_repo.upsert_diag_catalog.assert_not_awaited()
+        mock_repo.upsert_catalog.assert_not_awaited()
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
@@ -416,7 +416,7 @@ class TestIngestionCacheClearing:
         mock_repo.prune_snapshots.return_value = None
         mock_repo.prune_orphan_biomarkers.return_value = None
         mock_repo.write_raw_snapshot.return_value = None
-        mock_repo.upsert_diag_catalog.return_value = None
+        mock_repo.upsert_catalog.return_value = None
         mock_repo_class.return_value = mock_repo
 
         service = IngestionService(test_settings)

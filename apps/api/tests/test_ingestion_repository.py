@@ -12,7 +12,7 @@ from panelyt_api.ingest.types import RawDiagBiomarker, RawDiagItem
 
 
 @pytest.mark.asyncio
-async def test_upsert_diag_catalog_upserts_items_biomarkers_links_and_snapshots(
+async def test_upsert_catalog_upserts_items_biomarkers_links_and_snapshots(
     db_session,
 ) -> None:
     repo = CatalogRepository(db_session)
@@ -38,7 +38,7 @@ async def test_upsert_diag_catalog_upserts_items_biomarkers_links_and_snapshots(
         regular_price_grosz=1000,
     )
 
-    await repo.upsert_diag_catalog([item], fetched_at=fetched_at)
+    await repo.upsert_catalog([item], fetched_at=fetched_at)
     await db_session.commit()
 
     stored_item = await db_session.scalar(
@@ -92,7 +92,7 @@ async def test_upsert_diag_catalog_upserts_items_biomarkers_links_and_snapshots(
         regular_price_grosz=1200,
     )
 
-    await repo.upsert_diag_catalog([updated_item], fetched_at=fetched_at)
+    await repo.upsert_catalog([updated_item], fetched_at=fetched_at)
     await db_session.commit()
     db_session.expire_all()
 
