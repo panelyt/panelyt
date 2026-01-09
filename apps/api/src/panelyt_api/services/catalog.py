@@ -112,6 +112,7 @@ async def search_biomarkers(
             or_(
                 name_lower.like(contains_pattern),
                 elab_lower.like(contains_pattern),
+                slug_lower.like(contains_pattern),
                 alias_lower.like(contains_pattern),
             )
         )

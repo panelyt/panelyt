@@ -164,6 +164,22 @@ class TestCatalogService:
         assert len(result.results) == 1
         assert result.results[0].elab_code == "LDL"
 
+    async def test_search_biomarkers_matches_slug(self, db_session):
+        """Search should match on biomarker slug."""
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                {"id": 1, "name": "LDL cholesterol", "elab_code": "LDL", "slug": "ldl-cholesterol"}
+            )
+        )
+        await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=1251, price=1050)
+        await db_session.commit()
+
+        result = await catalog.search_biomarkers(db_session, "ldl-chol")
+
+        assert len(result.results) == 1
+        assert result.results[0].slug == "ldl-cholesterol"
+
     async def test_search_biomarkers_with_aliases(self, db_session):
         """Test biomarker search includes aliases."""
         # Add test biomarker
