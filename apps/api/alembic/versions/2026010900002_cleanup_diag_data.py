@@ -18,8 +18,8 @@ branch_labels = None
 depends_on = None
 
 
-def _delete_alab_raw_snapshots(bind) -> None:
-    bind.execute(sa.text("DELETE FROM raw_snapshot WHERE source LIKE 'alab:%'"))
+def _delete_non_diag_raw_snapshots(bind) -> None:
+    bind.execute(sa.text("DELETE FROM raw_snapshot WHERE source NOT LIKE 'diag:%'"))
 
 
 def _delete_orphan_biomarkers(bind) -> None:
@@ -44,7 +44,7 @@ def _delete_orphan_biomarkers(bind) -> None:
 
 def upgrade() -> None:
     bind = op.get_bind()
-    _delete_alab_raw_snapshots(bind)
+    _delete_non_diag_raw_snapshots(bind)
     _delete_orphan_biomarkers(bind)
     op.create_index("ix_user_session_expires_at", "user_session", ["expires_at"])
     op.create_index(

@@ -26,7 +26,7 @@ def _load_migration_module():
     return module
 
 
-async def test_cleanup_migration_prunes_orphans_and_alab_snapshots(db_session):
+async def test_cleanup_migration_prunes_orphans_and_non_diag_snapshots(db_session):
     module = _load_migration_module()
 
     user = models.UserAccount(id="user-1")
@@ -69,7 +69,7 @@ async def test_cleanup_migration_prunes_orphans_and_alab_snapshots(db_session):
         sort_order=0,
     )
 
-    raw_alab = models.RawSnapshot(source="alab:catalog", payload={"source": "alab"})
+    raw_other = models.RawSnapshot(source="otherlab:catalog", payload={"source": "other"})
     raw_diag = models.RawSnapshot(source="diag:catalog", payload={"source": "diag"})
 
     db_session.add_all(
@@ -85,13 +85,13 @@ async def test_cleanup_migration_prunes_orphans_and_alab_snapshots(db_session):
             item_biomarker,
             saved_entry,
             template_entry,
-            raw_alab,
+            raw_other,
             raw_diag,
         ]
     )
     await db_session.commit()
 
-    await db_session.run_sync(module._delete_alab_raw_snapshots)
+    await db_session.run_sync(module._delete_non_diag_raw_snapshots)
     await db_session.run_sync(module._delete_orphan_biomarkers)
     await db_session.commit()
 
