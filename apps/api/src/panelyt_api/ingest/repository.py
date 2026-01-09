@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
 from typing import TypeVar
@@ -12,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from panelyt_api.core.diag import DIAG_CODE
 from panelyt_api.db import models
 from panelyt_api.ingest.types import RawDiagBiomarker, RawDiagItem
+from panelyt_api.utils.slugify import slugify_identifier_pl
 
 RetentionWindow = timedelta(days=35)
 _UPSERT_BATCH_SIZE = 500
@@ -299,22 +299,14 @@ class CatalogRepository:
         return {external_id: identifier for external_id, identifier in rows.all()}
 
 
-def _normalize_identifier(value: str | None) -> str:
-    if not value:
-        return ""
-    text = value.lower()
-    text = re.sub(r"[^a-z0-9ąęółśżźćń]+", "-", text)
-    return text.strip("-")
-
-
 def _resolve_diag_item_slug(raw_item: RawDiagItem, external_id: str) -> str:
     slug = _truncate(raw_item.slug, 255)
     if slug:
         return slug
-    name_slug = _normalize_identifier(raw_item.name)
+    name_slug = slugify_identifier_pl(raw_item.name)
     if name_slug:
         return name_slug
-    external_slug = _normalize_identifier(external_id)
+    external_slug = slugify_identifier_pl(external_id)
     if external_slug:
         return external_slug
     return f"{DIAG_CODE}-{external_id}"
@@ -324,13 +316,13 @@ def _resolve_diag_biomarker_slug(biomarker: RawDiagBiomarker) -> str:
     slug = _truncate(biomarker.slug, 255)
     if slug:
         return slug
-    name_slug = _normalize_identifier(biomarker.name)
+    name_slug = slugify_identifier_pl(biomarker.name)
     if name_slug:
         return name_slug
-    code_slug = _normalize_identifier(biomarker.elab_code)
+    code_slug = slugify_identifier_pl(biomarker.elab_code)
     if code_slug:
         return code_slug
-    external_slug = _normalize_identifier(biomarker.external_id)
+    external_slug = slugify_identifier_pl(biomarker.external_id)
     if external_slug:
         return external_slug
     return f"{DIAG_CODE}-{biomarker.external_id}"

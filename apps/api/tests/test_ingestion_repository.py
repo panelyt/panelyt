@@ -6,7 +6,8 @@ import pytest
 from sqlalchemy import func, select
 
 from panelyt_api.db import models
-from panelyt_api.ingest.repository import CatalogRepository, _normalize_identifier
+from panelyt_api.ingest.repository import CatalogRepository
+from panelyt_api.utils.slugify import slugify_identifier_pl
 from panelyt_api.ingest.types import RawDiagBiomarker, RawDiagItem
 
 
@@ -45,10 +46,10 @@ async def test_upsert_diag_catalog_upserts_items_biomarkers_links_and_snapshots(
     )
     assert stored_item is not None
     stored_item_id = stored_item.id
-    assert stored_item.slug == _normalize_identifier("ALT")
+    assert stored_item.slug == slugify_identifier_pl("ALT")
 
     stored_biomarker = await db_session.scalar(
-        select(models.Biomarker).where(models.Biomarker.slug == _normalize_identifier("ALT"))
+        select(models.Biomarker).where(models.Biomarker.slug == slugify_identifier_pl("ALT"))
     )
     assert stored_biomarker is not None
     assert stored_biomarker.elab_code == "ALT"
@@ -103,7 +104,7 @@ async def test_upsert_diag_catalog_upserts_items_biomarkers_links_and_snapshots(
     assert link_count == 1
 
     ast_biomarker = await db_session.scalar(
-        select(models.Biomarker).where(models.Biomarker.slug == _normalize_identifier("AST"))
+        select(models.Biomarker).where(models.Biomarker.slug == slugify_identifier_pl("AST"))
     )
     assert ast_biomarker is not None
 
