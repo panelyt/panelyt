@@ -143,4 +143,26 @@ describe('SelectedBiomarkers', () => {
 
     expect(mockOnClearAll).toHaveBeenCalledTimes(1)
   })
+
+  it('truncates long biomarker names and reveals the full name on hover', async () => {
+    const user = userEvent.setup()
+    const longName =
+      'Very long biomarker name that should be truncated to keep chips compact'
+
+    renderWithIntl(
+      <SelectedBiomarkers
+        biomarkers={[{ code: 'LONG', name: longName }]}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
+    )
+
+    const name = screen.getByText(longName)
+    expect(name).toHaveClass('truncate')
+
+    await user.hover(name)
+    expect(
+      await screen.findByRole('tooltip', { name: longName }),
+    ).toBeInTheDocument()
+  })
 })
