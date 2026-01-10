@@ -194,6 +194,8 @@
     "sortCount": "Liczba biomarkerów",
     "sortTotal": "Aktualna suma",
     "showInactive": "Pokaż nieaktywne",
+    "apply": "Zastosuj",
+    "applyMenu": "Opcje zastosowania",
     "resultsCount": "{count, plural, one {# szablon} few {# szablony} many {# szablonów} other {# szablonów}}",
     "clearFilters": "Wyczyść filtry",
     "columnName": "Szablon",

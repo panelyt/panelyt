@@ -194,6 +194,8 @@
     "sortCount": "Biomarker count",
     "sortTotal": "Current total",
     "showInactive": "Show inactive",
+    "apply": "Apply",
+    "applyMenu": "Apply options",
     "resultsCount": "{count, plural, one {# template} other {# templates}}",
     "clearFilters": "Clear filters",
     "columnName": "Template",
