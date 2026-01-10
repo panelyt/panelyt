@@ -112,6 +112,7 @@ async def search_biomarkers(
             or_(
                 name_lower.like(contains_pattern),
                 elab_lower.like(contains_pattern),
+                slug_lower.like(contains_pattern),
                 alias_lower.like(contains_pattern),
             )
         )
@@ -127,11 +128,11 @@ async def search_biomarkers(
 
     rows = (await session.execute(statement)).all()
     results = [row[0] for row in rows]
-    lab_price_map = await _fetch_lab_prices(session, [row.id for row in results])
+    price_map = await _fetch_prices(session, [row.id for row in results])
     payload = []
     for row in results:
-        prices = lab_price_map.get(row.id)
-        if not prices:
+        price_now = price_map.get(row.id)
+        if price_now is None:
             continue
         payload.append(
             BiomarkerOut(
@@ -139,7 +140,7 @@ async def search_biomarkers(
                 name=row.name,
                 elab_code=row.elab_code,
                 slug=row.slug,
-                lab_prices=prices,
+                price_now_grosz=price_now,
             )
         )
     return BiomarkerSearchResponse(results=payload)
@@ -161,7 +162,7 @@ async def search_catalog(
             name=item.name,
             elab_code=item.elab_code,
             slug=item.slug,
-            lab_prices=item.lab_prices,
+            price_now_grosz=item.price_now_grosz,
         )
         for item in biomarker_response.results
     ]
@@ -180,28 +181,49 @@ async def search_catalog(
     return CatalogSearchResponse(results=[*biomarker_results, *template_results])
 
 
-async def _fetch_lab_prices(
+async def _fetch_prices(
     session: AsyncSession, biomarker_ids: Sequence[int]
-) -> dict[int, dict[str, int]]:
+) -> dict[int, int]:
     if not biomarker_ids:
         return {}
 
+    # Prefer min price among available singles, fallback to min among all available items.
     statement = (
         select(
             models.ItemBiomarker.biomarker_id,
-            models.Lab.code,
             func.min(models.Item.price_now_grosz).label("min_price"),
         )
         .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
-        .join(models.Lab, models.Lab.id == models.Item.lab_id)
         .where(models.ItemBiomarker.biomarker_id.in_(biomarker_ids))
         .where(models.Item.is_available.is_(True))
         .where(models.Item.price_now_grosz > 0)
-        .group_by(models.ItemBiomarker.biomarker_id, models.Lab.code)
+        .where(models.Item.kind == "single")
+        .group_by(models.ItemBiomarker.biomarker_id)
     )
 
     rows = await session.execute(statement)
-    mapping: dict[int, dict[str, int]] = {}
-    for biomarker_id, lab_code, min_price in rows.all():
-        mapping.setdefault(int(biomarker_id), {})[str(lab_code)] = int(min_price)
+    mapping: dict[int, int] = {
+        int(biomarker_id): int(min_price) for biomarker_id, min_price in rows.all()
+    }
+
+    remaining_ids = [bid for bid in biomarker_ids if bid not in mapping]
+    if not remaining_ids:
+        return mapping
+
+    fallback_statement = (
+        select(
+            models.ItemBiomarker.biomarker_id,
+            func.min(models.Item.price_now_grosz).label("min_price"),
+        )
+        .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
+        .where(models.ItemBiomarker.biomarker_id.in_(remaining_ids))
+        .where(models.Item.is_available.is_(True))
+        .where(models.Item.price_now_grosz > 0)
+        .group_by(models.ItemBiomarker.biomarker_id)
+    )
+
+    fallback_rows = await session.execute(fallback_statement)
+    for biomarker_id, min_price in fallback_rows.all():
+        mapping[int(biomarker_id)] = int(min_price)
+
     return mapping

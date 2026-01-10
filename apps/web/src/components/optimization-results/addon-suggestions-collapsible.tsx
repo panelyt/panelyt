@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useId, useState, useEffect } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
 import { ChevronDown, ChevronUp, Plus, Sparkles, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -8,6 +8,28 @@ import { useTranslations } from "next-intl";
 import { formatCurrency } from "../../lib/format";
 
 const STORAGE_KEY = "panelyt:addons-expanded";
+
+const readExpansionState = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
+
+const persistExpansionState = (value: boolean) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(STORAGE_KEY, String(value));
+  } catch {
+    // Ignore storage errors (e.g., private mode restrictions).
+  }
+};
 
 interface AddonSuggestionsCollapsibleProps {
   suggestions?: OptimizeResponse["addon_suggestions"];
@@ -23,13 +45,11 @@ export function AddonSuggestionsCollapsible({
   isDark = true,
 }: AddonSuggestionsCollapsibleProps) {
   const t = useTranslations();
-  const [isExpanded, setIsExpanded] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(STORAGE_KEY) === "true";
-  });
+  const [isExpanded, setIsExpanded] = useState(readExpansionState);
+  const contentId = useId();
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(isExpanded));
+    persistExpansionState(isExpanded);
   }, [isExpanded]);
 
   // Don't render if no suggestions and not loading
@@ -78,6 +98,8 @@ export function AddonSuggestionsCollapsible({
         className={`flex w-full items-center justify-between gap-4 rounded-xl px-3 py-2.5 text-left transition ${
           isDark ? "hover:bg-slate-800/30" : "hover:bg-slate-100"
         }`}
+        aria-expanded={isExpanded}
+        aria-controls={contentId}
       >
         <div className="flex items-center gap-3">
           <span
@@ -88,7 +110,7 @@ export function AddonSuggestionsCollapsible({
             }`}
           >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
             ) : (
               <Plus className="h-4 w-4" />
             )}
@@ -127,7 +149,8 @@ export function AddonSuggestionsCollapsible({
       </button>
 
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+        id={contentId}
+        className={`overflow-hidden transition-all duration-300 ease-in-out motion-reduce:transition-none ${
           isExpanded ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0"
         }`}
       >

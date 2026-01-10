@@ -23,8 +23,6 @@ function makeOptimizeResponse(overrides: OptimizeResponseOverrides): OptimizeRes
       biomarkers = ['ALT'],
       url = 'https://example.com',
       on_sale = false,
-      lab_code = 'diag',
-      lab_name = 'Diagnostyka',
       ...restItem
     } = item
 
@@ -39,8 +37,6 @@ function makeOptimizeResponse(overrides: OptimizeResponseOverrides): OptimizeRes
       biomarkers,
       url,
       on_sale,
-      lab_code,
-      lab_name,
       ...restItem,
     } as OptimizeResponse['items'][number]
   })
@@ -53,13 +49,7 @@ function makeOptimizeResponse(overrides: OptimizeResponseOverrides): OptimizeRes
     bonus_total_now: 0,
     explain: {},
     uncovered: [],
-    lab_code: 'diag',
-    lab_name: 'Diagnostyka',
-    exclusive: {},
     labels: {},
-    mode: 'auto',
-    lab_options: [],
-    lab_selections: [],
     addon_suggestions: [],
     ...rest,
   }
@@ -74,9 +64,6 @@ describe('buildOptimizationViewModel', () => {
       labels: {
         ALT: 'Alanine aminotransferase',
         AST: 'Aspartate aminotransferase',
-      },
-      exclusive: {
-        GLU: 'Diagnostyka',
       },
       items: [
         {
@@ -129,8 +116,6 @@ describe('buildOptimizationViewModel', () => {
     expect(viewModel.pricing.highlightSavings).toBe(true)
     expect(viewModel.counts.packages).toBe(2)
     expect(viewModel.counts.onSale).toBe(1)
-    expect(viewModel.exclusive.biomarkers[0]?.code).toBe('GLU')
-    expect(viewModel.exclusive.biomarkers[0]?.displayName).toBe('Glucose')
     expect(viewModel.overlaps[0]?.code).toBe('ALT')
     expect(viewModel.overlaps[0]?.packages).toEqual(['Liver Panel', 'Metabolic Panel'])
     expect(viewModel.displayNameFor('GLU')).toBe('Glucose')

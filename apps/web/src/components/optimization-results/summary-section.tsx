@@ -3,19 +3,15 @@
 import { Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import type { LabChoiceCard } from "./types";
 import type { OptimizationViewModel } from "./view-model";
-import { ExclusiveSection } from "./exclusive-section";
-import { LabCardGrid } from "./lab-card-grid";
 import { OverlapSection } from "./overlap-section";
 import { SummaryStatsGrid } from "./summary-stats";
 
 interface SummarySectionProps {
   viewModel: OptimizationViewModel;
-  labCards: LabChoiceCard[];
 }
 
-export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
+export function SummarySection({ viewModel }: SummarySectionProps) {
   const t = useTranslations();
   const { isDark, selected, bonusBiomarkers, bonusPricing } = viewModel;
 
@@ -66,10 +62,6 @@ export function SummarySection({ viewModel, labCards }: SummarySectionProps) {
       </div>
 
       <SummaryStatsGrid viewModel={viewModel} />
-
-      <LabCardGrid labCards={labCards} isDark={isDark} />
-
-      <ExclusiveSection viewModel={viewModel} />
 
       <OverlapSection viewModel={viewModel} />
     </section>

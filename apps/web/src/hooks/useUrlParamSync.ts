@@ -26,6 +26,10 @@ export interface UseUrlParamSyncOptions {
   onLoadList: (list: SavedList) => void;
   /** Called when an error occurs */
   onError: (message: string) => void;
+  /** Whether the user is authenticated */
+  isAuthenticated: boolean;
+  /** Called when authentication is required */
+  onRequireAuth?: () => void;
   /** User's saved lists (for ?list= param matching) */
   savedLists: SavedList[];
   /** Whether saved lists are still loading */
@@ -43,12 +47,15 @@ export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
     onLoadShared,
     onLoadList,
     onError,
+    isAuthenticated,
+    onRequireAuth,
     savedLists,
     isFetchingSavedLists,
   } = options;
 
   const router = useRouter();
   const handledListIdRef = useRef<string | null>(null);
+  const promptedListIdRef = useRef<string | null>(null);
 
   // Handle ?template= parameter
   useEffect(() => {
@@ -152,6 +159,13 @@ export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
     if (!listId) {
       return;
     }
+    if (!isAuthenticated) {
+      if (promptedListIdRef.current !== listId) {
+        onRequireAuth?.();
+        promptedListIdRef.current = listId;
+      }
+      return;
+    }
     if (isFetchingSavedLists) {
       return;
     }
@@ -166,5 +180,12 @@ export function useUrlParamSync(options: UseUrlParamSyncOptions): void {
     params.delete("list");
     const query = params.toString();
     router.replace(query ? `/?${query}` : "/", { scroll: false });
-  }, [savedLists, isFetchingSavedLists, onLoadList, router]);
+  }, [
+    savedLists,
+    isFetchingSavedLists,
+    onLoadList,
+    router,
+    isAuthenticated,
+    onRequireAuth,
+  ]);
 }

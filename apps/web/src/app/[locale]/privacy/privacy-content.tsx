@@ -8,65 +8,76 @@ export default function PrivacyContent() {
   const t = useTranslations("privacy");
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-app text-primary">
       <Header />
 
       <section className="pb-16 pt-8">
-        <div className="mx-auto max-w-3xl px-6">
-          <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
-          <p className="mt-2 text-sm text-slate-400">
+        <div className="mx-auto max-w-2xl px-6">
+          <h1 className="text-3xl font-semibold text-primary">{t("title")}</h1>
+          <p className="mt-2 text-sm text-secondary">
             {t("lastUpdated", { date: "December 2025" })}
           </p>
 
-          <div className="mt-8 space-y-8 text-slate-300">
-            <p>{t("intro")}</p>
+          <div className="mt-8 space-y-6 text-sm text-secondary">
+            <p className="leading-relaxed">{t("intro")}</p>
 
-            <section>
-              <h2 className="text-lg font-semibold text-white">{t("analyticsTitle")}</h2>
-              <p className="mt-2">{t("analyticsText")}</p>
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-primary">
+                {t("analyticsTitle")}
+              </h2>
+              <p className="leading-relaxed">{t("analyticsText")}</p>
             </section>
 
-            <section>
-              <h2 className="text-lg font-semibold text-white">{t("accountDataTitle")}</h2>
-              <p className="mt-2">{t("accountDataText")}</p>
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-primary">
+                {t("accountDataTitle")}
+              </h2>
+              <p className="leading-relaxed">{t("accountDataText")}</p>
             </section>
 
-            <section>
-              <h2 className="text-lg font-semibold text-white">{t("savedListsTitle")}</h2>
-              <p className="mt-2">{t("savedListsText")}</p>
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-primary">
+                {t("savedListsTitle")}
+              </h2>
+              <p className="leading-relaxed">{t("savedListsText")}</p>
             </section>
 
-            <section>
-              <h2 className="text-lg font-semibold text-white">{t("telegramTitle")}</h2>
-              <p className="mt-2">{t("telegramText")}</p>
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-primary">
+                {t("telegramTitle")}
+              </h2>
+              <p className="leading-relaxed">{t("telegramText")}</p>
             </section>
 
-            <section>
-              <h2 className="text-lg font-semibold text-white">{t("dataRetentionTitle")}</h2>
-              <p className="mt-2">{t("dataRetentionText")}</p>
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-primary">
+                {t("dataRetentionTitle")}
+              </h2>
+              <p className="leading-relaxed">{t("dataRetentionText")}</p>
             </section>
 
-            <section>
-              <h2 className="text-lg font-semibold text-white">{t("thirdPartiesTitle")}</h2>
-              <p className="mt-2">{t("thirdPartiesText")}</p>
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-primary">
+                {t("thirdPartiesTitle")}
+              </h2>
+              <p className="leading-relaxed">{t("thirdPartiesText")}</p>
             </section>
 
-            <section>
-              <h2 className="text-lg font-semibold text-white">{t("yourRightsTitle")}</h2>
-              <p className="mt-2">{t("yourRightsText")}</p>
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-primary">
+                {t("yourRightsTitle")}
+              </h2>
+              <p className="leading-relaxed">{t("yourRightsText")}</p>
             </section>
 
-            <section>
-              <h2 className="text-lg font-semibold text-white">{t("contactTitle")}</h2>
-              <p className="mt-2">
+            <section className="space-y-2">
+              <h2 className="text-base font-semibold text-primary">
+                {t("contactTitle")}
+              </h2>
+              <p className="leading-relaxed">
                 {t.rich("contactText", {
                   email: (chunks) => (
-                    <a
-                      href="mailto:contact@panelyt.com"
-                      className="text-emerald-400 hover:text-emerald-300"
-                    >
-                      {chunks}
-                    </a>
+                    <a href="mailto:contact@panelyt.com">{chunks}</a>
                   ),
                 })}
               </p>

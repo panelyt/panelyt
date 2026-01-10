@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy import insert, select
+from sqlalchemy import insert
 
 from panelyt_api.db import models
 
@@ -24,7 +24,7 @@ def clear_user_activity_debouncer():
 def activity_spy(monkeypatch) -> AsyncMock:
     spy = AsyncMock(return_value=None)
     monkeypatch.setattr(
-        "panelyt_api.ingest.repository.IngestionRepository.record_user_activity",
+        "panelyt_api.ingest.repository.CatalogRepository.record_user_activity",
         spy,
     )
     return spy
@@ -55,22 +55,6 @@ class TestHealthEndpoints:
 
 
 class TestCatalogEndpoints:
-    async def _ensure_lab(self, session):
-        existing = await session.scalar(select(models.Lab.id).where(models.Lab.id == 1))
-        if existing is not None:
-            return
-        await session.execute(
-            insert(models.Lab).values(
-                {
-                    "id": 1,
-                    "code": "diag",
-                    "name": "Diagnostyka",
-                    "slug": "diag",
-                    "timezone": "Europe/Warsaw",
-                }
-            )
-        )
-
     async def _attach_item(
         self,
         session,
@@ -78,15 +62,12 @@ class TestCatalogEndpoints:
         *,
         item_id: int,
         price: int = 1000,
-        lab_id: int = 1,
     ) -> None:
-        await self._ensure_lab(session)
         now = datetime.now(timezone.utc)
         await session.execute(
             insert(models.Item).values(
                 {
                     "id": item_id,
-                    "lab_id": lab_id,
                     "external_id": f"item-{item_id}",
                     "kind": "single",
                     "name": f"Item {item_id}",
@@ -120,7 +101,6 @@ class TestCatalogEndpoints:
         mock_ensure_fresh.return_value = None
 
         # Add some test data
-        await self._ensure_lab(db_session)
         await db_session.execute(
             insert(models.Biomarker).values([
                 {"name": "ALT", "elab_code": "ALT", "slug": "alt"},
@@ -132,7 +112,6 @@ class TestCatalogEndpoints:
             insert(models.Item).values([
                 {
                     "id": 1,
-                    "lab_id": 1,
                     "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
@@ -370,7 +349,6 @@ class TestOptimizeEndpoint:
             insert(models.Item).values([
                 {
                     "id": 1,
-                    "lab_id": 1,
                     "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
@@ -382,7 +360,6 @@ class TestOptimizeEndpoint:
                 },
                 {
                     "id": 2,
-                    "lab_id": 1,
                     "external_id": "item-2",
                     "kind": "package",
                     "name": "Liver Panel",
@@ -419,9 +396,17 @@ class TestOptimizeEndpoint:
         assert data["items"][0]["kind"] == "package"
         assert "url" in data["items"][0]
         assert data["uncovered"] == []
-        assert data["lab_code"] == "diag"
-        assert data["lab_name"]
-        assert isinstance(data["exclusive"], dict)
+        assert set(data.keys()) == {
+            "total_now",
+            "total_min30",
+            "currency",
+            "items",
+            "bonus_total_now",
+            "explain",
+            "uncovered",
+            "labels",
+            "addon_suggestions",
+        }
 
         # Check explanation
         assert "ALT" in data["explain"]
@@ -435,71 +420,15 @@ class TestOptimizeEndpoint:
         self,
         mock_ensure_fresh,
         async_client: AsyncClient,
-        db_session,
         activity_spy: AsyncMock,
     ):
-        """Test compare endpoint returns auto/split/by-lab bundle."""
+        """Test compare endpoint is removed."""
         mock_ensure_fresh.return_value = None
-
-        await db_session.execute(
-            insert(models.Biomarker).values(
-                [
-                    {"id": 10, "name": "ALT", "elab_code": "ALT", "slug": "alt"},
-                    {"id": 11, "name": "AST", "elab_code": "AST", "slug": "ast"},
-                ]
-            )
-        )
-        await db_session.execute(
-            insert(models.Item).values(
-                [
-                    {
-                        "id": 10,
-                        "lab_id": 1,
-                        "external_id": "item-10",
-                        "kind": "single",
-                        "name": "ALT Test",
-                        "slug": "alt-test",
-                        "price_now_grosz": 1000,
-                        "price_min30_grosz": 900,
-                        "currency": "PLN",
-                        "is_available": True,
-                    },
-                    {
-                        "id": 11,
-                        "lab_id": 1,
-                        "external_id": "item-11",
-                        "kind": "single",
-                        "name": "AST Test",
-                        "slug": "ast-test",
-                        "price_now_grosz": 1200,
-                        "price_min30_grosz": 1100,
-                        "currency": "PLN",
-                        "is_available": True,
-                    },
-                ]
-            )
-        )
-        await db_session.execute(
-            insert(models.ItemBiomarker).values(
-                [
-                    {"item_id": 10, "biomarker_id": 10},
-                    {"item_id": 11, "biomarker_id": 11},
-                ]
-            )
-        )
-        await db_session.commit()
 
         payload = {"biomarkers": ["ALT", "AST"]}
         response = await async_client.post("/optimize/compare", json=payload)
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["auto"]["mode"] == "auto"
-        assert data["split"]["mode"] == "split"
-        assert "diag" in data["by_lab"]
-        assert data["by_lab"]["diag"]["mode"] == "single_lab"
-        assert any(option["code"] == "diag" for option in data["lab_options"])
-        activity_spy.assert_awaited_once()
+        assert response.status_code == 404
+        activity_spy.assert_not_called()
 
     async def test_optimize_invalid_payload(self, async_client: AsyncClient):
         """Test optimization with invalid payload."""
@@ -534,7 +463,6 @@ class TestOptimizeEndpoint:
             insert(models.Item).values([
                 {
                     "id": 1,
-                    "lab_id": 1,
                     "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
@@ -566,5 +494,4 @@ class TestOptimizeEndpoint:
         assert data["items"][0]["name"] == "ALT Test"
         assert data["uncovered"] == ["UNKNOWN_BIOMARKER"]
         assert "ALT" in data["explain"]
-        assert data["lab_code"] == "diag"
         activity_spy.assert_awaited_once()

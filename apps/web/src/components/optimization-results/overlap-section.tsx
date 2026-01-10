@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown, ChevronUp, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -14,6 +14,7 @@ export function OverlapSection({ viewModel }: OverlapSectionProps) {
   const t = useTranslations();
   const { overlaps, isDark } = viewModel;
   const [isExpanded, setIsExpanded] = useState(false); // Collapsed by default
+  const contentId = useId();
 
   if (overlaps.length === 0) {
     return null;
@@ -29,6 +30,8 @@ export function OverlapSection({ viewModel }: OverlapSectionProps) {
         type="button"
         onClick={() => setIsExpanded((prev) => !prev)}
         className="flex w-full items-center justify-between gap-2"
+        aria-expanded={isExpanded}
+        aria-controls={contentId}
       >
         <div className="flex flex-col gap-1 text-left sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-2">
@@ -70,6 +73,7 @@ export function OverlapSection({ viewModel }: OverlapSectionProps) {
       </button>
 
       <div
+        id={contentId}
         className={`overflow-hidden transition-all duration-300 ${
           isExpanded ? "mt-4 max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
         }`}

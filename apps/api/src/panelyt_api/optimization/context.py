@@ -27,11 +27,6 @@ class CandidateItem:
     name: str
     slug: str
     external_id: str
-    lab_id: int
-    lab_code: str
-    lab_name: str
-    single_url_template: str | None
-    package_url_template: str | None
     price_now: int
     price_min30: int
     sale_price: int | None
@@ -55,33 +50,8 @@ class NormalizedBiomarkerInput:
 class OptimizationContext:
     resolved: list[ResolvedBiomarker]
     unresolved_inputs: list[str]
-    grouped_candidates: dict[int, list[CandidateItem]]
-    availability_map: dict[str, set[int]]
+    candidates: list[CandidateItem]
     token_to_original: dict[str, str]
-    lab_index: dict[str, int]
-
-
-@dataclass(slots=True)
-class LabSolution:
-    lab_id: int
-    total_now_grosz: int
-    response: OptimizeResponse
-    chosen_items: list[CandidateItem]
-
-
-@dataclass(slots=True)
-class MultiLabSolution:
-    total_now_grosz: int
-    response: OptimizeResponse
-    chosen_items: list[CandidateItem]
-
-
-@dataclass(slots=True)
-class LabSelectionAccumulator:
-    code: str
-    name: str
-    total_now_grosz: int = 0
-    items: int = 0
 
 
 @dataclass(slots=True)

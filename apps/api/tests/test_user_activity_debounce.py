@@ -19,9 +19,9 @@ class TestUserActivityDebounceIntegration:
         self, db_session
     ):
         """Should skip DB write if activity was recorded recently."""
-        from panelyt_api.ingest.repository import IngestionRepository
+        from panelyt_api.ingest.repository import CatalogRepository
 
-        repo = IngestionRepository(db_session)
+        repo = CatalogRepository(db_session)
 
         # Mock the actual DB write
         with patch.object(repo, "record_user_activity", new_callable=AsyncMock) as mock_record:
@@ -39,9 +39,9 @@ class TestUserActivityDebounceIntegration:
         self, db_session
     ):
         """Should record if debounce period has expired."""
-        from panelyt_api.ingest.repository import IngestionRepository
+        from panelyt_api.ingest.repository import CatalogRepository
 
-        repo = IngestionRepository(db_session)
+        repo = CatalogRepository(db_session)
 
         with patch.object(repo, "record_user_activity", new_callable=AsyncMock) as mock_record:
             from panelyt_api.core.cache import record_user_activity_debounced

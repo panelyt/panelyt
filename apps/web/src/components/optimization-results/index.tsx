@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
 import { CircleAlert, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { useBiomarkerLookup } from "../../hooks/useBiomarkerLookup";
-import type { LabChoiceCard } from "./types";
+import { track, consumeTtorDuration } from "../../lib/analytics";
 import { PriceBreakdownSection } from "./price-breakdown";
-import { LabTabs } from "./lab-tabs";
 import { AddonSuggestionsCollapsible } from "./addon-suggestions-collapsible";
 import { buildOptimizationViewModel } from "./view-model";
+import { CoverageGaps } from "../../features/optimizer/CoverageGaps";
+import { DIAG_CODE } from "../../lib/diag";
 
 export interface OptimizationResultsProps {
   selected: string[];
@@ -18,10 +19,11 @@ export interface OptimizationResultsProps {
   isLoading: boolean;
   error?: Error | null;
   variant?: "light" | "dark";
-  labCards?: LabChoiceCard[];
   addonSuggestions?: OptimizeResponse["addon_suggestions"];
   addonSuggestionsLoading?: boolean;
   onApplyAddon?: (biomarkers: { code: string; name: string }[], packageName: string) => void;
+  onRemoveFromPanel?: (code: string) => void;
+  onSearchAlternative?: (code: string) => void;
 }
 
 export function OptimizationResults({
@@ -30,12 +32,14 @@ export function OptimizationResults({
   isLoading,
   error,
   variant = "light",
-  labCards = [],
   addonSuggestions = [],
   addonSuggestionsLoading = false,
   onApplyAddon,
+  onRemoveFromPanel,
+  onSearchAlternative,
 }: OptimizationResultsProps) {
   const t = useTranslations();
+  const isDark = variant === "dark";
   const missingCodes = useMemo(() => {
     if (!result) {
       return [] as string[];
@@ -63,9 +67,45 @@ export function OptimizationResults({
     [selected, result, variant, biomarkerLabels],
   );
 
+  const lastEventKeyRef = useRef<string | null>(null);
+  const sourceCode = useMemo(() => (result ? DIAG_CODE : ""), [result]);
+  const uncoveredCount = result?.uncovered?.length ?? 0;
+  const eventKey = useMemo(() => {
+    if (!result) return null;
+    return [sourceCode, result.total_now, uncoveredCount, selected.join(",")].join("|");
+  }, [sourceCode, result, selected, uncoveredCount]);
+
+  useEffect(() => {
+    if (!result || isLoading || error || selected.length === 0) {
+      return;
+    }
+    if (!eventKey || lastEventKeyRef.current === eventKey) {
+      return;
+    }
+    lastEventKeyRef.current = eventKey;
+    const ttorMs = consumeTtorDuration();
+    const payload: Record<string, number | string> = {
+      source: sourceCode,
+      total: result.total_now,
+      uncoveredCount,
+    };
+    if (ttorMs !== null) {
+      payload.ttorMs = ttorMs;
+    }
+    track("optimize_result_rendered", {
+      ...payload,
+    });
+  }, [eventKey, error, isLoading, sourceCode, result, selected.length, uncoveredCount]);
+
   if (selected.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/70 p-8 text-sm text-slate-200">
+      <div
+        className={`rounded-2xl border border-dashed p-8 text-sm ${
+          isDark
+            ? "border-slate-800 bg-slate-900/70 text-slate-200"
+            : "border-slate-200 bg-white text-slate-600"
+        }`}
+      >
         {t("results.emptyState")}
       </div>
     );
@@ -73,7 +113,13 @@ export function OptimizationResults({
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 text-sm text-slate-200">
+      <div
+        className={`flex items-center gap-3 rounded-2xl border p-6 text-sm ${
+          isDark
+            ? "border-slate-800 bg-slate-900/70 text-slate-200"
+            : "border-slate-200 bg-white text-slate-700"
+        }`}
+      >
         <Loader2 className="h-4 w-4 animate-spin" />
         <span>{t("results.optimizing")}</span>
       </div>
@@ -82,11 +128,19 @@ export function OptimizationResults({
 
   if (error) {
     return (
-      <div className="flex items-start gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 p-6 text-sm text-red-100">
+      <div
+        className={`flex items-start gap-3 rounded-2xl border p-6 text-sm ${
+          isDark
+            ? "border-red-500/40 bg-red-500/10 text-red-100"
+            : "border-red-200 bg-red-50 text-red-700"
+        }`}
+      >
         <CircleAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
         <div>
           <p className="font-semibold">{t("results.optimizationFailed")}</p>
-          <p className="text-xs text-red-200/80">{error.message}</p>
+          <p className={`text-xs ${isDark ? "text-red-200/80" : "text-red-600/80"}`}>
+            {error.message}
+          </p>
         </div>
       </div>
     );
@@ -98,16 +152,19 @@ export function OptimizationResults({
 
   return (
     <div className="space-y-6">
-      <LabTabs labCards={labCards} isDark={viewModel.isDark} />
       <AddonSuggestionsCollapsible
         suggestions={addonSuggestions}
         isLoading={addonSuggestionsLoading}
         onApply={onApplyAddon}
         isDark={viewModel.isDark}
       />
+      <CoverageGaps
+        uncovered={viewModel.coverage.uncoveredTokens}
+        displayNameFor={viewModel.displayNameFor}
+        onRemove={onRemoveFromPanel}
+        onSearchAlternative={onSearchAlternative}
+      />
       <PriceBreakdownSection viewModel={viewModel} />
     </div>
   );
 }
-
-export type { LabChoiceCard };

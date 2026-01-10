@@ -19,6 +19,21 @@ branch_labels = None
 depends_on = None
 
 
+def _lab_seed_rows():
+    return [
+        {
+            "id": 1,
+            "code": "diag",
+            "name": "Diagnostyka",
+            "slug": "diag",
+            "timezone": "Europe/Warsaw",
+            "website_url": "https://diag.pl",
+            "single_item_url_template": "https://diag.pl/sklep/badania/{slug}",
+            "package_item_url_template": "https://diag.pl/sklep/pakiety/{slug}",
+        },
+    ]
+
+
 def upgrade() -> None:
     op.create_table(
         "lab",
@@ -52,28 +67,7 @@ def upgrade() -> None:
 
     op.bulk_insert(
         lab_table,
-        [
-            {
-                "id": 1,
-                "code": "diag",
-                "name": "Diagnostyka",
-                "slug": "diag",
-                "timezone": "Europe/Warsaw",
-                "website_url": "https://diag.pl",
-                "single_item_url_template": "https://diag.pl/sklep/badania/{slug}",
-                "package_item_url_template": "https://diag.pl/sklep/pakiety/{slug}",
-            },
-            {
-                "id": 2,
-                "code": "alab",
-                "name": "ALAB laboratoria",
-                "slug": "alab",
-                "timezone": "Europe/Warsaw",
-                "website_url": "https://www.alablaboratoria.pl",
-                "single_item_url_template": None,
-                "package_item_url_template": None,
-            },
-        ],
+        _lab_seed_rows(),
     )
 
     bind = op.get_bind()

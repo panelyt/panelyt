@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from cachetools import TTLCache
 
 if TYPE_CHECKING:
-    from panelyt_api.ingest.repository import IngestionRepository
+    from panelyt_api.ingest.repository import CatalogRepository
     from panelyt_api.optimization.context import OptimizationContext
     from panelyt_api.schemas.common import CatalogMeta
     from panelyt_api.schemas.optimize import OptimizeResponse
@@ -63,7 +63,7 @@ class CatalogMetaCache:
 class OptimizationCache:
     """Cache for optimization results.
 
-    Results are deterministic for the same biomarker set + mode + lab_code.
+    Results are deterministic for the same biomarker set.
     Uses a 1-hour TTL since prices change at most once daily during ingestion.
     """
 
@@ -99,20 +99,10 @@ class OptimizationCache:
     def set(self, key: str, value: OptimizeResponse) -> None:
         self._cache[key] = value
 
-    def make_key(
-        self, biomarkers: Sequence[str], mode: str, lab_code: str | None
-    ) -> str:
-        """Create a cache key from optimization parameters.
-
-        Biomarkers are sorted to ensure order-independent keys.
-        """
+    def make_key(self, biomarkers: Sequence[str]) -> str:
+        """Create a cache key from optimization parameters."""
         sorted_biomarkers = sorted(b.lower().strip() for b in biomarkers)
-        key_parts = [
-            ",".join(sorted_biomarkers),
-            mode,
-            lab_code or "",
-        ]
-        key_string = "|".join(key_parts)
+        key_string = ",".join(sorted_biomarkers)
         return hashlib.sha256(key_string.encode()).hexdigest()[:32]
 
     def clear(self) -> None:
@@ -164,17 +154,13 @@ class OptimizationContextCache:
     def set(self, key: str, value: OptimizationContext) -> None:
         self._cache[key] = value
 
-    def make_key(self, biomarkers: Sequence[str], lab_code: str | None) -> str:
+    def make_key(self, biomarkers: Sequence[str]) -> str:
         """Create a cache key for context lookup.
 
-        Uses only biomarkers + lab_code (not mode) since context is mode-independent.
+        Uses only biomarkers since context is mode-independent.
         """
         sorted_biomarkers = sorted(b.lower().strip() for b in biomarkers)
-        key_parts = [
-            ",".join(sorted_biomarkers),
-            lab_code or "",
-        ]
-        key_string = "|".join(key_parts)
+        key_string = ",".join(sorted_biomarkers)
         return hashlib.sha256(key_string.encode()).hexdigest()[:32]
 
     def clear(self) -> None:
@@ -205,7 +191,7 @@ class FreshnessCache:
         if self._last_check is None:
             return True
         elapsed = datetime.now(UTC) - self._last_check
-        return elapsed > timedelta(seconds=self._ttl_seconds)
+        return elapsed >= timedelta(seconds=self._ttl_seconds)
 
     def mark_checked(self) -> None:
         self._last_check = datetime.now(UTC)
@@ -234,7 +220,7 @@ class UserActivityDebouncer:
         if self._last_record is None:
             return True
         elapsed = datetime.now(UTC) - self._last_record
-        return elapsed > timedelta(seconds=self._debounce_seconds)
+        return elapsed >= timedelta(seconds=self._debounce_seconds)
 
     def mark_recorded(self) -> None:
         self._last_record = datetime.now(UTC)
@@ -320,7 +306,7 @@ def clear_all_caches() -> None:
 
 
 async def record_user_activity_debounced(
-    repo: IngestionRepository, timestamp: datetime
+    repo: CatalogRepository, timestamp: datetime
 ) -> None:
     """Record user activity with debouncing to reduce DB writes."""
     if user_activity_debouncer.should_record():

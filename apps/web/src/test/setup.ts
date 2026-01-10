@@ -71,7 +71,26 @@ vi.mock('next/navigation', () => ({
 // Mock fetch for tests
 global.fetch = vi.fn()
 
+const jsdomCustomEvent = typeof window !== 'undefined' ? window.CustomEvent : undefined
+
+const syncCustomEvent = () => {
+  if (!jsdomCustomEvent || typeof window === 'undefined') {
+    return
+  }
+
+  // Ensure CustomEvent instances pass jsdom's Event checks (Radix focus-scope).
+  if (window.CustomEvent !== jsdomCustomEvent) {
+    window.CustomEvent = jsdomCustomEvent
+  }
+  if (globalThis.CustomEvent !== jsdomCustomEvent) {
+    globalThis.CustomEvent = jsdomCustomEvent
+  }
+}
+
+syncCustomEvent()
+
 // Clean up after each test
 afterEach(() => {
   vi.clearAllMocks()
+  syncCustomEvent()
 })

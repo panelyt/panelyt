@@ -3,7 +3,6 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-import pytest
 from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -44,6 +43,4 @@ def test_db_base_import_does_not_call_get_settings(monkeypatch) -> None:
 
 
 def test_json_columns_use_postgres_variant() -> None:
-    _assert_json_variant(models.LabBiomarker.__table__.columns.attributes)
-    _assert_json_variant(models.LabItem.__table__.columns.attributes)
     _assert_json_variant(models.RawSnapshot.__table__.columns.payload)

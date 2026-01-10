@@ -78,7 +78,6 @@ class TestDatabaseModels:
         await db_session.execute(
             insert(models.Item).values({
                 "id": 123,
-                "lab_id": 1,
                 "external_id": "123",
                 "kind": "single",
                 "name": "ALT Test",
@@ -126,7 +125,6 @@ class TestDatabaseModels:
         await db_session.execute(
             insert(models.Item).values({
                 "id": 456,
-                "lab_id": 1,
                 "external_id": "456",
                 "kind": "package",
                 "name": "Liver Panel",
@@ -170,7 +168,6 @@ class TestDatabaseModels:
         await db_session.execute(
             insert(models.Item).values({
                 "id": 789,
-                "lab_id": 1,
                 "external_id": "789",
                 "kind": "single",
                 "name": "Test Item",
@@ -188,7 +185,6 @@ class TestDatabaseModels:
         await db_session.execute(
             insert(models.PriceSnapshot).values({
                 "item_id": 789,
-                "lab_id": 1,
                 "snap_date": snap_date,
                 "price_now_grosz": 1500,
                 "is_available": True,
@@ -395,7 +391,6 @@ class TestDatabaseModels:
             insert(models.Item).values([
                 {
                     "id": 1,
-                    "lab_id": 1,
                     "external_id": "item-1",
                     "kind": "single",
                     "name": "Item 1",
@@ -408,7 +403,6 @@ class TestDatabaseModels:
                 },
                 {
                     "id": 2,
-                    "lab_id": 1,
                     "external_id": "item-2",
                     "kind": "single",
                     "name": "Item 2",

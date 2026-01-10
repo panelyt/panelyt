@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     database_url: str = Field(..., alias="DATABASE_URL")
     db_schema: str = Field(default="panelyt", alias="DB_SCHEMA")
     cors_origins_raw: str | list[str] = Field(default_factory=list, alias="CORS_ORIGINS")
-    timezone: str = Field(default="Europe/Oslo", alias="TIMEZONE")
+    timezone: str = Field(default="Europe/Warsaw", alias="TIMEZONE")
     ingestion_staleness_threshold_hours: int = Field(
         default=3, alias="INGESTION_STALENESS_THRESHOLD_HOURS"
     )

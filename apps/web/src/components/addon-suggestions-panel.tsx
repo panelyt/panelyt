@@ -2,6 +2,7 @@ import type { OptimizeResponse } from "@panelyt/types";
 import { Flame, Sparkles, Workflow } from "lucide-react";
 
 import { formatCurrency } from "../lib/format";
+import { DIAG_NAME } from "../lib/diag";
 
 interface AddonSuggestionsPanelProps {
   suggestions?: OptimizeResponse["addon_suggestions"];
@@ -86,7 +87,7 @@ export function AddonSuggestionsPanel({ suggestions = [], onApply, isLoading }: 
             Suggested add-ons
           </h3>
           <p className="text-xs text-slate-400">
-            Packages from the selected lab that unlock more biomarkers for the panel.
+            Packages that unlock more biomarkers for the panel.
           </p>
         </div>
       </div>
@@ -101,7 +102,7 @@ export function AddonSuggestionsPanel({ suggestions = [], onApply, isLoading }: 
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-wider text-slate-400">
-                  {suggestion.package.lab_name || suggestion.package.lab_code.toUpperCase()}
+                  {DIAG_NAME}
                 </p>
                 <p className="text-sm font-semibold text-white">{suggestion.package.name}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">

@@ -48,6 +48,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default function Page({ params }: PageProps) {
-  return <SharedContent params={params} />;
+export default async function Page({ params }: PageProps) {
+  const { shareToken } = await params;
+  return <SharedContent shareToken={shareToken} />;
 }

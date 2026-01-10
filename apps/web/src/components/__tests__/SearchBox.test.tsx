@@ -1,6 +1,6 @@
 import { screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { vi } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import { SearchBox } from '../search-box'
 import { renderWithQueryClient } from '../../test/utils'
 
@@ -36,10 +36,7 @@ describe('SearchBox', () => {
     name: 'Alanine aminotransferase',
     elab_code: 'ALT',
     slug: 'alt',
-    lab_prices: {
-      diag: 1000,
-      alab: 1250,
-    },
+    price_now_grosz: 1000,
   }
 
   const templateSuggestion = {
@@ -56,17 +53,25 @@ describe('SearchBox', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
     useDebounceMock.mockImplementation((value: string) => value)
     mockUseCatalogSearch.mockImplementation(() => createSearchResult())
   })
 
-  it('renders search input and action button', () => {
+  afterEach(() => {
+    delete document.body.dataset.searchHotkeyScope
+  })
+
+  it('renders the search input', () => {
     renderWithQueryClient(
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    expect(screen.getByPlaceholderText('Search biomarkers to add...')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Add to panel' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('combobox', { name: 'Search tests to add...' }),
+    ).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search tests to add...')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Use in Builder' })).not.toBeInTheDocument()
   })
 
   it('updates the query when the user types', async () => {
@@ -75,28 +80,34 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers to add...')
+    const input = screen.getByPlaceholderText('Search tests to add...')
     await user.type(input, 'ALT')
 
     expect(input).toHaveValue('ALT')
   })
 
-  it('renders biomarker suggestions when available', () => {
+  it('renders grouped suggestions when available', () => {
     mockUseCatalogSearch.mockImplementation(() =>
-      createSearchResult({ data: { results: [biomarkerSuggestion] } }),
+      createSearchResult({
+        data: { results: [biomarkerSuggestion, templateSuggestion] },
+      }),
     )
 
     renderWithQueryClient(
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search tests to add...'), {
       target: { value: 'AL' },
     })
 
+    expect(screen.getByText('Tests')).toBeInTheDocument()
+    expect(screen.getByText('Curated Panels')).toBeInTheDocument()
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    expect(screen.getAllByRole('option')).toHaveLength(2)
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
-    expect(screen.getByText('DIAG: 10,00 zł')).toBeInTheDocument()
-    expect(screen.getByText('ALAB: 12,50 zł')).toBeInTheDocument()
+    expect(screen.getByText('10,00 zł')).toBeInTheDocument()
+    expect(screen.getByText('Liver bundle')).toBeInTheDocument()
   })
 
   it('calls onSelect when a biomarker suggestion is clicked', async () => {
@@ -109,11 +120,13 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search tests to add...'), {
       target: { value: 'ALT' },
     })
 
-    await user.click(screen.getByText('Alanine aminotransferase'))
+    await user.click(
+      screen.getByRole('option', { name: /Alanine aminotransferase/ }),
+    )
 
     expect(onSelect).toHaveBeenCalledWith({
       code: 'ALT',
@@ -132,11 +145,11 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search tests to add...'), {
       target: { value: 'Liver' },
     })
 
-    await user.click(screen.getByText('Liver bundle'))
+    await user.click(screen.getByRole('option', { name: /Liver bundle/ }))
 
     expect(onTemplateSelect).toHaveBeenCalledWith({
       slug: 'liver-bundle',
@@ -154,7 +167,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers to add...')
+    const input = screen.getByPlaceholderText('Search tests to add...')
     fireEvent.change(input, { target: { value: 'ALT' } })
 
     await screen.findByText('Alanine aminotransferase')
@@ -167,16 +180,128 @@ describe('SearchBox', () => {
     })
   })
 
-  it('falls back to manual entry when no suggestions exist', async () => {
+  it('pressing Enter selects the top suggestion when none is highlighted', async () => {
+    mockUseCatalogSearch.mockImplementation(() =>
+      createSearchResult({ data: { results: [biomarkerSuggestion] } }),
+    )
+
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    const input = screen.getByPlaceholderText('Search tests to add...')
+    fireEvent.change(input, { target: { value: 'ALT' } })
+    await screen.findByText('Alanine aminotransferase')
+
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(onSelect).toHaveBeenCalledWith({
+      code: 'ALT',
+      name: 'Alanine aminotransferase',
+    })
+  })
+
+  it('shows a hint and does nothing when Enter is pressed without suggestions', async () => {
     const user = userEvent.setup()
     renderWithQueryClient(
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers to add...')
+    const input = screen.getByPlaceholderText('Search tests to add...')
     await user.type(input, 'custom')
-    await user.click(screen.getByRole('button', { name: 'Add to panel' }))
+    fireEvent.keyDown(input, { key: 'Enter' })
 
-    expect(onSelect).toHaveBeenCalledWith({ code: 'CUSTOM', name: 'custom' })
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(onTemplateSelect).not.toHaveBeenCalled()
+    expect(screen.getByText('Select a suggestion to add it.')).toBeInTheDocument()
+  })
+
+  it('focuses the search input when pressing "/" outside of inputs', () => {
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    const input = screen.getByRole('combobox')
+    expect(input).not.toHaveFocus()
+
+    fireEvent.keyDown(window, { key: '/' })
+
+    expect(input).toHaveFocus()
+  })
+
+  it('does not steal focus when typing in another input', () => {
+    renderWithQueryClient(
+      <div>
+        <input aria-label="Other input" />
+        <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />
+      </div>,
+    )
+
+    const otherInput = screen.getByLabelText('Other input')
+    otherInput.focus()
+
+    fireEvent.keyDown(otherInput, { key: '/' })
+
+    expect(otherInput).toHaveFocus()
+  })
+
+  it('skips the "/" hotkey when a different scope is active', () => {
+    document.body.dataset.searchHotkeyScope = 'panel-tray'
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    const input = screen.getByRole('combobox')
+
+    fireEvent.keyDown(window, { key: '/' })
+
+    expect(input).not.toHaveFocus()
+  })
+
+  it('focuses when the active scope matches', () => {
+    document.body.dataset.searchHotkeyScope = 'panel-tray'
+    renderWithQueryClient(
+      <SearchBox
+        onSelect={onSelect}
+        onTemplateSelect={onTemplateSelect}
+        hotkeyScope="panel-tray"
+      />,
+    )
+
+    const input = screen.getByRole('combobox')
+
+    fireEvent.keyDown(window, { key: '/' })
+
+    expect(input).toHaveFocus()
+  })
+
+  it('hides the inline hint after a successful add and keeps it hidden for the session', async () => {
+    const user = userEvent.setup()
+    mockUseCatalogSearch.mockImplementation(() =>
+      createSearchResult({ data: { results: [biomarkerSuggestion] } }),
+    )
+
+    const { unmount } = renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    expect(screen.getByText('Enter')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText('Search tests to add...'), {
+      target: { value: 'ALT' },
+    })
+    await user.click(
+      await screen.findByRole('option', { name: /Alanine aminotransferase/ }),
+    )
+
+    expect(screen.queryByText('Enter')).not.toBeInTheDocument()
+
+    unmount()
+
+    renderWithQueryClient(
+      <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+    )
+
+    expect(screen.queryByText('Enter')).not.toBeInTheDocument()
   })
 })

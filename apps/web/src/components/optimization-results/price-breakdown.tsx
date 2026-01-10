@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Sparkles, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { formatGroszToPln, formatCurrency } from "../../lib/format";
+import { cn } from "../../lib/cn";
+import { Card } from "../../ui/card";
 
 import type { OptimizationViewModel } from "./view-model";
 
@@ -19,13 +22,41 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
     groups,
     selectedSet,
     displayNameFor,
-    totalNowGrosz,
-    totalMin30Grosz,
     counts,
     result,
     pricing,
     overlaps,
   } = viewModel;
+
+  const [isHighlighting, setIsHighlighting] = useState(false);
+  const previousTotalRef = useRef<number | null>(null);
+  const highlightTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const previousTotal = previousTotalRef.current;
+    if (previousTotal === null) {
+      previousTotalRef.current = result.total_now;
+      return;
+    }
+
+    if (previousTotal !== result.total_now) {
+      previousTotalRef.current = result.total_now;
+      setIsHighlighting(true);
+      if (highlightTimerRef.current !== null) {
+        window.clearTimeout(highlightTimerRef.current);
+      }
+      highlightTimerRef.current = window.setTimeout(() => {
+        setIsHighlighting(false);
+      }, 200);
+    }
+
+    return () => {
+      if (highlightTimerRef.current !== null) {
+        window.clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = null;
+      }
+    };
+  }, [result.total_now]);
 
   // Create a map of biomarker code -> other packages it appears in
   const overlapMap = new Map<string, string[]>();
@@ -33,29 +64,25 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
     overlapMap.set(overlap.code, overlap.packages);
   }
 
-  // Get lab name from result
-  const labName = result.lab_name || result.lab_code.toUpperCase();
-
   return (
-    <section
-      className={`rounded-2xl border p-4 ${
-        isDark
-          ? "border-slate-800 bg-slate-900/80"
-          : "border-slate-200 bg-white"
-      }`}
+    <Card
+      className={cn(
+        "p-5",
+        isDark ? "border-border/70 bg-surface-1" : "border-slate-200 bg-white",
+      )}
     >
       <div className="flex items-center justify-between">
         <div>
           <h2
             className={`text-lg font-semibold ${
-              isDark ? "text-white" : "text-slate-900"
+              isDark ? "text-primary" : "text-slate-900"
             }`}
           >
-            {t("optimization.orderFrom", { lab: labName })}
+            {t("optimization.orderLabel")}
           </h2>
           <p
             className={`mt-1 text-sm ${
-              isDark ? "text-slate-400" : "text-slate-500"
+              isDark ? "text-secondary" : "text-slate-500"
             }`}
           >
             {t("optimization.itemsCount", { count: counts.items })}
@@ -73,7 +100,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
           <div key={group.kind} className="space-y-3">
             <div
               className={`flex items-center justify-between text-xs uppercase tracking-wide ${
-                isDark ? "text-slate-500" : "text-slate-400"
+                isDark ? "text-secondary" : "text-slate-400"
               }`}
             >
               <span>
@@ -85,7 +112,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                 <p
                   className={`rounded-xl border border-dashed px-4 py-3 text-sm ${
                     isDark
-                      ? "border-slate-700 bg-slate-900/60 text-slate-400"
+                      ? "border-border/70 bg-surface-2/40 text-secondary"
                       : "border-slate-200 bg-white text-slate-500"
                   }`}
                 >
@@ -99,8 +126,8 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                     key={item.id}
                     className={`rounded-xl border p-4 transition ${
                       isDark
-                        ? "border-slate-800 bg-slate-900/60 hover:border-emerald-400/40 hover:bg-slate-900"
-                        : "border-slate-100 bg-slate-50 hover:border-emerald-200 hover:bg-emerald-50/60"
+                        ? "border-border/70 bg-surface-2/40 hover:border-accent-emerald/40 hover:bg-surface-2"
+                        : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/50"
                     }`}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -111,7 +138,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                           rel="noreferrer"
                           className={`text-sm font-semibold ${
                             isDark
-                              ? "text-slate-100 hover:text-emerald-300"
+                              ? "text-primary hover:text-accent-emerald"
                               : "text-slate-900 hover:text-emerald-600"
                           }`}
                         >
@@ -130,7 +157,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                                       ? "bg-emerald-500/20 text-emerald-200"
                                       : "bg-emerald-200/70 text-emerald-900"
                                     : isDark
-                                      ? "bg-slate-800 text-slate-300"
+                                      ? "bg-surface-1 text-secondary"
                                       : "bg-slate-200 text-slate-700"
                                 }`}
                                 title={`${displayName} (${biomarker})${
@@ -178,15 +205,17 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                       </div>
                       <div
                         className={`text-right text-xs ${
-                          isDark ? "text-slate-400" : "text-slate-500"
+                          isDark ? "text-secondary" : "text-slate-500"
                         }`}
                       >
-                        <p className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-700"}`}>
+                        <p
+                          className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-700"}`}
+                        >
                           {t("optimization.currentLabel")}
                         </p>
                         <p
                           className={`text-sm font-semibold ${
-                            isDark ? "text-white" : "text-slate-900"
+                            isDark ? "text-primary" : "text-slate-900"
                           }`}
                         >
                           {formatGroszToPln(item.price_now_grosz)}
@@ -201,15 +230,6 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                       <p>{formatGroszToPln(item.price_min30_grosz)}</p>
                     </div>
                     </div>
-                    <div className="mt-3">
-                      <PriceComparisonBar
-                        now={item.price_now_grosz}
-                        min={item.price_min30_grosz}
-                        totalNow={totalNowGrosz}
-                        totalMin={totalMin30Grosz}
-                        variant={variant}
-                      />
-                    </div>
                   </article>
                 ))
               )}
@@ -221,21 +241,24 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
 
       {/* Total and savings footer */}
       <div
-        className={`mt-6 border-t pt-4 ${
-          isDark ? "border-slate-700" : "border-slate-200"
-        }`}
+        data-testid="price-breakdown-total"
+        className={cn(
+          "mt-6 rounded-xl border-t pt-4 transition-colors duration-200 motion-reduce:transition-none",
+          isDark ? "border-border/70" : "border-slate-200",
+          isHighlighting && "bg-accent-cyan/10 ring-1 ring-accent-cyan/40 shadow-selected",
+        )}
       >
         <div className="flex items-center justify-between">
           <span
             className={`text-sm font-semibold uppercase tracking-wide ${
-              isDark ? "text-slate-400" : "text-slate-500"
+              isDark ? "text-secondary" : "text-slate-500"
             }`}
           >
             {t("optimization.totalLabel")}
           </span>
           <span
             className={`text-2xl font-semibold ${
-              isDark ? "text-white" : "text-slate-900"
+              isDark ? "text-primary" : "text-slate-900"
             }`}
           >
             {formatCurrency(result.total_now)}
@@ -253,45 +276,6 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
           </p>
         )}
       </div>
-    </section>
-  );
-}
-
-function PriceComparisonBar({
-  now,
-  min,
-  totalNow,
-  totalMin,
-  variant = "light",
-}: {
-  now: number;
-  min: number;
-  totalNow: number;
-  totalMin: number;
-  variant?: "light" | "dark";
-}) {
-  const safeTotalNow = Math.max(totalNow, 1);
-  const safeTotalMin = Math.max(totalMin, 1);
-  const nowWidth = Math.min(100, Math.round((now / safeTotalNow) * 100));
-  const minWidth = Math.min(100, Math.round((min / safeTotalMin) * 100));
-  const isDark = variant === "dark";
-
-  return (
-    <div
-      className={`relative h-1.5 rounded-full ${
-        isDark ? "bg-slate-800" : "bg-slate-200"
-      }`}
-    >
-      <div
-        className={`absolute inset-y-0 left-0 rounded-full ${
-          isDark ? "bg-emerald-400/80" : "bg-emerald-300"
-        }`}
-        style={{ width: `${minWidth}%` }}
-      />
-      <div
-        className="relative h-full rounded-full bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500"
-        style={{ width: `${nowWidth}%` }}
-      />
-    </div>
+    </Card>
   );
 }

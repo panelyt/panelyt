@@ -48,6 +48,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default function Page({ params }: PageProps) {
-  return <TemplateDetailContent params={params} />;
+export default async function Page({ params }: PageProps) {
+  const { slug } = await params;
+  return <TemplateDetailContent slug={slug} />;
 }

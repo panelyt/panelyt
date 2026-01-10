@@ -9,11 +9,9 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy import insert, select
 
 from panelyt_api.core.settings import Settings, get_settings
 from panelyt_api.db.base import Base
-from panelyt_api.db import models
 from panelyt_api.main import create_app
 
 
@@ -29,11 +27,8 @@ def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
 def test_settings() -> Settings:
     """Test settings with SQLite database."""
     settings = Settings(
-        database_url="sqlite+aiosqlite:///test.db",
-        db_schema=None,
-        testing=True,
-        cors_origins=["http://localhost:3000"],
-        log_level="DEBUG",
+        DATABASE_URL="sqlite+aiosqlite:///test.db",
+        CORS_ORIGINS=["http://localhost:3000"],
         ADMIN_USERNAMES=["admin"],
     )
     assert settings.admin_usernames == ["admin"]
@@ -63,38 +58,6 @@ async def db_session(test_settings: Settings) -> AsyncIterator[AsyncSession]:
     if os.path.exists("test.db"):
         os.remove("test.db")
 
-
-@pytest.fixture(autouse=True)
-async def ensure_default_labs(db_session: AsyncSession):
-    existing = await db_session.scalar(select(models.Lab.id))
-    if existing:
-        return
-    await db_session.execute(
-        insert(models.Lab),
-        [
-            {
-                "id": 1,
-                "code": "diag",
-                "name": "Diagnostyka",
-                "slug": "diag",
-                "timezone": "Europe/Warsaw",
-                "website_url": "https://diag.pl",
-                "single_item_url_template": "https://diag.pl/sklep/badania/{slug}",
-                "package_item_url_template": "https://diag.pl/sklep/pakiety/{slug}",
-            },
-            {
-                "id": 2,
-                "code": "alab",
-                "name": "ALAB",
-                "slug": "alab",
-                "timezone": "Europe/Warsaw",
-                "website_url": "https://www.alablaboratoria.pl",
-                "single_item_url_template": None,
-                "package_item_url_template": None,
-            },
-        ],
-    )
-    await db_session.commit()
 
 
 @pytest.fixture
@@ -194,7 +157,7 @@ def sample_biomarkers():
 
 @pytest.fixture
 def sample_items():
-    """Sample lab items for testing."""
+    """Sample catalog items for testing."""
     return [
         {
             "id": 1,
