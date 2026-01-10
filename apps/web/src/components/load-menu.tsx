@@ -31,9 +31,9 @@ export function LoadMenu({ lists, isLoading, onSelect, disabled = false }: LoadM
           size="sm"
           type="button"
           disabled={disabled}
-          className="border-transparent text-slate-400 hover:bg-surface-2/60 hover:text-slate-200"
+          className="border-slate-500/70 bg-transparent text-slate-200 hover:border-slate-300/80 hover:bg-white/5"
         >
-          {t("common.load")}
+          {t("common.loadPanel")}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

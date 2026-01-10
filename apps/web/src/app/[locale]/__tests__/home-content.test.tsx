@@ -204,6 +204,21 @@ describe("HomeContent", () => {
     expect(rightRail).toContainElement(screen.getByTestId("optimization-results"));
   });
 
+  it("orders sticky summary actions as share then save", () => {
+    renderWithIntl(<Home />);
+
+    const bar = screen.getByTestId("sticky-summary-bar");
+    const summary = within(bar);
+    const shareButton = summary.getByRole("button", { name: /share/i });
+    const saveButton = summary.getByRole("button", {
+      name: enMessages.common.savePanel,
+    });
+
+    expect(
+      shareButton.compareDocumentPosition(saveButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("shows a toast when the share link is copied", async () => {
     const copyShareUrl = vi.fn().mockResolvedValue(true);
     mockUseUrlBiomarkerSync.mockReturnValue({
@@ -403,16 +418,23 @@ describe("HomeContent", () => {
     const leftRail = layout.querySelector('[data-slot="left"]') as HTMLElement;
     const leftActions = within(leftRail);
 
-    const saveButton = leftActions.getByRole("button", { name: enMessages.common.save });
+    const saveButton = leftActions.getByRole("button", {
+      name: enMessages.common.savePanel,
+    });
     const shareButton = leftActions.getByRole("button", { name: enMessages.common.share });
-    const loadButton = leftActions.getByRole("button", { name: enMessages.common.load });
+    const loadButton = leftActions.getByRole("button", {
+      name: enMessages.common.loadPanel,
+    });
     const moreButton = leftActions.getByRole("button", { name: enMessages.common.more });
 
     expect(
-      saveButton.compareDocumentPosition(shareButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+      moreButton.compareDocumentPosition(shareButton) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
       shareButton.compareDocumentPosition(loadButton) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      loadButton.compareDocumentPosition(saveButton) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
     expect(
@@ -449,9 +471,13 @@ describe("HomeContent", () => {
     const leftRail = layout.querySelector('[data-slot="left"]') as HTMLElement;
     const leftActions = within(leftRail);
 
-    const saveButton = leftActions.getByRole("button", { name: enMessages.common.save });
+    const saveButton = leftActions.getByRole("button", {
+      name: enMessages.common.savePanel,
+    });
     const shareButton = leftActions.getByRole("button", { name: enMessages.common.share });
-    const loadButton = leftActions.getByRole("button", { name: enMessages.common.load });
+    const loadButton = leftActions.getByRole("button", {
+      name: enMessages.common.loadPanel,
+    });
     const moreButton = leftActions.getByRole("button", { name: enMessages.common.more });
 
     expect(saveButton).toBeDisabled();

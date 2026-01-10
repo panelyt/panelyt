@@ -107,49 +107,19 @@ export function PanelActions({
   const moreButton = (
     <Button
       variant="secondary"
-      size="sm"
+      size="icon"
       type="button"
       disabled={templateDisabled}
-      className="border-transparent text-slate-400 hover:bg-surface-2/60 hover:text-slate-200"
+      aria-label={t("common.more")}
+      className="h-8 w-8 rounded-full border-transparent bg-transparent text-slate-200 hover:bg-white/5 hover:text-slate-100"
     >
-      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-      {t("common.more")}
+      <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
     </Button>
   );
 
   return (
     <TooltipProvider delayDuration={0}>
       <div className="flex items-center gap-2">
-        <ActionTooltip disabled={saveDisabled} reason={saveDisabledReason}>
-          <Button
-            variant="primary"
-            size="sm"
-            type="button"
-            onClick={onSave}
-            disabled={saveDisabled}
-          >
-            {t("common.save")}
-          </Button>
-        </ActionTooltip>
-        <ActionTooltip disabled={shareDisabled} reason={shareDisabledReason}>
-          <Button
-            variant="secondary"
-            size="sm"
-            type="button"
-            onClick={onShare}
-            disabled={shareDisabled}
-          >
-            {shareButtonContent}
-          </Button>
-        </ActionTooltip>
-        <ActionTooltip disabled={loadDisabled} reason={loadDisabledReason}>
-          <LoadMenu
-            lists={lists}
-            isLoading={isLoadingLists}
-            onSelect={onLoad}
-            disabled={loadDisabled}
-          />
-        </ActionTooltip>
         {isAdmin &&
           (templateDisabled ? (
             <ActionTooltip disabled={templateDisabled} reason={templateDisabledReason}>
@@ -165,6 +135,37 @@ export function PanelActions({
               </DropdownMenuContent>
             </DropdownMenu>
           ))}
+        <ActionTooltip disabled={shareDisabled} reason={shareDisabledReason}>
+          <Button
+            variant="secondary"
+            size="sm"
+            type="button"
+            onClick={onShare}
+            disabled={shareDisabled}
+            className="border-transparent bg-transparent text-sm text-slate-200 hover:bg-transparent hover:text-slate-100"
+          >
+            {shareButtonContent}
+          </Button>
+        </ActionTooltip>
+        <ActionTooltip disabled={loadDisabled} reason={loadDisabledReason}>
+          <LoadMenu
+            lists={lists}
+            isLoading={isLoadingLists}
+            onSelect={onLoad}
+            disabled={loadDisabled}
+          />
+        </ActionTooltip>
+        <ActionTooltip disabled={saveDisabled} reason={saveDisabledReason}>
+          <Button
+            variant="primary"
+            size="sm"
+            type="button"
+            onClick={onSave}
+            disabled={saveDisabled}
+          >
+            {t("common.savePanel")}
+          </Button>
+        </ActionTooltip>
       </div>
     </TooltipProvider>
   );

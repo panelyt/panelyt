@@ -404,14 +404,6 @@ function HomeContent() {
                   actions={
                     <>
                       <Button
-                        variant="primary"
-                        size="sm"
-                        type="button"
-                        onClick={handleSaveList}
-                      >
-                        {t("common.save")}
-                      </Button>
-                      <Button
                         variant="secondary"
                         size="sm"
                         type="button"
@@ -419,6 +411,14 @@ function HomeContent() {
                         disabled={!isPanelHydrated || selection.selected.length === 0}
                       >
                         {shareButtonContent}
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        type="button"
+                        onClick={handleSaveList}
+                      >
+                        {t("common.savePanel")}
                       </Button>
                     </>
                   }
