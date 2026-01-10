@@ -244,7 +244,6 @@ export default function CollectionsContent() {
           onShowInactiveChange={setShowInactive}
           isAdmin={isAdmin}
           resultCount={sortedTemplates.length}
-          onClearFilters={handleClearFilters}
         />
 
         {templatesQuery.isLoading ? (

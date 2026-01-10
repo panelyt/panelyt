@@ -22,7 +22,6 @@ const renderToolbar = (
     onShowInactiveChange: vi.fn(),
     isAdmin: true,
     resultCount: 12,
-    onClearFilters: vi.fn(),
     ...overrides,
   };
 
@@ -51,26 +50,20 @@ describe("CollectionsToolbar", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows clear filters when search is active", async () => {
-    const user = userEvent.setup();
-    const onClearFilters = vi.fn();
-    renderToolbar("en", enMessages, { searchValue: "thyroid", onClearFilters });
+  it("does not render clear filters when search is active", () => {
+    renderToolbar("en", enMessages, { searchValue: "thyroid" });
 
-    const clearButton = screen.getByRole("button", {
-      name: enMessages.collections.clearFilters,
-    });
-    expect(clearButton).toHaveClass("h-10");
-    await user.click(clearButton);
-
-    expect(onClearFilters).toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: enMessages.collections.clearFilters }),
+    ).not.toBeInTheDocument();
   });
 
-  it("shows clear filters when inactive templates are shown", () => {
+  it("does not render clear filters when inactive templates are shown", () => {
     renderToolbar("en", enMessages, { showInactive: true });
 
     expect(
-      screen.getByRole("button", { name: enMessages.collections.clearFilters }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: enMessages.collections.clearFilters }),
+    ).not.toBeInTheDocument();
   });
 
   it("aligns the sort label and segmented control in a single row", () => {

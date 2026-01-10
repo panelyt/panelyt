@@ -4,7 +4,6 @@ import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/cn";
-import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { SegmentedControl } from "@/ui/segmented-control";
 import { Switch } from "@/ui/switch";
@@ -26,7 +25,6 @@ interface CollectionsToolbarProps {
   onShowInactiveChange: (checked: boolean) => void;
   isAdmin: boolean;
   resultCount: number;
-  onClearFilters: () => void;
   className?: string;
 }
 
@@ -39,12 +37,9 @@ function CollectionsToolbar({
   onShowInactiveChange,
   isAdmin,
   resultCount,
-  onClearFilters,
   className,
 }: CollectionsToolbarProps) {
   const t = useTranslations();
-  const hasSearch = searchValue.trim().length > 0;
-  const showClearFilters = hasSearch || (isAdmin && showInactive);
   const segmentedOptions = sortOptions.map((option) => ({
     value: option.value,
     label: t(option.labelKey),
@@ -91,11 +86,6 @@ function CollectionsToolbar({
           <span className="text-xs text-secondary">
             {t("collections.resultsCount", { count: resultCount })}
           </span>
-          {showClearFilters ? (
-            <Button variant="secondary" size="md" onClick={onClearFilters}>
-              {t("collections.clearFilters")}
-            </Button>
-          ) : null}
         </div>
       </div>
     </div>
