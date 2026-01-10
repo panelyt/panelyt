@@ -22,8 +22,6 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
     groups,
     selectedSet,
     displayNameFor,
-    totalNowGrosz,
-    totalMin30Grosz,
     counts,
     result,
     pricing,
@@ -232,15 +230,6 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                       <p>{formatGroszToPln(item.price_min30_grosz)}</p>
                     </div>
                     </div>
-                    <div className="mt-3">
-                      <PriceComparisonBar
-                        now={item.price_now_grosz}
-                        min={item.price_min30_grosz}
-                        totalNow={totalNowGrosz}
-                        totalMin={totalMin30Grosz}
-                        variant={variant}
-                      />
-                    </div>
                   </article>
                 ))
               )}
@@ -288,44 +277,5 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
         )}
       </div>
     </Card>
-  );
-}
-
-function PriceComparisonBar({
-  now,
-  min,
-  totalNow,
-  totalMin,
-  variant = "light",
-}: {
-  now: number;
-  min: number;
-  totalNow: number;
-  totalMin: number;
-  variant?: "light" | "dark";
-}) {
-  const safeTotalNow = Math.max(totalNow, 1);
-  const safeTotalMin = Math.max(totalMin, 1);
-  const nowWidth = Math.min(100, Math.round((now / safeTotalNow) * 100));
-  const minWidth = Math.min(100, Math.round((min / safeTotalMin) * 100));
-  const isDark = variant === "dark";
-
-  return (
-    <div
-      className={`relative h-1.5 rounded-full ${
-        isDark ? "bg-slate-800" : "bg-slate-200"
-      }`}
-    >
-      <div
-        className={`absolute inset-y-0 left-0 rounded-full ${
-          isDark ? "bg-emerald-400/80" : "bg-emerald-300"
-        }`}
-        style={{ width: `${minWidth}%` }}
-      />
-      <div
-        className="relative h-full rounded-full bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500"
-        style={{ width: `${nowWidth}%` }}
-      />
-    </div>
   );
 }
