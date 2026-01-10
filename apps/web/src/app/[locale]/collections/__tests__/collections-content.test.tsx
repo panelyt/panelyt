@@ -63,12 +63,14 @@ let pricingBySlug: Record<
   string,
   { status: "loading" | "error" | "success"; totalNow?: number }
 > = {};
+let templatesLoading = false;
+let templatesError = false;
 
 vi.mock("../../../../hooks/useBiomarkerListTemplates", () => ({
   useTemplateCatalog: () => ({
     data: templatesData,
-    isLoading: false,
-    isError: false,
+    isLoading: templatesLoading,
+    isError: templatesError,
   }),
   useTemplatePricing: () => ({ pricingBySlug }),
 }));
@@ -163,11 +165,24 @@ describe("CollectionsContent", () => {
     sessionData = { is_admin: false };
     templatesData = [];
     pricingBySlug = {};
+    templatesLoading = false;
+    templatesError = false;
     updateMutation.mutateAsync.mockClear();
     deleteMutation.mutateAsync.mockClear();
     usePanelStore.setState({ selected: [] });
     trackMock.mockClear();
     pushMock.mockClear();
+  });
+
+  it("shows skeleton cards while templates are loading", () => {
+    templatesLoading = true;
+
+    renderWithIntl("en", enMessages);
+
+    expect(screen.getAllByTestId("template-card-skeleton")).toHaveLength(6);
+    expect(
+      screen.queryByText(enMessages.collections.loadingTemplates),
+    ).not.toBeInTheDocument();
   });
 
   it("hides inactive templates for non-admin users", () => {

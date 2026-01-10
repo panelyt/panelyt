@@ -14,6 +14,7 @@ import {
   resolveTimestamp,
 } from "@/lib/dates";
 import { Card } from "@/ui/card";
+import { Skeleton } from "@/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/tooltip";
 
 type TemplateCardData = {
@@ -136,4 +137,44 @@ export function TemplateCard({
   );
 }
 
+function TemplateCardSkeleton() {
+  return (
+    <Card className="p-5" data-testid="template-card-skeleton">
+      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-20 rounded-pill" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Skeleton className="h-3 w-24 rounded-pill" />
+              <Skeleton className="h-3 w-28 rounded-pill" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full max-w-md" />
+            <Skeleton className="h-4 w-5/6 max-w-sm" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-6 w-16 rounded-pill" />
+            <Skeleton className="h-6 w-20 rounded-pill" />
+            <Skeleton className="h-6 w-14 rounded-pill" />
+            <Skeleton className="h-6 w-24 rounded-pill" />
+          </div>
+        </div>
+
+        <div className="flex flex-col items-start gap-3 md:items-end md:text-right">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-6 w-20" />
+          </div>
+          <Skeleton className="h-9 w-36 rounded-pill" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export type { TemplateCardProps, TemplateCardData };
+export { TemplateCardSkeleton };

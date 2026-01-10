@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -10,7 +9,7 @@ import { Header } from "../../../components/header";
 import { TemplateModal } from "../../../components/template-modal";
 import { CollectionsToolbar } from "./collections-toolbar";
 import type { SortOption } from "./collections-toolbar";
-import { TemplateCard } from "./template-card";
+import { TemplateCard, TemplateCardSkeleton } from "./template-card";
 import {
   useTemplateCatalog,
   useTemplatePricing,
@@ -247,8 +246,10 @@ export default function CollectionsContent() {
         />
 
         {templatesQuery.isLoading ? (
-          <div className="flex items-center gap-3 rounded-panel border border-border/70 bg-surface-1 px-4 py-6 text-sm text-secondary">
-            <Loader2 className="h-5 w-5 animate-spin" /> {t("collections.loadingTemplates")}
+          <div className="grid gap-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <TemplateCardSkeleton key={`template-card-skeleton-${index}`} />
+            ))}
           </div>
         ) : templatesQuery.isError ? (
           <div className="rounded-panel border border-accent-red/40 bg-accent-red/10 px-4 py-6 text-sm text-accent-red">
