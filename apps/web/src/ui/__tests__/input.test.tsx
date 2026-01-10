@@ -33,6 +33,7 @@ describe("Input", () => {
     expect(input).toHaveValue("thyroid");
 
     const clearButton = screen.getByRole("button", { name: /clear input/i });
+    expect(clearButton).toHaveClass("h-9", "w-9");
     await user.click(clearButton);
 
     expect(input).toHaveValue("");

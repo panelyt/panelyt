@@ -59,7 +59,7 @@ export function TemplateBiomarkerChips({
       {visibleBiomarkers.map((biomarker) => (
         <span
           key={biomarker.code}
-          className="inline-flex items-center rounded-pill border border-border/70 bg-surface-2 px-3 py-1 text-xs text-primary"
+          className="inline-flex h-9 items-center rounded-pill border border-border/70 bg-surface-2 px-3 text-xs text-primary"
         >
           {biomarker.display_name}
         </span>
@@ -69,7 +69,7 @@ export function TemplateBiomarkerChips({
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((prev) => !prev)}
-          className="inline-flex items-center rounded-pill border border-border/70 bg-surface-2 px-3 py-1 text-xs font-semibold text-secondary transition hover:text-primary focus-ring"
+          className="inline-flex h-9 items-center rounded-pill border border-border/70 bg-surface-2 px-3 text-xs font-semibold text-secondary transition hover:text-primary focus-ring"
         >
           {expanded
             ? t("collections.collapseChips")

@@ -32,7 +32,7 @@ function ApplyTemplateSplitButton({
   isAdmin = false,
   onEdit,
   onDelete,
-  size = "sm",
+  size = "md",
   disabled = false,
   className,
 }: ApplyTemplateSplitButtonProps) {
@@ -54,7 +54,7 @@ function ApplyTemplateSplitButton({
             size={size}
             disabled={disabled}
             aria-label={t("collections.applyMenu")}
-            className="rounded-l-none border-l border-slate-950/20 px-2"
+            className="w-10 rounded-l-none border-l border-slate-950/20 px-0"
           >
             <ChevronDown className="h-4 w-4" aria-hidden="true" />
           </Button>

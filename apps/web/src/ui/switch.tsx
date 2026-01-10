@@ -61,7 +61,7 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         className={cn(
-          "inline-flex h-6 w-11 items-center rounded-full border border-border/80 bg-surface-2 transition-colors focus-ring disabled:cursor-not-allowed disabled:opacity-60",
+          "inline-flex h-9 w-14 items-center rounded-full border border-border/80 bg-surface-2 transition-colors focus-ring disabled:cursor-not-allowed disabled:opacity-60",
           checked ? "border-accent-cyan/60 bg-accent-cyan/30" : "bg-surface-2",
           className,
         )}
@@ -69,8 +69,8 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
       >
         <span
           className={cn(
-            "inline-flex h-4 w-4 translate-x-1 rounded-full bg-primary transition-transform",
-            checked ? "translate-x-6" : "translate-x-1",
+            "inline-flex h-6 w-6 translate-x-1 rounded-full bg-primary transition-transform",
+            checked ? "translate-x-7" : "translate-x-1",
           )}
         />
       </button>

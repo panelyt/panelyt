@@ -98,7 +98,7 @@ function CollectionsToolbar({
             {t("collections.resultsCount", { count: resultCount })}
           </span>
           {showClearFilters ? (
-            <Button variant="secondary" size="sm" onClick={onClearFilters}>
+            <Button variant="secondary" size="md" onClick={onClearFilters}>
               {t("collections.clearFilters")}
             </Button>
           ) : null}

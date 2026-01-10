@@ -32,7 +32,7 @@ function SegmentedControl({
     : "inline-flex rounded-pill border border-border/70 bg-surface-1 p-1";
   const buttonBaseClasses = unstyled
     ? "transition focus-ring"
-    : "rounded-pill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition focus-ring";
+    : "h-9 rounded-pill px-3 text-xs font-semibold uppercase tracking-wide transition focus-ring";
 
   return (
     <div

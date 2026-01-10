@@ -78,7 +78,12 @@ export function TemplateCard({
   }, [exactTimeFormatter, relativeTimeFormatter, template.updated_at]);
 
   return (
-    <Card className={cn("p-5 transition hover:border-border/90", className)}>
+    <Card
+      className={cn(
+        "p-5 transition hover:border-border/90 hover:bg-surface-2/40 active:bg-surface-2/60 focus-within:ring-1 focus-within:ring-border/70",
+        className,
+      )}
+    >
       <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
         <div className="space-y-3">
           <div className="space-y-2">

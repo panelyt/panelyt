@@ -23,6 +23,7 @@ describe("Switch", () => {
     render(<ControlledSwitch />);
 
     const toggle = screen.getByRole("switch", { name: "Show inactive" });
+    expect(toggle).toHaveClass("h-9", "w-14");
     expect(toggle).toHaveAttribute("aria-checked", "false");
 
     await user.click(toggle);

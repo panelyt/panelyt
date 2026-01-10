@@ -75,7 +75,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 type="button"
                 aria-label={clearLabel}
                 onClick={handleClear}
-                className="rounded-md p-1 text-secondary transition hover:text-primary focus-ring"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-secondary transition hover:text-primary focus-ring"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>

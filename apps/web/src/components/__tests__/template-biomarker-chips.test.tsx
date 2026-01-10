@@ -42,7 +42,9 @@ describe("TemplateBiomarkerChips", () => {
     expect(screen.queryByText("Biomarker 8")).not.toBeInTheDocument();
 
     const label = enMessages.collections.moreBiomarkers.replace("{count}", "2");
-    expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    const expandButton = screen.getByRole("button", { name: label });
+    expect(expandButton).toBeInTheDocument();
+    expect(expandButton).toHaveClass("h-9");
   });
 
   it("shows 4 biomarkers on mobile with a +X more chip", () => {

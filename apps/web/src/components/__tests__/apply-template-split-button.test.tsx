@@ -26,6 +26,23 @@ const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
 };
 
 describe("ApplyTemplateSplitButton", () => {
+  it("uses hit target sizes for buttons and menu items", async () => {
+    const user = userEvent.setup();
+    setup();
+
+    expect(
+      screen.getByRole("button", { name: enMessages.collections.apply }),
+    ).toHaveClass("h-10");
+    expect(
+      screen.getByRole("button", { name: enMessages.collections.applyMenu }),
+    ).toHaveClass("h-10");
+
+    await openMenu(user);
+    expect(
+      screen.getByRole("menuitem", { name: enMessages.collections.addToPanel }),
+    ).toHaveClass("min-h-9");
+  });
+
   it("calls onAddToPanel when the Apply button is clicked", async () => {
     const user = userEvent.setup();
     const { onAddToPanel } = setup();

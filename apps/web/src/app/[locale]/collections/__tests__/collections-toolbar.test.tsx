@@ -51,6 +51,7 @@ describe("CollectionsToolbar", () => {
     const clearButton = screen.getByRole("button", {
       name: enMessages.collections.clearFilters,
     });
+    expect(clearButton).toHaveClass("h-10");
     await user.click(clearButton);
 
     expect(onClearFilters).toHaveBeenCalled();
