@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import { describe, expect, it, vi } from "vitest";
 
 import { getTranslations } from "next-intl/server";
-import { getParsedJson } from "../../../../../lib/http";
+import { getParsedJson } from "../../../../lib/http";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: vi.fn(),
 }));
 
-vi.mock("../../../../../lib/http", () => ({
+vi.mock("../../../../lib/http", () => ({
   getParsedJson: vi.fn(),
 }));
 
-vi.mock("./shared-content", () => ({
+vi.mock("./template-detail-content", () => ({
   default: () => null,
 }));
 
@@ -21,11 +21,11 @@ const mockGetParsedJson = vi.mocked(getParsedJson);
 
 const buildTranslator = () => {
   const translate = (key: string, values?: Record<string, string>) => {
-    if (key === "sharedListTitle") {
+    if (key === "templateDetailTitle") {
       return `${values?.name} | Panelyt`;
     }
-    if (key === "sharedListDescription") {
-      return `View biomarkers and live pricing for the shared list ${values?.name}.`;
+    if (key === "templateDetailDescription") {
+      return `Explore biomarkers for the ${values?.name} template.`;
     }
     return key;
   };
@@ -38,17 +38,17 @@ const buildTranslator = () => {
   });
 };
 
-describe("shared list metadata", () => {
-  it("builds metadata using the shared list name", async () => {
+describe("template detail metadata", () => {
+  it("builds metadata using the template name", async () => {
     const translator = buildTranslator() as unknown as Awaited<ReturnType<typeof getTranslations>>;
     mockGetTranslations.mockResolvedValue(translator);
     mockGetParsedJson.mockResolvedValue({
-      name: "Hormone panel",
+      name: "Heart Health",
     });
 
     const pageModule = (await import("./page")) as unknown as {
       generateMetadata?: (args: {
-        params: Promise<{ locale: string; shareToken: string }>;
+        params: Promise<{ locale: string; slug: string }>;
       }) => Promise<Metadata>;
     };
 
@@ -58,36 +58,36 @@ describe("shared list metadata", () => {
     }
 
     const metadata = await pageModule.generateMetadata({
-      params: Promise.resolve({ locale: "en", shareToken: "token-123" }),
+      params: Promise.resolve({ locale: "en", slug: "heart-template" }),
     });
 
     expect(metadata).toMatchObject({
-      title: "Hormone panel | Panelyt",
-      description: "View biomarkers and live pricing for the shared list Hormone panel.",
+      title: "Heart Health | Panelyt",
+      description: "Explore biomarkers for the Heart Health template.",
       alternates: {
-        canonical: "/en/collections/shared/token-123",
+        canonical: "/en/collections/heart-template",
         languages: {
-          pl: "/collections/shared/token-123",
-          en: "/en/collections/shared/token-123",
+          pl: "/collections/heart-template",
+          en: "/en/collections/heart-template",
         },
       },
       openGraph: {
-        title: "Hormone panel | Panelyt",
-        description: "View biomarkers and live pricing for the shared list Hormone panel.",
+        title: "Heart Health | Panelyt",
+        description: "Explore biomarkers for the Heart Health template.",
         locale: "en_US",
         alternateLocale: "pl_PL",
       },
     });
   });
 
-  it("falls back to the share token when the fetch fails", async () => {
+  it("falls back to the slug when the fetch fails", async () => {
     const translator = buildTranslator() as unknown as Awaited<ReturnType<typeof getTranslations>>;
     mockGetTranslations.mockResolvedValue(translator);
     mockGetParsedJson.mockRejectedValue(new Error("boom"));
 
     const pageModule = (await import("./page")) as unknown as {
       generateMetadata?: (args: {
-        params: Promise<{ locale: string; shareToken: string }>;
+        params: Promise<{ locale: string; slug: string }>;
       }) => Promise<Metadata>;
     };
 
@@ -97,22 +97,22 @@ describe("shared list metadata", () => {
     }
 
     const metadata = await pageModule.generateMetadata({
-      params: Promise.resolve({ locale: "pl", shareToken: "token-456" }),
+      params: Promise.resolve({ locale: "pl", slug: "metabolic-basics" }),
     });
 
     expect(metadata).toMatchObject({
-      title: "token-456 | Panelyt",
-      description: "View biomarkers and live pricing for the shared list token-456.",
+      title: "metabolic-basics | Panelyt",
+      description: "Explore biomarkers for the metabolic-basics template.",
       alternates: {
-        canonical: "/collections/shared/token-456",
+        canonical: "/collections/metabolic-basics",
         languages: {
-          pl: "/collections/shared/token-456",
-          en: "/en/collections/shared/token-456",
+          pl: "/collections/metabolic-basics",
+          en: "/en/collections/metabolic-basics",
         },
       },
       openGraph: {
-        title: "token-456 | Panelyt",
-        description: "View biomarkers and live pricing for the shared list token-456.",
+        title: "metabolic-basics | Panelyt",
+        description: "Explore biomarkers for the metabolic-basics template.",
         locale: "pl_PL",
         alternateLocale: "en_US",
       },
@@ -120,18 +120,18 @@ describe("shared list metadata", () => {
   });
 });
 
-describe("shared list page", () => {
-  it("passes the share token from params", async () => {
+describe("template detail page", () => {
+  it("passes the slug from params", async () => {
     const pageModule = (await import("./page")) as unknown as {
-      default: (args: { params: Promise<{ locale: string; shareToken: string }> }) => Promise<{
-        props?: { shareToken?: string };
+      default: (args: { params: Promise<{ locale: string; slug: string }> }) => Promise<{
+        props?: { slug?: string };
       }>;
     };
 
     const element = await pageModule.default({
-      params: Promise.resolve({ locale: "en", shareToken: "token-789" }),
+      params: Promise.resolve({ locale: "en", slug: "heart-template" }),
     });
 
-    expect(element.props?.shareToken).toBe("token-789");
+    expect(element.props?.slug).toBe("heart-template");
   });
 });

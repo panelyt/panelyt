@@ -6,11 +6,11 @@ import { getParsedJson } from "../../../../../lib/http";
 import SharedContent from "./shared-content";
 
 interface PageProps {
-  params: { locale: string; shareToken: string };
+  params: Promise<{ locale: string; shareToken: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { locale, shareToken } = params;
+  const { locale, shareToken } = await params;
   const t = await getTranslations({ locale, namespace: "meta" });
 
   let listName = shareToken;
@@ -49,5 +49,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function Page({ params }: PageProps) {
-  return <SharedContent shareToken={params.shareToken} />;
+  const { shareToken } = await params;
+  return <SharedContent shareToken={shareToken} />;
 }

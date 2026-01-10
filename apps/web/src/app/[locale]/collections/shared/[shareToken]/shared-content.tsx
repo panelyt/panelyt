@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { CalendarDays, Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Header } from "../../../../../components/header";
 import { useRouter } from "../../../../../i18n/navigation";
@@ -10,6 +10,7 @@ import { OptimizationResults } from "../../../../../components/optimization-resu
 import { useSharedList } from "../../../../../hooks/useSharedList";
 import { useOptimization, useAddonSuggestions } from "../../../../../hooks/useOptimization";
 import { useBiomarkerSelection } from "../../../../../hooks/useBiomarkerSelection";
+import { formatExactTimestamp, resolveTimestamp } from "../../../../../lib/dates";
 
 interface SharedContentProps {
   shareToken: string;
@@ -17,6 +18,7 @@ interface SharedContentProps {
 
 export default function SharedContent({ shareToken }: SharedContentProps) {
   const t = useTranslations();
+  const locale = useLocale();
   const router = useRouter();
   const sharedQuery = useSharedList(shareToken, Boolean(shareToken));
   const sharedList = sharedQuery.data;
@@ -45,6 +47,24 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
     !optimizationQuery.isLoading,
   );
   const selection = useBiomarkerSelection();
+  const sharedTimestampFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    [locale],
+  );
+  const sharedTimestamp = useMemo(() => {
+    if (!sharedList?.shared_at) {
+      return null;
+    }
+    const resolved = resolveTimestamp(sharedList.shared_at);
+    if (!resolved) {
+      return null;
+    }
+    return formatExactTimestamp(resolved.date, sharedTimestampFormatter);
+  }, [sharedList, sharedTimestampFormatter]);
 
   return (
     <main className="min-h-screen bg-app text-primary">
@@ -59,7 +79,7 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
             <h1 className="text-3xl font-semibold text-primary">{sharedList.name}</h1>
             <p className="text-xs text-secondary">
               <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-              {t("sharedList.shared")} {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString("pl-PL") : ""}
+              {t("sharedList.shared")} {sharedTimestamp ?? ""}
             </p>
           </div>
         ) : sharedQuery.isLoading ? (

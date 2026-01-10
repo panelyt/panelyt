@@ -6,11 +6,11 @@ import { getParsedJson } from "../../../../lib/http";
 import TemplateDetailContent from "./template-detail-content";
 
 interface PageProps {
-  params: { locale: string; slug: string };
+  params: Promise<{ locale: string; slug: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { locale, slug } = params;
+  const { locale, slug } = await params;
   const t = await getTranslations({ locale, namespace: "meta" });
 
   let templateName = slug;
@@ -49,5 +49,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function Page({ params }: PageProps) {
-  return <TemplateDetailContent slug={params.slug} />;
+  const { slug } = await params;
+  return <TemplateDetailContent slug={slug} />;
 }

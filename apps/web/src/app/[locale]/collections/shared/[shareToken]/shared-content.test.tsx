@@ -148,4 +148,16 @@ describe("SharedContent", () => {
 
     expect(push).toHaveBeenCalledWith("/?shared=token-123");
   });
+
+  it("formats the shared timestamp using the active locale", async () => {
+    const expectedTimestamp = new Intl.DateTimeFormat("en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(sharedListData.shared_at));
+
+    await renderContent();
+
+    const expectedLabel = `${enMessages.sharedList.shared} ${expectedTimestamp}`;
+    expect(await screen.findByText(expectedLabel)).toBeInTheDocument();
+  });
 });
