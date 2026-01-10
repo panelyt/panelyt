@@ -209,6 +209,7 @@
     "replacePanel": "Zastąp panel",
     "expandRow": "Pokaż biomarkery",
     "collapseRow": "Ukryj biomarkery",
+    "collapseChips": "Zwiń",
     "moreBiomarkers": "+{count} więcej",
     "appliedAppend": "Dodano {name} do panelu.",
     "appliedReplace": "Zastąpiono panel szablonem {name}.",
