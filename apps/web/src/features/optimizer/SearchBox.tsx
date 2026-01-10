@@ -38,12 +38,7 @@ export function SearchBox({
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [enterHintVisible, setEnterHintVisible] = useState(false);
-  const [tipDismissed, setTipDismissed] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return sessionStorage.getItem(tipDismissedKey) === "true";
-  });
+  const [tipDismissed, setTipDismissed] = useState(false);
   const debounced = useDebounce(query, 200);
   const { data, isFetching } = useCatalogSearch(debounced);
   const suggestions = useMemo<CatalogSearchResult[]>(
@@ -80,6 +75,16 @@ export function SearchBox({
   useEffect(() => {
     setHighlightedIndex(-1);
   }, [flatSuggestions]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const dismissed = sessionStorage.getItem(tipDismissedKey) === "true";
+    if (dismissed) {
+      setTipDismissed(true);
+    }
+  }, [tipDismissedKey]);
 
   useEffect(() => {
     if (!pendingQuery) {
