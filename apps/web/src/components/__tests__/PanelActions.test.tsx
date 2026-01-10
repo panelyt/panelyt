@@ -30,7 +30,7 @@ const sampleLists = [
   },
 ];
 
-const getButtonName = (button: HTMLButtonElement) => {
+const getButtonName = (button: HTMLElement) => {
   const ariaLabel = button.getAttribute("aria-label");
   if (ariaLabel) return ariaLabel;
   return button.textContent?.replace(/\s+/g, " ").trim() ?? "";
