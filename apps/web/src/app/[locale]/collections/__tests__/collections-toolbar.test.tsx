@@ -43,6 +43,14 @@ describe("CollectionsToolbar", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("does not render the search label above the input", () => {
+    renderToolbar("en", enMessages);
+
+    expect(
+      screen.queryByText(enMessages.collections.searchLabel),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows clear filters when search is active", async () => {
     const user = userEvent.setup();
     const onClearFilters = vi.fn();

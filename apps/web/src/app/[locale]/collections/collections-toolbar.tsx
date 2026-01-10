@@ -53,13 +53,7 @@ function CollectionsToolbar({
   return (
     <div className={cn("sticky top-24 z-40", className)}>
       <div className="flex flex-col gap-4 rounded-panel border border-border/70 bg-surface-1/90 p-3 backdrop-blur md:flex-row md:items-center md:justify-between">
-        <div className="flex w-full flex-col gap-2 md:max-w-sm">
-          <label
-            htmlFor="template-search"
-            className="text-xs font-semibold uppercase tracking-wide text-secondary"
-          >
-            {t("collections.searchLabel")}
-          </label>
+        <div className="flex w-full flex-col md:max-w-sm">
           <Input
             id="template-search"
             value={searchValue}
