@@ -185,6 +185,39 @@ describe("CollectionsContent", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the empty catalog message when no templates exist", () => {
+    templatesData = [];
+
+    renderWithIntl("en", enMessages);
+
+    const emptyState = screen.getByTestId("collections-empty-catalog");
+    expect(within(emptyState).getByText(enMessages.collections.noTemplates)).toBeInTheDocument();
+    expect(
+      within(emptyState).queryByRole("button", {
+        name: enMessages.collections.clearFilters,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows a no results state with clear filters when filters hide all templates", async () => {
+    templatesData = [makeTemplate({ id: 20, name: "Visible Template" })];
+
+    renderWithIntl("en", enMessages);
+
+    const user = userEvent.setup();
+    await user.type(getSearchInput(), "missing");
+
+    const emptyState = screen.getByTestId("collections-empty-results");
+    expect(within(emptyState).getByText(enMessages.collections.noResults)).toBeInTheDocument();
+
+    const clearButton = within(emptyState).getByRole("button", {
+      name: enMessages.collections.clearFilters,
+    });
+    await user.click(clearButton);
+
+    expect(screen.getByText("Visible Template")).toBeInTheDocument();
+  });
+
   it("hides inactive templates for non-admin users", () => {
     templatesData = [
       makeTemplate({ id: 1, name: "Active Template", is_active: true }),

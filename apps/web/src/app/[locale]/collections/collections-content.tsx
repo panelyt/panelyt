@@ -217,6 +217,8 @@ export default function CollectionsContent() {
     });
     return sorted;
   }, [filteredTemplates, pricingBySlug, sortKey]);
+  const hasTemplates = templates.length > 0;
+  const hasResults = sortedTemplates.length > 0;
 
   return (
     <main className="min-h-screen bg-app text-primary">
@@ -255,10 +257,25 @@ export default function CollectionsContent() {
           <div className="rounded-panel border border-accent-red/40 bg-accent-red/10 px-4 py-6 text-sm text-accent-red">
             {t("collections.failedToLoad")}
           </div>
-        ) : sortedTemplates.length === 0 ? (
-          <div className="rounded-panel border border-dashed border-border/80 bg-surface-1/70 px-6 py-8 text-center text-sm text-secondary">
-            {t("collections.noTemplates")}
-          </div>
+        ) : !hasResults ? (
+          hasTemplates ? (
+            <div
+              className="flex flex-col items-center gap-4 rounded-panel border border-dashed border-border/80 bg-surface-1/70 px-6 py-10 text-center text-sm text-secondary"
+              data-testid="collections-empty-results"
+            >
+              <p>{t("collections.noResults")}</p>
+              <Button variant="secondary" onClick={handleClearFilters}>
+                {t("collections.clearFilters")}
+              </Button>
+            </div>
+          ) : (
+            <div
+              className="rounded-panel border border-dashed border-border/80 bg-surface-1/70 px-6 py-8 text-center text-sm text-secondary"
+              data-testid="collections-empty-catalog"
+            >
+              {t("collections.noTemplates")}
+            </div>
+          )
         ) : (
           <div className="grid gap-4">
             {sortedTemplates.map((template) => (
