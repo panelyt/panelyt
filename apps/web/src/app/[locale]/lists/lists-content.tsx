@@ -10,7 +10,6 @@ import {
   MoreHorizontal,
   RefreshCcw,
   Trash2,
-  Link as LinkIcon,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -687,42 +686,30 @@ export default function ListsContent() {
                           </TableCell>
                           <TableCell className="min-w-[14rem]">
                             {shareToken && shareLink ? (
-                              <div className="flex flex-col gap-2">
-                                <span className="text-xs text-secondary">
-                                  {t("lists.shareEnabled")}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                      type="button"
-                                      variant="secondary"
-                                      size="sm"
-                                      onClick={() =>
-                                        void handleCopyShare(shareToken)
-                                      }
-                                    >
-                                    <Copy className="h-3.5 w-3.5" />
-                                    {t("lists.copyLink")}
-                                  </Button>
-                                  <span className="sr-only">{shareLink}</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-2">
-                                <span className="text-xs text-secondary">
-                                  {t("lists.shareDisabled")}
-                                </span>
+                              <div className="flex items-center gap-2">
                                 <Button
                                   type="button"
                                   variant="secondary"
                                   size="sm"
-                                  loading={listState.isSharePending}
-                                  onClick={() => void handleShare(item.list.id)}
+                                  onClick={() => void handleCopyShare(shareToken)}
                                 >
-                                  {listState.isSharePending
-                                    ? t("lists.generating")
-                                    : t("lists.enableShare")}
+                                  <Copy className="h-3.5 w-3.5" />
+                                  {t("lists.copyLink")}
                                 </Button>
+                                <span className="sr-only">{shareLink}</span>
                               </div>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                loading={listState.isSharePending}
+                                onClick={() => void handleShare(item.list.id)}
+                              >
+                                {listState.isSharePending
+                                  ? t("lists.generating")
+                                  : t("lists.enableShare")}
+                              </Button>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
@@ -803,7 +790,6 @@ export default function ListsContent() {
                           loading={listState.isSharePending}
                           onClick={() => void handleShare(item.list.id)}
                         >
-                          <LinkIcon className="h-3.5 w-3.5" />
                           {listState.isSharePending
                             ? t("lists.generating")
                             : t("lists.enableShare")}

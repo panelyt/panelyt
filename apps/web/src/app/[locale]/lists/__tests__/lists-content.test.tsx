@@ -527,4 +527,60 @@ describe("ListsContent", () => {
     ]);
     expect(push).toHaveBeenCalledWith("/");
   });
+
+  it("hides share status text for shared lists", async () => {
+    listsData = [
+      {
+        id: "list-13",
+        name: "Checkup",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "",
+        share_token: "token-456",
+        shared_at: "2024-02-01T10:00:00Z",
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    const table = await screen.findByRole("table");
+
+    expect(screen.queryByText(enMessages.lists.shareEnabled)).not.toBeInTheDocument();
+    expect(
+      within(table).getByRole("button", { name: enMessages.lists.copyLink }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides share status text for unshared lists", async () => {
+    listsData = [
+      {
+        id: "list-14",
+        name: "Baseline",
+        biomarkers: [],
+        created_at: "",
+        updated_at: "",
+        share_token: null,
+        shared_at: null,
+        notify_on_price_drop: false,
+        last_known_total_grosz: null,
+        last_total_updated_at: null,
+        last_notified_total_grosz: null,
+        last_notified_at: null,
+      },
+    ];
+
+    renderWithIntl("en", enMessages);
+
+    const table = await screen.findByRole("table");
+
+    expect(screen.queryByText(enMessages.lists.shareDisabled)).not.toBeInTheDocument();
+    expect(
+      within(table).getByRole("button", { name: enMessages.lists.enableShare }),
+    ).toBeInTheDocument();
+  });
 });
