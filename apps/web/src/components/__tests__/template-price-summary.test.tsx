@@ -8,17 +8,20 @@ import { renderWithIntl } from "@/test/utils";
 import { TemplatePriceSummary } from "../template-price-summary";
 
 describe("TemplatePriceSummary", () => {
-  it("shows current total label and amount when pricing succeeds", () => {
+  it("shows amount without a current total label when pricing succeeds", () => {
     renderWithIntl(
       <TemplatePriceSummary pricing={{ status: "success", totalNow: 123.45 }} />,
     );
 
     expect(
-      screen.getByText(enMessages.collections.currentTotalLabel),
-    ).toBeInTheDocument();
+      screen.queryByText(enMessages.collections.currentTotalLabel),
+    ).not.toBeInTheDocument();
     const formatted = formatCurrency(123.45);
     expect(
-      screen.getByText((_, element) => element?.textContent === formatted),
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === "SPAN" && element.textContent === formatted,
+      ),
     ).toBeInTheDocument();
   });
 
