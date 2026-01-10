@@ -12,6 +12,10 @@ vi.mock("../../../../../lib/http", () => ({
   getParsedJson: vi.fn(),
 }));
 
+vi.mock("./shared-content", () => ({
+  default: () => null,
+}));
+
 const mockGetTranslations = vi.mocked(getTranslations);
 const mockGetParsedJson = vi.mocked(getParsedJson);
 
