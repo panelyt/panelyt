@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
@@ -74,9 +74,9 @@ describe('SelectedBiomarkers', () => {
       { wrapper },
     )
 
-    const initialChip = screen
-      .getByText('Alanine aminotransferase')
-      .closest('li') as HTMLElement
+    const initialChip = screen.getByRole('button', {
+      name: /Remove Alanine aminotransferase/i,
+    })
     expect(initialChip).not.toHaveClass('motion-safe:animate-[pulse_1.2s_ease-out_1]')
 
     rerender(
@@ -90,37 +90,22 @@ describe('SelectedBiomarkers', () => {
       />,
     )
 
-    const newChip = screen
-      .getByText('Aspartate aminotransferase')
-      .closest('li') as HTMLElement
+    const newChip = screen.getByRole('button', {
+      name: /Remove Aspartate aminotransferase/i,
+    })
 
     await waitFor(() => {
       expect(newChip).toHaveClass('motion-safe:animate-[pulse_1.2s_ease-out_1]')
       expect(
-        screen
-          .getByText('Alanine aminotransferase')
-          .closest('li'),
+        screen.getByRole('button', {
+          name: /Remove Alanine aminotransferase/i,
+        }),
       ).not.toHaveClass('motion-safe:animate-[pulse_1.2s_ease-out_1]')
     })
   })
 
-  it('renders a remove button with an accessible label', () => {
-    const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
 
-    renderWithIntl(
-      <SelectedBiomarkers
-        biomarkers={biomarkers}
-        onRemove={mockOnRemove}
-        onClearAll={mockOnClearAll}
-      />,
-    )
-
-    expect(
-      screen.getByRole('button', { name: /Remove Alanine aminotransferase/i }),
-    ).toBeInTheDocument()
-  })
-
-  it('calls onRemove when remove button is clicked', async () => {
+  it('removes a biomarker when clicking the pill text', async () => {
     const user = userEvent.setup()
     const biomarkers = [
       { code: 'ALT', name: 'Alanine aminotransferase' },
@@ -135,10 +120,7 @@ describe('SelectedBiomarkers', () => {
       />,
     )
 
-    const removeButton = screen.getByRole('button', {
-      name: /Remove Alanine aminotransferase/i,
-    })
-    await user.click(removeButton)
+    await user.click(screen.getByText('Alanine aminotransferase'))
 
     expect(mockOnRemove).toHaveBeenCalledWith('ALT')
   })
@@ -192,8 +174,7 @@ describe('SelectedBiomarkers', () => {
     expect(mockOnClearAll).toHaveBeenCalledTimes(1)
   })
 
-  it('truncates long biomarker names and reveals the full name on hover', async () => {
-    const user = userEvent.setup()
+  it('truncates long biomarker names without rendering a tooltip', () => {
     const longName =
       'Very long biomarker name that should be truncated to keep chips compact'
 
@@ -207,10 +188,29 @@ describe('SelectedBiomarkers', () => {
 
     const name = screen.getByText(longName)
     expect(name).toHaveClass('truncate')
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+  })
 
-    await user.hover(name)
-    expect(
-      await screen.findByRole('tooltip', { name: longName }),
-    ).toBeInTheDocument()
+  it('shows a remove label when hovering over a pill', async () => {
+    const user = userEvent.setup()
+    const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
+
+    renderWithIntl(
+      <SelectedBiomarkers
+        biomarkers={biomarkers}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
+    )
+
+    const pill = screen.getByRole('button', {
+      name: /Remove Alanine aminotransferase/i,
+    })
+
+    expect(within(pill).queryByText('Remove')).not.toBeInTheDocument()
+
+    await user.hover(pill)
+
+    expect(within(pill).getByText('Remove')).toBeInTheDocument()
   })
 })

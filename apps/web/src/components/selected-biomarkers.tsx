@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/cn";
@@ -14,12 +13,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/ui/tooltip";
 
 interface SelectedBiomarker {
   code: string;
@@ -36,6 +29,7 @@ interface BiomarkerChipProps {
   biomarker: SelectedBiomarker;
   onRemove: (code: string) => void;
   removeLabel: string;
+  removeText: string;
   isHighlighted: boolean;
 }
 
@@ -43,42 +37,45 @@ const BiomarkerChip = ({
   biomarker,
   onRemove,
   removeLabel,
+  removeText,
   isHighlighted,
 }: BiomarkerChipProps) => {
-  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  const [isActive, setIsActive] = useState(false);
 
   return (
     <li
       key={biomarker.code}
-      className={cn(
-        "flex min-w-0 items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-emerald-100 transition hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-100",
-        isHighlighted
-          ? "ring-1 ring-emerald-300/60 motion-safe:animate-[pulse_1.2s_ease-out_1]"
-          : "",
-      )}
+      className="min-w-0"
     >
-      <Tooltip open={isTooltipOpen} onOpenChange={setIsTooltipOpen}>
-        <TooltipTrigger asChild>
-          <span
-            className="max-w-[200px] truncate text-sm font-semibold"
-            tabIndex={0}
-            onBlur={() => setIsTooltipOpen(false)}
-            onFocus={() => setIsTooltipOpen(true)}
-            onMouseEnter={() => setIsTooltipOpen(true)}
-            onMouseLeave={() => setIsTooltipOpen(false)}
-          >
-            {biomarker.name}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{biomarker.name}</TooltipContent>
-      </Tooltip>
       <button
         type="button"
         onClick={() => onRemove(biomarker.code)}
-        className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full text-emerald-200 transition hover:bg-red-500/20 hover:text-red-100 focus-ring"
+        className={cn(
+          "relative inline-flex min-w-0 items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-emerald-100 transition hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-100 focus-ring",
+          isHighlighted
+            ? "ring-1 ring-emerald-300/60 motion-safe:animate-[pulse_1.2s_ease-out_1]"
+            : "",
+        )}
         aria-label={removeLabel}
+        title={biomarker.name}
+        onBlur={() => setIsActive(false)}
+        onFocus={() => setIsActive(true)}
+        onMouseEnter={() => setIsActive(true)}
+        onMouseLeave={() => setIsActive(false)}
       >
-        <X className="h-4 w-4" aria-hidden />
+        <span
+          className={cn(
+            "max-w-[200px] truncate text-sm font-semibold transition-opacity",
+            isActive ? "opacity-0" : "opacity-100",
+          )}
+        >
+          {biomarker.name}
+        </span>
+        {isActive ? (
+          <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold">
+            {removeText}
+          </span>
+        ) : null}
       </button>
     </li>
   );
@@ -219,19 +216,18 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
           {t("home.emptyBiomarkers")}
         </div>
       ) : (
-        <TooltipProvider delayDuration={0}>
-          <ul className="flex flex-wrap gap-2" role="list">
-            {biomarkers.map((biomarker) => (
-              <BiomarkerChip
-                key={biomarker.code}
-                biomarker={biomarker}
-                onRemove={onRemove}
-                removeLabel={t("common.remove", { name: biomarker.name })}
-                isHighlighted={highlightedCodes.has(biomarker.code)}
-              />
-            ))}
-          </ul>
-        </TooltipProvider>
+        <ul className="flex flex-wrap gap-2" role="list">
+          {biomarkers.map((biomarker) => (
+            <BiomarkerChip
+              key={biomarker.code}
+              biomarker={biomarker}
+              onRemove={onRemove}
+              removeLabel={t("common.remove", { name: biomarker.name })}
+              removeText={t("common.removeShort")}
+              isHighlighted={highlightedCodes.has(biomarker.code)}
+            />
+          ))}
+        </ul>
       )}
     </div>
   );

@@ -43,7 +43,8 @@
     "biomarkersCount": "{count, plural, one {# badanie} few {# badania} many {# badań} other {# badań}}",
     "updated": "Zaktualizowano",
     "template": "Panel",
-    "remove": "Usuń {name}"
+    "remove": "Usuń {name}",
+    "removeShort": "Usuń"
   },
   "toast": {
     "shareCopied": "Skopiowano link do udostępnienia.",

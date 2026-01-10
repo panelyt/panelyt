@@ -43,7 +43,8 @@
     "biomarkersCount": "{count, plural, one {# test} other {# tests}}",
     "updated": "Updated",
     "template": "Panel",
-    "remove": "Remove {name}"
+    "remove": "Remove {name}",
+    "removeShort": "Remove"
   },
   "toast": {
     "shareCopied": "Share link copied.",
