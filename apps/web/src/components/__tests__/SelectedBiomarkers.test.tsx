@@ -28,7 +28,7 @@ describe('SelectedBiomarkers', () => {
     expect(screen.getByRole('button', { name: /Clear all/i })).toBeDisabled()
     expect(
       screen.getByText(
-        /Add biomarkers to compare prices across single tests and bundles/i,
+        /Add tests to compare prices across single tests and bundles/i,
       ),
     ).toBeInTheDocument()
   })
@@ -161,7 +161,7 @@ describe('SelectedBiomarkers', () => {
 
     await user.click(screen.getByRole('button', { name: /Clear all/i }))
 
-    expect(screen.queryByText(/Clear all biomarkers\?/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Clear all tests\?/i)).not.toBeInTheDocument()
     expect(mockOnClearAll).toHaveBeenCalledTimes(1)
   })
 
@@ -184,7 +184,7 @@ describe('SelectedBiomarkers', () => {
 
     await user.click(screen.getByRole('button', { name: /Clear all/i }))
 
-    expect(screen.getByText(/Clear all biomarkers\?/i)).toBeInTheDocument()
+    expect(screen.getByText(/Clear all tests\?/i)).toBeInTheDocument()
     expect(mockOnClearAll).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: /Yes, clear/i }))

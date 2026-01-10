@@ -25,7 +25,7 @@ const buildTranslator = () => {
       return `${values?.name} | Panelyt`;
     }
     if (key === "templateDetailDescription") {
-      return `Explore biomarkers for the ${values?.name} template.`;
+      return `Explore tests for the ${values?.name} panel.`;
     }
     return key;
   };
@@ -63,7 +63,7 @@ describe("template detail metadata", () => {
 
     expect(metadata).toMatchObject({
       title: "Heart Health | Panelyt",
-      description: "Explore biomarkers for the Heart Health template.",
+      description: "Explore tests for the Heart Health panel.",
       alternates: {
         canonical: "/en/collections/heart-template",
         languages: {
@@ -73,7 +73,7 @@ describe("template detail metadata", () => {
       },
       openGraph: {
         title: "Heart Health | Panelyt",
-        description: "Explore biomarkers for the Heart Health template.",
+        description: "Explore tests for the Heart Health panel.",
         locale: "en_US",
         alternateLocale: "pl_PL",
       },
@@ -102,7 +102,7 @@ describe("template detail metadata", () => {
 
     expect(metadata).toMatchObject({
       title: "metabolic-basics | Panelyt",
-      description: "Explore biomarkers for the metabolic-basics template.",
+      description: "Explore tests for the metabolic-basics panel.",
       alternates: {
         canonical: "/collections/metabolic-basics",
         languages: {
@@ -112,7 +112,7 @@ describe("template detail metadata", () => {
       },
       openGraph: {
         title: "metabolic-basics | Panelyt",
-        description: "Explore biomarkers for the metabolic-basics template.",
+        description: "Explore tests for the metabolic-basics panel.",
         locale: "pl_PL",
         alternateLocale: "en_US",
       },

@@ -68,10 +68,10 @@ describe('SearchBox', () => {
     )
 
     expect(
-      screen.getByRole('combobox', { name: 'Search biomarkers to add...' }),
+      screen.getByRole('combobox', { name: 'Search tests to add...' }),
     ).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Search biomarkers to add...')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Add to panel' })).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search tests to add...')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Use in Builder' })).not.toBeInTheDocument()
   })
 
   it('updates the query when the user types', async () => {
@@ -80,7 +80,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers to add...')
+    const input = screen.getByPlaceholderText('Search tests to add...')
     await user.type(input, 'ALT')
 
     expect(input).toHaveValue('ALT')
@@ -97,12 +97,12 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search tests to add...'), {
       target: { value: 'AL' },
     })
 
-    expect(screen.getByText('Biomarkers')).toBeInTheDocument()
-    expect(screen.getByText('Templates')).toBeInTheDocument()
+    expect(screen.getByText('Tests')).toBeInTheDocument()
+    expect(screen.getByText('Curated Panels')).toBeInTheDocument()
     expect(screen.getByRole('listbox')).toBeInTheDocument()
     expect(screen.getAllByRole('option')).toHaveLength(2)
     expect(screen.getByText('Alanine aminotransferase')).toBeInTheDocument()
@@ -120,7 +120,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search tests to add...'), {
       target: { value: 'ALT' },
     })
 
@@ -145,7 +145,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search tests to add...'), {
       target: { value: 'Liver' },
     })
 
@@ -167,7 +167,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers to add...')
+    const input = screen.getByPlaceholderText('Search tests to add...')
     fireEvent.change(input, { target: { value: 'ALT' } })
 
     await screen.findByText('Alanine aminotransferase')
@@ -189,7 +189,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers to add...')
+    const input = screen.getByPlaceholderText('Search tests to add...')
     fireEvent.change(input, { target: { value: 'ALT' } })
     await screen.findByText('Alanine aminotransferase')
 
@@ -207,7 +207,7 @@ describe('SearchBox', () => {
       <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
     )
 
-    const input = screen.getByPlaceholderText('Search biomarkers to add...')
+    const input = screen.getByPlaceholderText('Search tests to add...')
     await user.type(input, 'custom')
     fireEvent.keyDown(input, { key: 'Enter' })
 
@@ -287,7 +287,7 @@ describe('SearchBox', () => {
 
     expect(screen.getByText('Enter')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByPlaceholderText('Search biomarkers to add...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search tests to add...'), {
       target: { value: 'ALT' },
     })
     await user.click(

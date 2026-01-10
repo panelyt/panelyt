@@ -25,7 +25,7 @@ const buildTranslator = () => {
       return `${values?.name} | Panelyt`;
     }
     if (key === "sharedListDescription") {
-      return `View biomarkers and live pricing for the shared list ${values?.name}.`;
+      return `View tests and live pricing for the shared panel ${values?.name}.`;
     }
     return key;
   };
@@ -63,7 +63,7 @@ describe("shared list metadata", () => {
 
     expect(metadata).toMatchObject({
       title: "Hormone panel | Panelyt",
-      description: "View biomarkers and live pricing for the shared list Hormone panel.",
+      description: "View tests and live pricing for the shared panel Hormone panel.",
       alternates: {
         canonical: "/en/collections/shared/token-123",
         languages: {
@@ -73,7 +73,7 @@ describe("shared list metadata", () => {
       },
       openGraph: {
         title: "Hormone panel | Panelyt",
-        description: "View biomarkers and live pricing for the shared list Hormone panel.",
+        description: "View tests and live pricing for the shared panel Hormone panel.",
         locale: "en_US",
         alternateLocale: "pl_PL",
       },
@@ -102,7 +102,7 @@ describe("shared list metadata", () => {
 
     expect(metadata).toMatchObject({
       title: "token-456 | Panelyt",
-      description: "View biomarkers and live pricing for the shared list token-456.",
+      description: "View tests and live pricing for the shared panel token-456.",
       alternates: {
         canonical: "/collections/shared/token-456",
         languages: {
@@ -112,7 +112,7 @@ describe("shared list metadata", () => {
       },
       openGraph: {
         title: "token-456 | Panelyt",
-        description: "View biomarkers and live pricing for the shared list token-456.",
+        description: "View tests and live pricing for the shared panel token-456.",
         locale: "pl_PL",
         alternateLocale: "en_US",
       },

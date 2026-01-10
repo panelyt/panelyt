@@ -117,7 +117,7 @@ describe('useBiomarkerSelection', () => {
     })
 
     expect(
-      await screen.findByText('Added 1 biomarker from Core Panel.'),
+      await screen.findByText('Added 1 test from Core Panel.'),
     ).toBeInTheDocument()
     expect(trackMock).toHaveBeenCalledWith('panel_apply_template', { mode: 'append' })
   })
@@ -131,7 +131,7 @@ describe('useBiomarkerSelection', () => {
     })
 
     expect(
-      await screen.findByText('Added 1 biomarker from Liver Panel.'),
+      await screen.findByText('Added 1 test from Liver Panel.'),
     ).toBeInTheDocument()
     expect(trackMock).toHaveBeenCalledWith('panel_apply_addon', { count: 1 })
   })
@@ -191,7 +191,7 @@ describe('useBiomarkerSelection', () => {
       result.current.clearAll()
     })
 
-    expect(await screen.findByText('Cleared 2 biomarkers.')).toBeInTheDocument()
+    expect(await screen.findByText('Cleared 2 tests.')).toBeInTheDocument()
     expect(usePanelStore.getState().selected).toEqual([])
 
     const undoButton = await screen.findByRole('button', { name: 'Undo' })

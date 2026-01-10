@@ -200,10 +200,8 @@ describe("ListsContent", () => {
 
     expect(await screen.findByRole("table")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Name" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("columnheader", { name: "Biomarkers" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Total" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Tests" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Total price" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Updated" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Alerts" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Share" })).toBeInTheDocument();
@@ -214,7 +212,7 @@ describe("ListsContent", () => {
     await user.click(
       within(table).getByRole("button", { name: "Actions for Checkup" }),
     );
-    expect(await screen.findByRole("menuitem", { name: "Load in optimizer" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Open in Builder" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
   });
 
@@ -341,7 +339,7 @@ describe("ListsContent", () => {
     renderWithIntl("en", enMessages);
 
     const summary = await screen.findByTestId("lists-summary");
-    expect(within(summary).getByText("Lists")).toBeInTheDocument();
+    expect(within(summary).getByText("Panels")).toBeInTheDocument();
     expect(within(summary).getByText("2")).toBeInTheDocument();
     expect(within(summary).getByText("Alerts enabled")).toBeInTheDocument();
     expect(within(summary).getByText("1")).toBeInTheDocument();
@@ -518,7 +516,7 @@ describe("ListsContent", () => {
       within(table).getByRole("button", { name: "Actions for Optimizer list" }),
     );
     await user.click(
-      await screen.findByRole("menuitem", { name: "Load in optimizer" }),
+      await screen.findByRole("menuitem", { name: "Open in Builder" }),
     );
 
     expect(usePanelStore.getState().selected).toEqual([

@@ -41,7 +41,7 @@ describe('LoadMenu', () => {
     await user.click(screen.getByRole('button', { name: /load/i }))
 
     expect(screen.getByRole('menu')).toBeInTheDocument()
-    expect(screen.getByText(/saved lists/i)).toBeInTheDocument()
+    expect(screen.getByText(/saved panels/i)).toBeInTheDocument()
 
     const listItem = screen.getByRole('menuitem', { name: /metabolic panel/i })
     expect(listItem).toBeInTheDocument()

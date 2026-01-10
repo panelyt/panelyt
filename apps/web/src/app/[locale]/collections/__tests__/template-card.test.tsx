@@ -47,7 +47,7 @@ describe("TemplateCard", () => {
       screen.getByRole("heading", { name: template.name }),
     ).toBeInTheDocument();
     expect(screen.getByText(template.description)).toBeInTheDocument();
-    expect(screen.getByText("2 biomarkers")).toBeInTheDocument();
+    expect(screen.getByText("2 tests")).toBeInTheDocument();
     expect(screen.getByText("ALT")).toBeInTheDocument();
   });
 

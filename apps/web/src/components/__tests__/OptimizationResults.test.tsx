@@ -153,7 +153,7 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText(/Start by adding biomarkers above/)).toBeInTheDocument()
+    expect(screen.getByText(/Start by adding tests above/)).toBeInTheDocument()
   })
 
   it('uses light styling for the empty state when variant is light', () => {
@@ -167,7 +167,7 @@ describe('OptimizationResults', () => {
       />,
     )
 
-    const container = screen.getByText(/Start by adding biomarkers above/)
+    const container = screen.getByText(/Start by adding tests above/)
 
     expect(container).toHaveClass('border-slate-200')
     expect(container).toHaveClass('bg-white')
@@ -184,7 +184,7 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('Crunching the optimal basket...')).toBeInTheDocument()
+    expect(screen.getByText('Crunching the optimal cart...')).toBeInTheDocument()
   })
 
   it('uses light styling for the loading state when variant is light', () => {
@@ -199,7 +199,7 @@ describe('OptimizationResults', () => {
     )
 
     const container = screen
-      .getByText('Crunching the optimal basket...')
+      .getByText('Crunching the optimal cart...')
       .closest('div') as HTMLElement
 
     expect(container).toHaveClass('border-slate-200')
@@ -293,7 +293,7 @@ describe('OptimizationResults', () => {
 
     // Check header information from price breakdown
     expect(screen.getByText('Your order')).toBeInTheDocument()
-    expect(screen.getByText('Total')).toBeInTheDocument()
+    expect(screen.getByText('Total price')).toBeInTheDocument()
 
     // Check items are displayed
     expect(screen.getAllByRole('link', { name: 'ALT Test' })[0]).toBeInTheDocument()
@@ -342,7 +342,7 @@ describe('OptimizationResults', () => {
     expect(screen.getByRole('heading', { name: 'Coverage gaps' })).toBeInTheDocument()
     expect(screen.getAllByText('UNKNOWN_BIOMARKER')).toHaveLength(2)
     expect(
-      screen.getByText('1 biomarker cannot be covered right now'),
+      screen.getByText('1 test cannot be covered right now'),
     ).toBeInTheDocument()
   })
 
@@ -678,7 +678,7 @@ describe('OptimizationResults', () => {
     )
 
     expect(screen.getByText('Twoje zamówienie')).toBeInTheDocument()
-    expect(screen.getByText('Suma')).toBeInTheDocument()
+    expect(screen.getByText('Cena łączna')).toBeInTheDocument()
     expect(screen.getByText('Szukamy sugestii...')).toBeInTheDocument()
     expect(screen.getByText(/Pakiety/)).toBeInTheDocument()
     expect(screen.getByText(/Badania pojedyncze/)).toBeInTheDocument()

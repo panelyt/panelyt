@@ -10,14 +10,14 @@ describe("SegmentedControl", () => {
         value="updated"
         options={[
           { value: "updated", label: "Updated" },
-          { value: "count", label: "Biomarkers" },
+          { value: "count", label: "Tests" },
         ]}
         onValueChange={() => undefined}
-        ariaLabel="Sort by"
+        ariaLabel="Sort"
       />,
     );
 
     expect(screen.getByRole("tab", { name: "Updated" })).toHaveClass("h-9");
-    expect(screen.getByRole("tab", { name: "Biomarkers" })).toHaveClass("h-9");
+    expect(screen.getByRole("tab", { name: "Tests" })).toHaveClass("h-9");
   });
 });

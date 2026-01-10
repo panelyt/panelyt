@@ -64,7 +64,7 @@ describe('SummarySection', () => {
     expect(document.body.textContent).toContain('Wartość bonusu')
     expect(document.body.textContent).toContain('Pozycja ceny')
     expect(document.body.textContent).toContain('Nakładanie pakietów')
-    expect(document.body.textContent).toContain('Kliknij, aby zobaczyć biomarkery w wielu pakietach')
+    expect(document.body.textContent).toContain('Kliknij, aby zobaczyć badania w wielu pakietach')
   })
 
   it('uses translated placeholder when savings and bonus are empty', () => {

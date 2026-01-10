@@ -275,7 +275,7 @@ describe("HomeContent", () => {
 
     expect(summary.getByText("Source")).toBeInTheDocument();
     expect(summary.getByText("Diagnostyka")).toBeInTheDocument();
-    const totalStat = summary.getByText("Current total").closest("div") as HTMLElement;
+    const totalStat = summary.getByText("Estimated price").closest("div") as HTMLElement;
     const savingsStat = summary.getByText("Potential savings").closest("div") as HTMLElement;
 
     expect(totalStat).toHaveTextContent(/120,00/);
@@ -309,7 +309,7 @@ describe("HomeContent", () => {
     const summary = within(bar);
 
     expect(summary.queryByText("Source")).not.toBeInTheDocument();
-    expect(summary.queryByText("Current total")).not.toBeInTheDocument();
+    expect(summary.queryByText("Estimated price")).not.toBeInTheDocument();
   });
 
   it("stores the optimization summary in the panel store when results load", () => {

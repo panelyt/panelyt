@@ -170,7 +170,7 @@ describe("PanelTray", () => {
     await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
 
     const input = await screen.findByRole("combobox", {
-      name: "Search biomarkers to add...",
+      name: "Search tests to add...",
     });
 
     expect(input).not.toHaveFocus();

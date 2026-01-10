@@ -27,7 +27,7 @@ describe("SaveListModal", () => {
       screen.getByRole("heading", { name: "Save current selection" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Save list" }));
+    await user.click(screen.getByRole("button", { name: "Save panel" }));
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
 

@@ -356,7 +356,7 @@ describe("CollectionsContent", () => {
 
       expect(screen.getByText(expectedUpdatedLabel)).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Baseline" })).toBeInTheDocument();
-      expect(screen.getByText("1 biomarker")).toBeInTheDocument();
+      expect(screen.getByText("1 test")).toBeInTheDocument();
 
       const description = screen.getByText(descriptionText);
       expect(description).toHaveClass("line-clamp-2");

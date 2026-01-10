@@ -36,7 +36,7 @@ describe("CollectionsToolbar", () => {
   it("renders the results count and hides clear filters by default", () => {
     renderToolbar("en", enMessages);
 
-    expect(screen.getByText("12 templates")).toBeInTheDocument();
+    expect(screen.getByText("12 panels")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: enMessages.collections.clearFilters }),
     ).not.toBeInTheDocument();

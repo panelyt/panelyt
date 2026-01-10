@@ -28,7 +28,7 @@ describe("PanelPill", () => {
 
     renderWithIntl(<PanelPill />);
 
-    expect(screen.getByText("2 biomarkers")).toBeInTheDocument();
+    expect(screen.getByText("2 tests")).toBeInTheDocument();
     expect(screen.getByText("Run optimize")).toBeInTheDocument();
     expect(screen.getByLabelText("Optimization pending")).toBeInTheDocument();
   });
@@ -47,11 +47,11 @@ describe("PanelPill", () => {
 
     renderWithIntl(<PanelPill />);
 
-    expect(screen.getByText("3 biomarkers")).toBeInTheDocument();
+    expect(screen.getByText("3 tests")).toBeInTheDocument();
     const expected = formatCurrency(120).replace(/\u00a0/g, " ");
     expect(
       screen.getByText((content) => content.replace(/\u00a0/g, " ") === expected),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("All biomarkers covered")).toBeInTheDocument();
+    expect(screen.getByLabelText("All tests covered")).toBeInTheDocument();
   });
 });
