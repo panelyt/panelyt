@@ -68,9 +68,9 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         {...props}
       >
         <span
+          style={{ left: checked ? "1.75rem" : "0.25rem" }}
           className={cn(
             "absolute top-1 inline-flex h-6 w-6 rounded-full bg-primary transition-[left] duration-200 ease-out",
-            checked ? "left-7" : "left-1",
           )}
         />
       </button>

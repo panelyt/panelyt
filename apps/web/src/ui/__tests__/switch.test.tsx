@@ -57,12 +57,10 @@ describe("Switch", () => {
     const thumb = toggle.querySelector("span");
 
     expect(thumb).not.toBeNull();
-    expect(thumb).toHaveClass("left-1");
-    expect(thumb).not.toHaveClass("left-7");
+    expect(thumb).toHaveStyle({ left: "0.25rem" });
 
     await user.click(toggle);
 
-    expect(thumb).toHaveClass("left-7");
-    expect(thumb).not.toHaveClass("left-1");
+    expect(thumb).toHaveStyle({ left: "1.75rem" });
   });
 });
