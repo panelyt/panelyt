@@ -260,18 +260,66 @@ describe("CollectionsContent", () => {
     expect(headings[1]).toBe("Alpha");
   });
 
-  it("renders the table layout with key columns", () => {
-    templatesData = [makeTemplate({ id: 11, name: "Baseline" })];
+  it("renders a condensed table layout with inline metadata", () => {
+    const nowSpy = vi
+      .spyOn(Date, "now")
+      .mockReturnValue(new Date("2024-01-10T12:00:00Z").getTime());
 
-    renderWithIntl("en", enMessages);
+    try {
+      const descriptionText = "Baseline description";
+      templatesData = [
+        makeTemplate({
+          id: 11,
+          name: "Baseline",
+          description: descriptionText,
+          updated_at: "2024-01-08T12:00:00Z",
+        }),
+      ];
 
-    const table = getTable();
-    const header = within(table).getAllByRole("columnheader");
-    expect(header.length).toBeGreaterThan(0);
-    expect(within(table).getByText(enMessages.collections.columnName)).toBeInTheDocument();
-    expect(within(table).getByText(enMessages.collections.columnUpdated)).toBeInTheDocument();
-    expect(within(table).getByText(enMessages.collections.columnBiomarkers)).toBeInTheDocument();
-    expect(within(table).getByText(enMessages.collections.columnTotal)).toBeInTheDocument();
+      renderWithIntl("en", enMessages);
+
+      const table = getTable();
+      const header = within(table).getAllByRole("columnheader");
+      expect(header.length).toBeGreaterThan(0);
+      expect(within(table).getByText(enMessages.collections.columnName)).toBeInTheDocument();
+      expect(within(table).getByText(enMessages.collections.columnTotal)).toBeInTheDocument();
+      expect(within(table).getByText(enMessages.collections.columnActions)).toBeInTheDocument();
+      expect(
+        within(table).queryByText(enMessages.collections.columnBiomarkers),
+      ).not.toBeInTheDocument();
+      expect(
+        within(table).queryByText(enMessages.collections.columnUpdated),
+      ).not.toBeInTheDocument();
+
+      const relativeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+      const expectedRelative = relativeFormatter.format(-2, "day");
+      const expectedUpdatedLabel = enMessages.collections.updatedLabel.replace(
+        "{date}",
+        expectedRelative,
+      );
+
+      expect(within(table).getByText(expectedUpdatedLabel)).toBeInTheDocument();
+
+      const cell = within(table).getByText("Baseline").closest("td");
+      expect(cell).not.toBeNull();
+      if (!cell) return;
+
+      const stack = within(cell).getByTestId("template-title-stack-template-1");
+      const heading = within(stack).getByRole("heading", { name: "Baseline" });
+      expect(heading).toBeInTheDocument();
+      expect(within(stack).getByText("1 biomarker")).toBeInTheDocument();
+      expect(within(stack).getByText(expectedUpdatedLabel)).toBeInTheDocument();
+
+      const content = cell.textContent ?? "";
+      expect(content.indexOf(descriptionText)).toBeGreaterThan(-1);
+      expect(content.indexOf("1 biomarker")).toBeLessThan(content.indexOf(descriptionText));
+      expect(content.indexOf(expectedUpdatedLabel)).toBeLessThan(content.indexOf(descriptionText));
+
+      const description = within(cell).getByText(descriptionText);
+      expect(description).toHaveClass("line-clamp-2");
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it("shows updated timestamps as relative time with an exact tooltip", async () => {
@@ -292,13 +340,17 @@ describe("CollectionsContent", () => {
 
       const relativeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
       const expectedRelative = relativeFormatter.format(-2, "day");
+      const expectedLabel = enMessages.collections.updatedLabel.replace(
+        "{date}",
+        expectedRelative,
+      );
       const expectedExact = new Intl.DateTimeFormat("en", {
         dateStyle: "medium",
         timeStyle: "short",
       }).format(new Date("2024-01-08T12:00:00Z"));
 
       const user = userEvent.setup();
-      const relativeText = screen.getByText(expectedRelative);
+      const relativeText = within(getTable()).getByText(expectedLabel);
       expect(relativeText).toBeInTheDocument();
 
       await user.hover(relativeText);
@@ -311,7 +363,7 @@ describe("CollectionsContent", () => {
     }
   });
 
-  it("reveals a biomarker preview and overflow count when expanded", async () => {
+  it("shows all biomarkers when expanded", async () => {
     templatesData = [
       makeTemplate({
         id: 12,
@@ -342,12 +394,14 @@ describe("CollectionsContent", () => {
 
     expect(within(details).getByText("Biomarker 1")).toBeInTheDocument();
     expect(within(details).getByText("Biomarker 10")).toBeInTheDocument();
-    expect(within(details).queryByText("Biomarker 11")).not.toBeInTheDocument();
+    expect(within(details).getByText("Biomarker 11")).toBeInTheDocument();
+    expect(within(details).getByText("Biomarker 12")).toBeInTheDocument();
+    expect(within(details).queryByText("B1")).not.toBeInTheDocument();
     expect(
-      within(details).getByText(
+      within(details).queryByText(
         enMessages.collections.moreBiomarkers.replace("{count}", "2"),
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
   it("appends biomarkers to the panel from the expanded actions", async () => {

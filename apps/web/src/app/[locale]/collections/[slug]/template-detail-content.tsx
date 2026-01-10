@@ -164,7 +164,6 @@ export default function TemplateDetailContent({ slug }: TemplateDetailContentPro
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-primary">{entry.display_name}</span>
-                      <span className="font-mono text-xs text-secondary">{entry.code}</span>
                     </div>
                     {entry.biomarker && (
                       <p className="text-xs text-secondary">

@@ -29,7 +29,7 @@ import {
   resolveTimestamp,
 } from "../../../lib/dates";
 import { slugify } from "../../../lib/slug";
-import { Button, buttonVariants } from "../../../ui/button";
+import { Button } from "../../../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,7 +58,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../../../ui/tooltip";
-import { cn } from "../../../lib/cn";
 
 const sortOptions = [
   { value: "updated", labelKey: "collections.sortUpdated" },
@@ -299,7 +298,7 @@ export default function CollectionsContent() {
       </div>
 
       <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
-        <div className="flex flex-col gap-4 rounded-panel border border-border/70 bg-surface-1/60 p-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-3 rounded-panel border border-border/70 bg-surface-1/60 p-3 md:flex-row md:items-center md:justify-between">
           <div className="flex-1">
             <label
               htmlFor="template-search"
@@ -315,7 +314,7 @@ export default function CollectionsContent() {
               className="mt-2 w-full rounded-lg border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-secondary focus-ring"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <div>
               <label
                 htmlFor="template-sort"
@@ -366,14 +365,14 @@ export default function CollectionsContent() {
           <TooltipProvider delayDuration={0}>
             <>
             <div className="hidden md:block">
-              <Table dense>
+              <Table dense stickyHeader>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("collections.columnName")}</TableHead>
-                    <TableHead>{t("collections.columnBiomarkers")}</TableHead>
-                    <TableHead>{t("collections.columnUpdated")}</TableHead>
-                    <TableHead>{t("collections.columnTotal")}</TableHead>
-                    <TableHead className="text-right">
+                    <TableHead className="w-[160px] text-right">
+                      {t("collections.columnTotal")}
+                    </TableHead>
+                    <TableHead className="w-[220px] text-right">
                       {t("collections.columnActions")}
                     </TableHead>
                   </TableRow>
@@ -382,67 +381,76 @@ export default function CollectionsContent() {
                   {sortedTemplates.map((template) => {
                     const isExpanded = expandedSlugs.includes(template.slug);
                     const detailsId = `template-${template.slug}-details`;
-                    const preview = template.biomarkers.slice(0, 10);
-                    const remaining = template.biomarkers.length - preview.length;
                     const updatedLabels = getUpdatedLabels(template.updated_at);
                     return (
                       <Fragment key={template.id}>
                         <TableRow>
                           <TableCell className="align-top">
-                            <div className="space-y-2">
-                              <div className="flex flex-wrap items-start justify-between gap-2">
-                                <h3 className="text-base font-semibold text-primary">
-                                  {template.name}
-                                </h3>
-                                <div className="flex items-center gap-2">
+                            <div className="space-y-3">
+                              <div
+                                className="space-y-1"
+                                data-testid={`template-title-stack-${template.slug}`}
+                              >
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="text-base font-semibold text-primary">
+                                    {template.name}
+                                  </h3>
                                   {!template.is_active ? (
                                     <span className="rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
                                       {t("collections.unpublished")}
                                     </span>
                                   ) : null}
-                                  <IconButton
-                                    variant="secondary"
-                                    size="icon"
-                                    aria-label={
-                                      isExpanded
-                                        ? t("collections.collapseRow")
-                                        : t("collections.expandRow")
-                                    }
-                                    aria-expanded={isExpanded}
-                                    aria-controls={detailsId}
-                                    onClick={() => toggleExpanded(template.slug)}
-                                  >
-                                    {isExpanded ? (
-                                      <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                                    ) : (
-                                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                                    )}
-                                  </IconButton>
+                                </div>
+                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-secondary">
+                                  <span className="rounded-pill border border-border/70 bg-surface-2 px-2 py-0 text-[11px] font-semibold uppercase tracking-wide text-secondary">
+                                    {t("common.biomarkersCount", {
+                                      count: template.biomarkers.length,
+                                    })}
+                                  </span>
+                                  <span aria-hidden="true">·</span>
+                                  {updatedLabels.exact ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="cursor-default underline decoration-dotted decoration-border/70 underline-offset-2">
+                                          {t("collections.updatedLabel", {
+                                            date: updatedLabels.relative,
+                                          })}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{updatedLabels.exact}</TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    <span>
+                                      {t("collections.updatedLabel", {
+                                        date: updatedLabels.relative,
+                                      })}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
-                              <p className="text-sm text-secondary">
+                              <p className="line-clamp-2 text-sm text-secondary">
                                 {template.description ?? t("collections.noDescription")}
                               </p>
+                              <div>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  aria-expanded={isExpanded}
+                                  aria-controls={detailsId}
+                                  onClick={() => toggleExpanded(template.slug)}
+                                  className="h-7 px-2 text-[11px] border-transparent bg-transparent text-secondary hover:text-primary hover:bg-surface-2/60"
+                                >
+                                  {isExpanded
+                                    ? t("collections.collapseRow")
+                                    : t("collections.expandRow")}
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
+                                  ) : (
+                                    <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                                  )}
+                                </Button>
+                              </div>
                             </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs text-secondary">
-                            {t("common.biomarkersCount", {
-                              count: template.biomarkers.length,
-                            })}
-                          </TableCell>
-                          <TableCell className="text-xs text-secondary">
-                            {updatedLabels.exact ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="cursor-default underline decoration-dotted decoration-border/70 underline-offset-2">
-                                    {updatedLabels.relative}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>{updatedLabels.exact}</TooltipContent>
-                              </Tooltip>
-                            ) : (
-                              <span>{updatedLabels.relative}</span>
-                            )}
                           </TableCell>
                           <TableCell>
                             <TemplatePriceSummary
@@ -451,7 +459,7 @@ export default function CollectionsContent() {
                             />
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex flex-col items-end gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
                               <Button
                                 size="sm"
                                 onClick={() => handleAddToPanel(template)}
@@ -460,10 +468,7 @@ export default function CollectionsContent() {
                               </Button>
                               <Link
                                 href={`/collections/${template.slug}`}
-                                className={cn(
-                                  buttonVariants({ variant: "secondary", size: "sm" }),
-                                  "inline-flex",
-                                )}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-secondary transition-colors hover:text-primary focus-ring"
                               >
                                 {t("collections.viewDetails")}
                                 <ArrowRight className="h-3.5 w-3.5" />
@@ -501,10 +506,10 @@ export default function CollectionsContent() {
                         </TableRow>
                         {isExpanded ? (
                           <TableRow className="bg-surface-2/30">
-                            <TableCell colSpan={5}>
+                            <TableCell colSpan={3}>
                               <div id={detailsId} className="space-y-4">
                                 <div className="flex flex-wrap gap-2">
-                                  {preview.map((entry) => (
+                                  {template.biomarkers.map((entry) => (
                                     <span
                                       key={entry.code}
                                       className="inline-flex items-center gap-2 rounded-pill border border-border/70 bg-surface-2 px-3 py-1 text-xs"
@@ -512,16 +517,8 @@ export default function CollectionsContent() {
                                       <span className="font-medium text-primary">
                                         {entry.display_name}
                                       </span>
-                                      <span className="font-mono text-secondary">
-                                        {entry.code}
-                                      </span>
                                     </span>
                                   ))}
-                                  {remaining > 0 ? (
-                                    <span className="text-xs text-secondary">
-                                      {t("collections.moreBiomarkers", { count: remaining })}
-                                    </span>
-                                  ) : null}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                   <Button
@@ -552,8 +549,6 @@ export default function CollectionsContent() {
             <div className="grid gap-4 md:hidden">
               {sortedTemplates.map((template) => {
                 const isExpanded = expandedSlugs.includes(template.slug);
-                const preview = template.biomarkers.slice(0, 10);
-                const remaining = template.biomarkers.length - preview.length;
                 const updatedLabels = getUpdatedLabels(template.updated_at);
                 return (
                   <div
@@ -562,10 +557,38 @@ export default function CollectionsContent() {
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-primary">
-                          {template.name}
-                        </h3>
-                        <p className="mt-1 text-sm text-secondary">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-lg font-semibold text-primary">
+                            {template.name}
+                          </h3>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-secondary">
+                          <span className="rounded-pill border border-border/70 bg-surface-2 px-2 py-0 text-[11px] font-semibold uppercase tracking-wide text-secondary">
+                            {t("common.biomarkersCount", {
+                              count: template.biomarkers.length,
+                            })}
+                          </span>
+                          <span aria-hidden="true">·</span>
+                          {updatedLabels.exact ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-default underline decoration-dotted decoration-border/70 underline-offset-2">
+                                  {t("collections.updatedLabel", {
+                                    date: updatedLabels.relative,
+                                  })}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>{updatedLabels.exact}</TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span>
+                              {t("collections.updatedLabel", {
+                                date: updatedLabels.relative,
+                              })}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-sm text-secondary">
                           {template.description ?? t("collections.noDescription")}
                         </p>
                       </div>
@@ -574,28 +597,6 @@ export default function CollectionsContent() {
                         className="text-xl"
                       />
                     </div>
-                    <p className="mt-3 text-xs text-secondary">
-                      {t("common.biomarkersCount", { count: template.biomarkers.length })}
-                      {" · "}
-                      {updatedLabels.exact ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-default underline decoration-dotted decoration-border/70 underline-offset-2">
-                              {t("collections.updatedLabel", {
-                                date: updatedLabels.relative,
-                              })}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>{updatedLabels.exact}</TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        <span>
-                          {t("collections.updatedLabel", {
-                            date: updatedLabels.relative,
-                          })}
-                        </span>
-                      )}
-                    </p>
                     {!template.is_active ? (
                       <span className="mt-2 inline-flex rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
                         {t("collections.unpublished")}
@@ -609,6 +610,7 @@ export default function CollectionsContent() {
                         size="sm"
                         variant="secondary"
                         onClick={() => toggleExpanded(template.slug)}
+                        className="border-transparent bg-transparent text-secondary hover:text-primary hover:bg-surface-2/60"
                       >
                         {isExpanded
                           ? t("collections.collapseRow")
@@ -616,10 +618,7 @@ export default function CollectionsContent() {
                       </Button>
                       <Link
                         href={`/collections/${template.slug}`}
-                        className={cn(
-                          buttonVariants({ variant: "secondary", size: "sm" }),
-                          "inline-flex",
-                        )}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-secondary transition-colors hover:text-primary focus-ring"
                       >
                         {t("collections.viewDetails")}
                         <ArrowRight className="h-3.5 w-3.5" />
@@ -652,7 +651,7 @@ export default function CollectionsContent() {
                     {isExpanded ? (
                       <div className="mt-4 space-y-3">
                         <div className="flex flex-wrap gap-2">
-                          {preview.map((entry) => (
+                          {template.biomarkers.map((entry) => (
                             <span
                               key={entry.code}
                               className="inline-flex items-center gap-2 rounded-pill border border-border/70 bg-surface-2 px-3 py-1 text-xs"
@@ -660,16 +659,8 @@ export default function CollectionsContent() {
                               <span className="font-medium text-primary">
                                 {entry.display_name}
                               </span>
-                              <span className="font-mono text-secondary">
-                                {entry.code}
-                              </span>
                             </span>
                           ))}
-                          {remaining > 0 ? (
-                            <span className="text-xs text-secondary">
-                              {t("collections.moreBiomarkers", { count: remaining })}
-                            </span>
-                          ) : null}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Button

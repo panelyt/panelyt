@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Toaster } from "sonner";
 
@@ -217,12 +217,12 @@ describe("TemplateDetailContent", () => {
     );
   });
 
-  it("renders biomarker codes, notes, and locale-aware updated timestamp", async () => {
+  it("renders biomarker names, notes, and locale-aware updated timestamp", async () => {
     await renderContent();
 
     expect(await screen.findByText("Alanine aminotransferase")).toBeInTheDocument();
-    const codeBadge = screen.getByText("ALT", { selector: "span" });
-    expect(codeBadge).toHaveClass("font-mono");
+    const biomarkerList = screen.getByRole("list");
+    expect(within(biomarkerList).queryByText("ALT")).not.toBeInTheDocument();
     expect(screen.getByText("Fast for 12 hours before the test.")).toBeInTheDocument();
 
     const expectedUpdatedAt = new Date(templateData.updated_at).toLocaleString("en");
