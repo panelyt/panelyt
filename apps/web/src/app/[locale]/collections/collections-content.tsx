@@ -15,6 +15,8 @@ import { Link } from "../../../i18n/navigation";
 import { Header } from "../../../components/header";
 import { TemplateModal } from "../../../components/template-modal";
 import { TemplatePriceSummary } from "../../../components/template-price-summary";
+import { CollectionsToolbar } from "./collections-toolbar";
+import type { SortOption } from "./collections-toolbar";
 import {
   useTemplateCatalog,
   useTemplatePricing,
@@ -59,14 +61,6 @@ import {
   TooltipTrigger,
 } from "../../../ui/tooltip";
 
-const sortOptions = [
-  { value: "updated", labelKey: "collections.sortUpdated" },
-  { value: "count", labelKey: "collections.sortCount" },
-  { value: "total", labelKey: "collections.sortTotal" },
-] as const;
-
-type SortOption = (typeof sortOptions)[number]["value"];
-
 export default function CollectionsContent() {
   const t = useTranslations();
   const locale = useLocale();
@@ -102,6 +96,11 @@ export default function CollectionsContent() {
   const [sortKey, setSortKey] = useState<SortOption>("updated");
   const [showInactive, setShowInactive] = useState(false);
   const [expandedSlugs, setExpandedSlugs] = useState<string[]>([]);
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setSortKey("updated");
+    setShowInactive(false);
+  };
 
   const relativeTimeFormatter = useMemo(
     () => new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
@@ -298,56 +297,17 @@ export default function CollectionsContent() {
       </div>
 
       <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
-        <div className="flex flex-col gap-3 rounded-panel border border-border/70 bg-surface-1/60 p-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex-1">
-            <label
-              htmlFor="template-search"
-              className="text-xs font-semibold uppercase tracking-wide text-secondary"
-            >
-              {t("collections.searchLabel")}
-            </label>
-            <input
-              id="template-search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={t("collections.searchPlaceholder")}
-              className="mt-2 w-full rounded-lg border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-secondary focus-ring"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div>
-              <label
-                htmlFor="template-sort"
-                className="text-xs font-semibold uppercase tracking-wide text-secondary"
-              >
-                {t("collections.sortLabel")}
-              </label>
-              <select
-                id="template-sort"
-                value={sortKey}
-                onChange={(event) => setSortKey(event.target.value as SortOption)}
-                className="mt-2 w-full rounded-lg border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary focus-ring"
-              >
-                {sortOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {t(option.labelKey)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {isAdmin ? (
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-secondary">
-                <input
-                  type="checkbox"
-                  checked={showInactive}
-                  onChange={(event) => setShowInactive(event.target.checked)}
-                  className="h-4 w-4 accent-accent-cyan"
-                />
-                {t("collections.showInactive")}
-              </label>
-            ) : null}
-          </div>
-        </div>
+        <CollectionsToolbar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          sortValue={sortKey}
+          onSortChange={setSortKey}
+          showInactive={showInactive}
+          onShowInactiveChange={setShowInactive}
+          isAdmin={isAdmin}
+          resultCount={sortedTemplates.length}
+          onClearFilters={handleClearFilters}
+        />
 
         {templatesQuery.isLoading ? (
           <div className="flex items-center gap-3 rounded-panel border border-border/70 bg-surface-1 px-4 py-6 text-sm text-secondary">

@@ -134,8 +134,8 @@ const getTemplateHeadings = () =>
 const getSearchInput = () =>
   screen.getByPlaceholderText(enMessages.collections.searchPlaceholder);
 
-const getSortSelect = () =>
-  screen.getByLabelText(enMessages.collections.sortLabel);
+const getSortOption = (label: string) =>
+  screen.getByRole("tab", { name: label });
 
 describe("CollectionsContent", () => {
   beforeEach(() => {
@@ -233,7 +233,7 @@ describe("CollectionsContent", () => {
     renderWithIntl("en", enMessages);
 
     const user = userEvent.setup();
-    await user.selectOptions(getSortSelect(), "count");
+    await user.click(getSortOption(enMessages.collections.sortCount));
 
     const headings = getTemplateHeadings();
     expect(headings[0]).toBe("Large");
@@ -253,7 +253,7 @@ describe("CollectionsContent", () => {
     renderWithIntl("en", enMessages);
 
     const user = userEvent.setup();
-    await user.selectOptions(getSortSelect(), "total");
+    await user.click(getSortOption(enMessages.collections.sortTotal));
 
     const headings = getTemplateHeadings();
     expect(headings[0]).toBe("Beta");
