@@ -222,6 +222,7 @@
     "noDescription": "No description provided.",
     "pricingLoading": "Pricing...",
     "pricingUnavailable": "Pricing unavailable",
+    "currentTotalLabel": "Current total",
     "currentTotalAria": "Template current price {amount}"
   },
   "templateDetail": {

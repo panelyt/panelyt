@@ -222,6 +222,7 @@
     "noDescription": "Brak opisu.",
     "pricingLoading": "Wycena...",
     "pricingUnavailable": "Cena niedostępna",
+    "currentTotalLabel": "Aktualny koszt",
     "currentTotalAria": "Aktualna cena szablonu {amount}"
   },
   "templateDetail": {
