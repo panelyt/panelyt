@@ -1,22 +1,16 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
-import {
-  ArrowRight,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  MoreHorizontal,
-} from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
-import { Link } from "../../../i18n/navigation";
+import { useRouter } from "../../../i18n/navigation";
 import { Header } from "../../../components/header";
 import { TemplateModal } from "../../../components/template-modal";
-import { TemplatePriceSummary } from "../../../components/template-price-summary";
 import { CollectionsToolbar } from "./collections-toolbar";
 import type { SortOption } from "./collections-toolbar";
+import { TemplateCard } from "./template-card";
 import {
   useTemplateCatalog,
   useTemplatePricing,
@@ -25,20 +19,8 @@ import { useTemplateAdmin } from "../../../hooks/useTemplateAdmin";
 import { useUserSession } from "../../../hooks/useUserSession";
 import { usePanelStore } from "../../../stores/panelStore";
 import { track } from "../../../lib/analytics";
-import {
-  formatExactTimestamp,
-  formatRelativeTimestamp,
-  resolveTimestamp,
-} from "../../../lib/dates";
 import { slugify } from "../../../lib/slug";
 import { Button } from "../../../ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../../ui/dropdown-menu";
-import { IconButton } from "../../../ui/icon-button";
 import {
   Dialog,
   DialogClose,
@@ -46,24 +28,10 @@ import {
   DialogDescription,
   DialogTitle,
 } from "../../../ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../../../ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../../../ui/tooltip";
 
 export default function CollectionsContent() {
   const t = useTranslations();
-  const locale = useLocale();
+  const router = useRouter();
   const session = useUserSession();
   const isAdmin = Boolean(session.data?.is_admin);
   const templateAdmin = useTemplateAdmin();
@@ -95,25 +63,11 @@ export default function CollectionsContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortOption>("updated");
   const [showInactive, setShowInactive] = useState(false);
-  const [expandedSlugs, setExpandedSlugs] = useState<string[]>([]);
   const handleClearFilters = () => {
     setSearchQuery("");
     setSortKey("updated");
     setShowInactive(false);
   };
-
-  const relativeTimeFormatter = useMemo(
-    () => new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
-    [locale],
-  );
-  const exactTimeFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }),
-    [locale],
-  );
 
   const openModalForTemplate = (template: (typeof templates)[number]) => {
     setModalName(template.name);
@@ -228,12 +182,6 @@ export default function CollectionsContent() {
     toast(t("collections.appliedReplace", { name: template.name }));
   };
 
-  const toggleExpanded = (slug: string) => {
-    setExpandedSlugs((prev) =>
-      prev.includes(slug) ? prev.filter((value) => value !== slug) : [...prev, slug],
-    );
-  };
-
   const filteredTemplates = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     return templates.filter((template) => {
@@ -270,17 +218,6 @@ export default function CollectionsContent() {
     });
     return sorted;
   }, [filteredTemplates, pricingBySlug, sortKey]);
-
-  const getUpdatedLabels = (value: string) => {
-    const resolved = resolveTimestamp(value);
-    if (!resolved) {
-      return { relative: value, exact: null };
-    }
-    return {
-      relative: formatRelativeTimestamp(resolved.timestamp, relativeTimeFormatter),
-      exact: formatExactTimestamp(resolved.date, exactTimeFormatter),
-    };
-  };
 
   return (
     <main className="min-h-screen bg-app text-primary">
@@ -322,323 +259,21 @@ export default function CollectionsContent() {
             {t("collections.noTemplates")}
           </div>
         ) : (
-          <TooltipProvider delayDuration={0}>
-            <>
-            <div className="hidden md:block">
-              <Table dense stickyHeader>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("collections.columnName")}</TableHead>
-                    <TableHead className="w-[160px] text-right">
-                      {t("collections.columnTotal")}
-                    </TableHead>
-                    <TableHead className="w-[220px] text-right">
-                      {t("collections.columnActions")}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedTemplates.map((template) => {
-                    const isExpanded = expandedSlugs.includes(template.slug);
-                    const detailsId = `template-${template.slug}-details`;
-                    const updatedLabels = getUpdatedLabels(template.updated_at);
-                    return (
-                      <Fragment key={template.id}>
-                        <TableRow>
-                          <TableCell className="align-top">
-                            <div className="space-y-3">
-                              <div
-                                className="space-y-1"
-                                data-testid={`template-title-stack-${template.slug}`}
-                              >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h3 className="text-base font-semibold text-primary">
-                                    {template.name}
-                                  </h3>
-                                  {!template.is_active ? (
-                                    <span className="rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
-                                      {t("collections.unpublished")}
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-secondary">
-                                  <span className="rounded-pill border border-border/70 bg-surface-2 px-2 py-0 text-[11px] font-semibold uppercase tracking-wide text-secondary">
-                                    {t("common.biomarkersCount", {
-                                      count: template.biomarkers.length,
-                                    })}
-                                  </span>
-                                  <span aria-hidden="true">·</span>
-                                  {updatedLabels.exact ? (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="cursor-default underline decoration-dotted decoration-border/70 underline-offset-2">
-                                          {t("collections.updatedLabel", {
-                                            date: updatedLabels.relative,
-                                          })}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent>{updatedLabels.exact}</TooltipContent>
-                                    </Tooltip>
-                                  ) : (
-                                    <span>
-                                      {t("collections.updatedLabel", {
-                                        date: updatedLabels.relative,
-                                      })}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <p className="line-clamp-2 text-sm text-secondary">
-                                {template.description ?? t("collections.noDescription")}
-                              </p>
-                              <div>
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  aria-expanded={isExpanded}
-                                  aria-controls={detailsId}
-                                  onClick={() => toggleExpanded(template.slug)}
-                                  className="h-7 px-2 text-[11px] border-transparent bg-transparent text-secondary hover:text-primary hover:bg-surface-2/60"
-                                >
-                                  {isExpanded
-                                    ? t("collections.collapseRow")
-                                    : t("collections.expandRow")}
-                                  {isExpanded ? (
-                                    <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
-                                  ) : (
-                                    <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <TemplatePriceSummary
-                              pricing={pricingBySlug[template.slug]}
-                              className="text-base"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex flex-wrap items-center justify-end gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleAddToPanel(template)}
-                              >
-                                {t("collections.addToPanel")}
-                              </Button>
-                              <Link
-                                href={`/collections/${template.slug}`}
-                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-secondary transition-colors hover:text-primary focus-ring"
-                              >
-                                {t("collections.viewDetails")}
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </Link>
-                              {isAdmin ? (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <IconButton
-                                      variant="secondary"
-                                      size="icon"
-                                      aria-label={t("collections.adminMenu")}
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                                    </IconButton>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                      onSelect={() => openModalForTemplate(template)}
-                                    >
-                                      {t("common.edit")}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onSelect={() =>
-                                        openDeleteDialog(template.slug, template.name)
-                                      }
-                                      className="text-accent-red"
-                                    >
-                                      {t("common.delete")}
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        {isExpanded ? (
-                          <TableRow className="bg-surface-2/30">
-                            <TableCell colSpan={3}>
-                              <div id={detailsId} className="space-y-4">
-                                <div className="flex flex-wrap gap-2">
-                                  {template.biomarkers.map((entry) => (
-                                    <span
-                                      key={entry.code}
-                                      className="inline-flex items-center gap-2 rounded-pill border border-border/70 bg-surface-2 px-3 py-1 text-xs"
-                                    >
-                                      <span className="font-medium text-primary">
-                                        {entry.display_name}
-                                      </span>
-                                    </span>
-                                  ))}
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleAddToPanel(template)}
-                                  >
-                                    {t("collections.addToPanel")}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => handleReplacePanel(template)}
-                                  >
-                                    {t("collections.replacePanel")}
-                                  </Button>
-                                </div>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="grid gap-4 md:hidden">
-              {sortedTemplates.map((template) => {
-                const isExpanded = expandedSlugs.includes(template.slug);
-                const updatedLabels = getUpdatedLabels(template.updated_at);
-                return (
-                  <div
-                    key={template.id}
-                    className="rounded-panel border border-border/70 bg-surface-1 px-5 py-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-semibold text-primary">
-                            {template.name}
-                          </h3>
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-secondary">
-                          <span className="rounded-pill border border-border/70 bg-surface-2 px-2 py-0 text-[11px] font-semibold uppercase tracking-wide text-secondary">
-                            {t("common.biomarkersCount", {
-                              count: template.biomarkers.length,
-                            })}
-                          </span>
-                          <span aria-hidden="true">·</span>
-                          {updatedLabels.exact ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-default underline decoration-dotted decoration-border/70 underline-offset-2">
-                                  {t("collections.updatedLabel", {
-                                    date: updatedLabels.relative,
-                                  })}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>{updatedLabels.exact}</TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <span>
-                              {t("collections.updatedLabel", {
-                                date: updatedLabels.relative,
-                              })}
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-sm text-secondary">
-                          {template.description ?? t("collections.noDescription")}
-                        </p>
-                      </div>
-                      <TemplatePriceSummary
-                        pricing={pricingBySlug[template.slug]}
-                        className="text-xl"
-                      />
-                    </div>
-                    {!template.is_active ? (
-                      <span className="mt-2 inline-flex rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
-                        {t("collections.unpublished")}
-                      </span>
-                    ) : null}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => handleAddToPanel(template)}>
-                        {t("collections.addToPanel")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => toggleExpanded(template.slug)}
-                        className="border-transparent bg-transparent text-secondary hover:text-primary hover:bg-surface-2/60"
-                      >
-                        {isExpanded
-                          ? t("collections.collapseRow")
-                          : t("collections.expandRow")}
-                      </Button>
-                      <Link
-                        href={`/collections/${template.slug}`}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-secondary transition-colors hover:text-primary focus-ring"
-                      >
-                        {t("collections.viewDetails")}
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
-                      {isAdmin ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <IconButton
-                              variant="secondary"
-                              size="icon"
-                              aria-label={t("collections.adminMenu")}
-                            >
-                              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                            </IconButton>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => openModalForTemplate(template)}>
-                              {t("common.edit")}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onSelect={() => openDeleteDialog(template.slug, template.name)}
-                              className="text-accent-red"
-                            >
-                              {t("common.delete")}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : null}
-                    </div>
-                    {isExpanded ? (
-                      <div className="mt-4 space-y-3">
-                        <div className="flex flex-wrap gap-2">
-                          {template.biomarkers.map((entry) => (
-                            <span
-                              key={entry.code}
-                              className="inline-flex items-center gap-2 rounded-pill border border-border/70 bg-surface-2 px-3 py-1 text-xs"
-                            >
-                              <span className="font-medium text-primary">
-                                {entry.display_name}
-                              </span>
-                            </span>
-                          ))}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleReplacePanel(template)}
-                          >
-                            {t("collections.replacePanel")}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-            </>
-          </TooltipProvider>
+          <div className="grid gap-4">
+            {sortedTemplates.map((template) => (
+              <TemplateCard
+                key={template.id}
+                template={template}
+                pricing={pricingBySlug[template.slug]}
+                onAddToPanel={() => handleAddToPanel(template)}
+                onReplacePanel={() => handleReplacePanel(template)}
+                onViewDetails={() => router.push(`/collections/${template.slug}`)}
+                isAdmin={isAdmin}
+                onEdit={() => openModalForTemplate(template)}
+                onDelete={() => openDeleteDialog(template.slug, template.name)}
+              />
+            ))}
+          </div>
         )}
       </section>
 

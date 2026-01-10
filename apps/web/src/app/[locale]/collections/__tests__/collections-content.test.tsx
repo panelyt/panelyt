@@ -15,6 +15,8 @@ vi.mock("../../../../components/header", () => ({
   Header: () => <div data-testid="header" />,
 }));
 
+const pushMock = vi.fn();
+
 vi.mock("../../../../i18n/navigation", () => ({
   Link: ({ href, children, ...props }: { href: string; children: ReactNode }) => (
     <a href={href} {...props}>
@@ -23,7 +25,14 @@ vi.mock("../../../../i18n/navigation", () => ({
   ),
   getPathname: ({ href, locale }: { href: string; locale?: string }) =>
     locale ? `/${locale}${href}` : href,
-  useRouter: vi.fn(),
+  useRouter: vi.fn(() => ({
+    push: pushMock,
+    replace: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
+    prefetch: vi.fn(),
+  })),
 }));
 
 let sessionData: { is_admin?: boolean } | null = null;
@@ -124,12 +133,24 @@ const makeTemplate = (
     ],
 });
 
-const getTable = () => screen.getByRole("table");
+const setMatchMedia = (matches: boolean) => {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+};
 
 const getTemplateHeadings = () =>
-  within(getTable())
-    .getAllByRole("heading", { level: 3 })
-    .map((heading) => heading.textContent?.trim());
+  screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent?.trim());
 
 const getSearchInput = () =>
   screen.getByPlaceholderText(enMessages.collections.searchPlaceholder);
@@ -146,6 +167,7 @@ describe("CollectionsContent", () => {
     deleteMutation.mutateAsync.mockClear();
     usePanelStore.setState({ selected: [] });
     trackMock.mockClear();
+    pushMock.mockClear();
   });
 
   it("hides inactive templates for non-admin users", () => {
@@ -156,9 +178,8 @@ describe("CollectionsContent", () => {
 
     renderWithIntl("en", enMessages);
 
-    const table = getTable();
-    expect(within(table).getByText("Active Template")).toBeInTheDocument();
-    expect(within(table).queryByText("Hidden Template")).not.toBeInTheDocument();
+    expect(screen.getByText("Active Template")).toBeInTheDocument();
+    expect(screen.queryByText("Hidden Template")).not.toBeInTheDocument();
   });
 
   it("filters templates by search term across name and description", async () => {
@@ -172,9 +193,8 @@ describe("CollectionsContent", () => {
     const user = userEvent.setup();
     await user.type(getSearchInput(), "thyroid");
 
-    const table = getTable();
-    expect(within(table).getByText("Thyroid Panel")).toBeInTheDocument();
-    expect(within(table).queryByText("Heart Health")).not.toBeInTheDocument();
+    expect(screen.getByText("Thyroid Panel")).toBeInTheDocument();
+    expect(screen.queryByText("Heart Health")).not.toBeInTheDocument();
   });
 
   it("defaults to sorting by most recently updated", () => {
@@ -260,7 +280,7 @@ describe("CollectionsContent", () => {
     expect(headings[1]).toBe("Alpha");
   });
 
-  it("renders a condensed table layout with inline metadata", () => {
+  it("renders a card list with metadata and no table", () => {
     const nowSpy = vi
       .spyOn(Date, "now")
       .mockReturnValue(new Date("2024-01-10T12:00:00Z").getTime());
@@ -278,19 +298,7 @@ describe("CollectionsContent", () => {
 
       renderWithIntl("en", enMessages);
 
-      const table = getTable();
-      const header = within(table).getAllByRole("columnheader");
-      expect(header.length).toBeGreaterThan(0);
-      expect(within(table).getByText(enMessages.collections.columnName)).toBeInTheDocument();
-      expect(within(table).getByText(enMessages.collections.columnTotal)).toBeInTheDocument();
-      expect(within(table).getByText(enMessages.collections.columnActions)).toBeInTheDocument();
-      expect(
-        within(table).queryByText(enMessages.collections.columnBiomarkers),
-      ).not.toBeInTheDocument();
-      expect(
-        within(table).queryByText(enMessages.collections.columnUpdated),
-      ).not.toBeInTheDocument();
-
+      expect(screen.queryByRole("table")).not.toBeInTheDocument();
       const relativeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
       const expectedRelative = relativeFormatter.format(-2, "day");
       const expectedUpdatedLabel = enMessages.collections.updatedLabel.replace(
@@ -298,24 +306,11 @@ describe("CollectionsContent", () => {
         expectedRelative,
       );
 
-      expect(within(table).getByText(expectedUpdatedLabel)).toBeInTheDocument();
+      expect(screen.getByText(expectedUpdatedLabel)).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Baseline" })).toBeInTheDocument();
+      expect(screen.getByText("1 biomarker")).toBeInTheDocument();
 
-      const cell = within(table).getByText("Baseline").closest("td");
-      expect(cell).not.toBeNull();
-      if (!cell) return;
-
-      const stack = within(cell).getByTestId("template-title-stack-template-1");
-      const heading = within(stack).getByRole("heading", { name: "Baseline" });
-      expect(heading).toBeInTheDocument();
-      expect(within(stack).getByText("1 biomarker")).toBeInTheDocument();
-      expect(within(stack).getByText(expectedUpdatedLabel)).toBeInTheDocument();
-
-      const content = cell.textContent ?? "";
-      expect(content.indexOf(descriptionText)).toBeGreaterThan(-1);
-      expect(content.indexOf("1 biomarker")).toBeLessThan(content.indexOf(descriptionText));
-      expect(content.indexOf(expectedUpdatedLabel)).toBeLessThan(content.indexOf(descriptionText));
-
-      const description = within(cell).getByText(descriptionText);
+      const description = screen.getByText(descriptionText);
       expect(description).toHaveClass("line-clamp-2");
     } finally {
       nowSpy.mockRestore();
@@ -350,7 +345,7 @@ describe("CollectionsContent", () => {
       }).format(new Date("2024-01-08T12:00:00Z"));
 
       const user = userEvent.setup();
-      const relativeText = within(getTable()).getByText(expectedLabel);
+      const relativeText = screen.getByText(expectedLabel);
       expect(relativeText).toBeInTheDocument();
 
       await user.hover(relativeText);
@@ -364,6 +359,7 @@ describe("CollectionsContent", () => {
   });
 
   it("shows all biomarkers when expanded", async () => {
+    setMatchMedia(false);
     templatesData = [
       makeTemplate({
         id: 12,
@@ -383,28 +379,19 @@ describe("CollectionsContent", () => {
     renderWithIntl("en", enMessages);
 
     const user = userEvent.setup();
-    const table = getTable();
-    await user.click(
-      within(table).getByRole("button", { name: enMessages.collections.expandRow }),
-    );
 
-    const details = document.getElementById("template-extended-details");
-    expect(details).not.toBeNull();
-    if (!details) return;
+    const expandLabel = enMessages.collections.moreBiomarkers.replace("{count}", "8");
+    expect(screen.queryByText("Biomarker 12")).not.toBeInTheDocument();
 
-    expect(within(details).getByText("Biomarker 1")).toBeInTheDocument();
-    expect(within(details).getByText("Biomarker 10")).toBeInTheDocument();
-    expect(within(details).getByText("Biomarker 11")).toBeInTheDocument();
-    expect(within(details).getByText("Biomarker 12")).toBeInTheDocument();
-    expect(within(details).queryByText("B1")).not.toBeInTheDocument();
-    expect(
-      within(details).queryByText(
-        enMessages.collections.moreBiomarkers.replace("{count}", "2"),
-      ),
-    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: expandLabel }));
+
+    expect(screen.getByText("Biomarker 1")).toBeInTheDocument();
+    expect(screen.getByText("Biomarker 10")).toBeInTheDocument();
+    expect(screen.getByText("Biomarker 11")).toBeInTheDocument();
+    expect(screen.getByText("Biomarker 12")).toBeInTheDocument();
   });
 
-  it("appends biomarkers to the panel from the expanded actions", async () => {
+  it("appends biomarkers to the panel from the apply action", async () => {
     templatesData = [
       makeTemplate({
         id: 13,
@@ -426,23 +413,14 @@ describe("CollectionsContent", () => {
     renderWithIntl("en", enMessages);
 
     const user = userEvent.setup();
-    const table = getTable();
     await user.click(
-      within(table).getByRole("button", { name: enMessages.collections.expandRow }),
-    );
-
-    const details = document.getElementById("template-append-details");
-    expect(details).not.toBeNull();
-    if (!details) return;
-
-    await user.click(
-      within(details).getByRole("button", { name: enMessages.collections.addToPanel }),
+      screen.getByRole("button", { name: enMessages.collections.apply }),
     );
 
     expect(usePanelStore.getState().selected.map((item) => item.code)).toEqual(["ALT"]);
   });
 
-  it("replaces the panel selection from the expanded actions", async () => {
+  it("replaces the panel selection from the apply menu", async () => {
     templatesData = [
       makeTemplate({
         id: 14,
@@ -468,17 +446,11 @@ describe("CollectionsContent", () => {
     renderWithIntl("en", enMessages);
 
     const user = userEvent.setup();
-    const table = getTable();
     await user.click(
-      within(table).getByRole("button", { name: enMessages.collections.expandRow }),
+      screen.getByRole("button", { name: enMessages.collections.applyMenu }),
     );
-
-    const details = document.getElementById("template-replace-details");
-    expect(details).not.toBeNull();
-    if (!details) return;
-
     await user.click(
-      within(details).getByRole("button", { name: enMessages.collections.replacePanel }),
+      screen.getByRole("menuitem", { name: enMessages.collections.replacePanel }),
     );
 
     expect(usePanelStore.getState().selected.map((item) => item.code)).toEqual(["AST"]);
@@ -493,9 +465,8 @@ describe("CollectionsContent", () => {
     renderWithIntl("en", enMessages);
 
     const user = userEvent.setup();
-    const table = getTable();
     await user.click(
-      within(table).getByRole("button", { name: enMessages.collections.adminMenu }),
+      screen.getByRole("button", { name: enMessages.collections.applyMenu }),
     );
     await user.click(screen.getByRole("menuitem", { name: enMessages.common.edit }));
 
@@ -512,9 +483,8 @@ describe("CollectionsContent", () => {
     renderWithIntl("en", enMessages);
 
     const user = userEvent.setup();
-    const table = getTable();
     await user.click(
-      within(table).getByRole("button", { name: enMessages.collections.adminMenu }),
+      screen.getByRole("button", { name: enMessages.collections.applyMenu }),
     );
     await user.click(screen.getByRole("menuitem", { name: enMessages.common.delete }));
 
@@ -540,9 +510,8 @@ describe("CollectionsContent", () => {
     renderWithIntl("en", enMessages, true);
 
     const user = userEvent.setup();
-    const table = getTable();
     await user.click(
-      within(table).getByRole("button", { name: enMessages.collections.addToPanel }),
+      screen.getByRole("button", { name: enMessages.collections.apply }),
     );
 
     const toastMessage = enMessages.collections.appliedAppend.replace(
@@ -561,17 +530,11 @@ describe("CollectionsContent", () => {
     renderWithIntl("en", enMessages, true);
 
     const user = userEvent.setup();
-    const table = getTable();
     await user.click(
-      within(table).getByRole("button", { name: enMessages.collections.expandRow }),
+      screen.getByRole("button", { name: enMessages.collections.applyMenu }),
     );
-
-    const details = document.getElementById("template-replacement-details");
-    expect(details).not.toBeNull();
-    if (!details) return;
-
     await user.click(
-      within(details).getByRole("button", { name: enMessages.collections.replacePanel }),
+      screen.getByRole("menuitem", { name: enMessages.collections.replacePanel }),
     );
 
     const toastMessage = enMessages.collections.appliedReplace.replace(
