@@ -36,4 +36,33 @@ describe("Switch", () => {
     await user.keyboard("{Enter}");
     expect(toggle).toHaveAttribute("aria-checked", "true");
   });
+
+  it("moves the thumb when toggled", async () => {
+    const user = userEvent.setup();
+
+    function ControlledSwitch() {
+      const [checked, setChecked] = useState(false);
+      return (
+        <Switch
+          aria-label="Show inactive"
+          checked={checked}
+          onCheckedChange={setChecked}
+        />
+      );
+    }
+
+    render(<ControlledSwitch />);
+
+    const toggle = screen.getByRole("switch", { name: "Show inactive" });
+    const thumb = toggle.querySelector("span");
+
+    expect(thumb).not.toBeNull();
+    expect(thumb).toHaveClass("left-1");
+    expect(thumb).not.toHaveClass("left-7");
+
+    await user.click(toggle);
+
+    expect(thumb).toHaveClass("left-7");
+    expect(thumb).not.toHaveClass("left-1");
+  });
 });
