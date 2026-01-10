@@ -60,6 +60,40 @@ describe("PanelTray", () => {
     expect(usePanelStore.getState().selected).toHaveLength(1);
   });
 
+  it("shows only biomarker names in the tray list", async () => {
+    usePanelStore.setState({
+      selected: [
+        { code: "124", name: "Testosteron" },
+        { code: "125", name: "Testosteron wolny" },
+      ],
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    expect(screen.getByText("Testosteron")).toBeInTheDocument();
+    expect(screen.getByText("Testosteron wolny")).toBeInTheDocument();
+    expect(screen.queryByText("124")).not.toBeInTheDocument();
+    expect(screen.queryByText("125")).not.toBeInTheDocument();
+  });
+
+  it("renders selected biomarkers as text rows instead of pills", async () => {
+    usePanelStore.setState({
+      selected: [{ code: "TSH", name: "TSH" }],
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    const listItem = screen.getByText("TSH").closest("li");
+
+    expect(listItem).not.toHaveClass("rounded-full");
+  });
+
   it("shows the cached optimization summary when available", async () => {
     usePanelStore.setState({
       selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
