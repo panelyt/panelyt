@@ -52,9 +52,10 @@
   "panelTray": {
     "title": "Panel",
     "openPanel": "Otwórz panel",
-    "runOptimize": "Uruchom optymalizację",
+    "viewPanel": "Zobacz panel",
     "statusCovered": "Wszystkie badania pokryte",
     "statusGaps": "Braki w pokryciu",
+    "statusIdle": "Panel bezczynny",
     "statusPending": "Oczekiwanie na optymalizację",
     "selectedTitle": "Wybrane badania",
     "empty": "Brak badań w panelu.",

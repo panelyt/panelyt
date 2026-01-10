@@ -52,9 +52,10 @@
   "panelTray": {
     "title": "Panel",
     "openPanel": "Open panel tray",
-    "runOptimize": "Run optimize",
+    "viewPanel": "View Panel",
     "statusCovered": "All tests covered",
     "statusGaps": "Coverage gaps",
+    "statusIdle": "Panel idle",
     "statusPending": "Optimization pending",
     "selectedTitle": "Selected tests",
     "empty": "No tests selected yet.",

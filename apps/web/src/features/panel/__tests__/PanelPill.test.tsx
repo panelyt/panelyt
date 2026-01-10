@@ -23,14 +23,25 @@ describe("PanelPill", () => {
     usePanelStore.setState({ selected: [], lastOptimizationSummary: undefined, lastRemoved: undefined });
   });
 
-  it("shows a run optimize prompt when no summary is cached", () => {
+  it("shows a view panel prompt when no summary is cached", () => {
     setSelection(2);
 
     renderWithIntl(<PanelPill />);
 
     expect(screen.getByText("2 tests")).toBeInTheDocument();
-    expect(screen.getByText("Run optimize")).toBeInTheDocument();
+    expect(screen.getByText("View Panel")).toBeInTheDocument();
     expect(screen.getByLabelText("Optimization pending")).toBeInTheDocument();
+  });
+
+  it("shows an idle status when no tests are selected", () => {
+    renderWithIntl(<PanelPill />);
+
+    expect(screen.getByText("0 tests")).toBeInTheDocument();
+    const expected = formatCurrency(0).replace(/\u00a0/g, " ");
+    expect(
+      screen.getByText((content) => content.replace(/\u00a0/g, " ") === expected),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Panel idle")).toBeInTheDocument();
   });
 
   it("shows the cached best total when available", () => {

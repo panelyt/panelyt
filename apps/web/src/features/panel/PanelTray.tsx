@@ -42,9 +42,11 @@ export function PanelTray() {
     ? t("common.biomarkersCount", { count: selected.length })
     : t("common.loading");
   const summaryLabel = isHydrated
-    ? summary
-      ? formatCurrency(summary.totalNow)
-      : t("panelTray.runOptimize")
+    ? selected.length === 0
+      ? formatCurrency(0)
+      : summary
+        ? formatCurrency(summary.totalNow)
+        : t("panelTray.viewPanel")
     : t("common.loading");
 
   const sessionQuery = useUserSession();

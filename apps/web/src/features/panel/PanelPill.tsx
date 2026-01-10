@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/cn";
@@ -11,7 +11,7 @@ import { usePanelStore } from "@/stores/panelStore";
 
 export type PanelPillProps = React.ButtonHTMLAttributes<HTMLButtonElement>;
 
-type StatusTone = "covered" | "gaps" | "pending";
+type StatusTone = "covered" | "gaps" | "pending" | "idle";
 
 const statusConfig: Record<StatusTone, { icon: React.ReactNode; className: string }> = {
   covered: {
@@ -21,6 +21,10 @@ const statusConfig: Record<StatusTone, { icon: React.ReactNode; className: strin
   gaps: {
     icon: <AlertTriangle className="h-4 w-4" aria-hidden="true" />,
     className: "text-amber-300",
+  },
+  idle: {
+    icon: <Circle className="h-3.5 w-3.5" aria-hidden="true" />,
+    className: "text-slate-400",
   },
   pending: {
     icon: <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />,
@@ -38,17 +42,21 @@ export const PanelPill = React.forwardRef<HTMLButtonElement, PanelPillProps>(
     const hasSelection = isHydrated && selectedCount > 0;
     const hasSummary = isHydrated && Boolean(summary) && hasSelection;
 
-    const status: StatusTone = hasSummary
-      ? summary!.uncoveredCount > 0
-        ? "gaps"
-        : "covered"
-      : "pending";
+    const status: StatusTone = !hasSelection
+      ? "idle"
+      : hasSummary
+        ? summary!.uncoveredCount > 0
+          ? "gaps"
+          : "covered"
+        : "pending";
 
     const statusLabel =
       status === "covered"
         ? t("panelTray.statusCovered")
         : status === "gaps"
           ? t("panelTray.statusGaps")
+          : status === "idle"
+            ? t("panelTray.statusIdle")
           : t("panelTray.statusPending");
 
     const statusStyles = statusConfig[status];
@@ -56,9 +64,11 @@ export const PanelPill = React.forwardRef<HTMLButtonElement, PanelPillProps>(
       ? t("common.biomarkersCount", { count: selectedCount })
       : t("common.loading");
     const summaryLabel = isHydrated
-      ? hasSummary
-        ? formatCurrency(summary!.totalNow)
-        : t("panelTray.runOptimize")
+      ? !hasSelection
+        ? formatCurrency(0)
+        : hasSummary
+          ? formatCurrency(summary!.totalNow)
+          : t("panelTray.viewPanel")
       : t("common.loading");
 
     return (
