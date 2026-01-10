@@ -1,7 +1,7 @@
 @config "../../tailwind.config.ts";
 @import "tailwindcss";
 
-@source "../../src/**/*.{ts,tsx}";
+@source "../**/*.{ts,tsx}";
 
 :root {
   color-scheme: dark;
