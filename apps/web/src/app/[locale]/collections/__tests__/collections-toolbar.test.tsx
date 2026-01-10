@@ -65,6 +65,18 @@ describe("CollectionsToolbar", () => {
     ).toBeInTheDocument();
   });
 
+  it("aligns the sort label and segmented control in a single row", () => {
+    renderToolbar("en", enMessages);
+
+    const sortLabel = screen.getByText(enMessages.collections.sortLabel);
+    const sortRow = sortLabel.closest("div");
+
+    expect(sortRow).not.toBeNull();
+    expect(sortRow).toHaveClass("flex");
+    expect(sortRow).toHaveClass("items-center");
+    expect(sortRow?.querySelector('[role="tablist"]')).not.toBeNull();
+  });
+
   it("emits sort changes via the segmented control", async () => {
     const user = userEvent.setup();
     const onSortChange = vi.fn();

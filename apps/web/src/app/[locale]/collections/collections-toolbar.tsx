@@ -73,8 +73,8 @@ function CollectionsToolbar({
         </div>
 
         <div className="flex flex-1 flex-wrap items-center gap-3 md:justify-end">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-secondary">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold uppercase leading-none tracking-wide text-secondary">
               {t("collections.sortLabel")}
             </span>
             <SegmentedControl
