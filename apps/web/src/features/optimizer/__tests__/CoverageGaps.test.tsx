@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 
 import { renderWithIntl } from '../../../test/utils'
 import { CoverageGaps } from '../CoverageGaps'
+import plMessages from '../../../i18n/messages/pl.json'
 
 const displayNameFor = (code: string) => {
   if (code === 'ALT') return 'Alanine aminotransferase'
@@ -63,5 +64,20 @@ describe('CoverageGaps', () => {
     expect(
       screen.queryByRole('heading', { name: 'Coverage gaps' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('uses correct Polish plural form for counts of five or more', () => {
+    renderWithIntl(
+      <CoverageGaps
+        uncovered={['ALT', 'AST', 'CHOL', 'GLU', 'HDL']}
+        displayNameFor={displayNameFor}
+      />,
+      { locale: 'pl', messages: plMessages },
+    )
+
+    expect(
+      screen.getByRole('heading', { name: 'Braki pokrycia' }),
+    ).toBeInTheDocument()
+    expect(document.body.textContent).toContain('5 badań nie jest teraz dostępnych')
   })
 })
