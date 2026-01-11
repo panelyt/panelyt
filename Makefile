@@ -5,7 +5,7 @@ UV ?= uv
 UV_ENV ?= UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache
 PNPM ?= corepack pnpm
 
-SETUP_CMD ?= (cd apps/api && $(UV_ENV) $(UV) sync --extra dev) && 	(cd apps/web && corepack enable && $(PNPM) install) && 	(cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev)
+SETUP_CMD ?= (cd apps/api && $(UV_ENV) $(UV) sync --extra dev) && 	(cd apps/web && $(PNPM) install) && 	(cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev)
 BUILD_CMD ?= (cd apps/web && $(PNPM) --filter @panelyt/types build)
 TEST_CMD ?= $(MAKE) test-api && $(MAKE) test-web
 LINT_CMD ?= $(MAKE) typecheck-api && $(MAKE) lint-api && 	$(MAKE) typecheck-bot && $(MAKE) lint-bot && 	$(MAKE) typecheck-web && $(MAKE) lint-web
@@ -100,7 +100,7 @@ verify:
 	@$(MAKE) fmt
 
 install-web:
-	cd apps/web && corepack enable && $(PNPM) install
+	cd apps/web && $(PNPM) install
 
 install-api:
 	cd apps/api && $(UV_ENV) $(UV) sync --extra dev
