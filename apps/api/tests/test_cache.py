@@ -55,22 +55,22 @@ class TestOptimizationCache:
         cache = OptimizationCache(maxsize=100, ttl_seconds=3600)
         biomarkers = ["TSH", "ALT", "AST"]
 
-        key1 = cache.make_key(biomarkers)
-        key2 = cache.make_key(biomarkers)
+        key1 = cache.make_key(biomarkers, 1135)
+        key2 = cache.make_key(biomarkers, 1135)
         assert key1 == key2
 
     def test_make_key_different_for_different_inputs(self):
         cache = OptimizationCache(maxsize=100, ttl_seconds=3600)
-        key1 = cache.make_key(["TSH", "ALT"])
-        key2 = cache.make_key(["TSH", "AST"])
-        key3 = cache.make_key(["ALT", "CRP"])
+        key1 = cache.make_key(["TSH", "ALT"], 1135)
+        key2 = cache.make_key(["TSH", "AST"], 1135)
+        key3 = cache.make_key(["ALT", "CRP"], 1135)
 
         assert len({key1, key2, key3}) == 3  # All different
 
     def test_make_key_order_independent_for_biomarkers(self):
         cache = OptimizationCache(maxsize=100, ttl_seconds=3600)
-        key1 = cache.make_key(["TSH", "ALT", "AST"])
-        key2 = cache.make_key(["AST", "TSH", "ALT"])
+        key1 = cache.make_key(["TSH", "ALT", "AST"], 1135)
+        key2 = cache.make_key(["AST", "TSH", "ALT"], 1135)
         assert key1 == key2
 
     def test_clear_removes_all_cached_values(self):
