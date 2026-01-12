@@ -398,8 +398,18 @@ export function SearchBox({
             </ul>
           ) : (
             <div className="flex items-center gap-3 px-4 py-3 text-xs text-slate-300">
-              <SparklesNote />
-              <span>{t("home.noMatches")}</span>
+              {isFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-300" />
+              ) : (
+                <SparklesNote />
+              )}
+              <span>
+                {isFetching
+                  ? slowNoticeVisible
+                    ? t("home.priceUpdateNotice")
+                    : t("home.searching")
+                  : t("home.noMatches")}
+              </span>
             </div>
           )}
         </div>

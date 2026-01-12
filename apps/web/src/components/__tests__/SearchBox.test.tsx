@@ -89,6 +89,10 @@ describe('SearchBox', () => {
       fireEvent.change(input, { target: { value: 'AL' } })
 
       expect(
+        screen.queryByText('No direct matches yet. Try typing the test name.'),
+      ).not.toBeInTheDocument()
+      expect(screen.getAllByText('Searching...').length).toBeGreaterThan(0)
+      expect(
         screen.queryByText('Updating prices for this office...'),
       ).not.toBeInTheDocument()
 
@@ -97,8 +101,8 @@ describe('SearchBox', () => {
       })
 
       expect(
-        screen.getByText('Updating prices for this office...'),
-      ).toBeInTheDocument()
+        screen.getAllByText('Updating prices for this office...').length,
+      ).toBeGreaterThan(0)
     } finally {
       vi.useRealTimers()
     }
