@@ -108,6 +108,7 @@
     "enterHint": "Select a suggestion to add it.",
     "noMatches": "No direct matches yet. Try typing the test name.",
     "searching": "Searching...",
+    "priceUpdateNotice": "Updating prices for this office...",
     "groupBiomarkers": "Tests",
     "groupTemplates": "Curated Panels",
     "saveAsTemplate": "Save as panel",

@@ -1,4 +1,4 @@
-import { screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, vi } from 'vitest'
 import { SearchBox } from '../search-box'
@@ -72,6 +72,36 @@ describe('SearchBox', () => {
     ).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Search tests to add...')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Use in Builder' })).not.toBeInTheDocument()
+  })
+
+  it('shows a slow-search notice when loading takes longer than a short delay', async () => {
+    vi.useFakeTimers()
+    try {
+      mockUseCatalogSearch.mockImplementation(() =>
+        createSearchResult({ isFetching: true }),
+      )
+
+      renderWithQueryClient(
+        <SearchBox onSelect={onSelect} onTemplateSelect={onTemplateSelect} />,
+      )
+
+      const input = screen.getByPlaceholderText('Search tests to add...')
+      fireEvent.change(input, { target: { value: 'AL' } })
+
+      expect(
+        screen.queryByText('Updating prices for this office...'),
+      ).not.toBeInTheDocument()
+
+      await act(async () => {
+        vi.advanceTimersByTime(600)
+      })
+
+      expect(
+        screen.getByText('Updating prices for this office...'),
+      ).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('updates the query when the user types', async () => {

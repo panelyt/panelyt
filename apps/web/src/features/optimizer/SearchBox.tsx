@@ -46,6 +46,7 @@ export function SearchBox({
     [data?.results],
   );
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
+  const [slowNoticeVisible, setSlowNoticeVisible] = useState(false);
 
   const biomarkerSuggestions = useMemo(
     () => suggestions.filter((item) => item.type !== "template"),
@@ -179,6 +180,22 @@ export function SearchBox({
   }, [pendingQuery, flatSuggestions, debounced, isFetching, commitSuggestion]);
 
   const showSuggestions = query.length >= 2;
+
+  useEffect(() => {
+    if (!isFetching || !showSuggestions) {
+      setSlowNoticeVisible(false);
+      return;
+    }
+
+    setSlowNoticeVisible(false);
+    const timer = window.setTimeout(() => {
+      setSlowNoticeVisible(true);
+    }, 600);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [debounced, isFetching, showSuggestions]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -392,6 +409,9 @@ export function SearchBox({
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           <span>{t("home.searching")}</span>
         </div>
+      )}
+      {slowNoticeVisible && (
+        <p className="mt-2 text-xs text-slate-400">{t("home.priceUpdateNotice")}</p>
       )}
       {enterHintVisible && (
         <p className="mt-2 text-xs text-slate-500">{t("home.enterHint")}</p>
