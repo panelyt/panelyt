@@ -116,9 +116,6 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-primary">{entry.display_name}</span>
                     </div>
-                    {entry.biomarker_id && (
-                      <p className="text-xs text-secondary">{t("sharedList.mappedBiomarkerId")}: {entry.biomarker_id}</p>
-                    )}
                   </li>
                 ))}
               </ul>

@@ -49,7 +49,7 @@ const sharedListData = {
       code: "ALT",
       display_name: "ALT",
       sort_order: 0,
-      biomarker_id: null,
+      biomarker_id: "bio-1",
       created_at: "2024-01-01T00:00:00Z",
     },
     {
@@ -182,6 +182,17 @@ describe("SharedContent", () => {
 
     const expectedLabel = `${enMessages.sharedList.shared} ${expectedTimestamp}`;
     expect(await screen.findByText(expectedLabel)).toBeInTheDocument();
+  });
+
+  it("hides biomarker IDs on the shared list page", async () => {
+    await renderContent();
+
+    expect(
+      screen.queryByText(
+        new RegExp(enMessages.sharedList.mappedBiomarkerId, "i"),
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("bio-1")).not.toBeInTheDocument();
   });
 
   it("hides addon suggestions on the shared list page", async () => {
