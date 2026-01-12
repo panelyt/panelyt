@@ -119,7 +119,7 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-border/70 bg-surface-1/95 p-3 shadow-xl backdrop-blur">
+        <div className="absolute right-0 top-full z-50 mt-2 w-[27rem] rounded-xl border border-border/70 bg-surface-1/95 p-3 shadow-xl backdrop-blur">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
             <input
