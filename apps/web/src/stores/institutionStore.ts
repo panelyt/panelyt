@@ -14,6 +14,7 @@ export interface InstitutionSelection {
 interface InstitutionStoreState {
   institutionId: number;
   label: string | null;
+  hasSelectedInstitution: boolean;
   setInstitution: (selection: InstitutionSelection) => void;
 }
 
@@ -29,23 +30,36 @@ const normalizeLabel = (value: unknown): string | null => {
 
 const parseInstitutionState = (
   value: unknown,
-): Pick<InstitutionStoreState, "institutionId" | "label"> => {
+): Pick<InstitutionStoreState, "institutionId" | "label" | "hasSelectedInstitution"> => {
   if (!value) {
-    return { institutionId: DEFAULT_INSTITUTION_ID, label: null };
+    return {
+      institutionId: DEFAULT_INSTITUTION_ID,
+      label: null,
+      hasSelectedInstitution: false,
+    };
   }
 
   if (isValidInstitutionId(value)) {
-    return { institutionId: value, label: null };
+    return {
+      institutionId: value,
+      label: null,
+      hasSelectedInstitution: true,
+    };
   }
 
   if (typeof value !== "object") {
-    return { institutionId: DEFAULT_INSTITUTION_ID, label: null };
+    return {
+      institutionId: DEFAULT_INSTITUTION_ID,
+      label: null,
+      hasSelectedInstitution: false,
+    };
   }
 
   const candidate = value as {
     institutionId?: unknown;
     id?: unknown;
     label?: unknown;
+    hasSelectedInstitution?: unknown;
   };
 
   const institutionId = isValidInstitutionId(candidate.institutionId)
@@ -54,14 +68,23 @@ const parseInstitutionState = (
       ? candidate.id
       : DEFAULT_INSTITUTION_ID;
 
+  const label = normalizeLabel(candidate.label);
+  const hasSelectedInstitution =
+    typeof candidate.hasSelectedInstitution === "boolean"
+      ? candidate.hasSelectedInstitution
+      : isValidInstitutionId(candidate.institutionId) ||
+        isValidInstitutionId(candidate.id) ||
+        label !== null;
+
   return {
     institutionId,
-    label: normalizeLabel(candidate.label),
+    label,
+    hasSelectedInstitution,
   };
 };
 
 const createInstitutionStorage = (): PersistStorage<
-  Pick<InstitutionStoreState, "institutionId" | "label">
+  Pick<InstitutionStoreState, "institutionId" | "label" | "hasSelectedInstitution">
 > | undefined => {
   if (typeof window === "undefined") return undefined;
 
@@ -114,11 +137,13 @@ export const useInstitutionStore = create<InstitutionStoreState>()(
     (set) => ({
       institutionId: DEFAULT_INSTITUTION_ID,
       label: null,
+      hasSelectedInstitution: false,
       setInstitution: (selection) => {
         if (!isValidInstitutionId(selection.id)) return;
         set({
           institutionId: selection.id,
           label: normalizeLabel(selection.label),
+          hasSelectedInstitution: true,
         });
       },
     }),
@@ -128,6 +153,7 @@ export const useInstitutionStore = create<InstitutionStoreState>()(
       partialize: (state) => ({
         institutionId: state.institutionId,
         label: state.label,
+        hasSelectedInstitution: state.hasSelectedInstitution,
       }),
     },
   ),

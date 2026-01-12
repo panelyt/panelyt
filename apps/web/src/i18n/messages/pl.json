@@ -417,6 +417,10 @@
     "loading": "Wyszukiwanie...",
     "noResults": "Brak wyników"
   },
+  "officeBanner": {
+    "title": "Wybierz placówkę, aby zobaczyć dokładne ceny",
+    "description": "Ceny i dostępność różnią się w zależności od lokalizacji. Wybierz placówkę, aby dopasować wyniki."
+  },
   "language": {
     "switch": "English"
   },

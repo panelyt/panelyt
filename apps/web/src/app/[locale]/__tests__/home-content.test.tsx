@@ -54,6 +54,10 @@ vi.mock("../../../components/header", () => ({
   ),
 }));
 
+vi.mock("../../../components/office-selection-banner", () => ({
+  OfficeSelectionBanner: () => <div data-testid="office-selection-banner" />,
+}));
+
 vi.mock("../../../components/search-box", () => ({
   SearchBox: () => <div data-testid="search-box" />,
 }));

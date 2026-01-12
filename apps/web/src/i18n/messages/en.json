@@ -417,6 +417,10 @@
     "loading": "Searching...",
     "noResults": "No offices found"
   },
+  "officeBanner": {
+    "title": "Choose your office for accurate prices",
+    "description": "Prices and availability vary by location. Select your office to personalize results."
+  },
   "language": {
     "switch": "Polski"
   },

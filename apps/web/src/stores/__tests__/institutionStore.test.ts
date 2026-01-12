@@ -22,6 +22,7 @@ describe("institutionStore", () => {
     useInstitutionStore.setState({
       institutionId: DEFAULT_INSTITUTION_ID,
       label: null,
+      hasSelectedInstitution: false,
     });
     useInstitutionStore.persist.clearStorage();
   });
@@ -30,7 +31,7 @@ describe("institutionStore", () => {
     localStorage.setItem(
       INSTITUTION_STORAGE_KEY,
       JSON.stringify({
-        state: { institutionId: 2222, label: "Warsaw" },
+        state: { institutionId: 2222, label: "Warsaw", hasSelectedInstitution: true },
         version: 0,
       }),
     );
@@ -39,6 +40,7 @@ describe("institutionStore", () => {
 
     expect(useInstitutionStore.getState().institutionId).toBe(2222);
     expect(useInstitutionStore.getState().label).toBe("Warsaw");
+    expect(useInstitutionStore.getState().hasSelectedInstitution).toBe(true);
   });
 
   it("persists selections to localStorage", () => {
@@ -47,6 +49,7 @@ describe("institutionStore", () => {
     expect(readPersistedInstitution()).toEqual({
       institutionId: 2222,
       label: "Warsaw",
+      hasSelectedInstitution: true,
     });
   });
 
@@ -56,5 +59,6 @@ describe("institutionStore", () => {
     await useInstitutionStore.persist.rehydrate();
 
     expect(useInstitutionStore.getState().institutionId).toBe(DEFAULT_INSTITUTION_ID);
+    expect(useInstitutionStore.getState().hasSelectedInstitution).toBe(false);
   });
 });

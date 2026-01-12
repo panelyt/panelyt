@@ -16,6 +16,7 @@ import { useTemplateModal } from "../../hooks/useTemplateModal";
 import { usePanelHydrated } from "../../hooks/usePanelHydrated";
 import { Header } from "../../components/header";
 import { OptimizationResults } from "../../components/optimization-results";
+import { OfficeSelectionBanner } from "../../components/office-selection-banner";
 import { SearchBox } from "../../components/search-box";
 import { SelectedBiomarkers } from "../../components/selected-biomarkers";
 import { SaveListModal } from "../../components/save-list-modal";
@@ -321,6 +322,7 @@ function HomeContent() {
                   {t("home.buildPanel")}
                 </h2>
                 <div className="mt-6 flex flex-col gap-4">
+                  <OfficeSelectionBanner />
                   <SearchBox
                     onSelect={selection.handleSelect}
                     onTemplateSelect={handleTemplateSelect}

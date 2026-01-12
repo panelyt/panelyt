@@ -35,6 +35,7 @@ describe("useInstitution", () => {
     useInstitutionStore.setState({
       institutionId: DEFAULT_INSTITUTION_ID,
       label: null,
+      hasSelectedInstitution: false,
     });
     useInstitutionStore.persist.clearStorage();
   });
