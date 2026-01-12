@@ -90,6 +90,29 @@ const sampleResult = {
   addon_suggestions: [],
 };
 
+const makeAddonSuggestion = () => ({
+  package: {
+    id: 101,
+    kind: "package",
+    name: "Liver Panel",
+    slug: "liver-panel",
+    price_now_grosz: 1000,
+    price_min30_grosz: 900,
+    currency: "PLN",
+    biomarkers: ["ALT"],
+    url: "https://example.com/liver-panel",
+    on_sale: false,
+  },
+  upgrade_cost_grosz: 100,
+  upgrade_cost: 1,
+  estimated_total_now_grosz: 1100,
+  estimated_total_now: 11,
+  covers: [],
+  adds: [{ code: "AST", display_name: "AST" }],
+  removes: [],
+  keeps: [],
+});
+
 const renderContent = async () => {
   await act(async () => {
     renderWithQueryClient(
@@ -159,5 +182,18 @@ describe("SharedContent", () => {
 
     const expectedLabel = `${enMessages.sharedList.shared} ${expectedTimestamp}`;
     expect(await screen.findByText(expectedLabel)).toBeInTheDocument();
+  });
+
+  it("hides addon suggestions on the shared list page", async () => {
+    mockUseAddonSuggestions.mockReturnValue({
+      data: { addon_suggestions: [makeAddonSuggestion()] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useAddonSuggestions>);
+
+    await renderContent();
+
+    expect(
+      screen.queryByText(enMessages.optimization.addMoreForLess),
+    ).not.toBeInTheDocument();
   });
 });

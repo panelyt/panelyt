@@ -8,8 +8,7 @@ import { Header } from "../../../../../components/header";
 import { useRouter } from "../../../../../i18n/navigation";
 import { OptimizationResults } from "../../../../../components/optimization-results";
 import { useSharedList } from "../../../../../hooks/useSharedList";
-import { useOptimization, useAddonSuggestions } from "../../../../../hooks/useOptimization";
-import { useBiomarkerSelection } from "../../../../../hooks/useBiomarkerSelection";
+import { useOptimization } from "../../../../../hooks/useOptimization";
 import { formatExactTimestamp, resolveTimestamp } from "../../../../../lib/dates";
 
 interface SharedContentProps {
@@ -37,16 +36,6 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
   );
   const optimizationQuery = useOptimization(biomarkerCodes);
   const activeResult = optimizationQuery.data;
-  const activeItemIds = useMemo(
-    () => activeResult?.items?.map((item) => item.id) ?? [],
-    [activeResult?.items],
-  );
-  const addonSuggestionsQuery = useAddonSuggestions(
-    optimizationQuery.debouncedBiomarkers,
-    activeItemIds,
-    !optimizationQuery.isLoading,
-  );
-  const selection = useBiomarkerSelection();
   const sharedTimestampFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(locale, {
@@ -147,9 +136,8 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
                   isLoading={optimizationQuery.isLoading}
                   error={optimizationQuery.error}
                   variant="dark"
-                  addonSuggestions={addonSuggestionsQuery.data?.addon_suggestions ?? []}
-                  addonSuggestionsLoading={addonSuggestionsQuery.isLoading}
-                  onApplyAddon={selection.handleApplyAddon}
+                  addonSuggestions={[]}
+                  addonSuggestionsLoading={false}
                 />
               </div>
             </section>
