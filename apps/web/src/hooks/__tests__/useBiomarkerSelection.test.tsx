@@ -231,7 +231,7 @@ describe('useBiomarkerSelection', () => {
 
     const altToast = await screen.findByText('Removed Alanine aminotransferase.')
     const altToastRoot = altToast.closest('[data-sonner-toast]') ?? altToast.closest('li')
-    if (!altToastRoot) {
+    if (!(altToastRoot instanceof HTMLElement)) {
       throw new Error('Unable to locate toast container for ALT removal.')
     }
 

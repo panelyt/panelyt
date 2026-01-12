@@ -45,7 +45,7 @@ describe("PanelTray", () => {
     mockUseBiomarkerDiagUrls.mockReturnValue({
       data: {},
       isLoading: false,
-    } as ReturnType<typeof useBiomarkerDiagUrls>);
+    } as unknown as ReturnType<typeof useBiomarkerDiagUrls>);
   });
 
   it("renders selected biomarkers and removes them", async () => {
@@ -96,7 +96,7 @@ describe("PanelTray", () => {
     mockUseBiomarkerDiagUrls.mockReturnValue({
       data: { ALT: "https://diag.pl/sklep/badania/alt-test" },
       isLoading: false,
-    } as ReturnType<typeof useBiomarkerDiagUrls>);
+    } as unknown as ReturnType<typeof useBiomarkerDiagUrls>);
 
     const user = userEvent.setup();
     renderWithQueryClient(<PanelTray />);
