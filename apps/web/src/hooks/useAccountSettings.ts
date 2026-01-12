@@ -8,13 +8,23 @@ import {
   type TelegramLinkTokenResponse,
 } from "@panelyt/types";
 
-import { getParsedJson, postParsedJson, postJson } from "../lib/http";
+import {
+  getParsedJson,
+  patchParsedJson,
+  postParsedJson,
+  postJson,
+} from "../lib/http";
 
-function toAccountSettings(response: TelegramLinkTokenResponse): AccountSettings {
+const mergeAccountSettings = (
+  response: TelegramLinkTokenResponse,
+  current?: AccountSettings | null,
+): AccountSettings => {
   return {
     telegram: response.telegram,
+    preferred_institution_id: current?.preferred_institution_id ?? null,
+    preferred_institution_label: current?.preferred_institution_label ?? null,
   };
-}
+};
 
 export function useAccountSettings(enabled: boolean) {
   const queryClient = useQueryClient();
@@ -29,7 +39,8 @@ export function useAccountSettings(enabled: boolean) {
   });
 
   const updateCache = (data: TelegramLinkTokenResponse) => {
-    queryClient.setQueryData(["account-settings"], toAccountSettings(data));
+    const current = queryClient.getQueryData<AccountSettings>(["account-settings"]);
+    queryClient.setQueryData(["account-settings"], mergeAccountSettings(data, current));
   };
 
   const linkTokenMutation = useMutation<TelegramLinkTokenResponse, Error>({
@@ -72,10 +83,25 @@ export function useAccountSettings(enabled: boolean) {
     },
   });
 
+  const updateSettingsMutation = useMutation<AccountSettings, Error, {
+    preferred_institution_id: number | null;
+  }>({
+    mutationFn: async (payload) => {
+      return patchParsedJson("/account/settings", AccountSettingsSchema, payload);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["account-settings"], data);
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ["account-settings"] });
+    },
+  });
+
   return {
     settingsQuery,
     linkTokenMutation,
     manualLinkMutation,
     unlinkMutation,
+    updateSettingsMutation,
   };
 }
