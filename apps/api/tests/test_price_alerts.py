@@ -61,6 +61,70 @@ async def test_price_alert_sent_on_drop(db_session, test_settings) -> None:
 
 
 @pytest.mark.asyncio
+async def test_alerts_use_preferred_institution(db_session, test_settings) -> None:
+    test_settings.telegram_bot_token = "token"
+
+    biomarker_id = await _create_biomarker(db_session, "ALT")
+    secondary_institution_id = DEFAULT_INSTITUTION_ID + 1
+
+    user_default = await _create_user_with_institution(
+        db_session,
+        telegram_chat_id="111",
+    )
+    user_secondary = await _create_user_with_institution(
+        db_session,
+        telegram_chat_id="222",
+        preferred_institution_id=secondary_institution_id,
+    )
+    default_list_id = await _create_saved_list(
+        db_session,
+        user_id=user_default,
+        biomarker_code="ALT",
+        previous_total=4500,
+    )
+    secondary_list_id = await _create_saved_list(
+        db_session,
+        user_id=user_secondary,
+        biomarker_code="ALT",
+        previous_total=4500,
+    )
+
+    await _create_item_with_biomarker(
+        db_session,
+        biomarker_id=biomarker_id,
+        item_id=1,
+        price=3000,
+        institution_id=DEFAULT_INSTITUTION_ID,
+    )
+    await _create_item_with_biomarker(
+        db_session,
+        biomarker_id=biomarker_id,
+        item_id=1,
+        price=2500,
+        institution_id=secondary_institution_id,
+        create_item=False,
+    )
+    await db_session.commit()
+
+    client = StubTelegramClient()
+    service = TelegramPriceAlertService(db_session, settings=test_settings, http_client=client)
+    await service.run()
+
+    assert {payload["chat_id"] for _, payload in client.requests} == {"111", "222"}
+
+    default_list = await db_session.scalar(
+        select(models.SavedList).where(models.SavedList.id == default_list_id)
+    )
+    secondary_list = await db_session.scalar(
+        select(models.SavedList).where(models.SavedList.id == secondary_list_id)
+    )
+    assert default_list is not None
+    assert secondary_list is not None
+    assert default_list.last_known_total_grosz == 3000
+    assert secondary_list.last_known_total_grosz == 2500
+
+
+@pytest.mark.asyncio
 async def test_no_alert_for_small_drop(db_session, test_settings) -> None:
     test_settings.telegram_bot_token = "token"
 
@@ -202,12 +266,25 @@ async def _create_biomarker(db_session, code: str) -> int:
 
 
 async def _create_user(db_session, *, telegram_chat_id: str) -> str:
+    return await _create_user_with_institution(
+        db_session,
+        telegram_chat_id=telegram_chat_id,
+    )
+
+
+async def _create_user_with_institution(
+    db_session,
+    *,
+    telegram_chat_id: str,
+    preferred_institution_id: int | None = None,
+) -> str:
     result = await db_session.execute(
         insert(models.UserAccount)
         .values({
             "username": None,
             "telegram_chat_id": telegram_chat_id,
             "telegram_linked_at": datetime.now(UTC),
+            "preferred_institution_id": preferred_institution_id,
         })
         .returning(models.UserAccount.id)
     )
@@ -254,42 +331,43 @@ async def _create_item_with_biomarker(
     biomarker_id: int,
     item_id: int,
     price: int,
+    institution_id: int = DEFAULT_INSTITUTION_ID,
+    create_item: bool = True,
 ) -> None:
     existing = await db_session.scalar(
-        select(models.Institution.id).where(
-            models.Institution.id == DEFAULT_INSTITUTION_ID
-        )
+        select(models.Institution.id).where(models.Institution.id == institution_id)
     )
     if existing is None:
         await db_session.execute(
             insert(models.Institution).values(
-                {"id": DEFAULT_INSTITUTION_ID, "name": "Institution 1135"}
+                {"id": institution_id, "name": f"Institution {institution_id}"}
             )
         )
-    await db_session.execute(
-        insert(models.Item).values({
-            "id": item_id,
-            "external_id": str(item_id),
-            "kind": "single",
-            "name": "ALT Test",
-            "slug": "alt-test",
-            "price_now_grosz": price,
-            "price_min30_grosz": price,
-            "currency": "PLN",
-            "is_available": True,
-            "fetched_at": datetime.now(UTC),
-        })
-    )
-    await db_session.execute(
-        insert(models.ItemBiomarker).values({
-            "item_id": item_id,
-            "biomarker_id": biomarker_id,
-        })
-    )
+    if create_item:
+        await db_session.execute(
+            insert(models.Item).values({
+                "id": item_id,
+                "external_id": str(item_id),
+                "kind": "single",
+                "name": "ALT Test",
+                "slug": "alt-test",
+                "price_now_grosz": price,
+                "price_min30_grosz": price,
+                "currency": "PLN",
+                "is_available": True,
+                "fetched_at": datetime.now(UTC),
+            })
+        )
+        await db_session.execute(
+            insert(models.ItemBiomarker).values({
+                "item_id": item_id,
+                "biomarker_id": biomarker_id,
+            })
+        )
     await db_session.execute(
         insert(models.InstitutionItem).values(
             {
-                "institution_id": DEFAULT_INSTITUTION_ID,
+                "institution_id": institution_id,
                 "item_id": item_id,
                 "is_available": True,
                 "currency": "PLN",
