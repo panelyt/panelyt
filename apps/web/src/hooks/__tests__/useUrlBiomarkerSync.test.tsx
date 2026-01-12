@@ -17,6 +17,10 @@ vi.mock('../../lib/http', () => ({
   getJson: vi.fn(),
 }))
 
+vi.mock('../useInstitution', () => ({
+  useInstitution: () => ({ institutionId: 1135, label: null, setInstitution: vi.fn() }),
+}))
+
 const useRouterMock = vi.mocked(useRouter)
 const useSearchParamsMock = vi.mocked(useSearchParams)
 const getJsonMock = vi.mocked(getJson)

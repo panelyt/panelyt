@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { useAccountSettings } from "./useAccountSettings";
 import { useUserSession } from "./useUserSession";
@@ -8,14 +9,18 @@ import {
   type InstitutionSelection,
   useInstitutionStore,
 } from "../stores/institutionStore";
+import { usePanelStore } from "../stores/panelStore";
 
 export function useInstitution() {
   const institutionId = useInstitutionStore((state) => state.institutionId);
   const label = useInstitutionStore((state) => state.label);
   const setInstitutionState = useInstitutionStore((state) => state.setInstitution);
+  const clearOptimizationSummary = usePanelStore((state) => state.clearOptimizationSummary);
+  const lastInstitutionIdRef = useRef<number | null>(null);
 
   const session = useUserSession();
   const account = useAccountSettings(Boolean(session.data));
+  const queryClient = useQueryClient();
 
   const preferredId = account.settingsQuery.data?.preferred_institution_id ?? null;
   const preferredLabel =
@@ -32,6 +37,20 @@ export function useInstitution() {
 
     setInstitutionState({ id: preferredId, label: preferredLabel });
   }, [institutionId, label, preferredId, preferredLabel, setInstitutionState]);
+
+  useEffect(() => {
+    if (lastInstitutionIdRef.current === null) {
+      lastInstitutionIdRef.current = institutionId;
+      return;
+    }
+    if (lastInstitutionIdRef.current === institutionId) {
+      return;
+    }
+    lastInstitutionIdRef.current = institutionId;
+    clearOptimizationSummary();
+    queryClient.invalidateQueries({ queryKey: ["optimize"] });
+    queryClient.invalidateQueries({ queryKey: ["optimize-addons"] });
+  }, [clearOptimizationSummary, institutionId, queryClient]);
 
   const setInstitution = useCallback(
     (selection: InstitutionSelection) => {

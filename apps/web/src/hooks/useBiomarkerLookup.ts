@@ -4,10 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { BiomarkerSearchResponseSchema } from "@panelyt/types";
 
 import { getJson } from "../lib/http";
+import { useInstitution } from "./useInstitution";
 
 export function useBiomarkerLookup(codes: string[]) {
+  const { institutionId } = useInstitution();
   return useQuery<Record<string, string>, Error>({
-    queryKey: ["biomarker-lookup", codes.sort()],
+    queryKey: ["biomarker-lookup", codes.sort(), institutionId],
     queryFn: async () => {
       const lookup: Record<string, string> = {};
 
@@ -27,7 +29,9 @@ export function useBiomarkerLookup(codes: string[]) {
           if (found) break;
 
           try {
-            const payload = await getJson(`/catalog/biomarkers?query=${encodeURIComponent(term)}`);
+            const payload = await getJson(
+              `/catalog/biomarkers?query=${encodeURIComponent(term)}&institution=${institutionId}`,
+            );
             const response = BiomarkerSearchResponseSchema.parse(payload);
 
             // Find exact match by elab_code
@@ -55,7 +59,9 @@ export function useBiomarkerLookup(codes: string[]) {
           const partialName = knownPartialNames[code];
           if (partialName) {
             try {
-              const payload = await getJson(`/catalog/biomarkers?query=${encodeURIComponent(partialName)}`);
+              const payload = await getJson(
+                `/catalog/biomarkers?query=${encodeURIComponent(partialName)}&institution=${institutionId}`,
+              );
               const response = BiomarkerSearchResponseSchema.parse(payload);
 
               const match = response.results.find(b => b.elab_code === code);

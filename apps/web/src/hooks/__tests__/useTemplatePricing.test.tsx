@@ -8,6 +8,10 @@ import type { BiomarkerListTemplate } from "@panelyt/types";
 
 const postParsedJson = vi.fn();
 
+vi.mock("../useInstitution", () => ({
+  useInstitution: () => ({ institutionId: 1135, label: null, setInstitution: vi.fn() }),
+}));
+
 vi.mock("../../lib/http", () => ({
   postParsedJson: (...args: unknown[]) => postParsedJson(...args),
   getParsedJson: vi.fn(),

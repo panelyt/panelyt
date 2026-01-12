@@ -7,6 +7,7 @@ import { defaultLocale } from "../i18n/config";
 import { BiomarkerSearchResponseSchema } from "@panelyt/types";
 
 import { getJson } from "../lib/http";
+import { useInstitution } from "./useInstitution";
 
 export interface SelectedBiomarker {
   code: string;
@@ -21,7 +22,10 @@ const URL_UPDATE_DEBOUNCE_MS = 300;
  * Returns a map of code -> display name.
  * Falls back to code itself if lookup fails.
  */
-async function lookupBiomarkerNames(codes: string[]): Promise<Record<string, string>> {
+async function lookupBiomarkerNames(
+  codes: string[],
+  institutionId: number,
+): Promise<Record<string, string>> {
   const lookup: Record<string, string> = {};
 
   // Initialize with codes as fallback names
@@ -37,7 +41,9 @@ async function lookupBiomarkerNames(codes: string[]): Promise<Record<string, str
   const searchPromises = codes.map(async (code) => {
     const normalizedCode = code.trim().toLowerCase();
     try {
-      const payload = await getJson(`/catalog/biomarkers?query=${encodeURIComponent(code)}`);
+      const payload = await getJson(
+        `/catalog/biomarkers?query=${encodeURIComponent(code)}&institution=${institutionId}`,
+      );
       const response = BiomarkerSearchResponseSchema.parse(payload);
 
       // Find exact match by elab_code, slug, or name (case-insensitive)
@@ -98,6 +104,7 @@ export function useUrlBiomarkerSync(
 ): UseUrlBiomarkerSyncResult {
   const { selected, onLoadFromUrl, skipSync = false, locale } = options;
 
+  const { institutionId } = useInstitution();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
@@ -181,7 +188,7 @@ export function useUrlBiomarkerSync(
 
     let cancelled = false;
 
-    lookupBiomarkerNames(codes)
+    lookupBiomarkerNames(codes, institutionId)
       .then((nameMap) => {
         if (cancelled) {
           return;
@@ -208,7 +215,7 @@ export function useUrlBiomarkerSync(
     return () => {
       cancelled = true;
     };
-  }, [searchParams, skipSync, hasOtherParams]);
+  }, [institutionId, searchParams, skipSync, hasOtherParams]);
 
   // Write to URL when selection changes
   useEffect(() => {

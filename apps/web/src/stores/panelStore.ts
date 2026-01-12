@@ -31,6 +31,7 @@ interface PanelStoreState {
   lastOptimizationSummary?: OptimizationSummary;
   lastRemoved?: LastRemovedSnapshot;
   setOptimizationSummary: (summary: OptimizationSummary) => void;
+  clearOptimizationSummary: () => void;
   addOne: (biomarker: PanelBiomarker) => void;
   addMany: (biomarkers: PanelBiomarker[]) => void;
   remove: (code: string) => void;
@@ -177,6 +178,9 @@ export const usePanelStore = create<PanelStoreState>()(
       lastRemoved: undefined,
       setOptimizationSummary: (summary) => {
         set({ lastOptimizationSummary: summary });
+      },
+      clearOptimizationSummary: () => {
+        set({ lastOptimizationSummary: undefined });
       },
       addOne: (biomarker) => {
         const code = biomarker.code.trim();

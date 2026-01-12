@@ -5,12 +5,14 @@ import { BiomarkerSearchResponseSchema } from "@panelyt/types";
 
 import { DIAG_SINGLE_ITEM_URL_BASE } from "../lib/diag";
 import { getJson } from "../lib/http";
+import { useInstitution } from "./useInstitution";
 
 const normalizeToken = (value: string | null | undefined) => value?.trim().toLowerCase();
 
 export function useBiomarkerDiagUrls(codes: string[]) {
+  const { institutionId } = useInstitution();
   return useQuery<Record<string, string | null>, Error>({
-    queryKey: ["biomarker-diag-urls", [...codes].sort()],
+    queryKey: ["biomarker-diag-urls", [...codes].sort(), institutionId],
     queryFn: async () => {
       const lookup: Record<string, string | null> = {};
 
@@ -21,7 +23,9 @@ export function useBiomarkerDiagUrls(codes: string[]) {
         }
         lookup[code] = null;
         try {
-          const payload = await getJson(`/catalog/biomarkers?query=${encodeURIComponent(code)}`);
+          const payload = await getJson(
+            `/catalog/biomarkers?query=${encodeURIComponent(code)}&institution=${institutionId}`,
+          );
           const response = BiomarkerSearchResponseSchema.parse(payload);
           const normalizedCode = normalizeToken(code);
           const match = response.results.find((result) => {

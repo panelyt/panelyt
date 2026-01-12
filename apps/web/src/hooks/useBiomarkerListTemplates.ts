@@ -12,6 +12,7 @@ import {
 
 import { getParsedJson, postParsedJson } from "../lib/http";
 import { buildOptimizationKey } from "../lib/optimization";
+import { useInstitution } from "./useInstitution";
 
 const TEMPLATE_PRICING_CONCURRENCY = 4;
 
@@ -135,17 +136,18 @@ export type TemplatePricingState = {
 };
 
 export function useTemplatePricing(templates: BiomarkerListTemplate[]) {
+  const { institutionId } = useInstitution();
   const queries = useQueries({
     queries: templates.map((template) => {
       const codes = template.biomarkers.map((entry) => entry.code);
       const key = buildOptimizationKey(codes);
       return {
-        queryKey: ["optimize", key, "auto", null],
+        queryKey: ["optimize", key, "auto", institutionId],
         queryFn: async ({ signal }: { signal?: AbortSignal }) => {
           return runTemplatePricingLimited(
             () =>
               postParsedJson(
-                "/optimize",
+                `/optimize?institution=${institutionId}`,
                 OptimizeResponseSchema,
                 { biomarkers: codes, mode: "auto" },
                 { signal },

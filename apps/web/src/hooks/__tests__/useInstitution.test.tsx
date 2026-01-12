@@ -1,4 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useInstitution } from "../useInstitution";
@@ -19,6 +21,15 @@ import { useAccountSettings } from "../useAccountSettings";
 import { useUserSession } from "../useUserSession";
 
 describe("useInstitution", () => {
+  const createWrapper = () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    return function Wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    };
+  };
+
   beforeEach(() => {
     localStorage.clear();
     useInstitutionStore.setState({
@@ -40,7 +51,8 @@ describe("useInstitution", () => {
       updateSettingsMutation: { mutate: vi.fn() },
     });
 
-    renderHook(() => useInstitution());
+    const wrapper = createWrapper();
+    renderHook(() => useInstitution(), { wrapper });
 
     await waitFor(() => {
       expect(useInstitutionStore.getState().institutionId).toBe(2222);
@@ -56,7 +68,8 @@ describe("useInstitution", () => {
       updateSettingsMutation: { mutate },
     });
 
-    const { result } = renderHook(() => useInstitution());
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useInstitution(), { wrapper });
 
     act(() => {
       result.current.setInstitution({ id: 3333, label: "Gdansk" });
@@ -74,7 +87,8 @@ describe("useInstitution", () => {
       updateSettingsMutation: { mutate },
     });
 
-    const { result } = renderHook(() => useInstitution());
+    const wrapper = createWrapper();
+    const { result } = renderHook(() => useInstitution(), { wrapper });
 
     act(() => {
       result.current.setInstitution({ id: 3333, label: "Gdansk" });
