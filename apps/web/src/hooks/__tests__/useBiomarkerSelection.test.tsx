@@ -2,7 +2,7 @@ import { renderHook, act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
-import { Toaster } from 'sonner'
+import { Toaster, toast } from 'sonner'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { useBiomarkerSelection } from '../useBiomarkerSelection'
@@ -85,6 +85,7 @@ describe('useBiomarkerSelection', () => {
   afterEach(async () => {
     sessionStorage.clear()
     await resetStore()
+    toast.dismiss()
   })
 
   it('shows a toast when a template adds biomarkers', async () => {
