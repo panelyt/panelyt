@@ -234,6 +234,22 @@ class TestCatalogEndpoints:
 
         activity_spy.assert_awaited_once()
 
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    async def test_search_biomarkers_triggers_ingestion(
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+    ):
+        """Biomarker search should trigger on-demand ingestion."""
+        mock_ensure_fresh.return_value = None
+
+        response = await async_client.get(
+            "/catalog/biomarkers?query=ALT&institution=2222"
+        )
+
+        assert response.status_code == 200
+        mock_ensure_fresh.assert_awaited_once_with(2222)
+
     async def test_search_biomarkers_respects_institution(
         self,
         async_client: AsyncClient,
@@ -410,6 +426,22 @@ class TestCatalogEndpoints:
         template_entry = templates[0]
         assert template_entry["slug"] == "cholesterol-panel"
         assert template_entry["biomarker_count"] == 2
+
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    async def test_catalog_search_triggers_ingestion(
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+    ):
+        """Catalog search should trigger on-demand ingestion."""
+        mock_ensure_fresh.return_value = None
+
+        response = await async_client.get(
+            "/catalog/search?query=chol&institution=3333"
+        )
+
+        assert response.status_code == 200
+        mock_ensure_fresh.assert_awaited_once_with(3333)
 
 
 class TestOptimizeEndpoint:

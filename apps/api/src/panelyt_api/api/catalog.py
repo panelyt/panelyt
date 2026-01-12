@@ -48,6 +48,8 @@ async def search(
     institution_id = institution or DEFAULT_INSTITUTION_ID
     repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
+    ingestion_service = IngestionService(get_settings())
+    await ingestion_service.ensure_fresh_data(institution_id)
     return await catalog.search_biomarkers(session, query, institution_id)
 
 
@@ -69,4 +71,6 @@ async def search_catalog_endpoint(
     institution_id = institution or DEFAULT_INSTITUTION_ID
     repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
+    ingestion_service = IngestionService(get_settings())
+    await ingestion_service.ensure_fresh_data(institution_id)
     return await catalog.search_catalog(session, query, institution_id=institution_id)
