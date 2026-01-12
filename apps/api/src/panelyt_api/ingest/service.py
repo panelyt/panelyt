@@ -79,6 +79,9 @@ class IngestionService:
                 if not any(result.items for result in results):
                     logger.warning("Ingestion returned no catalog items")
 
+                external_ids: list[str] = []
+                seen_external_ids: set[str] = set()
+
                 for result in results:
                     if result.raw_payload:
                         await repo.write_raw_snapshot(
@@ -91,8 +94,16 @@ class IngestionService:
                         )
                     if result.items:
                         await repo.upsert_catalog(result.items, fetched_at=result.fetched_at)
+                        for item in result.items:
+                            external_id = item.external_id.strip()
+                            if not external_id or external_id in seen_external_ids:
+                                continue
+                            seen_external_ids.add(external_id)
+                            external_ids.append(external_id)
 
                 await repo.prune_snapshots(now_utc.date())
+                if external_ids:
+                    await repo.prune_missing_items(external_ids)
                 await repo.prune_orphan_biomarkers()
                 await self._dispatch_price_alerts(repo)
                 await repo.finalize_run_log(log_id, status="completed")
