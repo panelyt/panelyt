@@ -48,6 +48,10 @@ class TestIngestionService:
     ):
         """Test ensure_fresh_data when data is fresh."""
         mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        mock_session.add = MagicMock()
         mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_get_session.return_value.__aexit__ = AsyncMock()
 
@@ -67,6 +71,10 @@ class TestIngestionService:
     ):
         """Test ensure_fresh_data when data is stale."""
         mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        mock_session.add = MagicMock()
         mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_get_session.return_value.__aexit__ = AsyncMock()
 
@@ -82,7 +90,7 @@ class TestIngestionService:
             mock_run.assert_awaited_once_with(
                 institution_id=1135,
                 reason="staleness_check",
-                blocking=False,
+                blocking=True,
             )
 
     @patch("panelyt_api.ingest.service.get_session")
@@ -92,6 +100,10 @@ class TestIngestionService:
     ):
         """Test ensure_fresh_data when today's snapshot is missing."""
         mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        mock_session.add = MagicMock()
         mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_get_session.return_value.__aexit__ = AsyncMock()
 
@@ -107,7 +119,7 @@ class TestIngestionService:
             mock_run.assert_awaited_once_with(
                 institution_id=1135,
                 reason="staleness_check",
-                blocking=False,
+                blocking=True,
             )
 
     @patch("panelyt_api.ingest.service.InstitutionService")
@@ -121,6 +133,10 @@ class TestIngestionService:
         ingestion_service,
     ):
         mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        mock_session.add = MagicMock()
         mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_get_session.return_value.__aexit__ = AsyncMock()
 
@@ -141,11 +157,15 @@ class TestIngestionService:
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
-    async def test_ensure_fresh_data_does_not_block_when_running(
+    async def test_ensure_fresh_data_waits_for_lock(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
-        """Ensure concurrent ensure_fresh_data calls avoid waiting for ongoing ingestion."""
+        """Ensure ensure_fresh_data uses blocking ingestion on demand."""
         mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        mock_session.add = MagicMock()
         mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_get_session.return_value.__aexit__ = AsyncMock()
 
@@ -160,13 +180,13 @@ class TestIngestionService:
             '_run_with_lock',
             new_callable=AsyncMock,
         ) as mock_run:
-            mock_run.return_value = False
+            mock_run.return_value = True
             with patch.object(ingestion_service, '_schedule_background_run') as mock_schedule:
                 await ingestion_service.ensure_fresh_data(1135)
                 mock_run.assert_awaited_once_with(
                     institution_id=1135,
                     reason="staleness_check",
-                    blocking=False,
+                    blocking=True,
                 )
                 mock_schedule.assert_not_called()
 

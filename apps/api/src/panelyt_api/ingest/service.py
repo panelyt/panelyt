@@ -69,7 +69,7 @@ class IngestionService:
                 ran = await self._run_with_lock(
                     institution_id=institution_id,
                     reason="staleness_check",
-                    blocking=False,
+                    blocking=True,
                 )
                 if not ran:
                     logger.info("Ingestion already running; serving existing data")
