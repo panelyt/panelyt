@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from types import MappingProxyType
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -180,7 +181,7 @@ class InstitutionItem(Base):
     regular_price_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    __mapper_args__ = {"primary_key": [institution_id, item_id]}
+    __mapper_args__ = MappingProxyType({"primary_key": (institution_id, item_id)})
 
     institution: Mapped[Institution] = relationship("Institution", back_populates="offers")
     item: Mapped[Item] = relationship("Item", back_populates="offers")

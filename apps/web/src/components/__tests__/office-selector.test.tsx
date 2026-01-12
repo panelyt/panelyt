@@ -40,19 +40,21 @@ describe("OfficeSelector", () => {
       label: "Lab office",
       setInstitution,
     });
-    vi.mocked(useInstitutionSearch).mockReturnValue({
-      data: {
-        results: [
-          {
-            id: 2222,
-            name: "Clinic Alpha",
-            city: "Warsaw",
-            address: "Main 1",
-          },
-        ],
-      },
-      isFetching: false,
-    });
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [
+            {
+              id: 2222,
+              name: "Clinic Alpha",
+              city: "Warsaw",
+              address: "Main 1",
+            },
+          ],
+        },
+        isFetching: false,
+      } as ReturnType<typeof useInstitutionSearch>,
+    );
 
     render(<OfficeSelector />);
 

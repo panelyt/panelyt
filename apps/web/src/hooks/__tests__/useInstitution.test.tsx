@@ -40,16 +40,38 @@ describe("useInstitution", () => {
   });
 
   it("hydrates the store from account settings when available", async () => {
-    vi.mocked(useUserSession).mockReturnValue({ data: { user_id: "user-1" } });
-    vi.mocked(useAccountSettings).mockReturnValue({
-      settingsQuery: {
+    vi.mocked(useUserSession).mockReturnValue(
+      {
         data: {
-          preferred_institution_id: 2222,
-          preferred_institution_label: "Warsaw",
+          user_id: "user-1",
+          username: "egor",
+          registered: true,
+          is_admin: false,
         },
-      },
-      updateSettingsMutation: { mutate: vi.fn() },
-    });
+        isLoading: false,
+      } as ReturnType<typeof useUserSession>,
+    );
+    vi.mocked(useAccountSettings).mockReturnValue(
+      {
+        settingsQuery: {
+          data: {
+            telegram: {
+              enabled: false,
+              chat_id: null,
+              linked_at: null,
+              link_token: null,
+              link_token_expires_at: null,
+              bot_username: null,
+              link_url: null,
+            },
+            preferred_institution_id: 2222,
+            preferred_institution_label: "Warsaw",
+          },
+          isLoading: false,
+        },
+        updateSettingsMutation: { mutate: vi.fn() },
+      } as unknown as ReturnType<typeof useAccountSettings>,
+    );
 
     const wrapper = createWrapper();
     renderHook(() => useInstitution(), { wrapper });
@@ -62,11 +84,38 @@ describe("useInstitution", () => {
 
   it("updates the account settings when selection changes for logged-in users", () => {
     const mutate = vi.fn();
-    vi.mocked(useUserSession).mockReturnValue({ data: { user_id: "user-1" } });
-    vi.mocked(useAccountSettings).mockReturnValue({
-      settingsQuery: { data: null },
-      updateSettingsMutation: { mutate },
-    });
+    vi.mocked(useUserSession).mockReturnValue(
+      {
+        data: {
+          user_id: "user-1",
+          username: "egor",
+          registered: true,
+          is_admin: false,
+        },
+        isLoading: false,
+      } as ReturnType<typeof useUserSession>,
+    );
+    vi.mocked(useAccountSettings).mockReturnValue(
+      {
+        settingsQuery: {
+          data: {
+            telegram: {
+              enabled: false,
+              chat_id: null,
+              linked_at: null,
+              link_token: null,
+              link_token_expires_at: null,
+              bot_username: null,
+              link_url: null,
+            },
+            preferred_institution_id: null,
+            preferred_institution_label: null,
+          },
+          isLoading: false,
+        },
+        updateSettingsMutation: { mutate },
+      } as unknown as ReturnType<typeof useAccountSettings>,
+    );
 
     const wrapper = createWrapper();
     const { result } = renderHook(() => useInstitution(), { wrapper });
@@ -81,11 +130,30 @@ describe("useInstitution", () => {
 
   it("does not update account settings for anonymous users", () => {
     const mutate = vi.fn();
-    vi.mocked(useUserSession).mockReturnValue({ data: null });
-    vi.mocked(useAccountSettings).mockReturnValue({
-      settingsQuery: { data: null },
-      updateSettingsMutation: { mutate },
-    });
+    vi.mocked(useUserSession).mockReturnValue(
+      { data: null, isLoading: false } as ReturnType<typeof useUserSession>,
+    );
+    vi.mocked(useAccountSettings).mockReturnValue(
+      {
+        settingsQuery: {
+          data: {
+            telegram: {
+              enabled: false,
+              chat_id: null,
+              linked_at: null,
+              link_token: null,
+              link_token_expires_at: null,
+              bot_username: null,
+              link_url: null,
+            },
+            preferred_institution_id: null,
+            preferred_institution_label: null,
+          },
+          isLoading: false,
+        },
+        updateSettingsMutation: { mutate },
+      } as unknown as ReturnType<typeof useAccountSettings>,
+    );
 
     const wrapper = createWrapper();
     const { result } = renderHook(() => useInstitution(), { wrapper });

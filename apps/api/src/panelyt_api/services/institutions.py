@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from panelyt_api.db.models import Institution, SavedList, UserAccount
 from panelyt_api.ingest.types import DiagInstitution
 
-
 DEFAULT_INSTITUTION_ID = 1135
 
 

@@ -104,8 +104,8 @@ class TelegramManualLinkRequest(BaseModel):
 
 
 __all__ = [
-    "AccountSettingsUpdateRequest",
     "AccountSettingsResponse",
+    "AccountSettingsUpdateRequest",
     "TelegramLinkCompleteRequest",
     "TelegramLinkCompleteResponse",
     "TelegramLinkStatus",
