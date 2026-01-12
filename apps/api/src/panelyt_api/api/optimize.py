@@ -16,6 +16,7 @@ from panelyt_api.schemas.optimize import (
     OptimizeRequest,
     OptimizeResponse,
 )
+from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 
 router = APIRouter()
 
@@ -28,7 +29,7 @@ async def optimize(
     repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
-    await ingestion_service.ensure_fresh_data()
+    await ingestion_service.ensure_fresh_data(DEFAULT_INSTITUTION_ID)
     optimizer = OptimizationService(session)
     return await optimizer.solve_cached(payload)
 

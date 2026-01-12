@@ -85,23 +85,23 @@ class TestOptimizationCache:
 class TestFreshnessCache:
     def test_should_check_returns_true_when_never_checked(self):
         cache = FreshnessCache(ttl_seconds=300)
-        assert cache.should_check() is True
+        assert cache.should_check(1135) is True
 
     def test_should_check_returns_false_after_recent_mark(self):
         cache = FreshnessCache(ttl_seconds=300)
-        cache.mark_checked()
-        assert cache.should_check() is False
+        cache.mark_checked(1135)
+        assert cache.should_check(1135) is False
 
     def test_should_check_returns_true_after_ttl_expires(self):
         cache = FreshnessCache(ttl_seconds=0)  # Immediate expiry
-        cache.mark_checked()
-        assert cache.should_check() is True
+        cache.mark_checked(1135)
+        assert cache.should_check(1135) is True
 
     def test_clear_resets_check_state(self):
         cache = FreshnessCache(ttl_seconds=300)
-        cache.mark_checked()
+        cache.mark_checked(1135)
         cache.clear()
-        assert cache.should_check() is True
+        assert cache.should_check(1135) is True
 
 
 class TestUserActivityDebouncer:

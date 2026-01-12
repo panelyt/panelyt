@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -57,7 +57,7 @@ class TestIngestionService:
         mock_repo_class.return_value = mock_repo
 
         with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
-            await ingestion_service.ensure_fresh_data()
+            await ingestion_service.ensure_fresh_data(1135)
             mock_run.assert_not_awaited()
 
     @patch("panelyt_api.ingest.service.get_session")
@@ -78,8 +78,12 @@ class TestIngestionService:
         mock_repo_class.return_value = mock_repo
 
         with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
-            await ingestion_service.ensure_fresh_data()
-            mock_run.assert_awaited_once_with(reason="staleness_check", blocking=False)
+            await ingestion_service.ensure_fresh_data(1135)
+            mock_run.assert_awaited_once_with(
+                institution_id=1135,
+                reason="staleness_check",
+                blocking=False,
+            )
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
@@ -99,8 +103,12 @@ class TestIngestionService:
         mock_repo_class.return_value = mock_repo
 
         with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
-            await ingestion_service.ensure_fresh_data()
-            mock_run.assert_awaited_once_with(reason="staleness_check", blocking=False)
+            await ingestion_service.ensure_fresh_data(1135)
+            mock_run.assert_awaited_once_with(
+                institution_id=1135,
+                reason="staleness_check",
+                blocking=False,
+            )
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
@@ -125,8 +133,12 @@ class TestIngestionService:
         ) as mock_run:
             mock_run.return_value = False
             with patch.object(ingestion_service, '_schedule_background_run') as mock_schedule:
-                await ingestion_service.ensure_fresh_data()
-                mock_run.assert_awaited_once_with(reason="staleness_check", blocking=False)
+                await ingestion_service.ensure_fresh_data(1135)
+                mock_run.assert_awaited_once_with(
+                    institution_id=1135,
+                    reason="staleness_check",
+                    blocking=False,
+                )
                 mock_schedule.assert_not_called()
 
     @patch("panelyt_api.ingest.service.get_session")
@@ -179,7 +191,7 @@ class TestIngestionService:
 
             await ingestion_service.run(reason="test")
 
-            mock_fetch.assert_awaited_once()
+            mock_fetch.assert_awaited_once_with(1135)
             mock_repo.write_raw_snapshot.assert_awaited_once()
             mock_repo.upsert_catalog.assert_awaited_once_with(
                 1135,
@@ -190,6 +202,91 @@ class TestIngestionService:
             mock_repo.prune_snapshots.assert_called_once()
             mock_repo.prune_missing_offers.assert_awaited_once_with(1135, ["1"])
             mock_repo.finalize_run_log.assert_called_with(1, status="completed")
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_run_scheduled_ingests_active_institutions(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_missing_offers.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo.upsert_catalog.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        sample_item = RawDiagItem(
+            external_id="1",
+            kind="single",
+            name="ALT Test",
+            slug="alt-test",
+            price_now_grosz=1000,
+            price_min30_grosz=900,
+            currency="PLN",
+            is_available=True,
+            biomarkers=[
+                RawDiagBiomarker(
+                    external_id="alt",
+                    name="ALT",
+                    elab_code="ALT",
+                    slug="alt",
+                )
+            ],
+            sale_price_grosz=None,
+            regular_price_grosz=1000,
+        )
+        lab_result = DiagIngestionResult(
+            fetched_at=datetime.now(UTC),
+            items=[sample_item],
+            raw_payload={},
+        )
+
+        with patch.object(
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
+        ) as mock_fetch, patch.object(
+            ingestion_service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ), patch.object(
+            ingestion_service, "_resolve_institutions", new_callable=AsyncMock
+        ) as mock_resolve, patch.object(
+            ingestion_service, "_should_skip_scheduled_run", new_callable=AsyncMock
+        ) as mock_skip:
+            mock_fetch.return_value = [lab_result]
+            mock_resolve.return_value = {2222, 1111}
+            mock_skip.return_value = False
+
+            await ingestion_service.run(scheduled=True, reason="scheduled")
+
+            mock_resolve.assert_awaited_once_with(
+                scheduled=True, institution_id=None
+            )
+            mock_skip.assert_awaited_once_with({2222, 1111})
+            mock_fetch.assert_has_awaits([call(1111), call(2222)])
+            mock_repo.upsert_catalog.assert_has_awaits(
+                [
+                    call(
+                        1111,
+                        singles=[sample_item],
+                        packages=[],
+                        fetched_at=lab_result.fetched_at,
+                    ),
+                    call(
+                        2222,
+                        singles=[sample_item],
+                        packages=[],
+                        fetched_at=lab_result.fetched_at,
+                    ),
+                ]
+            )
+            mock_repo.prune_missing_offers.assert_has_awaits(
+                [call(1111, ["1"]), call(2222, ["1"])]
+            )
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
@@ -318,7 +415,7 @@ class TestIngestionService:
         mock_repo.latest_snapshot_date.return_value = datetime.now(UTC).date()
         mock_repo_class.return_value = mock_repo
 
-        result = await ingestion_service._should_skip_scheduled_run()
+        result = await ingestion_service._should_skip_scheduled_run({1135})
         assert result is True
 
     @patch("panelyt_api.ingest.service.get_session")
@@ -338,7 +435,7 @@ class TestIngestionService:
         mock_repo.latest_snapshot_date.return_value = datetime.now().date()
         mock_repo_class.return_value = mock_repo
 
-        result = await ingestion_service._should_skip_scheduled_run()
+        result = await ingestion_service._should_skip_scheduled_run({1135})
         assert result is False
 
     @patch("panelyt_api.ingest.service.get_session")
@@ -360,9 +457,12 @@ class TestIngestionService:
 
         try:
             with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
-                await ingestion_service.ensure_fresh_data(background=True)
+                await ingestion_service.ensure_fresh_data(1135, background=True)
                 await asyncio.sleep(0)
-                mock_run.assert_awaited_once_with(reason="staleness_check")
+                mock_run.assert_awaited_once_with(
+                    institution_id=1135,
+                    reason="staleness_check",
+                )
         finally:
             ingestion_service.__class__._scheduled_task = None
 
@@ -385,8 +485,8 @@ class TestIngestionService:
 
         try:
             with patch.object(ingestion_service, '_run_with_lock', new_callable=AsyncMock) as mock_run:
-                await ingestion_service.ensure_fresh_data(background=True)
-                await ingestion_service.ensure_fresh_data(background=True)
+                await ingestion_service.ensure_fresh_data(1135, background=True)
+                await ingestion_service.ensure_fresh_data(1135, background=True)
                 assert mock_run.await_count == 0
 
                 await asyncio.sleep(0)

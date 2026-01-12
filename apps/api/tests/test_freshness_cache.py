@@ -21,11 +21,11 @@ class TestFreshnessCacheIntegration:
         service = IngestionService(test_settings)
 
         # Mark freshness as recently checked
-        freshness_cache.mark_checked()
+        freshness_cache.mark_checked(1135)
 
         # Mock the session to ensure no DB calls happen
         with patch("panelyt_api.ingest.service.get_session") as mock_session:
-            await service.ensure_fresh_data(background=True)
+            await service.ensure_fresh_data(1135, background=True)
             # Should not have called get_session since freshness is cached
             mock_session.assert_not_called()
 
@@ -50,7 +50,7 @@ class TestFreshnessCacheIntegration:
             mock_session.return_value = mock_context
 
             # Should hit the database
-            await service.ensure_fresh_data(background=True)
+            await service.ensure_fresh_data(1135, background=True)
 
             # Cache should now be populated
-            assert not freshness_cache.should_check()
+            assert not freshness_cache.should_check(1135)

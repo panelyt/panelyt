@@ -16,6 +16,7 @@ from panelyt_api.schemas.common import (
     CatalogSearchResponse,
 )
 from panelyt_api.services import catalog
+from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 
 router = APIRouter()
 
@@ -25,7 +26,9 @@ async def get_meta(session: SessionDep) -> CatalogMeta:
     repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
-    await ingestion_service.ensure_fresh_data(background=True)
+    await ingestion_service.ensure_fresh_data(
+        DEFAULT_INSTITUTION_ID, background=True
+    )
     return await catalog.get_catalog_meta_cached(session)
 
 

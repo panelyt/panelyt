@@ -185,19 +185,23 @@ class FreshnessCache:
 
     def __init__(self, ttl_seconds: int = 300) -> None:
         self._ttl_seconds = ttl_seconds
-        self._last_check: datetime | None = None
+        self._last_check: dict[int, datetime] = {}
 
-    def should_check(self) -> bool:
-        if self._last_check is None:
+    def should_check(self, institution_id: int) -> bool:
+        last_check = self._last_check.get(institution_id)
+        if last_check is None:
             return True
-        elapsed = datetime.now(UTC) - self._last_check
+        elapsed = datetime.now(UTC) - last_check
         return elapsed >= timedelta(seconds=self._ttl_seconds)
 
-    def mark_checked(self) -> None:
-        self._last_check = datetime.now(UTC)
+    def mark_checked(self, institution_id: int) -> None:
+        self._last_check[institution_id] = datetime.now(UTC)
 
-    def clear(self) -> None:
-        self._last_check = None
+    def clear(self, institution_id: int | None = None) -> None:
+        if institution_id is None:
+            self._last_check.clear()
+            return
+        self._last_check.pop(institution_id, None)
 
 
 class UserActivityDebouncer:
