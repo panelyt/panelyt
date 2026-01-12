@@ -10,6 +10,7 @@ import { useBiomarkerSelection } from "@/hooks/useBiomarkerSelection";
 import { useUserSession } from "@/hooks/useUserSession";
 import { useSaveListModal } from "@/hooks/useSaveListModal";
 import { useUrlBiomarkerSync } from "@/hooks/useUrlBiomarkerSync";
+import { useBiomarkerDiagUrls } from "@/hooks/useBiomarkerDiagUrls";
 import { PanelPill } from "@/features/panel/PanelPill";
 import { usePanelHydrated } from "@/hooks/usePanelHydrated";
 import { SaveListModal } from "@/components/save-list-modal";
@@ -36,6 +37,8 @@ export function PanelTray() {
   const [open, setOpen] = useState(false);
   const selection = useBiomarkerSelection();
   const selected = selection.selected;
+  const selectedCodes = useMemo(() => selected.map((entry) => entry.code), [selected]);
+  const biomarkerUrls = useBiomarkerDiagUrls(selectedCodes);
   const remove = usePanelStore((state) => state.remove);
   const summary = usePanelStore((state) => state.lastOptimizationSummary);
   const countLabel = isHydrated
@@ -191,7 +194,18 @@ export function PanelTray() {
                       key={biomarker.code}
                       className="group flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-surface-2/50 px-3 py-2 text-sm text-primary"
                     >
-                      <span className="font-semibold">{biomarker.name}</span>
+                      {biomarkerUrls.data?.[biomarker.code] ? (
+                        <a
+                          href={biomarkerUrls.data[biomarker.code] ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-primary transition hover:text-accent-emerald"
+                        >
+                          {biomarker.name}
+                        </a>
+                      ) : (
+                        <span className="font-semibold">{biomarker.name}</span>
+                      )}
                       <button
                         type="button"
                         onClick={() => remove(biomarker.code)}

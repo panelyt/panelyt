@@ -8,6 +8,7 @@ import { PanelTray } from "@/features/panel/PanelTray";
 import { track } from "@/lib/analytics";
 import { formatCurrency } from "@/lib/format";
 import { useUrlBiomarkerSync } from "@/hooks/useUrlBiomarkerSync";
+import { useBiomarkerDiagUrls } from "@/hooks/useBiomarkerDiagUrls";
 
 vi.mock("@/hooks/useUserSession", () => ({
   useUserSession: () => ({ data: null, isLoading: false }),
@@ -17,6 +18,10 @@ vi.mock("@/hooks/useUrlBiomarkerSync", () => ({
   useUrlBiomarkerSync: vi.fn(),
 }));
 
+vi.mock("@/hooks/useBiomarkerDiagUrls", () => ({
+  useBiomarkerDiagUrls: vi.fn(),
+}));
+
 vi.mock("@/lib/analytics", () => ({
   track: vi.fn(),
   markTtorStart: vi.fn(),
@@ -24,6 +29,7 @@ vi.mock("@/lib/analytics", () => ({
 }));
 
 const mockUseUrlBiomarkerSync = vi.mocked(useUrlBiomarkerSync);
+const mockUseBiomarkerDiagUrls = vi.mocked(useBiomarkerDiagUrls);
 const trackMock = vi.mocked(track);
 
 describe("PanelTray", () => {
@@ -36,6 +42,10 @@ describe("PanelTray", () => {
       getShareUrl: vi.fn(),
       copyShareUrl: vi.fn().mockResolvedValue(true),
     });
+    mockUseBiomarkerDiagUrls.mockReturnValue({
+      data: {},
+      isLoading: false,
+    } as ReturnType<typeof useBiomarkerDiagUrls>);
   });
 
   it("renders selected biomarkers and removes them", async () => {
@@ -77,6 +87,24 @@ describe("PanelTray", () => {
     expect(screen.getByText("Testosteron wolny")).toBeInTheDocument();
     expect(screen.queryByText("124")).not.toBeInTheDocument();
     expect(screen.queryByText("125")).not.toBeInTheDocument();
+  });
+
+  it("links biomarkers to diag.pl when available", async () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
+    });
+    mockUseBiomarkerDiagUrls.mockReturnValue({
+      data: { ALT: "https://diag.pl/sklep/badania/alt-test" },
+      isLoading: false,
+    } as ReturnType<typeof useBiomarkerDiagUrls>);
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    const link = screen.getByRole("link", { name: "Alanine aminotransferase" });
+    expect(link).toHaveAttribute("href", "https://diag.pl/sklep/badania/alt-test");
   });
 
   it("renders selected biomarkers as text rows instead of pills", async () => {
