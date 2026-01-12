@@ -8,6 +8,7 @@ from sqlalchemy import insert, select
 from panelyt_api.db import models
 from panelyt_api.schemas.common import ItemOut
 from panelyt_api.services.alerts import AlertPayload, TelegramPriceAlertService
+from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 
 
 class StubTelegramClient:
@@ -254,6 +255,17 @@ async def _create_item_with_biomarker(
     item_id: int,
     price: int,
 ) -> None:
+    existing = await db_session.scalar(
+        select(models.Institution.id).where(
+            models.Institution.id == DEFAULT_INSTITUTION_ID
+        )
+    )
+    if existing is None:
+        await db_session.execute(
+            insert(models.Institution).values(
+                {"id": DEFAULT_INSTITUTION_ID, "name": "Institution 1135"}
+            )
+        )
     await db_session.execute(
         insert(models.Item).values({
             "id": item_id,
@@ -273,4 +285,19 @@ async def _create_item_with_biomarker(
             "item_id": item_id,
             "biomarker_id": biomarker_id,
         })
+    )
+    await db_session.execute(
+        insert(models.InstitutionItem).values(
+            {
+                "institution_id": DEFAULT_INSTITUTION_ID,
+                "item_id": item_id,
+                "is_available": True,
+                "currency": "PLN",
+                "price_now_grosz": price,
+                "price_min30_grosz": price,
+                "sale_price_grosz": None,
+                "regular_price_grosz": None,
+                "fetched_at": datetime.now(UTC),
+            }
+        )
     )

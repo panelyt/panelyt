@@ -9,6 +9,7 @@ from httpx import AsyncClient
 from sqlalchemy import insert
 
 from panelyt_api.db import models
+from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 
 
 def ensure_session(client: TestClient) -> None:
@@ -38,6 +39,11 @@ async def seed_biomarkers_with_items(session) -> None:
     )
     now = datetime.now(timezone.utc)
     await session.execute(
+        insert(models.Institution).values(
+            {"id": DEFAULT_INSTITUTION_ID, "name": "Institution 1135"}
+        )
+    )
+    await session.execute(
         insert(models.Item).values(
             [
                 {
@@ -62,6 +68,34 @@ async def seed_biomarkers_with_items(session) -> None:
                     "price_min30_grosz": 1200,
                     "currency": "PLN",
                     "is_available": True,
+                    "fetched_at": now,
+                },
+            ]
+        )
+    )
+    await session.execute(
+        insert(models.InstitutionItem).values(
+            [
+                {
+                    "institution_id": DEFAULT_INSTITUTION_ID,
+                    "item_id": 1,
+                    "is_available": True,
+                    "currency": "PLN",
+                    "price_now_grosz": 1000,
+                    "price_min30_grosz": 1000,
+                    "sale_price_grosz": None,
+                    "regular_price_grosz": None,
+                    "fetched_at": now,
+                },
+                {
+                    "institution_id": DEFAULT_INSTITUTION_ID,
+                    "item_id": 2,
+                    "is_available": True,
+                    "currency": "PLN",
+                    "price_now_grosz": 1200,
+                    "price_min30_grosz": 1200,
+                    "sale_price_grosz": None,
+                    "regular_price_grosz": None,
                     "fetched_at": now,
                 },
             ]

@@ -113,9 +113,12 @@ class TelegramPriceAlertService:
             self._update_saved_list(saved_list, timestamp, total_grosz=None)
             return None
 
+        institution_id = (
+            saved_list.user.preferred_institution_id or DEFAULT_INSTITUTION_ID
+        )
         response = await self._optimizer.solve(
             OptimizeRequest(biomarkers=codes),
-            DEFAULT_INSTITUTION_ID,
+            institution_id,
         )
         if response.uncovered:
             self._update_saved_list(saved_list, timestamp, total_grosz=None)
