@@ -7,18 +7,18 @@ Thanks for your interest in contributing!
 1. Install [uv](https://github.com/astral-sh/uv) and [pnpm](https://pnpm.io/installation)
 2. Clone the repo and run:
    ```bash
-   make install-api
-   make install-web
+   just install api
+   just install web
    ```
 3. Copy `.env.example` files and configure your environment
-4. Run `make dev-api` and `make dev-web` in separate terminals
+4. Run `just dev api` and `just dev web` in separate terminals
 
 ## Making Changes
 
 1. Fork the repo and create a branch from `master`
 2. Make your changes
-3. Run checks: `make check`
-4. Run tests: `make test-api`
+3. Run checks: `just check`
+4. Run tests: `just test api`
 5. Open a pull request
 
 ## Commit Style

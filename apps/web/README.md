@@ -7,16 +7,15 @@ Next.js App Router client with bilingual support (English/Polish). Provides biom
 From the repository root:
 
 ```bash
-make install-web
+just install web
 ```
 
 ## Development
 
 ```bash
-make dev-web        # Start dev server on :3000
-make test-web       # Run tests
-make lint-web       # Lint with ESLint
-make typecheck-web  # TypeScript validation
+just dev web        # Start dev server on :3000
+just test web       # Run tests
+just lint web       # Lint and typecheck
 ```
 
 The app expects the API on `http://localhost:8000`. Set `NEXT_PUBLIC_API_URL` to override.

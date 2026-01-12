@@ -16,9 +16,8 @@
   - **Bite-sized tasks** (checkboxes)
   - **Acceptance criteria** (what “done” means)
 - Follow repo checks after each batch:
-  - `make typecheck-web`
-  - `make lint-web`
-  - `make test-web`
+  - `just lint web`
+  - `just test web`
 
 > This plan intentionally follows the rollout strategy in Spec **§13**, while still preparing shared foundations early (Spec **§10**).
 
@@ -76,7 +75,7 @@ Create the minimal tooling foundation needed for the redesign component architec
 
 ### Acceptance criteria
 - `pnpm --filter @panelyt/web dev` runs without dependency errors.
-- `make typecheck-web && make lint-web && make test-web` pass.
+- `just lint web && just test web` pass.
 - `Toaster` renders (manual check) and does not break SSR.
 
 ---
@@ -585,7 +584,7 @@ Finalize as production-ready.
   - [ ] Panel store persistence
   - [ ] Dialog focus trap & esc close
   - [ ] Search keyboard behaviors
-- [ ] Run `make check` locally (full suite).
+- [ ] Run `just check` locally (full suite).
 - [ ] Do a quick a11y pass:
   - [ ] keyboard-only navigation
   - [ ] focus visible

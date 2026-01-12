@@ -16,24 +16,24 @@ Panelyt minimizes the total cost of user-selected biomarkers by blending single 
 
 1. **Install dependencies**
    ```bash
-   make install-api   # uv sync in apps/api
-   make install-web   # pnpm install in apps/web
-   make install-bot   # uv sync in apps/telegram-bot
+   just install api   # uv sync in apps/api
+   just install web   # pnpm install in apps/web
+   just install bot   # uv sync in apps/telegram-bot
    ```
 2. **Run services locally**
    ```bash
    # Start FastAPI (requires Postgres configured via apps/api/.env)
-   make dev-api
+   just dev api
 
    # In a separate shell, start the Next.js client
-   make dev-web
+   just dev web
    ```
 3. **Run migrations** (after configuring the database URL in `.env`):
    ```bash
-   make migrate-api
+   just migrate
    ```
 
-For a containerized setup, copy `infra/.env.example` to `infra/.env`, adjust credentials, and run `make docker-up`. The compose stack now provisions Postgres, the API, and the Next.js frontend for a self-contained VPS deployment.
+For a containerized setup, copy `infra/.env.example` to `infra/.env`, adjust credentials, and run `just docker-up`. The compose stack now provisions Postgres, the API, and the Next.js frontend for a self-contained VPS deployment.
 
 ## Project layout
 
@@ -64,9 +64,9 @@ infra/
 
 ## Tests & linting
 
-- API: `make lint-api`, `make fmt-api`, `make test-api`
-- Web: `make lint-web`, `make typecheck-web`, `make test-web`
-- Bot: `make lint-bot`, `make typecheck-bot`
+- API: `just lint api`, `just fmt api`, `just test api`
+- Web: `just lint web`, `just test web`
+- Bot: `just lint bot`
 
 ## Contributing
 

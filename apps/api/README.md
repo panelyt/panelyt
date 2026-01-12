@@ -7,17 +7,17 @@ FastAPI service that ingests the diag.pl catalog, stores a 30-day price history,
 From the repository root:
 
 ```bash
-make install-api
+just install api
 ```
 
 ## Development
 
 ```bash
-make dev-api       # Start dev server on :8000
-make test-api      # Run tests
-make lint-api      # Lint with ruff
-make fmt-api       # Format code
-make migrate-api   # Run database migrations
+just dev api       # Start dev server on :8000
+just test api      # Run tests
+just lint api      # Lint and typecheck
+just fmt api       # Format code
+just migrate       # Run database migrations
 ```
 
 ## Production Deployment

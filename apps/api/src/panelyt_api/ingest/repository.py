@@ -141,6 +141,24 @@ class CatalogRepository:
         )
         await self.session.execute(stmt)
 
+    async def prune_missing_items(self, external_ids: Sequence[str]) -> None:
+        externals = [external_id.strip() for external_id in external_ids if external_id]
+        if not externals:
+            return
+        unique_externals = list(dict.fromkeys(externals))
+        missing_items = select(models.Item.id).where(
+            ~models.Item.external_id.in_(unique_externals)
+        )
+        await self.session.execute(
+            delete(models.PriceSnapshot).where(models.PriceSnapshot.item_id.in_(missing_items))
+        )
+        await self.session.execute(
+            delete(models.ItemBiomarker).where(models.ItemBiomarker.item_id.in_(missing_items))
+        )
+        await self.session.execute(
+            delete(models.Item).where(models.Item.id.in_(missing_items))
+        )
+
     async def _upsert_diag_biomarkers(
         self, biomarker_map: Mapping[str, RawDiagBiomarker]
     ) -> dict[str, int]:

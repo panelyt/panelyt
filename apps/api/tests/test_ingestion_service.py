@@ -183,6 +183,7 @@ class TestIngestionService:
                 lab_result.items, fetched_at=lab_result.fetched_at
             )
             mock_repo.prune_snapshots.assert_called_once()
+            mock_repo.prune_missing_items.assert_awaited_once_with(["1"])
             mock_repo.finalize_run_log.assert_called_with(1, status="completed")
 
     @patch("panelyt_api.ingest.service.get_session")
@@ -212,6 +213,7 @@ class TestIngestionService:
         mock_repo.create_run_log.return_value = 1
         mock_repo.finalize_run_log.return_value = None
         mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_missing_items.return_value = None
         mock_repo.prune_orphan_biomarkers.return_value = None
         mock_repo.write_raw_snapshot.return_value = None
         mock_repo.upsert_catalog.return_value = None
@@ -292,6 +294,7 @@ class TestIngestionService:
 
         mock_repo.write_raw_snapshot.assert_awaited_once()
         mock_repo.upsert_catalog.assert_not_awaited()
+        mock_repo.prune_missing_items.assert_not_awaited()
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
