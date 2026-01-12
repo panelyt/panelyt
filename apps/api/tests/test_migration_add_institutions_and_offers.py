@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
@@ -90,7 +89,7 @@ def test_backfill_institution_items_copies_item_fields():
     module = _load_migration_module()
 
     engine = create_engine("sqlite://")
-    fetched_at = datetime(2026, 1, 12, 10, 0, 0)
+    fetched_at = "2026-01-12 10:00:00"
 
     with engine.begin() as connection:
         _create_item_table(connection)
@@ -133,7 +132,7 @@ def test_backfill_price_snapshots_sets_institution_and_prices():
     module = _load_migration_module()
 
     engine = create_engine("sqlite://")
-    seen_at = datetime(2026, 1, 12, 11, 0, 0)
+    seen_at = "2026-01-12 11:00:00"
 
     with engine.begin() as connection:
         _create_item_table(connection)
