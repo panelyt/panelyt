@@ -96,6 +96,23 @@ export const SessionResponseSchema = z.object({
 
 export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 
+export const InstitutionSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  city: z.string().nullable(),
+  address: z.string().nullable(),
+});
+
+export type Institution = z.infer<typeof InstitutionSchema>;
+
+export const InstitutionSearchResponseSchema = z.object({
+  results: z.array(InstitutionSchema),
+});
+
+export type InstitutionSearchResponse = z.infer<
+  typeof InstitutionSearchResponseSchema
+>;
+
 export const TelegramLinkStatusSchema = z.object({
   enabled: z.boolean(),
   chat_id: z.string().nullable(),
@@ -110,6 +127,8 @@ export type TelegramLinkStatus = z.infer<typeof TelegramLinkStatusSchema>;
 
 export const AccountSettingsSchema = z.object({
   telegram: TelegramLinkStatusSchema,
+  preferred_institution_id: z.number().int().positive().nullable().default(null),
+  preferred_institution_label: z.string().nullable().default(null),
 });
 
 export type AccountSettings = z.infer<typeof AccountSettingsSchema>;
