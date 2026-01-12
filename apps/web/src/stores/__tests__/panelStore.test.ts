@@ -193,8 +193,8 @@ describe("panelStore", () => {
     usePanelStore.getState().undoLastRemoved();
 
     expect(usePanelStore.getState().selected).toEqual([
-      { code: "AST", name: "AST" },
       { code: "ALT", name: "ALT" },
+      { code: "AST", name: "AST" },
     ]);
   });
 

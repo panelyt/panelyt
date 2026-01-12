@@ -23,6 +23,7 @@ export interface OptimizationSummary {
 interface LastRemovedSnapshot {
   biomarker: PanelBiomarker;
   removedAt: number;
+  index: number;
 }
 
 interface PanelStoreState {
@@ -35,6 +36,7 @@ interface PanelStoreState {
   remove: (code: string) => void;
   clearAll: () => void;
   replaceAll: (biomarkers: PanelBiomarker[]) => void;
+  restoreBiomarker: (biomarker: PanelBiomarker, index?: number) => void;
   undoLastRemoved: () => void;
 }
 
@@ -142,6 +144,20 @@ const dedupeSelection = (biomarkers: PanelBiomarker[]): PanelBiomarker[] => {
   return result;
 };
 
+const insertBiomarkerAt = (
+  biomarkers: PanelBiomarker[],
+  biomarker: PanelBiomarker,
+  index: number,
+): PanelBiomarker[] => {
+  if (biomarkers.some((item) => item.code === biomarker.code)) {
+    return biomarkers;
+  }
+  const clampedIndex = Math.max(0, Math.min(index, biomarkers.length));
+  const next = biomarkers.slice();
+  next.splice(clampedIndex, 0, biomarker);
+  return next;
+};
+
 let lastRemovedTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const scheduleLastRemovedClear = (set: (partial: Partial<PanelStoreState>) => void) => {
@@ -218,16 +234,17 @@ export const usePanelStore = create<PanelStoreState>()(
           let removed: PanelBiomarker | undefined;
           let didEmpty = false;
           set((state) => {
-            removed = state.selected.find((item) => item.code === code);
-            if (!removed) {
+            const removedIndex = state.selected.findIndex((item) => item.code === code);
+            if (removedIndex === -1) {
               return state;
             }
+            removed = state.selected[removedIndex];
             const nextSelected = state.selected.filter((item) => item.code !== code);
             didEmpty = nextSelected.length === 0;
             return {
               selected: nextSelected,
               lastOptimizationSummary: undefined,
-              lastRemoved: { biomarker: removed, removedAt: Date.now() },
+              lastRemoved: { biomarker: removed, removedAt: Date.now(), index: removedIndex },
             };
           });
           if (removed) {
@@ -267,6 +284,26 @@ export const usePanelStore = create<PanelStoreState>()(
           resetTtorStart();
         }
       },
+      restoreBiomarker: (biomarker, index) => {
+        const code = biomarker.code.trim();
+        if (!code) return;
+        let shouldMark = false;
+        set((state) => {
+          const alreadySelected = state.selected.some((item) => item.code === code);
+          if (alreadySelected) {
+            return state;
+          }
+          shouldMark = state.selected.length === 0;
+          const insertionIndex = typeof index === "number" ? index : state.selected.length;
+          return {
+            selected: insertBiomarkerAt(state.selected, { code, name: biomarker.name }, insertionIndex),
+            lastOptimizationSummary: undefined,
+          };
+        });
+        if (shouldMark) {
+          markTtorStart();
+        }
+      },
       undoLastRemoved: () => {
         if (lastRemovedTimeout) {
           clearTimeout(lastRemovedTimeout);
@@ -276,14 +313,15 @@ export const usePanelStore = create<PanelStoreState>()(
           if (!state.lastRemoved) {
             return state;
           }
-          const { biomarker } = state.lastRemoved;
+          const { biomarker, index } = state.lastRemoved;
           const alreadySelected = state.selected.some((item) => item.code === biomarker.code);
           if (alreadySelected) {
             return { lastRemoved: undefined };
           }
           shouldMark = state.selected.length === 0;
+          const nextSelected = insertBiomarkerAt(state.selected, biomarker, index);
           return {
-            selected: [...state.selected, biomarker],
+            selected: nextSelected,
             lastOptimizationSummary: undefined,
             lastRemoved: undefined,
           };

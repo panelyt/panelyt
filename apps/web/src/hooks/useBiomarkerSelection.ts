@@ -38,6 +38,30 @@ export interface UseBiomarkerSelectionResult {
   clearError: () => void;
 }
 
+const mergeSelections = (
+  base: SelectedBiomarker[],
+  additions: SelectedBiomarker[],
+): SelectedBiomarker[] => {
+  const seen = new Set<string>();
+  const result: SelectedBiomarker[] = [];
+
+  for (const entry of base) {
+    const code = entry.code.trim();
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    result.push({ ...entry, code });
+  }
+
+  for (const entry of additions) {
+    const code = entry.code.trim();
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    result.push({ ...entry, code });
+  }
+
+  return result;
+};
+
 export function useBiomarkerSelection(
   options: UseBiomarkerSelectionOptions = {},
 ): UseBiomarkerSelectionResult {
@@ -76,19 +100,31 @@ export function useBiomarkerSelection(
   const handleRemove = useCallback(
     (code: string) => {
       const snapshot = usePanelStore.getState().selected;
-      const removed = snapshot.find((item) => item.code === code);
+      const removedIndex = snapshot.findIndex((item) => item.code === code);
+      const removed = removedIndex === -1 ? undefined : snapshot[removedIndex];
       remove(code);
       if (removed) {
         toast(t("selection.removed", { name: removed.name }), {
           duration: 8_000,
           action: {
             label: t("selection.undo"),
-            onClick: () => replaceAll(snapshot),
+            onClick: () => {
+              const state = usePanelStore.getState();
+              const alreadySelected = state.selected.some((item) => item.code === removed.code);
+              if (alreadySelected) {
+                return;
+              }
+              if (state.lastRemoved?.biomarker.code === removed.code) {
+                state.undoLastRemoved();
+                return;
+              }
+              state.restoreBiomarker(removed, removedIndex);
+            },
           },
         });
       }
     },
-    [remove, replaceAll, t],
+    [remove, t],
   );
 
   const handleClearAll = useCallback(() => {
@@ -101,11 +137,18 @@ export function useBiomarkerSelection(
         duration: 8_000,
         action: {
           label: t("selection.undo"),
-          onClick: () => replaceAll(snapshot),
+          onClick: () => {
+            const state = usePanelStore.getState();
+            if (state.selected.length === 0) {
+              state.replaceAll(snapshot);
+              return;
+            }
+            state.replaceAll(mergeSelections(snapshot, state.selected));
+          },
         },
       });
     }
-  }, [clearAll, replaceAll, t]);
+  }, [clearAll, t]);
 
   const handleTemplateSelect = useCallback(
     async (selection: { slug: string; name: string }) => {

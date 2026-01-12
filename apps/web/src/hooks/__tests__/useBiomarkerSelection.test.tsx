@@ -1,4 +1,4 @@
-import { renderHook, act, screen } from '@testing-library/react'
+import { renderHook, act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
@@ -175,6 +175,76 @@ describe('useBiomarkerSelection', () => {
     expect(usePanelStore.getState().selected).toEqual(initialSelection)
   })
 
+  it('does not clobber later additions when undoing a single removal', async () => {
+    const user = userEvent.setup()
+    const wrapper = createWrapperWithToaster()
+    const initialSelection = [
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'AST', name: 'Aspartate aminotransferase' },
+    ]
+    await act(async () => {
+      usePanelStore.setState({ selected: initialSelection })
+    })
+    const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
+
+    act(() => {
+      result.current.handleRemove('ALT')
+    })
+
+    act(() => {
+      result.current.handleSelect({ code: 'CRP', name: 'C-reactive protein' })
+    })
+
+    const undoButton = await screen.findByRole('button', { name: 'Undo' })
+    undoButton.focus()
+    expect(undoButton).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    expect(usePanelStore.getState().selected).toEqual([
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'AST', name: 'Aspartate aminotransferase' },
+      { code: 'CRP', name: 'C-reactive protein' },
+    ])
+  })
+
+  it('restores the correct biomarker when undoing an earlier removal', async () => {
+    const user = userEvent.setup()
+    const wrapper = createWrapperWithToaster()
+    const initialSelection = [
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'AST', name: 'Aspartate aminotransferase' },
+      { code: 'CRP', name: 'C-reactive protein' },
+    ]
+    await act(async () => {
+      usePanelStore.setState({ selected: initialSelection })
+    })
+    const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
+
+    act(() => {
+      result.current.handleRemove('ALT')
+    })
+
+    act(() => {
+      result.current.handleRemove('AST')
+    })
+
+    const altToast = await screen.findByText('Removed Alanine aminotransferase.')
+    const altToastRoot = altToast.closest('[data-sonner-toast]') ?? altToast.closest('li')
+    if (!altToastRoot) {
+      throw new Error('Unable to locate toast container for ALT removal.')
+    }
+
+    const undoButton = within(altToastRoot).getByRole('button', { name: 'Undo' })
+    undoButton.focus()
+    expect(undoButton).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    expect(usePanelStore.getState().selected).toEqual([
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'CRP', name: 'C-reactive protein' },
+    ])
+  })
+
   it('restores the exact selection when undoing clear all via keyboard', async () => {
     const user = userEvent.setup()
     const wrapper = createWrapperWithToaster()
@@ -200,6 +270,38 @@ describe('useBiomarkerSelection', () => {
     await user.keyboard('{Enter}')
 
     expect(usePanelStore.getState().selected).toEqual(initialSelection)
+  })
+
+  it('does not clobber later additions when undoing clear all', async () => {
+    const user = userEvent.setup()
+    const wrapper = createWrapperWithToaster()
+    const initialSelection = [
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'AST', name: 'Aspartate aminotransferase' },
+    ]
+    await act(async () => {
+      usePanelStore.setState({ selected: initialSelection })
+    })
+    const { result } = renderHook(() => useBiomarkerSelection(), { wrapper })
+
+    act(() => {
+      result.current.clearAll()
+    })
+
+    act(() => {
+      result.current.handleSelect({ code: 'CRP', name: 'C-reactive protein' })
+    })
+
+    const undoButton = await screen.findByRole('button', { name: 'Undo' })
+    undoButton.focus()
+    expect(undoButton).toHaveFocus()
+    await user.keyboard('{Enter}')
+
+    expect(usePanelStore.getState().selected).toEqual([
+      { code: 'ALT', name: 'Alanine aminotransferase' },
+      { code: 'AST', name: 'Aspartate aminotransferase' },
+      { code: 'CRP', name: 'C-reactive protein' },
+    ])
   })
 
   describe('sessionStorage persistence', () => {
