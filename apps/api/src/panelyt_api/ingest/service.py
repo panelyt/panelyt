@@ -93,7 +93,14 @@ class IngestionService:
                             },
                         )
                     if result.items:
-                        await repo.upsert_catalog(result.items, fetched_at=result.fetched_at)
+                        singles = [item for item in result.items if item.kind == "single"]
+                        packages = [item for item in result.items if item.kind == "package"]
+                        await repo.upsert_catalog(
+                            1135,
+                            singles=singles,
+                            packages=packages,
+                            fetched_at=result.fetched_at,
+                        )
                         for item in result.items:
                             external_id = item.external_id.strip()
                             if not external_id or external_id in seen_external_ids:
@@ -103,7 +110,7 @@ class IngestionService:
 
                 await repo.prune_snapshots(now_utc.date())
                 if external_ids:
-                    await repo.prune_missing_items(external_ids)
+                    await repo.prune_missing_offers(1135, external_ids)
                 await repo.prune_orphan_biomarkers()
                 await self._dispatch_price_alerts(repo)
                 await repo.finalize_run_log(log_id, status="completed")

@@ -67,8 +67,14 @@ class CatalogRepository:
         await self.session.execute(stmt)
 
     async def upsert_catalog(
-        self, items: Sequence[RawDiagItem], *, fetched_at: datetime
+        self,
+        institution_id: int,
+        *,
+        singles: Sequence[RawDiagItem],
+        packages: Sequence[RawDiagItem],
+        fetched_at: datetime,
     ) -> None:
+        items = [*singles, *packages]
         if not items:
             return
 
@@ -96,7 +102,10 @@ class CatalogRepository:
         biomarker_ids = await self._upsert_diag_biomarkers(biomarker_map)
         item_ids = await self._upsert_diag_items(item_map, fetched_at)
         await self._replace_diag_item_biomarkers(item_ids, item_to_biomarkers, biomarker_ids)
-        await self._upsert_diag_snapshots(item_map, item_ids, fetched_at)
+        await self._upsert_institution_items(institution_id, item_map, item_ids, fetched_at)
+        await self._upsert_institution_snapshots(
+            institution_id, item_map, item_ids, fetched_at
+        )
 
     # Deprecated: use upsert_catalog.
     upsert_diag_catalog = upsert_catalog
@@ -141,23 +150,23 @@ class CatalogRepository:
         )
         await self.session.execute(stmt)
 
-    async def prune_missing_items(self, external_ids: Sequence[str]) -> None:
+    async def prune_missing_offers(
+        self, institution_id: int, external_ids: Sequence[str]
+    ) -> None:
         externals = [external_id.strip() for external_id in external_ids if external_id]
         if not externals:
             return
         unique_externals = list(dict.fromkeys(externals))
-        missing_items = select(models.Item.id).where(
-            ~models.Item.external_id.in_(unique_externals)
+        available_items = select(models.Item.id).where(
+            models.Item.external_id.in_(unique_externals)
         )
-        await self.session.execute(
-            delete(models.PriceSnapshot).where(models.PriceSnapshot.item_id.in_(missing_items))
+        stmt = (
+            update(models.InstitutionItem)
+            .where(models.InstitutionItem.institution_id == institution_id)
+            .where(~models.InstitutionItem.item_id.in_(available_items))
+            .values(is_available=False)
         )
-        await self.session.execute(
-            delete(models.ItemBiomarker).where(models.ItemBiomarker.item_id.in_(missing_items))
-        )
-        await self.session.execute(
-            delete(models.Item).where(models.Item.id.in_(missing_items))
-        )
+        await self.session.execute(stmt)
 
     async def _upsert_diag_biomarkers(
         self, biomarker_map: Mapping[str, RawDiagBiomarker]
@@ -272,8 +281,56 @@ class CatalogRepository:
                 stmt = stmt.on_conflict_do_nothing()
                 await self.session.execute(stmt)
 
-    async def _upsert_diag_snapshots(
+    async def _upsert_institution_items(
         self,
+        institution_id: int,
+        item_map: Mapping[str, RawDiagItem],
+        item_ids: Mapping[str, int],
+        fetched_at: datetime,
+    ) -> None:
+        if not item_ids:
+            return
+
+        entries = []
+        for external_id, item_id in item_ids.items():
+            raw_item = item_map.get(external_id)
+            if raw_item is None:
+                continue
+            entries.append(
+                {
+                    "institution_id": institution_id,
+                    "item_id": item_id,
+                    "is_available": raw_item.is_available,
+                    "currency": raw_item.currency,
+                    "price_now_grosz": raw_item.price_now_grosz,
+                    "price_min30_grosz": raw_item.price_min30_grosz,
+                    "sale_price_grosz": raw_item.sale_price_grosz,
+                    "regular_price_grosz": raw_item.regular_price_grosz,
+                    "fetched_at": fetched_at,
+                }
+            )
+        if not entries:
+            return
+
+        for batch in _chunked(entries, _UPSERT_BATCH_SIZE):
+            stmt = insert(models.InstitutionItem).values(list(batch))
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["institution_id", "item_id"],
+                set_={
+                    "is_available": stmt.excluded.is_available,
+                    "currency": stmt.excluded.currency,
+                    "price_now_grosz": stmt.excluded.price_now_grosz,
+                    "price_min30_grosz": stmt.excluded.price_min30_grosz,
+                    "sale_price_grosz": stmt.excluded.sale_price_grosz,
+                    "regular_price_grosz": stmt.excluded.regular_price_grosz,
+                    "fetched_at": stmt.excluded.fetched_at,
+                },
+            )
+            await self.session.execute(stmt)
+
+    async def _upsert_institution_snapshots(
+        self,
+        institution_id: int,
         item_map: Mapping[str, RawDiagItem],
         item_ids: Mapping[str, int],
         fetched_at: datetime,
@@ -289,9 +346,13 @@ class CatalogRepository:
                 continue
             entries.append(
                 {
+                    "institution_id": institution_id,
                     "item_id": item_id,
                     "snap_date": snap_date,
                     "price_now_grosz": raw_item.price_now_grosz,
+                    "price_min30_grosz": raw_item.price_min30_grosz,
+                    "sale_price_grosz": raw_item.sale_price_grosz,
+                    "regular_price_grosz": raw_item.regular_price_grosz,
                     "is_available": raw_item.is_available,
                 }
             )
@@ -301,9 +362,12 @@ class CatalogRepository:
         for batch in _chunked(entries, _UPSERT_BATCH_SIZE):
             stmt = insert(models.PriceSnapshot).values(list(batch))
             stmt = stmt.on_conflict_do_update(
-                index_elements=["item_id", "snap_date"],
+                index_elements=["institution_id", "item_id", "snap_date"],
                 set_={
                     "price_now_grosz": stmt.excluded.price_now_grosz,
+                    "price_min30_grosz": stmt.excluded.price_min30_grosz,
+                    "sale_price_grosz": stmt.excluded.sale_price_grosz,
+                    "regular_price_grosz": stmt.excluded.regular_price_grosz,
                     "is_available": stmt.excluded.is_available,
                 },
             )
