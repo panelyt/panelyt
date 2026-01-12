@@ -99,10 +99,10 @@ class OptimizationCache:
     def set(self, key: str, value: OptimizeResponse) -> None:
         self._cache[key] = value
 
-    def make_key(self, biomarkers: Sequence[str]) -> str:
+    def make_key(self, biomarkers: Sequence[str], institution_id: int) -> str:
         """Create a cache key from optimization parameters."""
         sorted_biomarkers = sorted(b.lower().strip() for b in biomarkers)
-        key_string = ",".join(sorted_biomarkers)
+        key_string = f"{institution_id}:" + ",".join(sorted_biomarkers)
         return hashlib.sha256(key_string.encode()).hexdigest()[:32]
 
     def clear(self) -> None:
@@ -154,13 +154,13 @@ class OptimizationContextCache:
     def set(self, key: str, value: OptimizationContext) -> None:
         self._cache[key] = value
 
-    def make_key(self, biomarkers: Sequence[str]) -> str:
+    def make_key(self, biomarkers: Sequence[str], institution_id: int) -> str:
         """Create a cache key for context lookup.
 
-        Uses only biomarkers since context is mode-independent.
+        Uses biomarkers and institution since offers vary per institution.
         """
         sorted_biomarkers = sorted(b.lower().strip() for b in biomarkers)
-        key_string = ",".join(sorted_biomarkers)
+        key_string = f"{institution_id}:" + ",".join(sorted_biomarkers)
         return hashlib.sha256(key_string.encode()).hexdigest()[:32]
 
     def clear(self) -> None:

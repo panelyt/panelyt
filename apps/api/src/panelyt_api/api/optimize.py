@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from panelyt_api.api.deps import SessionDep
 from panelyt_api.core.cache import record_user_activity_debounced
@@ -25,24 +26,32 @@ router = APIRouter()
 async def optimize(
     payload: OptimizeRequest,
     session: SessionDep,
+    institution: Annotated[
+        int | None, Query(ge=1, description="Institution (office) id")
+    ] = None,
 ) -> OptimizeResponse:
+    institution_id = institution or DEFAULT_INSTITUTION_ID
     repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
-    await ingestion_service.ensure_fresh_data(DEFAULT_INSTITUTION_ID)
+    await ingestion_service.ensure_fresh_data(institution_id)
     optimizer = OptimizationService(session)
-    return await optimizer.solve_cached(payload)
+    return await optimizer.solve_cached(payload, institution_id)
 
 
 @router.post("/optimize/addons", response_model=AddonSuggestionsResponse)
 async def optimize_addons(
     payload: AddonSuggestionsRequest,
     session: SessionDep,
+    institution: Annotated[
+        int | None, Query(ge=1, description="Institution (office) id")
+    ] = None,
 ) -> AddonSuggestionsResponse:
     """Compute addon suggestions for a given optimization solution.
 
     This endpoint is called after /optimize to lazily load addon suggestions,
     improving the initial response time of the optimization endpoint.
     """
+    institution_id = institution or DEFAULT_INSTITUTION_ID
     optimizer = OptimizationService(session)
-    return await optimizer.compute_addons(payload)
+    return await optimizer.compute_addons(payload, institution_id)

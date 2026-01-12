@@ -9,6 +9,39 @@ from httpx import AsyncClient
 from sqlalchemy import insert
 
 from panelyt_api.db import models
+from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
+
+
+async def insert_institution(session, institution_id: int = DEFAULT_INSTITUTION_ID) -> None:
+    await session.execute(
+        insert(models.Institution).values(
+            {"id": institution_id, "name": f"Institution {institution_id}"}
+        )
+    )
+
+
+async def insert_items_with_offers(
+    session,
+    items: list[dict],
+    institution_id: int = DEFAULT_INSTITUTION_ID,
+) -> None:
+    await session.execute(insert(models.Item).values(items))
+    now = datetime.now(timezone.utc)
+    offers = [
+        {
+            "institution_id": institution_id,
+            "item_id": item["id"],
+            "is_available": item.get("is_available", True),
+            "currency": item.get("currency", "PLN"),
+            "price_now_grosz": item["price_now_grosz"],
+            "price_min30_grosz": item.get("price_min30_grosz", item["price_now_grosz"]),
+            "sale_price_grosz": item.get("sale_price_grosz"),
+            "regular_price_grosz": item.get("regular_price_grosz"),
+            "fetched_at": item.get("fetched_at", now),
+        }
+        for item in items
+    ]
+    await session.execute(insert(models.InstitutionItem).values(offers))
 
 
 @pytest.fixture(autouse=True)
@@ -304,6 +337,7 @@ class TestOptimizeEndpoint:
         assert data["explain"] == {}
         assert data["uncovered"] == []
         activity_spy.assert_awaited_once()
+        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID)
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     async def test_optimize_unknown_biomarkers(
@@ -324,6 +358,7 @@ class TestOptimizeEndpoint:
         assert data["items"] == []
         assert data["uncovered"] == ["UNKNOWN1", "UNKNOWN2"]
         activity_spy.assert_awaited_once()
+        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID)
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     async def test_optimize_successful_optimization(
@@ -344,33 +379,33 @@ class TestOptimizeEndpoint:
             ])
         )
 
-        # Add items
-        await db_session.execute(
-            insert(models.Item).values([
-                {
-                    "id": 1,
-                    "external_id": "item-1",
-                    "kind": "single",
-                    "name": "ALT Test",
-                    "slug": "alt-test",
-                    "price_now_grosz": 1000,
-                    "price_min30_grosz": 900,
-                    "currency": "PLN",
-                    "is_available": True,
-                },
-                {
-                    "id": 2,
-                    "external_id": "item-2",
-                    "kind": "package",
-                    "name": "Liver Panel",
-                    "slug": "liver-panel",
-                    "price_now_grosz": 1800,
-                    "price_min30_grosz": 1700,
-                    "currency": "PLN",
-                    "is_available": True,
-                },
-            ])
-        )
+        await insert_institution(db_session)
+
+        items = [
+            {
+                "id": 1,
+                "external_id": "item-1",
+                "kind": "single",
+                "name": "ALT Test",
+                "slug": "alt-test",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 900,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 2,
+                "external_id": "item-2",
+                "kind": "package",
+                "name": "Liver Panel",
+                "slug": "liver-panel",
+                "price_now_grosz": 1800,
+                "price_min30_grosz": 1700,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await insert_items_with_offers(db_session, items)
 
         # Add item-biomarker relationships
         await db_session.execute(
@@ -414,6 +449,7 @@ class TestOptimizeEndpoint:
         assert "Liver Panel" in data["explain"]["ALT"]
         assert "Liver Panel" in data["explain"]["AST"]
         activity_spy.assert_awaited_once()
+        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID)
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     async def test_optimize_compare_returns_bundle(
@@ -459,8 +495,10 @@ class TestOptimizeEndpoint:
         )
 
         # Add item that covers ALT only
-        await db_session.execute(
-            insert(models.Item).values([
+        await insert_institution(db_session)
+        await insert_items_with_offers(
+            db_session,
+            [
                 {
                     "id": 1,
                     "external_id": "item-1",
@@ -472,7 +510,7 @@ class TestOptimizeEndpoint:
                     "currency": "PLN",
                     "is_available": True,
                 },
-            ])
+            ],
         )
 
         # Add item-biomarker relationship
@@ -495,3 +533,53 @@ class TestOptimizeEndpoint:
         assert data["uncovered"] == ["UNKNOWN_BIOMARKER"]
         assert "ALT" in data["explain"]
         activity_spy.assert_awaited_once()
+        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID)
+
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    async def test_optimize_uses_institution_param(
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+        db_session,
+        activity_spy: AsyncMock,
+    ):
+        """Institution query param should scope optimization results."""
+        mock_ensure_fresh.return_value = None
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [{"id": 1, "name": "ALT", "elab_code": "ALT", "slug": "alt"}]
+            )
+        )
+        await insert_institution(db_session, DEFAULT_INSTITUTION_ID)
+        await insert_institution(db_session, institution_id=2222)
+
+        items = [
+            {
+                "id": 1,
+                "external_id": "item-1",
+                "kind": "single",
+                "name": "ALT Test",
+                "slug": "alt-test",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 900,
+                "currency": "PLN",
+                "is_available": True,
+            }
+        ]
+        await insert_items_with_offers(db_session, items, institution_id=2222)
+        await db_session.execute(
+            insert(models.ItemBiomarker).values([{"item_id": 1, "biomarker_id": 1}])
+        )
+        await db_session.commit()
+
+        payload = {"biomarkers": ["ALT"]}
+        response = await async_client.post("/optimize?institution=2222", json=payload)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["name"] == "ALT Test"
+        assert data["uncovered"] == []
+        activity_spy.assert_awaited_once()
+        mock_ensure_fresh.assert_awaited_once_with(2222)

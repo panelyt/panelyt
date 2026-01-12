@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from panelyt_api.db.models import SavedList, SavedListEntry
 from panelyt_api.optimization.service import OptimizationService
 from panelyt_api.schemas.optimize import OptimizeRequest
+from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 from panelyt_api.services.biomarker_resolver import BiomarkerResolver
 
 
@@ -225,7 +226,10 @@ class SavedListService:
             saved_list.last_total_updated_at = timestamp
             return
 
-        response = await self._optimizer.solve(OptimizeRequest(biomarkers=codes))
+        response = await self._optimizer.solve(
+            OptimizeRequest(biomarkers=codes),
+            DEFAULT_INSTITUTION_ID,
+        )
         if response.uncovered:
             saved_list.last_known_total_grosz = None
             saved_list.last_total_updated_at = timestamp
