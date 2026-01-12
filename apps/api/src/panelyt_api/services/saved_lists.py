@@ -9,10 +9,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from panelyt_api.db.models import SavedList, SavedListEntry, UserAccount
+from panelyt_api.db.models import SavedList, SavedListEntry
 from panelyt_api.optimization.service import OptimizationService
 from panelyt_api.schemas.optimize import OptimizeRequest
-from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 from panelyt_api.services.biomarker_resolver import BiomarkerResolver
 
 
@@ -81,6 +80,7 @@ class SavedListService:
         user_id: str,
         name: str,
         entries: Sequence[SavedListEntryData],
+        institution_id: int,
     ) -> SavedList:
         prepared = self._prepare_entries(entries)
         biomarker_map = await self._resolver.resolve_for_list_entries(prepared)
@@ -104,7 +104,7 @@ class SavedListService:
                 )
             )
 
-        await self._refresh_list_totals(saved_list, prepared)
+        await self._refresh_list_totals(saved_list, prepared, institution_id)
         saved_list.updated_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
@@ -115,6 +115,7 @@ class SavedListService:
         saved_list: SavedList,
         name: str,
         entries: Sequence[SavedListEntryData],
+        institution_id: int,
     ) -> SavedList:
         prepared = self._prepare_entries(entries)
         biomarker_map = await self._resolver.resolve_for_list_entries(prepared)
@@ -136,7 +137,7 @@ class SavedListService:
                 )
             )
 
-        await self._refresh_list_totals(saved_list, prepared)
+        await self._refresh_list_totals(saved_list, prepared, institution_id)
         saved_list.updated_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
@@ -218,6 +219,7 @@ class SavedListService:
         self,
         saved_list: SavedList,
         entries: Sequence[SavedListEntryData],
+        institution_id: int,
     ) -> None:
         codes = [entry.code for entry in entries]
         timestamp = datetime.now(UTC)
@@ -226,7 +228,6 @@ class SavedListService:
             saved_list.last_total_updated_at = timestamp
             return
 
-        institution_id = await self._resolve_institution_id(saved_list.user_id)
         response = await self._optimizer.solve(
             OptimizeRequest(biomarkers=codes),
             institution_id,
@@ -250,12 +251,5 @@ class SavedListService:
             exists = await self._db.scalar(exists_stmt)
             if not exists:
                 return candidate
-
-    async def _resolve_institution_id(self, user_id: str) -> int:
-        stmt = select(UserAccount.preferred_institution_id).where(UserAccount.id == user_id)
-        result = await self._db.execute(stmt)
-        preferred = result.scalar_one_or_none()
-        return preferred or DEFAULT_INSTITUTION_ID
-
 
 __all__ = ["SavedListEntryData", "SavedListService"]

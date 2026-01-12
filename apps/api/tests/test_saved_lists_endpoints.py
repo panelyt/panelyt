@@ -6,29 +6,32 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy import insert
+from sqlalchemy import insert, update
 
 from panelyt_api.db import models
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 
 
-def ensure_session(client: TestClient) -> None:
+def ensure_session(client: TestClient) -> str:
     response = client.post("/users/session")
     assert response.status_code == 200
     body = response.json()
     assert "user_id" in body
     assert body["is_admin"] is False
+    return body["user_id"]
 
 
-async def ensure_session_async(client: AsyncClient) -> None:
+async def ensure_session_async(client: AsyncClient) -> str:
     response = await client.post("/users/session")
     assert response.status_code == 200
     body = response.json()
     assert "user_id" in body
     assert body["is_admin"] is False
+    return body["user_id"]
 
 
 async def seed_biomarkers_with_items(session) -> None:
+    secondary_institution_id = DEFAULT_INSTITUTION_ID + 1
     await session.execute(
         insert(models.Biomarker).values(
             [
@@ -40,7 +43,10 @@ async def seed_biomarkers_with_items(session) -> None:
     now = datetime.now(timezone.utc)
     await session.execute(
         insert(models.Institution).values(
-            {"id": DEFAULT_INSTITUTION_ID, "name": "Institution 1135"}
+            [
+                {"id": DEFAULT_INSTITUTION_ID, "name": "Institution 1135"},
+                {"id": secondary_institution_id, "name": "Institution 1136"},
+            ]
         )
     )
     await session.execute(
@@ -94,6 +100,28 @@ async def seed_biomarkers_with_items(session) -> None:
                     "currency": "PLN",
                     "price_now_grosz": 1200,
                     "price_min30_grosz": 1200,
+                    "sale_price_grosz": None,
+                    "regular_price_grosz": None,
+                    "fetched_at": now,
+                },
+                {
+                    "institution_id": secondary_institution_id,
+                    "item_id": 1,
+                    "is_available": True,
+                    "currency": "PLN",
+                    "price_now_grosz": 1500,
+                    "price_min30_grosz": 1500,
+                    "sale_price_grosz": None,
+                    "regular_price_grosz": None,
+                    "fetched_at": now,
+                },
+                {
+                    "institution_id": secondary_institution_id,
+                    "item_id": 2,
+                    "is_available": True,
+                    "currency": "PLN",
+                    "price_now_grosz": 1900,
+                    "price_min30_grosz": 1900,
                     "sale_price_grosz": None,
                     "regular_price_grosz": None,
                     "fetched_at": now,
@@ -404,7 +432,14 @@ async def test_list_totals_set_on_create(
     async_client: AsyncClient, db_session
 ) -> None:
     await seed_biomarkers_with_items(db_session)
-    await ensure_session_async(async_client)
+    user_id = await ensure_session_async(async_client)
+    secondary_institution_id = DEFAULT_INSTITUTION_ID + 1
+    await db_session.execute(
+        update(models.UserAccount)
+        .where(models.UserAccount.id == user_id)
+        .values(preferred_institution_id=secondary_institution_id)
+    )
+    await db_session.commit()
 
     payload = {
         "name": "Morning panel",
@@ -417,7 +452,7 @@ async def test_list_totals_set_on_create(
     assert response.status_code == 201
     created = response.json()
 
-    assert created["last_known_total_grosz"] == 2200
+    assert created["last_known_total_grosz"] == 3400
     assert created["last_total_updated_at"] is not None
 
 
@@ -426,7 +461,7 @@ async def test_list_totals_update_on_edit(
     async_client: AsyncClient, db_session
 ) -> None:
     await seed_biomarkers_with_items(db_session)
-    await ensure_session_async(async_client)
+    user_id = await ensure_session_async(async_client)
 
     payload = {
         "name": "Starter panel",
@@ -439,6 +474,15 @@ async def test_list_totals_update_on_edit(
     assert response.status_code == 201
     created = response.json()
     list_id = created["id"]
+    assert created["last_known_total_grosz"] == 2200
+
+    secondary_institution_id = DEFAULT_INSTITUTION_ID + 1
+    await db_session.execute(
+        update(models.UserAccount)
+        .where(models.UserAccount.id == user_id)
+        .values(preferred_institution_id=secondary_institution_id)
+    )
+    await db_session.commit()
 
     update_payload = {
         "name": "ALT only",
@@ -450,5 +494,5 @@ async def test_list_totals_update_on_edit(
     assert response.status_code == 200
     updated = response.json()
 
-    assert updated["last_known_total_grosz"] == 1000
+    assert updated["last_known_total_grosz"] == 1500
     assert updated["last_total_updated_at"] is not None
