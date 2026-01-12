@@ -209,6 +209,6 @@ class IngestionService:
 
     async def _fetch_diag_catalog(self, client: DiagClient) -> DiagIngestionResult:
         logger.info("Fetching %s catalog", DIAG_CODE)
-        result = await client.fetch_all()
+        result = await client.fetch_all(1135)
         logger.info("Fetched %s items for %s", len(result.items), DIAG_CODE)
         return result

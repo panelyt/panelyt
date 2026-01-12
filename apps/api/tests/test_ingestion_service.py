@@ -9,6 +9,7 @@ import pytest
 from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.core.settings import Settings
 from panelyt_api.ingest.client import DiagClient, _normalize_identifier, _pln_to_grosz
+from panelyt_api.ingest.types import DiagInstitution
 from panelyt_api.ingest.service import IngestionService
 from panelyt_api.ingest.types import DiagIngestionResult, RawDiagBiomarker, RawDiagItem
 from panelyt_api.schemas.common import CatalogMeta
@@ -509,12 +510,39 @@ class TestDiagClient:
 
         mock_http_client.get.side_effect = [package_response, single_response]
 
-        result = await diag_client.fetch_all()
+        result = await diag_client.fetch_all(1135)
 
         assert isinstance(result, DiagIngestionResult)
         assert len(result.items) == 2
         assert {item.kind for item in result.items} == {"package", "single"}
         assert mock_http_client.get.call_count == 2
+        for _, kwargs in mock_http_client.get.call_args_list:
+            params = kwargs.get("params") or {}
+            assert params.get("filter[institution]") == "1135"
+
+    async def test_search_institutions_normalizes_payload(self, diag_client, mock_http_client):
+        payload = {
+            "data": [
+                {
+                    "id": "2222",
+                    "name": "Main Office",
+                    "city": "Krakow",
+                    "address": "Main 1",
+                }
+            ]
+        }
+        response = MagicMock()
+        response.json.return_value = payload
+        mock_http_client.get.return_value = response
+
+        results = await diag_client.search_institutions("krak", page=2, limit=5)
+
+        assert results == [
+            DiagInstitution(id=2222, name="Main Office", city="Krakow", address="Main 1")
+        ]
+        assert mock_http_client.get.call_count == 1
+        _, kwargs = mock_http_client.get.call_args
+        assert kwargs.get("params") == {"q": "krak", "page": 2, "limit": 5}
 
     async def test_parse_product_single_test(self, diag_client):
         entry = {
