@@ -410,6 +410,13 @@
     "homeOgTitle": "Panelyt - Kreator panelu",
     "homeOgDescription": "Znajdź najtańszą kombinację badań krwi. Porównuj ceny badań i pakietów, aby oszczędzać."
   },
+  "officeSelector": {
+    "triggerLabel": "Placówka: {name}",
+    "searchPlaceholder": "Szukaj placówki...",
+    "currentLabel": "Wybrana placówka: {name}",
+    "loading": "Wyszukiwanie...",
+    "noResults": "Brak wyników"
+  },
   "language": {
     "switch": "English"
   },

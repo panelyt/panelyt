@@ -10,6 +10,7 @@ import { useUserSession } from "../hooks/useUserSession";
 import { useAuthModal } from "../hooks/useAuthModal";
 import { AuthModal } from "./auth-modal";
 import { LanguageSwitcher } from "./language-switcher";
+import { OfficeSelector } from "./office-selector";
 import { PanelTray } from "../features/panel/PanelTray";
 import { AUTH_REQUIRED_EVENT } from "../lib/auth-events";
 import {
@@ -89,6 +90,9 @@ export function Header({ onAuthSuccess, onLogoutError }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="hidden lg:flex">
+              <OfficeSelector />
+            </div>
             <PanelTray />
             <LanguageSwitcher />
             {sessionQuery.isLoading ? (

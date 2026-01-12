@@ -21,6 +21,10 @@ vi.mock("../language-switcher", () => ({
   LanguageSwitcher: () => <div data-testid="language-switcher" />,
 }));
 
+vi.mock("../office-selector", () => ({
+  OfficeSelector: () => <div data-testid="office-selector" />,
+}));
+
 vi.mock("../../features/panel/PanelTray", () => ({
   PanelTray: () => <div data-testid="panel-tray" />,
 }));
