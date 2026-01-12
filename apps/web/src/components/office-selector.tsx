@@ -13,11 +13,28 @@ interface OfficeSelectorProps {
   className?: string;
 }
 
+const OFFICE_NAME_PREFIXES = [
+  "Punkt Pobran Diagnostyki",
+  "Punkt Pobrań Diagnostyki",
+];
+
+const normalizeInstitutionName = (name: string) => {
+  const trimmed = name.trim();
+  const lower = trimmed.toLowerCase();
+  for (const prefix of OFFICE_NAME_PREFIXES) {
+    if (lower.startsWith(prefix.toLowerCase())) {
+      const remainder = trimmed.slice(prefix.length).replace(/^[\s-–—]+/, "");
+      return remainder.length > 0 ? remainder : trimmed;
+    }
+  }
+  return trimmed;
+};
+
 const formatInstitutionLabel = (institution: {
   name: string;
   city?: string | null;
 }) => {
-  const parts = [institution.name];
+  const parts = [normalizeInstitutionName(institution.name)];
   if (institution.city) {
     parts.push(institution.city);
   }
@@ -171,6 +188,7 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
                 results.map((institution, index) => {
                   const isActive = index === highlightedIndex;
                   const optionLabel = formatInstitutionLabel(institution);
+                  const displayName = normalizeInstitutionName(institution.name);
                   return (
                     <button
                       key={institution.id}
@@ -189,7 +207,7 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
                       )}
                     >
                       <div className="truncate font-medium text-primary">
-                        {institution.name}
+                        {displayName}
                       </div>
                       {(institution.city || institution.address) && (
                         <div className="truncate text-[11px] text-secondary">

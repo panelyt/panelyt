@@ -70,4 +70,42 @@ describe("OfficeSelector", () => {
       label: "Clinic Alpha · Warsaw",
     });
   });
+
+  it("strips the Diagnostyka prefix from office names", () => {
+    const setInstitution = vi.fn();
+    vi.mocked(useInstitution).mockReturnValue({
+      institutionId: 1135,
+      label: "Lab office",
+      setInstitution,
+    });
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [
+            {
+              id: 3333,
+              name: "Punkt Pobran Diagnostyki - Puck",
+              city: "Gdansk",
+              address: "Main 2",
+            },
+          ],
+        },
+        isFetching: false,
+      } as ReturnType<typeof useInstitutionSearch>,
+    );
+
+    render(<OfficeSelector />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Office: Lab office" }));
+
+    const input = screen.getByPlaceholderText("Search offices");
+    fireEvent.change(input, { target: { value: "Pu" } });
+
+    fireEvent.click(screen.getByRole("option", { name: "Puck · Gdansk" }));
+
+    expect(setInstitution).toHaveBeenCalledWith({
+      id: 3333,
+      label: "Puck · Gdansk",
+    });
+  });
 });
