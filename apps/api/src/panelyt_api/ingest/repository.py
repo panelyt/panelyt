@@ -39,18 +39,20 @@ class CatalogRepository:
         self.session = session
 
     async def latest_fetched_at(self, institution_id: int) -> datetime | None:
-        return await self.session.scalar(
+        value: datetime | None = await self.session.scalar(
             select(func.max(models.InstitutionItem.fetched_at)).where(
                 models.InstitutionItem.institution_id == institution_id
             )
         )
+        return value
 
     async def latest_snapshot_date(self, institution_id: int) -> date | None:
-        return await self.session.scalar(
+        value: date | None = await self.session.scalar(
             select(func.max(models.PriceSnapshot.snap_date)).where(
                 models.PriceSnapshot.institution_id == institution_id
             )
         )
+        return value
 
     async def create_run_log(self, started_at: datetime, reason: str) -> int:
         stmt = (

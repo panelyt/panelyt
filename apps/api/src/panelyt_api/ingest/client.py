@@ -208,6 +208,9 @@ class DiagClient:
         if not isinstance(entry, dict):
             return None
         raw_id = entry.get("id") or entry.get("institutionId") or entry.get("institution_id")
+        if raw_id is None:
+            logger.warning("Skipping institution with missing id: %s", entry)
+            return None
         try:
             institution_id = int(raw_id)
         except (TypeError, ValueError):
