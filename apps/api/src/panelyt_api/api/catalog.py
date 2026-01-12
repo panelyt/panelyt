@@ -41,10 +41,14 @@ async def search(
         ),
     ],
     session: SessionDep,
+    institution: Annotated[
+        int | None, Query(ge=1, description="Institution (office) id")
+    ] = None,
 ) -> BiomarkerSearchResponse:
+    institution_id = institution or DEFAULT_INSTITUTION_ID
     repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
-    return await catalog.search_biomarkers(session, query)
+    return await catalog.search_biomarkers(session, query, institution_id)
 
 
 @router.get("/search", response_model=CatalogSearchResponse)
@@ -58,7 +62,11 @@ async def search_catalog_endpoint(
         ),
     ],
     session: SessionDep,
+    institution: Annotated[
+        int | None, Query(ge=1, description="Institution (office) id")
+    ] = None,
 ) -> CatalogSearchResponse:
+    institution_id = institution or DEFAULT_INSTITUTION_ID
     repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
-    return await catalog.search_catalog(session, query)
+    return await catalog.search_catalog(session, query, institution_id=institution_id)

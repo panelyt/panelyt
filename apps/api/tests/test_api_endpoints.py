@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from panelyt_api.db import models
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
@@ -95,8 +95,18 @@ class TestCatalogEndpoints:
         *,
         item_id: int,
         price: int = 1000,
+        institution_id: int = DEFAULT_INSTITUTION_ID,
     ) -> None:
         now = datetime.now(timezone.utc)
+        existing = await session.scalar(
+            select(models.Institution.id).where(models.Institution.id == institution_id)
+        )
+        if existing is None:
+            await session.execute(
+                insert(models.Institution).values(
+                    {"id": institution_id, "name": f"Institution {institution_id}"}
+                )
+            )
         await session.execute(
             insert(models.Item).values(
                 {
@@ -118,6 +128,21 @@ class TestCatalogEndpoints:
                 {
                     "item_id": item_id,
                     "biomarker_id": biomarker_id,
+                }
+            )
+        )
+        await session.execute(
+            insert(models.InstitutionItem).values(
+                {
+                    "institution_id": institution_id,
+                    "item_id": item_id,
+                    "is_available": True,
+                    "currency": "PLN",
+                    "price_now_grosz": price,
+                    "price_min30_grosz": price,
+                    "sale_price_grosz": None,
+                    "regular_price_grosz": None,
+                    "fetched_at": now,
                 }
             )
         )
@@ -196,7 +221,9 @@ class TestCatalogEndpoints:
         await self._attach_item(db_session, biomarker_id=1, item_id=2001, price=1000)
         await db_session.commit()
 
-        response = await async_client.get("/catalog/biomarkers?query=ALT")
+        response = await async_client.get(
+            f"/catalog/biomarkers?query=ALT&institution={DEFAULT_INSTITUTION_ID}"
+        )
         assert response.status_code == 200
 
         data = response.json()
@@ -206,6 +233,69 @@ class TestCatalogEndpoints:
         assert data["results"][0]["name"] == "Alanine aminotransferase"
 
         activity_spy.assert_awaited_once()
+
+    async def test_search_biomarkers_respects_institution(
+        self,
+        async_client: AsyncClient,
+        db_session,
+    ):
+        """Institution query param should control biomarker pricing."""
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [
+                    {
+                        "id": 1,
+                        "name": "Alanine aminotransferase",
+                        "elab_code": "ALT",
+                        "slug": "alt",
+                    }
+                ]
+            )
+        )
+        await db_session.commit()
+
+        await self._attach_item(
+            db_session,
+            biomarker_id=1,
+            item_id=2051,
+            price=1000,
+            institution_id=1111,
+        )
+        await db_session.execute(
+            insert(models.Institution).values({"id": 2222, "name": "Institution 2222"})
+        )
+        await db_session.execute(
+            insert(models.InstitutionItem).values(
+                {
+                    "institution_id": 2222,
+                    "item_id": 2051,
+                    "is_available": True,
+                    "currency": "PLN",
+                    "price_now_grosz": 2000,
+                    "price_min30_grosz": 2000,
+                    "sale_price_grosz": None,
+                    "regular_price_grosz": None,
+                    "fetched_at": datetime.now(timezone.utc),
+                }
+            )
+        )
+        await db_session.commit()
+
+        response_a = await async_client.get(
+            "/catalog/biomarkers?query=ALT&institution=1111"
+        )
+        response_b = await async_client.get(
+            "/catalog/biomarkers?query=ALT&institution=2222"
+        )
+
+        assert response_a.status_code == 200
+        assert response_b.status_code == 200
+
+        data_a = response_a.json()
+        data_b = response_b.json()
+
+        assert data_a["results"][0]["price_now_grosz"] == 1000
+        assert data_b["results"][0]["price_now_grosz"] == 2000
 
     async def test_search_biomarkers_fuzzy_search(self, async_client: AsyncClient, db_session):
         """Test biomarker fuzzy search functionality."""
@@ -223,7 +313,9 @@ class TestCatalogEndpoints:
         await self._attach_item(db_session, biomarker_id=3, item_id=2103, price=980)
         await db_session.commit()
 
-        response = await async_client.get("/catalog/biomarkers?query=cholesterol")
+        response = await async_client.get(
+            f"/catalog/biomarkers?query=cholesterol&institution={DEFAULT_INSTITUTION_ID}"
+        )
         assert response.status_code == 200
 
         data = response.json()
@@ -231,12 +323,16 @@ class TestCatalogEndpoints:
 
     async def test_search_biomarkers_empty_query(self, async_client: AsyncClient):
         """Test biomarker search with empty query."""
-        response = await async_client.get("/catalog/biomarkers?query=")
+        response = await async_client.get(
+            f"/catalog/biomarkers?query=&institution={DEFAULT_INSTITUTION_ID}"
+        )
         assert response.status_code == 422  # Validation error for min_length=1
 
     async def test_search_biomarkers_no_results(self, async_client: AsyncClient, db_session):
         """Test biomarker search with no matching results."""
-        response = await async_client.get("/catalog/biomarkers?query=NONEXISTENT")
+        response = await async_client.get(
+            f"/catalog/biomarkers?query=NONEXISTENT&institution={DEFAULT_INSTITUTION_ID}"
+        )
         assert response.status_code == 200
 
         data = response.json()
@@ -298,7 +394,9 @@ class TestCatalogEndpoints:
         )
         await db_session.commit()
 
-        response = await async_client.get("/catalog/search?query=chol")
+        response = await async_client.get(
+            f"/catalog/search?query=chol&institution={DEFAULT_INSTITUTION_ID}"
+        )
         assert response.status_code == 200
 
         payload = response.json()

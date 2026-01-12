@@ -75,7 +75,7 @@ async def get_catalog_meta_cached(session: AsyncSession) -> CatalogMeta:
 
 
 async def search_biomarkers(
-    session: AsyncSession, query: str, limit: int = 10
+    session: AsyncSession, query: str, institution_id: int, limit: int = 10
 ) -> BiomarkerSearchResponse:
     normalized = normalize_search_query(query)
     if not normalized:
@@ -128,7 +128,7 @@ async def search_biomarkers(
 
     rows = (await session.execute(statement)).all()
     results = [row[0] for row in rows]
-    price_map = await _fetch_prices(session, [row.id for row in results])
+    price_map = await _fetch_prices(session, [row.id for row in results], institution_id)
     payload = []
     for row in results:
         price_now = price_map.get(row.id)
@@ -147,11 +147,18 @@ async def search_biomarkers(
 
 
 async def search_catalog(
-    session: AsyncSession, query: str, *, biomarker_limit: int = 10, template_limit: int = 5
+    session: AsyncSession,
+    query: str,
+    *,
+    institution_id: int,
+    biomarker_limit: int = 10,
+    template_limit: int = 5,
 ) -> CatalogSearchResponse:
     """Search biomarkers and curated templates for a given query."""
 
-    biomarker_response = await search_biomarkers(session, query, limit=biomarker_limit)
+    biomarker_response = await search_biomarkers(
+        session, query, institution_id, limit=biomarker_limit
+    )
 
     template_service = BiomarkerListTemplateService(session)
     template_matches = await template_service.search_active_matches(query, limit=template_limit)
@@ -182,7 +189,7 @@ async def search_catalog(
 
 
 async def _fetch_prices(
-    session: AsyncSession, biomarker_ids: Sequence[int]
+    session: AsyncSession, biomarker_ids: Sequence[int], institution_id: int
 ) -> dict[int, int]:
     if not biomarker_ids:
         return {}
@@ -191,12 +198,17 @@ async def _fetch_prices(
     statement = (
         select(
             models.ItemBiomarker.biomarker_id,
-            func.min(models.Item.price_now_grosz).label("min_price"),
+            func.min(models.InstitutionItem.price_now_grosz).label("min_price"),
         )
         .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
+        .join(
+            models.InstitutionItem,
+            (models.InstitutionItem.item_id == models.Item.id)
+            & (models.InstitutionItem.institution_id == institution_id),
+        )
         .where(models.ItemBiomarker.biomarker_id.in_(biomarker_ids))
-        .where(models.Item.is_available.is_(True))
-        .where(models.Item.price_now_grosz > 0)
+        .where(models.InstitutionItem.is_available.is_(True))
+        .where(models.InstitutionItem.price_now_grosz > 0)
         .where(models.Item.kind == "single")
         .group_by(models.ItemBiomarker.biomarker_id)
     )
@@ -213,12 +225,17 @@ async def _fetch_prices(
     fallback_statement = (
         select(
             models.ItemBiomarker.biomarker_id,
-            func.min(models.Item.price_now_grosz).label("min_price"),
+            func.min(models.InstitutionItem.price_now_grosz).label("min_price"),
         )
         .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
+        .join(
+            models.InstitutionItem,
+            (models.InstitutionItem.item_id == models.Item.id)
+            & (models.InstitutionItem.institution_id == institution_id),
+        )
         .where(models.ItemBiomarker.biomarker_id.in_(remaining_ids))
-        .where(models.Item.is_available.is_(True))
-        .where(models.Item.price_now_grosz > 0)
+        .where(models.InstitutionItem.is_available.is_(True))
+        .where(models.InstitutionItem.price_now_grosz > 0)
         .group_by(models.ItemBiomarker.biomarker_id)
     )
 

@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from panelyt_api.db import models
 from panelyt_api.services import catalog
+from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 
 
 class TestCatalogService:
@@ -32,6 +33,11 @@ class TestCatalogService:
 
         # Add test items
         fetched_time = datetime.now(timezone.utc)
+        await db_session.execute(
+            insert(models.Institution).values(
+                {"id": DEFAULT_INSTITUTION_ID, "name": "Institution 1135"}
+            )
+        )
         await db_session.execute(
             insert(models.Item).values([
                 {
@@ -68,19 +74,28 @@ class TestCatalogService:
         await db_session.execute(
             insert(models.PriceSnapshot).values([
                 {
+                    "institution_id": DEFAULT_INSTITUTION_ID,
                     "item_id": 1,
                     "snap_date": today,
                     "price_now_grosz": 1000,
+                    "price_min30_grosz": 1000,
+                    "is_available": True,
                 },
                 {
+                    "institution_id": DEFAULT_INSTITUTION_ID,
                     "item_id": 1,
                     "snap_date": yesterday,
                     "price_now_grosz": 1100,
+                    "price_min30_grosz": 1100,
+                    "is_available": True,
                 },
                 {
+                    "institution_id": DEFAULT_INSTITUTION_ID,
                     "item_id": 2,
                     "snap_date": today,
                     "price_now_grosz": 1200,
+                    "price_min30_grosz": 1200,
+                    "is_available": True,
                 },
             ])
         )
@@ -97,10 +112,14 @@ class TestCatalogService:
 
     async def test_search_biomarkers_empty_query(self, db_session):
         """Test biomarker search with empty query."""
-        result = await catalog.search_biomarkers(db_session, "")
+        result = await catalog.search_biomarkers(
+            db_session, "", institution_id=DEFAULT_INSTITUTION_ID
+        )
         assert result.results == []
 
-        result = await catalog.search_biomarkers(db_session, "   ")
+        result = await catalog.search_biomarkers(
+            db_session, "   ", institution_id=DEFAULT_INSTITUTION_ID
+        )
         assert result.results == []
 
     async def test_search_biomarkers_exact_elab_code_match(self, db_session):
@@ -117,7 +136,9 @@ class TestCatalogService:
         await self._attach_item(db_session, biomarker_id=2, item_id=1002, price=1100)
         await db_session.commit()
 
-        result = await catalog.search_biomarkers(db_session, "ALT")
+        result = await catalog.search_biomarkers(
+            db_session, "ALT", institution_id=DEFAULT_INSTITUTION_ID
+        )
 
         assert len(result.results) == 1
         assert result.results[0].id == 1
@@ -135,9 +156,57 @@ class TestCatalogService:
         await self._attach_item(db_session, biomarker_id=1, item_id=1101, price=900)
         await db_session.commit()
 
-        result = await catalog.search_biomarkers(db_session, "alt")
+        result = await catalog.search_biomarkers(
+            db_session, "alt", institution_id=DEFAULT_INSTITUTION_ID
+        )
         assert len(result.results) == 1
         assert result.results[0].elab_code == "ALT"
+
+    async def test_search_biomarkers_uses_institution_offers(self, db_session):
+        """Prices should reflect the selected institution."""
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                {"id": 1, "name": "Alanine aminotransferase", "elab_code": "ALT", "slug": "alt"}
+            )
+        )
+        await db_session.commit()
+
+        await self._attach_item(
+            db_session,
+            biomarker_id=1,
+            item_id=1151,
+            price=1000,
+            institution_id=1111,
+        )
+        await db_session.execute(
+            insert(models.Institution).values({"id": 2222, "name": "Institution 2222"})
+        )
+        await db_session.execute(
+            insert(models.InstitutionItem).values(
+                {
+                    "institution_id": 2222,
+                    "item_id": 1151,
+                    "is_available": True,
+                    "currency": "PLN",
+                    "price_now_grosz": 2000,
+                    "price_min30_grosz": 2000,
+                    "sale_price_grosz": None,
+                    "regular_price_grosz": None,
+                    "fetched_at": datetime.now(timezone.utc),
+                }
+            )
+        )
+        await db_session.commit()
+
+        result_a = await catalog.search_biomarkers(
+            db_session, "ALT", institution_id=1111
+        )
+        result_b = await catalog.search_biomarkers(
+            db_session, "ALT", institution_id=2222
+        )
+
+        assert result_a.results[0].price_now_grosz == 1000
+        assert result_b.results[0].price_now_grosz == 2000
 
     async def test_search_biomarkers_fuzzy_search(self, db_session):
         """Test biomarker fuzzy search functionality."""
@@ -156,11 +225,15 @@ class TestCatalogService:
         await db_session.commit()
 
         # Search by partial name
-        result = await catalog.search_biomarkers(db_session, "cholesterol")
+        result = await catalog.search_biomarkers(
+            db_session, "cholesterol", institution_id=DEFAULT_INSTITUTION_ID
+        )
         assert len(result.results) == 3
 
         # Search by partial elab code
-        result = await catalog.search_biomarkers(db_session, "LDL")
+        result = await catalog.search_biomarkers(
+            db_session, "LDL", institution_id=DEFAULT_INSTITUTION_ID
+        )
         assert len(result.results) == 1
         assert result.results[0].elab_code == "LDL"
 
@@ -175,7 +248,9 @@ class TestCatalogService:
         await self._attach_item(db_session, biomarker_id=1, item_id=1251, price=1050)
         await db_session.commit()
 
-        result = await catalog.search_biomarkers(db_session, "ldl-chol")
+        result = await catalog.search_biomarkers(
+            db_session, "ldl-chol", institution_id=DEFAULT_INSTITUTION_ID
+        )
 
         assert len(result.results) == 1
         assert result.results[0].slug == "ldl-cholesterol"
@@ -201,11 +276,15 @@ class TestCatalogService:
         await db_session.commit()
 
         # Search by alias
-        result = await catalog.search_biomarkers(db_session, "ALAT")
+        result = await catalog.search_biomarkers(
+            db_session, "ALAT", institution_id=DEFAULT_INSTITUTION_ID
+        )
         assert len(result.results) == 1
         assert result.results[0].elab_code == "ALT"
 
-        result = await catalog.search_biomarkers(db_session, "GPT")
+        result = await catalog.search_biomarkers(
+            db_session, "GPT", institution_id=DEFAULT_INSTITUTION_ID
+        )
         assert len(result.results) == 1
         assert result.results[0].elab_code == "ALT"
 
@@ -223,11 +302,18 @@ class TestCatalogService:
         await db_session.commit()
 
         # Search with default limit (10)
-        result = await catalog.search_biomarkers(db_session, "Biomarker")
+        result = await catalog.search_biomarkers(
+            db_session, "Biomarker", institution_id=DEFAULT_INSTITUTION_ID
+        )
         assert len(result.results) == 10
 
         # Search with custom limit
-        result = await catalog.search_biomarkers(db_session, "Biomarker", limit=5)
+        result = await catalog.search_biomarkers(
+            db_session,
+            "Biomarker",
+            limit=5,
+            institution_id=DEFAULT_INSTITUTION_ID,
+        )
         assert len(result.results) == 5
 
     async def test_search_biomarkers_ranking_prefers_prefix_and_id(self, db_session):
@@ -250,7 +336,9 @@ class TestCatalogService:
         await self._attach_item(db_session, biomarker_id=4000, item_id=1503, price=970)
         await db_session.commit()
 
-        result = await catalog.search_biomarkers(db_session, "glu")
+        result = await catalog.search_biomarkers(
+            db_session, "glu", institution_id=DEFAULT_INSTITUTION_ID
+        )
         names = [r.name for r in result.results]
 
         assert names[0] == "Glukoza"
@@ -270,7 +358,9 @@ class TestCatalogService:
         await self._attach_item(db_session, biomarker_id=1, item_id=1601, price=880)
         await db_session.commit()
 
-        result = await catalog.search_biomarkers(db_session, "ast")
+        result = await catalog.search_biomarkers(
+            db_session, "ast", institution_id=DEFAULT_INSTITUTION_ID
+        )
         assert result.results[0].elab_code == "AST"
 
     async def test_search_biomarkers_prefers_single_item_price(self, db_session):
@@ -289,7 +379,9 @@ class TestCatalogService:
         )
         await db_session.commit()
 
-        result = await catalog.search_biomarkers(db_session, "ALT")
+        result = await catalog.search_biomarkers(
+            db_session, "ALT", institution_id=DEFAULT_INSTITUTION_ID
+        )
 
         assert len(result.results) == 1
         assert result.results[0].price_now_grosz == 1000
@@ -310,7 +402,9 @@ class TestCatalogService:
         )
         await db_session.commit()
 
-        result = await catalog.search_biomarkers(db_session, "AST")
+        result = await catalog.search_biomarkers(
+            db_session, "AST", institution_id=DEFAULT_INSTITUTION_ID
+        )
 
         assert len(result.results) == 1
         assert result.results[0].price_now_grosz == 900
@@ -323,8 +417,18 @@ class TestCatalogService:
         item_id: int,
         price: int = 1000,
         kind: str = "single",
+        institution_id: int = DEFAULT_INSTITUTION_ID,
     ) -> None:
         now = datetime.now(timezone.utc)
+        existing = await session.scalar(
+            select(models.Institution.id).where(models.Institution.id == institution_id)
+        )
+        if existing is None:
+            await session.execute(
+                insert(models.Institution).values(
+                    {"id": institution_id, "name": f"Institution {institution_id}"}
+                )
+            )
         await session.execute(
             insert(models.Item).values(
                 {
@@ -346,6 +450,21 @@ class TestCatalogService:
                 {
                     "item_id": item_id,
                     "biomarker_id": biomarker_id,
+                }
+            )
+        )
+        await session.execute(
+            insert(models.InstitutionItem).values(
+                {
+                    "institution_id": institution_id,
+                    "item_id": item_id,
+                    "is_available": True,
+                    "currency": "PLN",
+                    "price_now_grosz": price,
+                    "price_min30_grosz": price,
+                    "sale_price_grosz": None,
+                    "regular_price_grosz": None,
+                    "fetched_at": now,
                 }
             )
         )
