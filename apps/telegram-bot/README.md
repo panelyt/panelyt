@@ -7,7 +7,7 @@ Handles `/start`, `/link <token>`, and `/unlink` commands. Links Telegram chat I
 From the repository root:
 
 ```bash
-make install-bot
+just install bot
 ```
 
 ## Configuration
@@ -21,9 +21,8 @@ Environment variables (see `.env.example`):
 ## Development
 
 ```bash
-make dev-bot        # Run with long polling
-make lint-bot       # Lint with ruff
-make typecheck-bot  # Type check with mypy
+just dev bot        # Run with long polling
+just lint bot       # Lint and typecheck
 ```
 
 Uses long polling; deploy anywhere you can run a persistent process.

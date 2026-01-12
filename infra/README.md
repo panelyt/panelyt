@@ -15,7 +15,7 @@ This directory contains the self-contained Docker Compose stack used for VPS dep
    ```
    or from the repository root:
    ```bash
-   make docker-up
+   just docker-up
    ```
 3. Check container health:
    ```bash
@@ -23,7 +23,7 @@ This directory contains the self-contained Docker Compose stack used for VPS dep
    docker compose logs api
    ```
 
-`docker compose down` (or `make docker-down`) stops the stack but preserves the `panelyt_db_data`
+`docker compose down` (or `just docker-down`) stops the stack but preserves the `panelyt_db_data`
 volume so Postgres data survives restarts. To reset the database remove that volume manually.
 
 ## Services

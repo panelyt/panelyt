@@ -35,11 +35,14 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
 
+      - name: Install just
+        run: sudo apt-get update && sudo apt-get install -y just
+
       - name: Sync API dependencies
-        run: make install-api
+        run: just install api
 
       - name: Sync Bot dependencies
-        run: make install-bot
+        run: just install bot
 
-      - name: Run make check
-        run: make check
+      - name: Run just check
+        run: just check
