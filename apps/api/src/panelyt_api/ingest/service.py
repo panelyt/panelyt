@@ -37,6 +37,8 @@ class IngestionService:
 
         now_utc = datetime.now(UTC)
         async with get_session() as session:
+            institution_service = InstitutionService(session)
+            await institution_service.ensure_institution(institution_id)
             repo = CatalogRepository(session)
             latest_fetch = await repo.latest_fetched_at(institution_id)
             latest_snapshot = await repo.latest_snapshot_date(institution_id)

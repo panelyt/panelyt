@@ -110,6 +110,35 @@ class TestIngestionService:
                 blocking=False,
             )
 
+    @patch("panelyt_api.ingest.service.InstitutionService")
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_ensure_fresh_data_ensures_institution(
+        self,
+        mock_repo_class,
+        mock_get_session,
+        mock_institution_service,
+        ingestion_service,
+    ):
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.latest_fetched_at.return_value = None
+        mock_repo.latest_snapshot_date.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        service_instance = mock_institution_service.return_value
+        service_instance.ensure_institution = AsyncMock()
+
+        with patch.object(
+            ingestion_service, "_run_with_lock", new_callable=AsyncMock
+        ) as mock_run:
+            mock_run.return_value = False
+            await ingestion_service.ensure_fresh_data(2222)
+            service_instance.ensure_institution.assert_awaited_once_with(2222)
+
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_ensure_fresh_data_does_not_block_when_running(
