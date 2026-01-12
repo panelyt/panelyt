@@ -9,6 +9,7 @@ import { useRouter } from "../../../../../i18n/navigation";
 import { OptimizationResults } from "../../../../../components/optimization-results";
 import { useSharedList } from "../../../../../hooks/useSharedList";
 import { useOptimization } from "../../../../../hooks/useOptimization";
+import { useBiomarkerDiagUrls } from "../../../../../hooks/useBiomarkerDiagUrls";
 import { formatExactTimestamp, resolveTimestamp } from "../../../../../lib/dates";
 
 interface SharedContentProps {
@@ -34,6 +35,7 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
     () => sharedSelection.map((entry) => entry.code),
     [sharedSelection],
   );
+  const biomarkerUrls = useBiomarkerDiagUrls(biomarkerCodes);
   const optimizationQuery = useOptimization(biomarkerCodes);
   const activeResult = optimizationQuery.data;
   const sharedTimestampFormatter = useMemo(
@@ -114,7 +116,20 @@ export default function SharedContent({ shareToken }: SharedContentProps) {
                     className="flex flex-col gap-1 rounded-xl border border-border/80 bg-surface-2/60 px-4 py-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-primary">{entry.display_name}</span>
+                      {biomarkerUrls.data?.[entry.code] ? (
+                        <a
+                          href={biomarkerUrls.data[entry.code] ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-primary transition hover:text-accent-emerald"
+                        >
+                          {entry.display_name}
+                        </a>
+                      ) : (
+                        <span className="font-semibold text-primary">
+                          {entry.display_name}
+                        </span>
+                      )}
                     </div>
                   </li>
                 ))}

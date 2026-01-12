@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { renderWithQueryClient } from "../../../../../test/utils";
 import enMessages from "../../../../../i18n/messages/en.json";
 import { useSharedList } from "../../../../../hooks/useSharedList";
 import { useOptimization, useAddonSuggestions } from "../../../../../hooks/useOptimization";
+import { useBiomarkerDiagUrls } from "../../../../../hooks/useBiomarkerDiagUrls";
 import { useRouter } from "../../../../../i18n/navigation";
 import SharedContent from "./shared-content";
 
@@ -26,9 +27,14 @@ vi.mock("../../../../../hooks/useOptimization", () => ({
   useAddonSuggestions: vi.fn(),
 }));
 
+vi.mock("../../../../../hooks/useBiomarkerDiagUrls", () => ({
+  useBiomarkerDiagUrls: vi.fn(),
+}));
+
 const mockUseSharedList = vi.mocked(useSharedList);
 const mockUseOptimization = vi.mocked(useOptimization);
 const mockUseAddonSuggestions = vi.mocked(useAddonSuggestions);
+const mockUseBiomarkerDiagUrls = vi.mocked(useBiomarkerDiagUrls);
 const mockUseRouter = vi.mocked(useRouter);
 
 const sharedListData = {
@@ -142,6 +148,13 @@ describe("SharedContent", () => {
       data: { addon_suggestions: [] },
       isLoading: false,
     } as unknown as ReturnType<typeof useAddonSuggestions>);
+    mockUseBiomarkerDiagUrls.mockReturnValue({
+      data: {
+        ALT: "https://diag.pl/sklep/badania/alt-test",
+        AST: "https://diag.pl/sklep/badania/ast-test",
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useBiomarkerDiagUrls>);
     mockUseRouter.mockReturnValue({
       push,
       replace: vi.fn(),
@@ -182,6 +195,22 @@ describe("SharedContent", () => {
 
     const expectedLabel = `${enMessages.sharedList.shared} ${expectedTimestamp}`;
     expect(await screen.findByText(expectedLabel)).toBeInTheDocument();
+  });
+
+  it("links shared biomarkers to diag.pl", async () => {
+    await renderContent();
+
+    const selectionSection = screen
+      .getByText(enMessages.sharedList.selectionOverview)
+      .closest("section");
+    if (!selectionSection) {
+      throw new Error("Selection section not found");
+    }
+    const altLink = within(selectionSection).getByRole("link", { name: "ALT" });
+    expect(altLink).toHaveAttribute("href", "https://diag.pl/sklep/badania/alt-test");
+
+    const astLink = within(selectionSection).getByRole("link", { name: "AST" });
+    expect(astLink).toHaveAttribute("href", "https://diag.pl/sklep/badania/ast-test");
   });
 
   it("hides biomarker IDs on the shared list page", async () => {
