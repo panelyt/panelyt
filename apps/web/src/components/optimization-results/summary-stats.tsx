@@ -24,8 +24,9 @@ interface SummaryStatsGridProps {
 
 export function SummaryStatsGrid({ viewModel }: SummaryStatsGridProps) {
   const t = useTranslations();
+  const placeholderDash = t("common.placeholderDash");
   const { isDark, totalNowGrosz, totalMin30Grosz } = viewModel;
-  const summaryStats = buildSummaryStats(viewModel, t);
+  const summaryStats = buildSummaryStats(viewModel, t, placeholderDash);
 
   return (
     <div className="mt-6 grid auto-rows-fr gap-4 md:grid-cols-3">
@@ -92,6 +93,7 @@ export function SummaryStatsGrid({ viewModel }: SummaryStatsGridProps) {
 function buildSummaryStats(
   viewModel: OptimizationViewModel,
   t: ReturnType<typeof useTranslations>,
+  placeholderDash: string,
 ): SummaryStat[] {
   const { pricing, bonusPricing, bonusBiomarkers } = viewModel;
 
@@ -101,7 +103,7 @@ function buildSummaryStats(
   return [
     {
       label: t("optimization.potentialSavings"),
-      value: atFloor ? "—" : pricing.potentialSavingsLabel,
+      value: atFloor ? placeholderDash : pricing.potentialSavingsLabel,
       hint: atFloor
         ? t("optimization.bestPrice")
         : t("optimization.premiumOverFloor"),
@@ -116,7 +118,7 @@ function buildSummaryStats(
     },
     {
       label: t("optimization.bonusValue"),
-      value: hasBonus ? bonusPricing.totalNowLabel : "—",
+      value: hasBonus ? bonusPricing.totalNowLabel : placeholderDash,
       hint: hasBonus
         ? t("optimization.extraBiomarkersIncluded", {
             count: bonusBiomarkers.length,

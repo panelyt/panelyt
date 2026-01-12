@@ -26,10 +26,6 @@ export function PriceRangeSparkline({
   const savingsGrosz = Math.max(0, currentPrice - minPrice);
   const savingsPercent = minPrice > 0 ? (savingsGrosz / minPrice) * 100 : 0;
 
-  // For the gauge, cap at 30% above floor for visual scaling
-  const gaugePercent = Math.min(savingsPercent, 30);
-  const gaugePosition = (gaugePercent / 30) * 100;
-
   // Determine accent colors and icon based on status
   const { icon, accentLight, accentDark } = getStatusStyle(atFloor, savingsPercent);
 
@@ -82,10 +78,6 @@ export function PriceRangeSparkline({
           </p>
         </div>
 
-        {/* Compact gauge visualization */}
-        <div className="mt-3">
-          <PriceGauge position={gaugePosition} atFloor={atFloor} isDark={isDark} />
-        </div>
       </div>
     </div>
   );
@@ -125,55 +117,4 @@ function getStatusStyle(atFloor: boolean, savingsPercent: number): {
     accentLight: "bg-rose-500/10 text-rose-500",
     accentDark: "bg-rose-500/20 text-rose-200",
   };
-}
-
-function PriceGauge({
-  position,
-  atFloor,
-  isDark,
-}: {
-  position: number;
-  atFloor: boolean;
-  isDark: boolean;
-}) {
-  return (
-    <div
-      className={`relative h-1.5 overflow-hidden rounded-full ${
-        isDark ? "bg-slate-800" : "bg-slate-200"
-      }`}
-    >
-      {/* Gradient background */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: isDark
-            ? "linear-gradient(to right, rgba(52, 211, 153, 0.4), rgba(251, 191, 36, 0.3), rgba(239, 68, 68, 0.3))"
-            : "linear-gradient(to right, rgba(167, 243, 208, 1), rgba(254, 243, 199, 1), rgba(254, 202, 202, 1))",
-        }}
-      />
-
-      {/* Position marker */}
-      <div
-        className="absolute top-1/2 h-3 w-1 -translate-y-1/2 rounded-full shadow-sm transition-all duration-500"
-        style={{
-          left: `${Math.max(1, Math.min(position, 99))}%`,
-          backgroundColor: atFloor
-            ? isDark
-              ? "#34d399"
-              : "#10b981"
-            : position < 33
-              ? isDark
-                ? "#34d399"
-                : "#10b981"
-              : position < 66
-                ? isDark
-                  ? "#fbbf24"
-                  : "#f59e0b"
-                : isDark
-                  ? "#f87171"
-                  : "#ef4444",
-        }}
-      />
-    </div>
-  );
 }

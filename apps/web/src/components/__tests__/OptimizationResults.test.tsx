@@ -1,15 +1,19 @@
-import { screen } from '@testing-library/react'
-import { Sparkles } from 'lucide-react'
+import { screen, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { OptimizationResults } from '../optimization-results'
 import type { OptimizeResponse } from '@panelyt/types'
-import type { ReactNode } from 'react'
 import { renderWithQueryClient } from '../../test/utils'
 import plMessages from '../../i18n/messages/pl.json'
+import { track, consumeTtorDuration } from '../../lib/analytics'
 
 // Mock the hooks
 vi.mock('../../hooks/useBiomarkerLookup', () => ({
   useBiomarkerLookup: vi.fn(),
+}))
+
+vi.mock('../../lib/analytics', () => ({
+  track: vi.fn(),
+  consumeTtorDuration: vi.fn(),
 }))
 
 vi.mock('../../lib/format', () => ({
@@ -20,6 +24,8 @@ vi.mock('../../lib/format', () => ({
 import { useBiomarkerLookup } from '../../hooks/useBiomarkerLookup'
 
 const mockUseBiomarkerLookup = vi.mocked(useBiomarkerLookup)
+const trackMock = vi.mocked(track)
+const consumeTtorDurationMock = vi.mocked(consumeTtorDuration)
 
 const createLookupResult = (
   overrides: Partial<ReturnType<typeof useBiomarkerLookup>>,
@@ -31,22 +37,6 @@ const createLookupResult = (
     ...overrides,
   } as unknown as ReturnType<typeof useBiomarkerLookup>)
 
-interface LabChoiceCardStub {
-  key: string;
-  title: string;
-  priceLabel: string;
-  priceValue: number | null;
-  meta?: string;
-  badge?: string;
-  active: boolean;
-  loading?: boolean;
-  disabled?: boolean;
-  onSelect: () => void;
-  icon: ReactNode;
-  accentLight: string;
-  accentDark: string;
-}
-
 type OptimizeResponseOverrides = Partial<Omit<OptimizeResponse, 'items'>> & {
   items?: Array<Partial<OptimizeResponse['items'][number]>>;
 };
@@ -55,15 +45,32 @@ const makeOptimizeResponse = (
   overrides: OptimizeResponseOverrides,
 ): OptimizeResponse => {
   const { items: overrideItems, ...rest } = overrides
-  const items: OptimizeResponse['items'] = (overrideItems ?? []).map((item) => {
+  const items: OptimizeResponse['items'] = (overrideItems ?? []).map((item, index) => {
     const {
-      lab_code = 'diag',
-      lab_name = 'Diagnostyka',
+      id = index + 1,
+      kind = 'single',
+      name = `Item ${index + 1}`,
+      slug = `item-${index + 1}`,
+      price_now_grosz = 0,
+      price_min30_grosz = 0,
+      currency = 'PLN',
+      biomarkers = [],
+      url = 'https://example.com',
+      on_sale = false,
       ...restItem
     } = item
+
     return {
-      lab_code,
-      lab_name,
+      id,
+      kind,
+      name,
+      slug,
+      price_now_grosz,
+      price_min30_grosz,
+      currency,
+      biomarkers,
+      url,
+      on_sale,
       ...restItem,
     } as OptimizeResponse['items'][number]
   })
@@ -76,13 +83,7 @@ const makeOptimizeResponse = (
     bonus_total_now: 0,
     explain: {},
     uncovered: [],
-    lab_code: 'diag',
-    lab_name: 'Diagnostyka',
-    exclusive: {},
     labels: {},
-    mode: 'auto',
-    lab_options: [],
-    lab_selections: [],
     addon_suggestions: [],
     ...rest,
   }
@@ -91,6 +92,8 @@ const makeOptimizeResponse = (
 describe('OptimizationResults', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    trackMock.mockClear()
+    consumeTtorDurationMock.mockReset()
     mockUseBiomarkerLookup.mockReturnValue(
       createLookupResult({
         data: {
@@ -100,6 +103,44 @@ describe('OptimizationResults', () => {
         },
       }),
     )
+  })
+
+  it('tracks optimize_result_rendered events with summary payload', async () => {
+    consumeTtorDurationMock.mockReturnValueOnce(1500)
+    const result = makeOptimizeResponse({
+      total_now: 25,
+      uncovered: ['ALT', 'AST'],
+      items: [
+        {
+          id: 1,
+          kind: 'single',
+          name: 'ALT',
+          price_now_grosz: 1000,
+          price_min30_grosz: 900,
+          biomarkers: ['ALT'],
+          on_sale: false,
+          url: 'https://example.com/alt',
+        },
+      ],
+    })
+
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT', 'AST']}
+        result={result}
+        isLoading={false}
+        error={null}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(trackMock).toHaveBeenCalledWith('optimize_result_rendered', {
+        source: 'diag',
+        total: 25,
+        uncoveredCount: 2,
+        ttorMs: 1500,
+      })
+    })
   })
 
   it('shows empty state when no biomarkers are selected', () => {
@@ -112,7 +153,25 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText(/Start by adding biomarkers above/)).toBeInTheDocument()
+    expect(screen.getByText(/Start by adding tests above/)).toBeInTheDocument()
+  })
+
+  it('uses light styling for the empty state when variant is light', () => {
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={[]}
+        result={undefined}
+        isLoading={false}
+        error={null}
+        variant="light"
+      />,
+    )
+
+    const container = screen.getByText(/Start by adding tests above/)
+
+    expect(container).toHaveClass('border-slate-200')
+    expect(container).toHaveClass('bg-white')
+    expect(container).toHaveClass('text-slate-600')
   })
 
   it('shows loading state', () => {
@@ -125,7 +184,27 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('Crunching the optimal basket...')).toBeInTheDocument()
+    expect(screen.getByText('Crunching the optimal cart...')).toBeInTheDocument()
+  })
+
+  it('uses light styling for the loading state when variant is light', () => {
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT']}
+        result={undefined}
+        isLoading={true}
+        error={null}
+        variant="light"
+      />,
+    )
+
+    const container = screen
+      .getByText('Crunching the optimal cart...')
+      .closest('div') as HTMLElement
+
+    expect(container).toHaveClass('border-slate-200')
+    expect(container).toHaveClass('bg-white')
+    expect(container).toHaveClass('text-slate-700')
   })
 
   it('shows error state', () => {
@@ -141,6 +220,28 @@ describe('OptimizationResults', () => {
 
     expect(screen.getByText('Optimization failed')).toBeInTheDocument()
     expect(screen.getByText('Network error')).toBeInTheDocument()
+  })
+
+  it('uses light styling for the error state when variant is light', () => {
+    const error = new Error('Network error')
+    renderWithQueryClient(
+      <OptimizationResults
+        selected={['ALT']}
+        result={undefined}
+        isLoading={false}
+        error={error}
+        variant="light"
+      />,
+    )
+
+    const outer = screen
+      .getByText('Optimization failed')
+      .closest('div')
+      ?.parentElement as HTMLElement
+
+    expect(outer).toHaveClass('border-red-200')
+    expect(outer).toHaveClass('bg-red-50')
+    expect(outer).toHaveClass('text-red-700')
   })
 
   it('renders optimization results with single test and package', () => {
@@ -187,43 +288,12 @@ describe('OptimizationResults', () => {
         result={mockResult}
         isLoading={false}
         error={null}
-        labCards={[
-          {
-            key: 'diag',
-            title: 'ONLY DIAG',
-            priceLabel: '$25.00',
-            meta: '0 Missing · 0 Bonus',
-            badge: 'Cheapest',
-            active: true,
-            loading: false,
-            disabled: false,
-            onSelect: vi.fn(),
-            priceValue: 25,
-            icon: <Sparkles className="h-4 w-4" />,
-            accentLight: 'bg-emerald-500/10 text-emerald-600',
-            accentDark: 'bg-emerald-500/20 text-emerald-200',
-          },
-          {
-            key: 'all',
-            title: 'BOTH LABS',
-            priceLabel: '$25.00',
-            meta: '0 Missing · 1 Bonus',
-            active: false,
-            loading: false,
-            disabled: false,
-            onSelect: vi.fn(),
-            priceValue: 25,
-            icon: <Sparkles className="h-4 w-4" />,
-            accentLight: 'bg-indigo-500/10 text-indigo-500',
-            accentDark: 'bg-indigo-500/20 text-indigo-200',
-          },
-        ]}
       />
     )
 
     // Check header information from price breakdown
-    expect(screen.getByText('Your order from Diagnostyka')).toBeInTheDocument()
-    expect(screen.getByText('Total')).toBeInTheDocument()
+    expect(screen.getByText('Your order')).toBeInTheDocument()
+    expect(screen.getByText('Total price')).toBeInTheDocument()
 
     // Check items are displayed
     expect(screen.getAllByRole('link', { name: 'ALT Test' })[0]).toBeInTheDocument()
@@ -232,13 +302,11 @@ describe('OptimizationResults', () => {
     // Check sections
     expect(screen.getByText(/Packages/)).toBeInTheDocument()
     expect(screen.getByText(/Single tests/)).toBeInTheDocument()
-    expect(screen.getByText('DIAG')).toBeInTheDocument()
-    expect(screen.getByText('BOTH LABS')).toBeInTheDocument()
 
     // Check coverage summary
   })
 
-  it('does not render coverage summary when there are uncovered biomarkers', () => {
+  it('renders coverage gaps when there are uncovered biomarkers', () => {
     const mockResult = makeOptimizeResponse({
       total_now: 10.0,
       total_min30: 9.5,
@@ -271,8 +339,11 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.queryByText('UNKNOWN_BIOMARKER')).not.toBeInTheDocument()
-    expect(screen.queryByText(/1 uncovered/)).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Coverage gaps' })).toBeInTheDocument()
+    expect(screen.getAllByText('UNKNOWN_BIOMARKER')).toHaveLength(2)
+    expect(
+      screen.getByText('1 test cannot be covered right now'),
+    ).toBeInTheDocument()
   })
 
   it('highlights bonus biomarkers', () => {
@@ -487,114 +558,8 @@ describe('OptimizationResults', () => {
     ])
   })
 
-  it('shows lab splitting summary and per-lab breakdown', () => {
+  it('renders a single-lab summary with optimization results', () => {
     const mockResult = makeOptimizeResponse({
-      mode: 'split',
-      lab_code: 'mixed',
-      lab_name: 'Multiple labs',
-      lab_selections: [
-        { code: 'diag', name: 'Diagnostyka', total_now_grosz: 1500, items: 2 },
-        { code: 'alab', name: 'ALAB', total_now_grosz: 900, items: 1 },
-      ],
-      items: [
-        {
-          id: 1,
-          kind: 'single',
-          name: 'ALT Test',
-          slug: 'alt-test',
-          price_now_grosz: 600,
-          price_min30_grosz: 500,
-          currency: 'PLN',
-          biomarkers: ['ALT'],
-          url: 'https://diag.pl/sklep/badania/alt-test',
-          on_sale: false,
-          lab_code: 'diag',
-          lab_name: 'Diagnostyka',
-        },
-        {
-          id: 2,
-          kind: 'single',
-          name: 'AST Test',
-          slug: 'ast-test',
-          price_now_grosz: 900,
-          price_min30_grosz: 850,
-          currency: 'PLN',
-          biomarkers: ['AST'],
-          url: 'https://diag.pl/sklep/badania/ast-test',
-          on_sale: false,
-          lab_code: 'diag',
-          lab_name: 'Diagnostyka',
-        },
-        {
-          id: 3,
-          kind: 'single',
-          name: 'CRP Test',
-          slug: 'crp-test',
-          price_now_grosz: 900,
-          price_min30_grosz: 850,
-          currency: 'PLN',
-          biomarkers: ['CRP'],
-          url: 'https://alab.pl/badania/crp-test',
-          on_sale: false,
-          lab_code: 'alab',
-          lab_name: 'ALAB',
-        },
-      ],
-      explain: {},
-      uncovered: [],
-    })
-
-    const labCards = [
-      {
-        key: 'diag',
-        title: 'ONLY DIAG',
-        priceLabel: '$100.00',
-        priceValue: 10000,
-        meta: '0 Missing · 0 Bonus',
-        badge: 'Cheapest',
-        active: true,
-        loading: false,
-        disabled: false,
-        onSelect: vi.fn(),
-        icon: <Sparkles className="h-4 w-4" />,
-        accentLight: 'bg-emerald-500/10 text-emerald-600',
-        accentDark: 'bg-emerald-500/20 text-emerald-200',
-      },
-      {
-        key: 'alab',
-        title: 'ONLY ALAB',
-        priceLabel: '$110.00',
-        priceValue: 11000,
-        meta: '2 Missing · 1 Bonus',
-        badge: undefined,
-        active: false,
-        loading: false,
-        disabled: false,
-        onSelect: vi.fn(),
-        icon: <Sparkles className="h-4 w-4" />,
-        accentLight: 'bg-sky-500/10 text-sky-500',
-        accentDark: 'bg-sky-500/20 text-sky-200',
-      },
-    ] satisfies LabChoiceCardStub[]
-
-    renderWithQueryClient(
-      <OptimizationResults
-        selected={['ALT', 'AST', 'CRP']}
-        result={mockResult}
-        isLoading={false}
-        error={null}
-        labCards={labCards}
-      />
-    )
-
-    expect(screen.getByText('Your order from Multiple labs')).toBeInTheDocument()
-    expect(screen.getByText('DIAG')).toBeInTheDocument()
-    expect(screen.getByText('ALAB')).toBeInTheDocument()
-  })
-
-  it('suggests lab splitting when exclusive biomarkers block other labs', () => {
-    const mockResult = makeOptimizeResponse({
-      exclusive: { ALT: 'Diagnostyka' },
       items: [
         {
           id: 1,
@@ -620,7 +585,7 @@ describe('OptimizationResults', () => {
       />
     )
 
-    expect(screen.getByText('Your order from Diagnostyka')).toBeInTheDocument()
+    expect(screen.getByText('Your order')).toBeInTheDocument()
     expect(screen.getByText('ALT Test')).toBeInTheDocument()
   })
 
@@ -707,31 +672,13 @@ describe('OptimizationResults', () => {
         result={mockResult}
         isLoading={false}
         error={null}
-        labCards={[
-          {
-            key: 'diag',
-            title: 'Tylko DIAG',
-            priceLabel: '$25.00',
-            meta: '0 Brakuje · 0 Bonus',
-            badge: 'Najtaniej',
-            active: true,
-            loading: false,
-            disabled: false,
-            onSelect: vi.fn(),
-            priceValue: 25,
-            icon: <Sparkles className="h-4 w-4" />,
-            accentLight: 'bg-emerald-500/10 text-emerald-600',
-            accentDark: 'bg-emerald-500/20 text-emerald-200',
-          },
-        ]}
         addonSuggestionsLoading={true}
       />,
       { locale: 'pl', messages: plMessages }
     )
 
-    expect(screen.getByText('Twoje zamówienie: Diagnostyka')).toBeInTheDocument()
-    expect(screen.getByText('Suma')).toBeInTheDocument()
-    expect(screen.getByText('Najlepsze ceny')).toBeInTheDocument()
+    expect(screen.getByText('Twoje zamówienie')).toBeInTheDocument()
+    expect(screen.getByText('Cena łączna')).toBeInTheDocument()
     expect(screen.getByText('Szukamy sugestii...')).toBeInTheDocument()
     expect(screen.getByText(/Pakiety/)).toBeInTheDocument()
     expect(screen.getByText(/Badania pojedyncze/)).toBeInTheDocument()

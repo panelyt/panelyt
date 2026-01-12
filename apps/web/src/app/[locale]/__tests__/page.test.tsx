@@ -203,6 +203,29 @@ describe("Page", () => {
     expect(jsonLd.inLanguage).toBe("en-US");
   });
 
+  it("uses translated site name in JSON-LD", async () => {
+    const messages = {
+      ...enMessages,
+      meta: {
+        ...enMessages.meta,
+        siteName: "Panelyt Labs",
+      },
+    };
+    const translator = createMetaTranslator(messages);
+    mockGetTranslations.mockResolvedValueOnce(
+      translator as unknown as Awaited<ReturnType<typeof getTranslations>>
+    );
+
+    const PageComponent = await Page({ params: Promise.resolve({ locale: "en" }) });
+    const { container } = render(PageComponent);
+
+    const script = container.querySelector('script[type="application/ld+json"]');
+    expect(script).not.toBeNull();
+
+    const jsonLd = JSON.parse(script!.textContent!.replace(/\\u003c/g, "<"));
+    expect(jsonLd.name).toBe("Panelyt Labs");
+  });
+
   it("escapes < characters in JSON-LD to prevent XSS", async () => {
     // Create a translator that returns a description with < character
     const maliciousMessages = {

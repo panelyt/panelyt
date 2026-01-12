@@ -1,16 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
   Bell,
   BellOff,
   Copy,
+  ExternalLink,
   Loader2,
+  MoreHorizontal,
   RefreshCcw,
   Trash2,
-  Link as LinkIcon,
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 import type { SavedList } from "@panelyt/types";
 
 import { Link, getPathname, useRouter } from "../../../i18n/navigation";
@@ -18,6 +20,42 @@ import { Header } from "../../../components/header";
 import { useSavedLists } from "../../../hooks/useSavedLists";
 import { useUserSession } from "../../../hooks/useUserSession";
 import { useAccountSettings } from "../../../hooks/useAccountSettings";
+import { track } from "../../../lib/analytics";
+import {
+  formatExactTimestamp as formatExactTimestampValue,
+  formatRelativeTimestamp as formatRelativeTimestampValue,
+  resolveTimestamp,
+} from "../../../lib/dates";
+import { usePanelStore } from "../../../stores/panelStore";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../../../ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../ui/table";
+import { Button } from "../../../ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "../../../ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../../ui/tooltip";
 
 interface ListWithTotals {
   list: SavedList;
@@ -29,6 +67,7 @@ const CURRENCY_CODE = "PLN";
 
 export default function ListsContent() {
   const t = useTranslations();
+  const placeholderDash = t("common.placeholderDash");
   const session = useUserSession();
   const savedLists = useSavedLists(Boolean(session.data));
   const account = useAccountSettings(Boolean(session.data));
@@ -37,23 +76,15 @@ export default function ListsContent() {
   const rawLists = savedLists.listsQuery.data;
   const locale = useLocale();
   const router = useRouter();
+  const replaceAll = usePanelStore((state) => state.replaceAll);
   const [error, setError] = useState<ReactNode | null>(null);
   const [shareActionId, setShareActionId] = useState<string | null>(null);
   const [unshareActionId, setUnshareActionId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const shareOrigin = useMemo(
-    () => (typeof window === "undefined" ? "" : window.location.origin),
-    [],
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(
+    null,
   );
-
-  useEffect(() => {
-    if (!copiedId) {
-      return;
-    }
-    const timer = setTimeout(() => setCopiedId(null), 2000);
-    return () => clearTimeout(timer);
-  }, [copiedId]);
+  const [deletePending, setDeletePending] = useState(false);
+  const [bulkTarget, setBulkTarget] = useState<boolean | null>(null);
 
   const formattedLists = useMemo(() => {
     const lists = rawLists ?? [];
@@ -75,13 +106,26 @@ export default function ListsContent() {
     });
   }, [rawLists]);
 
-  const telegramLinked = Boolean(account.settingsQuery.data?.telegram.chat_id);
-  const allNotificationsEnabled = useMemo(
-    () => formattedLists.length > 0 && formattedLists.every((item) => item.list.notify_on_price_drop),
+  const listsCount = formattedLists.length;
+  const alertsEnabledCount = useMemo(
+    () =>
+      formattedLists.reduce(
+        (count, item) => count + (item.list.notify_on_price_drop ? 1 : 0),
+        0,
+      ),
     [formattedLists],
   );
+
+  const telegramLinked = Boolean(account.settingsQuery.data?.telegram.chat_id);
+  const allNotificationsEnabled = useMemo(
+    () => listsCount > 0 && alertsEnabledCount === listsCount,
+    [alertsEnabledCount, listsCount],
+  );
+  const hasAlertsEnabled = alertsEnabledCount > 0;
   const bulkNotifyPending = notificationsBulkMutation.isPending;
-  const hasLists = formattedLists.length > 0;
+  const hasLists = listsCount > 0;
+  const enableAllDisabled = !hasLists || bulkNotifyPending || allNotificationsEnabled;
+  const disableAllDisabled = !hasLists || bulkNotifyPending || !hasAlertsEnabled;
 
   const handleToggleAlerts = useCallback(
     (id: string, currentlyEnabled: boolean) => {
@@ -107,6 +151,7 @@ export default function ListsContent() {
           onSuccess: () => setError(null),
         },
       );
+      track("alerts_toggle", { mode: "single", enabled: !currentlyEnabled });
     },
     [notificationsMutation, telegramLinked, t],
   );
@@ -128,20 +173,47 @@ export default function ListsContent() {
         return;
       }
 
+      setBulkTarget(targetState);
       notificationsBulkMutation.mutate(
         { notify: targetState },
         {
           onError: () => setError(t("errors.failedToUpdateAlerts")),
           onSuccess: () => setError(null),
+          onSettled: () => setBulkTarget(null),
         },
       );
+      track("alerts_toggle", { mode: "bulk", enabled: targetState });
     },
     [notificationsBulkMutation, telegramLinked, t],
   );
 
-  const handleDelete = async (id: string) => {
-    await savedLists.deleteMutation.mutateAsync(id);
-  };
+  const handleDeleteDialogChange = useCallback((open: boolean) => {
+    if (!open) {
+      setDeleteTarget(null);
+      setDeletePending(false);
+    }
+  }, []);
+
+  const handleDeleteRequest = useCallback((list: SavedList) => {
+    setDeleteTarget({ id: list.id, name: list.name });
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setDeletePending(true);
+    try {
+      await savedLists.deleteMutation.mutateAsync(deleteTarget.id);
+      setError(null);
+    } catch {
+      setError(t("errors.failedToDelete"));
+    } finally {
+      setDeletePending(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, savedLists.deleteMutation, t]);
 
   const sharePath = useCallback(
     (token: string) => getPathname({ href: `/collections/shared/${token}`, locale }),
@@ -149,12 +221,18 @@ export default function ListsContent() {
   );
 
   const buildShareUrl = useCallback(
-    (token: string) => (shareOrigin ? `${shareOrigin}${sharePath(token)}` : sharePath(token)),
-    [shareOrigin, sharePath],
+    (token: string) => {
+      const path = sharePath(token);
+      if (typeof window === "undefined") {
+        return path;
+      }
+      return `${window.location.origin}${path}`;
+    },
+    [sharePath],
   );
 
   const handleCopyShare = useCallback(
-    async (token: string, listId: string) => {
+    async (token: string) => {
       try {
         const url = buildShareUrl(token);
         if (
@@ -176,10 +254,12 @@ export default function ListsContent() {
         } else {
           throw new Error("clipboard unavailable");
         }
-        setCopiedId(listId);
+        toast(t("toast.shareCopied"));
         setError(null);
+        track("share_copy_url", { status: "success" });
       } catch {
-        setError(t("errors.failedToCopy"));
+        toast(t("toast.shareCopyFailed"));
+        track("share_copy_url", { status: "failure" });
       }
     },
     [buildShareUrl, t],
@@ -215,9 +295,71 @@ export default function ListsContent() {
     [unshareMutation, t],
   );
 
+  const resolveUpdatedAt = useCallback((list: SavedList) => {
+    return list.last_total_updated_at ?? list.updated_at;
+  }, []);
+
+  const exactTimestampFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    [locale],
+  );
+  const relativeTimestampFormatter = useMemo(
+    () => new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
+    [locale],
+  );
+
+  const formatExactTimestamp = useCallback(
+    (value: string) => {
+      const resolved = resolveTimestamp(value);
+      if (!resolved) {
+        return placeholderDash;
+      }
+      return formatExactTimestampValue(resolved.date, exactTimestampFormatter);
+    },
+    [exactTimestampFormatter, placeholderDash],
+  );
+
+  const formatRelativeTimestamp = useCallback(
+    (value: string) => {
+      const resolved = resolveTimestamp(value);
+      if (!resolved) {
+        return placeholderDash;
+      }
+      return formatRelativeTimestampValue(
+        resolved.timestamp,
+        relativeTimestampFormatter,
+      );
+    },
+    [relativeTimestampFormatter, placeholderDash],
+  );
+
+  const lastUpdatedAt = useMemo(() => {
+    if (formattedLists.length === 0) {
+      return null;
+    }
+    let latestTimestamp = -Infinity;
+    let latestValue: string | null = null;
+    for (const item of formattedLists) {
+      const value = resolveUpdatedAt(item.list);
+      const timestamp = new Date(value).getTime();
+      if (Number.isNaN(timestamp)) {
+        continue;
+      }
+      if (timestamp > latestTimestamp) {
+        latestTimestamp = timestamp;
+        latestValue = value;
+      }
+    }
+    return latestValue;
+  }, [formattedLists, resolveUpdatedAt]);
+
   const formatTotal = (item: ListWithTotals) => {
     if (item.total === null || item.currency === null) {
-      return "—";
+      return placeholderDash;
     }
     const formatter = new Intl.NumberFormat("pl-PL", {
       style: "currency",
@@ -227,181 +369,438 @@ export default function ListsContent() {
     return formatter.format(item.total);
   };
 
+  const buildListState = (item: ListWithTotals) => {
+    const shareToken = item.list.share_token;
+    const shareLink = shareToken ? sharePath(shareToken) : null;
+    const isSharePending = shareMutation.isPending && shareActionId === item.list.id;
+    const isUnsharePending = unshareMutation.isPending && unshareActionId === item.list.id;
+    const notifyPending =
+      notificationsMutation.isPending &&
+      notificationsMutation.variables?.id === item.list.id;
+    const notificationsEnabled = item.list.notify_on_price_drop;
+    const updatedAt = resolveUpdatedAt(item.list);
+
+    return {
+      shareToken,
+      shareLink,
+      isSharePending,
+      isUnsharePending,
+      notifyPending,
+      notificationsEnabled,
+      updatedAt,
+    };
+  };
+
+  const handleLoadInOptimizer = useCallback(
+    (list: SavedList) => {
+      replaceAll(
+        list.biomarkers.map((entry) => ({
+          code: entry.code,
+          name: entry.display_name || entry.code,
+        })),
+      );
+      router.push("/");
+    },
+    [replaceAll, router],
+  );
+
+  const renderActionsMenu = (
+    item: ListWithTotals,
+    listState: ReturnType<typeof buildListState>,
+  ) => {
+    const shareToken = listState.shareToken;
+    const shareLink = listState.shareLink;
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            aria-label={t("lists.actionsFor", {
+              name: item.list.name,
+            })}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => handleLoadInOptimizer(item.list)}>
+            {t("lists.loadInOptimizer")}
+          </DropdownMenuItem>
+          {shareToken && shareLink ? (
+            <>
+              <DropdownMenuItem onClick={() => void handleCopyShare(shareToken)}>
+                <Copy className="h-4 w-4" />
+                {t("lists.copyLink")}
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href={shareLink} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                  {t("lists.openShare")}
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => void handleShare(item.list.id, true)}
+                disabled={listState.isSharePending}
+              >
+                <RefreshCcw className="h-4 w-4" />
+                {listState.isSharePending
+                  ? t("lists.regenerating")
+                  : t("lists.regenerate")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => void handleUnshare(item.list.id)}
+                disabled={listState.isUnsharePending}
+              >
+                {listState.isUnsharePending
+                  ? t("lists.disabling")
+                  : t("lists.disableShare")}
+              </DropdownMenuItem>
+            </>
+          ) : (
+            <DropdownMenuItem
+              onClick={() => void handleShare(item.list.id)}
+              disabled={listState.isSharePending}
+            >
+              {listState.isSharePending
+                ? t("lists.generating")
+                : t("lists.enableShare")}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => handleDeleteRequest(item.list)}
+            className="text-rose-300 focus:text-rose-200"
+          >
+            <Trash2 className="h-4 w-4" />
+            {t("common.delete")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-app text-primary">
       <Header />
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={handleDeleteDialogChange}>
+        <DialogContent>
+          <DialogTitle>
+            {t("lists.deleteTitle", { name: deleteTarget?.name ?? "" })}
+          </DialogTitle>
+          <DialogDescription className="mt-2">
+            {t("lists.deleteDescription")}
+          </DialogDescription>
+          <div className="mt-6 flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                disabled={deletePending}
+              >
+                {t("common.cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              size="sm"
+              type="button"
+              loading={deletePending}
+              onClick={() => void handleDeleteConfirm()}
+            >
+              {t("lists.deleteConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold text-white">{t("lists.title")}</h1>
-            <p className="mt-2 text-sm text-slate-400">
+            <h1 className="text-3xl font-semibold text-primary">{t("lists.title")}</h1>
+            <p className="mt-2 text-sm text-secondary">
               {t("lists.description")}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => handleToggleAllAlerts(!allNotificationsEnabled)}
-            className="flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!hasLists || bulkNotifyPending}
-          >
-            {bulkNotifyPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : allNotificationsEnabled ? (
-              <BellOff className="h-4 w-4" />
-            ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => handleToggleAllAlerts(true)}
+              loading={bulkNotifyPending && bulkTarget === true}
+              disabled={enableAllDisabled}
+            >
               <Bell className="h-4 w-4" />
-            )}
-            {bulkNotifyPending
-              ? t("common.loading")
-              : allNotificationsEnabled
-                ? t("lists.disableAllAlerts")
-                : t("lists.enableAllAlerts")}
-          </button>
+              {t("lists.enableAllAlerts")}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => handleToggleAllAlerts(false)}
+              loading={bulkNotifyPending && bulkTarget === false}
+              disabled={disableAllDisabled}
+            >
+              <BellOff className="h-4 w-4" />
+              {t("lists.disableAllAlerts")}
+            </Button>
+          </div>
+        </div>
+        <div
+          className="mt-6 rounded-2xl border border-border/80 bg-surface-1/70 px-5 py-4"
+          data-testid="lists-summary"
+        >
+          <TooltipProvider delayDuration={0}>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-secondary">
+              <div className="flex items-center gap-2">
+                <span className="uppercase tracking-wide text-secondary/80">
+                  {t("lists.summary.lists")}
+                </span>
+                <span className="font-mono text-sm text-primary">
+                  {listsCount}
+                </span>
+              </div>
+              <span className="text-secondary/60">|</span>
+              <div className="flex items-center gap-2">
+                <span className="uppercase tracking-wide text-secondary/80">
+                  {t("lists.summary.alertsEnabled")}
+                </span>
+                <span className="font-mono text-sm text-primary">
+                  {alertsEnabledCount}
+                </span>
+              </div>
+              <span className="text-secondary/60">|</span>
+              <div className="flex items-center gap-2">
+                <span className="uppercase tracking-wide text-secondary/80">
+                  {t("lists.summary.lastUpdated")}
+                </span>
+                {lastUpdatedAt ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-default font-mono text-sm text-primary">
+                        {formatRelativeTimestamp(lastUpdatedAt)}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {formatExactTimestamp(lastUpdatedAt)}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <span className="font-mono text-sm text-secondary/80">{placeholderDash}</span>
+                )}
+              </div>
+            </div>
+          </TooltipProvider>
         </div>
         {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
       </div>
 
       <section className="mx-auto flex max-w-6xl flex-col gap-4 px-6 pb-10">
         {savedLists.listsQuery.isLoading ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
+          <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-surface-1/80 px-4 py-6 text-sm text-secondary">
             <Loader2 className="h-5 w-5 animate-spin" /> {t("lists.loadingLists")}
           </div>
         ) : formattedLists.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/70 px-6 py-8 text-center text-sm text-slate-400">
+          <div className="rounded-2xl border border-dashed border-border/80 bg-surface-1/70 px-6 py-8 text-center text-sm text-secondary">
             {t.rich("lists.noLists", { saveButton: (chunks) => <span className="text-emerald-300">{chunks}</span> })}
           </div>
         ) : (
           <div className="grid gap-4">
-            {formattedLists.map((item) => {
-              const shareToken = item.list.share_token;
-              const shareLink = shareToken ? buildShareUrl(shareToken) : null;
-              const isSharePending = shareMutation.isPending && shareActionId === item.list.id;
-              const isUnsharePending =
-                unshareMutation.isPending && unshareActionId === item.list.id;
-              const sharedTimestamp = item.list.shared_at ?? item.list.updated_at;
-              const notifyPending =
-                notificationsMutation.isPending &&
-                notificationsMutation.variables?.id === item.list.id;
-              const notificationsEnabled = item.list.notify_on_price_drop;
+            <div className="hidden md:block">
+              <TooltipProvider delayDuration={0}>
+                <Table dense stickyHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("lists.table.name")}</TableHead>
+                      <TableHead>{t("lists.table.biomarkers")}</TableHead>
+                      <TableHead>{t("lists.table.total")}</TableHead>
+                      <TableHead>{t("lists.table.updated")}</TableHead>
+                      <TableHead>{t("lists.table.alerts")}</TableHead>
+                      <TableHead>{t("lists.table.share")}</TableHead>
+                      <TableHead className="text-right">{t("lists.table.actions")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {formattedLists.map((item) => {
+                      const listState = buildListState(item);
+                      const shareToken = listState.shareToken;
+                      const shareLink = listState.shareLink;
+                      const updatedLabel = listState.updatedAt
+                        ? formatRelativeTimestamp(listState.updatedAt)
+                        : placeholderDash;
 
-              return (
-                <div
-                  key={item.list.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/80 px-6 py-4 shadow-lg shadow-slate-900/40"
-                >
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-lg font-semibold text-white">{item.list.name}</p>
-                      <p className="text-xs text-slate-400">
-                        {t("common.biomarkersCount", { count: item.list.biomarkers.length })}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-start gap-2 text-sm text-slate-300 md:flex-row md:items-center md:gap-6">
+                      return (
+                        <TableRow key={item.list.id}>
+                          <TableCell className="min-w-[12rem] font-semibold text-primary">
+                            {item.list.name}
+                          </TableCell>
+                          <TableCell className="text-secondary">
+                            {t("common.biomarkersCount", {
+                              count: item.list.biomarkers.length,
+                            })}
+                          </TableCell>
+                          <TableCell className="font-mono text-primary">
+                            {formatTotal(item)}
+                          </TableCell>
+                          <TableCell className="text-secondary">
+                            {listState.updatedAt ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-default">
+                                    {updatedLabel}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {formatExactTimestamp(listState.updatedAt)}
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              placeholderDash
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              loading={listState.notifyPending}
+                              onClick={() =>
+                                handleToggleAlerts(
+                                  item.list.id,
+                                  listState.notificationsEnabled,
+                                )
+                              }
+                            >
+                              {listState.notificationsEnabled ? (
+                                <Bell className="h-3.5 w-3.5" />
+                              ) : (
+                                <BellOff className="h-3.5 w-3.5" />
+                              )}
+                              {listState.notificationsEnabled
+                                ? t("lists.disableAlerts")
+                                : t("lists.enableAlerts")}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="min-w-[14rem]">
+                            {shareToken && shareLink ? (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => void handleCopyShare(shareToken)}
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                  {t("lists.copyLink")}
+                                </Button>
+                                <span className="sr-only">{shareLink}</span>
+                              </div>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                loading={listState.isSharePending}
+                                onClick={() => void handleShare(item.list.id)}
+                              >
+                                {listState.isSharePending
+                                  ? t("lists.generating")
+                                  : t("lists.enableShare")}
+                              </Button>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {renderActionsMenu(item, listState)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TooltipProvider>
+            </div>
+            <div className="grid gap-4 md:hidden">
+              {formattedLists.map((item) => {
+                const listState = buildListState(item);
+                const shareToken = listState.shareToken;
+                const shareLink = listState.shareLink;
+
+                return (
+                  <div
+                    key={item.list.id}
+                    data-testid={`list-card-${item.list.id}`}
+                    className="rounded-2xl border border-border/80 bg-surface-1/80 px-5 py-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
                       <div>
-                        <span className="text-xs uppercase tracking-wide text-slate-500">{t("results.currentTotal")}</span>
-                        <p className="font-semibold text-white">{formatTotal(item)}</p>
+                        <p className="text-lg font-semibold text-primary">{item.list.name}</p>
+                        <p className="text-xs text-secondary">
+                          {t("common.biomarkersCount", {
+                            count: item.list.biomarkers.length,
+                          })}
+                        </p>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleAlerts(item.list.id, notificationsEnabled)}
-                          className="flex items-center gap-1 rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={notifyPending}
-                        >
-                          {notifyPending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : notificationsEnabled ? (
-                            <Bell className="h-4 w-4" />
-                          ) : (
-                            <BellOff className="h-4 w-4" />
-                          )}
-                          {notifyPending
-                            ? t("common.loading")
-                            : notificationsEnabled
-                              ? t("lists.disableAlerts")
-                              : t("lists.enableAlerts")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => router.push({ pathname: "/", query: { list: item.list.id } })}
-                          className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-                        >
-                          {t("lists.loadInOptimizer")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleDelete(item.list.id)}
-                          className="flex items-center gap-1 rounded-lg border border-red-500/60 px-4 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/20"
-                        >
-                          <Trash2 className="h-4 w-4" /> {t("common.delete")}
-                        </button>
+                      <div className="text-right">
+                        <span className="text-[11px] uppercase tracking-wide text-secondary/80">
+                          {t("results.currentTotal")}
+                        </span>
+                        <p className="font-mono text-sm text-primary">{formatTotal(item)}</p>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs text-slate-300">
-                    {shareToken && shareLink ? (
-                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div className="flex flex-col gap-1">
-                          <span className="flex items-center gap-2 text-slate-400">
-                            <LinkIcon className="h-4 w-4" />
-                            <span className="font-semibold text-slate-200">{t("lists.shareLink")}</span>
-                          </span>
-                          <span className="truncate font-mono text-sm text-slate-200">{shareLink}</span>
-                          {sharedTimestamp && (
-                            <span className="text-[11px] text-slate-500">
-                              {t("common.updated")} {new Date(sharedTimestamp).toLocaleString("pl-PL")}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void handleCopyShare(shareToken, item.list.id)}
-                            className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            {copiedId === item.list.id ? t("common.copied") : t("lists.copyLink")}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleShare(item.list.id, true)}
-                            className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
-                            disabled={isSharePending}
-                          >
-                            <RefreshCcw className="h-3.5 w-3.5" />
-                            {isSharePending ? t("lists.regenerating") : t("lists.regenerate")}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleUnshare(item.list.id)}
-                            className="flex items-center gap-1 rounded-lg border border-red-500/60 px-3 py-1.5 font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                            disabled={isUnsharePending}
-                          >
-                            {isUnsharePending ? t("lists.disabling") : t("lists.disableShare")}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <p className="text-slate-400">
-                          {t("lists.shareDescription")}
-                        </p>
-                        <button
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        loading={listState.notifyPending}
+                        onClick={() =>
+                          handleToggleAlerts(
+                            item.list.id,
+                            listState.notificationsEnabled,
+                          )
+                        }
+                      >
+                        {listState.notificationsEnabled ? (
+                          <Bell className="h-3.5 w-3.5" />
+                        ) : (
+                          <BellOff className="h-3.5 w-3.5" />
+                        )}
+                        {listState.notificationsEnabled
+                          ? t("lists.disableAlerts")
+                          : t("lists.enableAlerts")}
+                      </Button>
+                      {shareToken && shareLink ? (
+                        <Button
                           type="button"
-                          onClick={() => void handleShare(item.list.id)}
-                          className="flex items-center gap-1 rounded-lg border border-emerald-500/60 px-3 py-1.5 font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={isSharePending}
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => void handleCopyShare(shareToken)}
                         >
-                          {isSharePending ? t("lists.generating") : t("lists.enableShare")}
-                        </button>
-                      </div>
-                    )}
+                          <Copy className="h-3.5 w-3.5" />
+                          {t("lists.copyLink")}
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          loading={listState.isSharePending}
+                          onClick={() => void handleShare(item.list.id)}
+                        >
+                          {listState.isSharePending
+                            ? t("lists.generating")
+                            : t("lists.enableShare")}
+                        </Button>
+                      )}
+                      <div className="ml-auto">{renderActionsMenu(item, listState)}</div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </section>

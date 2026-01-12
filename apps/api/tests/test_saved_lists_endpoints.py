@@ -42,7 +42,6 @@ async def seed_biomarkers_with_items(session) -> None:
             [
                 {
                     "id": 1,
-                    "lab_id": 1,
                     "external_id": "item-1",
                     "kind": "single",
                     "name": "ALT Test",
@@ -55,7 +54,6 @@ async def seed_biomarkers_with_items(session) -> None:
                 },
                 {
                     "id": 2,
-                    "lab_id": 1,
                     "external_id": "item-2",
                     "kind": "single",
                     "name": "AST Test",

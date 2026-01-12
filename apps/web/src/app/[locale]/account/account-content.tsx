@@ -11,13 +11,17 @@ import {
   Unplug,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { Header } from "../../../components/header";
 import { useAccountSettings } from "../../../hooks/useAccountSettings";
 import { useUserSession } from "../../../hooks/useUserSession";
+import { track } from "../../../lib/analytics";
+import { cn } from "../../../lib/cn";
+import { Button, buttonVariants } from "../../../ui/button";
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
+function formatDate(value: string | null | undefined, placeholderDash: string) {
+  if (!value) return placeholderDash;
   try {
     return new Date(value).toLocaleString("pl-PL");
   } catch {
@@ -27,6 +31,7 @@ function formatDate(value: string | null | undefined) {
 
 export default function AccountContent() {
   const t = useTranslations();
+  const placeholderDash = t("common.placeholderDash");
   const session = useUserSession();
   const account = useAccountSettings(Boolean(session.data));
   const [chatIdInput, setChatIdInput] = useState("");
@@ -57,6 +62,7 @@ export default function AccountContent() {
     try {
       await navigator.clipboard.writeText(`/link ${token}`);
       setCopiedToken(true);
+      toast(t("toast.telegramCommandCopied"));
       setTimeout(() => setCopiedToken(false), 2000);
     } catch {
       setFormError(t("errors.clipboardUnavailable"));
@@ -109,116 +115,146 @@ export default function AccountContent() {
     }
   };
 
+  const handleOpenBot = () => {
+    track("telegram_link_opened");
+    toast(t("toast.telegramBotOpened"));
+  };
+
   const linkUrl = telegram?.link_url ?? (telegram?.bot_username && telegram.link_token
     ? `https://t.me/${telegram.bot_username}?start=${telegram.link_token}`
     : null);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-app text-primary">
       <Header />
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <h1 className="text-3xl font-semibold text-white">{t("account.title")}</h1>
-        <p className="mt-2 text-sm text-slate-400">
+      <div className="mx-auto max-w-5xl px-6 py-8">
+        <h1 className="text-3xl font-semibold text-primary">{t("account.title")}</h1>
+        <p className="mt-2 max-w-2xl text-sm text-secondary">
           {t("account.description")}
         </p>
-        {mutationError && <p className="mt-4 text-sm text-red-300">{mutationError}</p>}
+        {mutationError && (
+          <p className="mt-4 text-sm text-accent-red">{mutationError}</p>
+        )}
       </div>
 
-      <section className="mx-auto flex max-w-4xl flex-col gap-4 px-6 pb-10">
+      <section className="mx-auto flex max-w-5xl flex-col gap-4 px-6 pb-10">
         {isLoading ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
+          <div className="flex items-center gap-3 rounded-panel border border-border/70 bg-surface-1 px-4 py-6 text-sm text-secondary">
             <Loader2 className="h-5 w-5 animate-spin" /> {t("common.loading")}
           </div>
         ) : !session.data ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-6 py-8 text-center text-sm text-slate-300">
+          <div className="rounded-panel border border-border/70 bg-surface-1/70 px-6 py-8 text-center text-sm text-secondary">
             {t("account.signInRequired")}
           </div>
         ) : !telegram ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-6 py-8 text-center text-sm text-slate-300">
+          <div className="rounded-panel border border-border/70 bg-surface-1/70 px-6 py-8 text-center text-sm text-secondary">
             {t("account.telegramUnavailable")}
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-6 py-6">
-              <div className="flex items-center gap-3 text-sky-200">
-                <PlugZap className="h-5 w-5" />
-                <h2 className="text-lg font-semibold">{t("account.telegramConnection")}</h2>
+            <div className="rounded-panel border border-accent-cyan/40 bg-surface-1/80 px-6 py-6">
+              <div className="flex items-center gap-3 text-accent-cyan">
+                <PlugZap className="h-5 w-5" aria-hidden="true" />
+                <h2 className="text-lg font-semibold text-primary">
+                  {t("account.telegramConnection")}
+                </h2>
               </div>
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="mt-2 max-w-2xl text-sm text-secondary">
                 {t("account.telegramDescription")}
               </p>
 
               <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-5 py-4">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-                    <RefreshCcw className="h-4 w-4" /> {t("account.linkToken")}
+                <div className="rounded-panel border border-border/70 bg-surface-2/60 px-5 py-4">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-secondary">
+                    <RefreshCcw className="h-4 w-4" aria-hidden="true" />{" "}
+                    {t("account.linkToken")}
                   </h3>
                   {telegram.link_token ? (
                     <>
-                      <p className="mt-2 text-xs text-slate-300">
-                        {t.rich("account.sendCommand", { command: () => <span className="font-mono text-emerald-200">/link {telegram.link_token}</span> })}
+                      <p className="mt-2 text-sm text-secondary">
+                        {t.rich("account.sendCommand", {
+                          command: () => (
+                            <span className="font-mono text-accent-emerald">
+                              /link {telegram.link_token}
+                            </span>
+                          ),
+                        })}
                       </p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="sm"
                           onClick={() => handleCopyToken(telegram.link_token ?? "")}
-                          className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-emerald-400 hover:text-emerald-200"
                         >
-                          {copiedToken ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {t("account.copyCommand")}
-                        </button>
+                          {copiedToken ? (
+                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                          )}
+                          {t("account.copyCommand")}
+                        </Button>
                         {linkUrl && (
                           <a
                             href={linkUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-200"
+                            onClick={handleOpenBot}
+                            className={cn(
+                              buttonVariants({ variant: "secondary", size: "sm" }),
+                              "gap-2",
+                            )}
                           >
-                            <ExternalLink className="h-3.5 w-3.5" /> {t("account.openBot")}
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                            {t("account.openBot")}
                           </a>
                         )}
                       </div>
-                      <p className="mt-3 text-[11px] text-slate-500">
-                        {t("account.expires")} {formatDate(telegram.link_token_expires_at)}
+                      <p className="mt-3 text-xs text-secondary">
+                        {t("account.expires")} {formatDate(telegram.link_token_expires_at, placeholderDash)}
                       </p>
                     </>
                   ) : (
-                    <p className="mt-2 text-xs text-slate-400">
+                    <p className="mt-2 text-sm text-secondary">
                       {t("account.generateTokenHint")}
                     </p>
                   )}
-                  <button
+                  <Button
                     type="button"
                     onClick={handleGenerateToken}
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={account.linkTokenMutation.isPending}
+                    size="sm"
+                    loading={account.linkTokenMutation.isPending}
+                    className="mt-4"
                   >
-                    {account.linkTokenMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCcw className="h-4 w-4" />
+                    {account.linkTokenMutation.isPending ? null : (
+                      <RefreshCcw className="h-4 w-4" aria-hidden="true" />
                     )}
                     {account.linkTokenMutation.isPending ? t("account.generatingToken") : t("account.newLinkToken")}
-                  </button>
+                  </Button>
                 </div>
 
-                <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-5 py-4">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-                    <Unplug className="h-4 w-4" /> {t("account.chatStatus")}
+                <div className="rounded-panel border border-border/70 bg-surface-2/60 px-5 py-4">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-secondary">
+                    <Unplug className="h-4 w-4" aria-hidden="true" />{" "}
+                    {t("account.chatStatus")}
                   </h3>
-                  <dl className="mt-3 space-y-2 text-xs text-slate-300">
+                  <dl className="mt-3 space-y-2 text-xs text-secondary">
                     <div className="flex justify-between gap-3">
-                      <dt className="text-slate-400">{t("account.chatId")}</dt>
-                      <dd className="font-mono text-slate-100">{telegram.chat_id ?? "—"}</dd>
+                      <dt className="text-secondary">{t("account.chatId")}</dt>
+                      <dd className="font-mono text-primary">{telegram.chat_id ?? placeholderDash}</dd>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <dt className="text-slate-400">{t("account.linkedAt")}</dt>
-                      <dd>{formatDate(telegram.linked_at)}</dd>
+                      <dt className="text-secondary">{t("account.linkedAt")}</dt>
+                      <dd>{formatDate(telegram.linked_at, placeholderDash)}</dd>
                     </div>
                   </dl>
                   <div className="mt-4 flex flex-col gap-3">
                     <form onSubmit={handleManualLink} className="flex flex-col gap-2">
-                      <label className="text-xs font-semibold text-slate-400" htmlFor="chat-id">
+                      <label
+                        className="text-xs font-semibold uppercase tracking-wide text-secondary"
+                        htmlFor="chat-id"
+                      >
                         {t("account.pasteChatId")}
                       </label>
                       <div className="flex gap-2">
@@ -228,40 +264,57 @@ export default function AccountContent() {
                           value={chatIdInput}
                           onChange={(event) => setChatIdInput(event.target.value)}
                           placeholder={t("account.chatIdPlaceholder")}
-                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-emerald-400 focus:outline-none"
+                          className="w-full rounded-lg border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-secondary focus-ring"
                         />
-                        <button
+                        <Button
                           type="submit"
-                          className="rounded-lg border border-sky-500/60 px-4 py-2 text-xs font-semibold text-sky-200 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={account.manualLinkMutation.isPending}
+                          size="sm"
+                          loading={account.manualLinkMutation.isPending}
                         >
-                          {account.manualLinkMutation.isPending ? t("account.linking") : t("common.save")}
-                        </button>
+                          {account.manualLinkMutation.isPending
+                            ? t("account.linking")
+                            : t("common.save")}
+                        </Button>
                       </div>
                     </form>
-                    <button
+                    <Button
                       type="button"
                       onClick={handleDisconnect}
-                      className="inline-flex items-center gap-2 rounded-lg border border-red-500/60 px-4 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={account.unlinkMutation.isPending}
+                      variant="destructive"
+                      size="sm"
+                      loading={account.unlinkMutation.isPending}
                     >
-                      {account.unlinkMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Unplug className="h-4 w-4" />
+                      {account.unlinkMutation.isPending ? null : (
+                        <Unplug className="h-4 w-4" aria-hidden="true" />
                       )}
-                      {account.unlinkMutation.isPending ? t("account.disconnecting") : t("account.disconnectChat")}
-                    </button>
+                      {account.unlinkMutation.isPending
+                        ? t("account.disconnecting")
+                        : t("account.disconnectChat")}
+                    </Button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/60 px-6 py-5 text-sm text-slate-300">
-              <h3 className="text-sm font-semibold text-slate-200">{t("account.howItWorks")}</h3>
-              <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs text-slate-300">
-                <li>{t.rich("account.step1", { start: (chunks) => <span className="font-semibold text-emerald-200">{chunks}</span> })}</li>
-                <li>{t.rich("account.step2", { link: (chunks) => <span className="font-mono text-emerald-200">{chunks}</span> })}</li>
+            <div className="rounded-panel border border-dashed border-border/80 bg-surface-1/60 px-6 py-5 text-sm text-secondary">
+              <h3 className="text-sm font-semibold text-primary">
+                {t("account.howItWorks")}
+              </h3>
+              <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs text-secondary">
+                <li>
+                  {t.rich("account.step1", {
+                    start: (chunks) => (
+                      <span className="font-semibold text-accent-emerald">{chunks}</span>
+                    ),
+                  })}
+                </li>
+                <li>
+                  {t.rich("account.step2", {
+                    link: (chunks) => (
+                      <span className="font-mono text-accent-emerald">{chunks}</span>
+                    ),
+                  })}
+                </li>
                 <li>{t("account.step3")}</li>
                 <li>{t("account.step4")}</li>
               </ol>

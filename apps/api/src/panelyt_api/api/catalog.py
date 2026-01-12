@@ -8,7 +8,7 @@ from fastapi import APIRouter, Query
 from panelyt_api.api.deps import SessionDep
 from panelyt_api.core.cache import record_user_activity_debounced
 from panelyt_api.core.settings import get_settings
-from panelyt_api.ingest.repository import IngestionRepository
+from panelyt_api.ingest.repository import CatalogRepository
 from panelyt_api.ingest.service import IngestionService
 from panelyt_api.schemas.common import (
     BiomarkerSearchResponse,
@@ -22,7 +22,7 @@ router = APIRouter()
 
 @router.get("/meta", response_model=CatalogMeta)
 async def get_meta(session: SessionDep) -> CatalogMeta:
-    repo = IngestionRepository(session)
+    repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
     await ingestion_service.ensure_fresh_data(background=True)
@@ -39,7 +39,7 @@ async def search(
     ],
     session: SessionDep,
 ) -> BiomarkerSearchResponse:
-    repo = IngestionRepository(session)
+    repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
     return await catalog.search_biomarkers(session, query)
 
@@ -56,6 +56,6 @@ async def search_catalog_endpoint(
     ],
     session: SessionDep,
 ) -> CatalogSearchResponse:
-    repo = IngestionRepository(session)
+    repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
     return await catalog.search_catalog(session, query)

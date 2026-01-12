@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class APIModel(BaseModel):
@@ -15,7 +15,7 @@ class BiomarkerOut(APIModel):
     name: str
     elab_code: str | None = None
     slug: str | None = None
-    lab_prices: dict[str, int] = Field(default_factory=dict)
+    price_now_grosz: int | None = None
 
 
 class ItemOut(APIModel):
@@ -29,8 +29,6 @@ class ItemOut(APIModel):
     biomarkers: list[str]
     url: str
     on_sale: bool
-    lab_code: str = ""
-    lab_name: str = ""
 
 
 class CatalogMeta(APIModel):
@@ -51,7 +49,7 @@ class CatalogBiomarkerResult(APIModel):
     name: str
     elab_code: str | None = None
     slug: str | None = None
-    lab_prices: dict[str, int] = Field(default_factory=dict)
+    price_now_grosz: int | None = None
 
 
 class CatalogTemplateResult(APIModel):

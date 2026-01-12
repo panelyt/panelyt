@@ -5,9 +5,7 @@ export const BiomarkerSchema = z.object({
   name: z.string(),
   elab_code: z.string().nullable(),
   slug: z.string().nullable(),
-  lab_prices: z
-    .record(z.string(), z.number().int().nonnegative())
-    .default({}),
+  price_now_grosz: z.number().int().nonnegative().nullable(),
 });
 
 export type Biomarker = z.infer<typeof BiomarkerSchema>;
@@ -23,51 +21,15 @@ export const ItemSchema = z.object({
   biomarkers: z.array(z.string()),
   url: z.string().url(),
   on_sale: z.boolean(),
-  lab_code: z.string(),
-  lab_name: z.string(),
 });
 
 export type Item = z.infer<typeof ItemSchema>;
 
-export const OptimizeModeSchema = z.enum(["auto", "single_lab", "split"]);
-
-export type OptimizeMode = z.infer<typeof OptimizeModeSchema>;
-
-export const OptimizeRequestSchema = z
-  .object({
-    biomarkers: z.array(z.string().min(1)).min(1),
-    mode: OptimizeModeSchema.default("auto"),
-    lab_code: z.string().min(1).optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.mode === "single_lab" && !data.lab_code) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "lab_code is required when mode is single_lab",
-        path: ["lab_code"],
-      });
-    }
-  });
+export const OptimizeRequestSchema = z.object({
+  biomarkers: z.array(z.string().min(1)).min(1),
+});
 
 export type OptimizeRequest = z.infer<typeof OptimizeRequestSchema>;
-
-export const LabAvailabilitySchema = z.object({
-  code: z.string(),
-  name: z.string(),
-  covers_all: z.boolean(),
-  missing_tokens: z.array(z.string()).default([]),
-});
-
-export type LabAvailability = z.infer<typeof LabAvailabilitySchema>;
-
-export const LabSelectionSummarySchema = z.object({
-  code: z.string(),
-  name: z.string(),
-  total_now_grosz: z.number().int().nonnegative(),
-  items: z.number().int().nonnegative(),
-});
-
-export type LabSelectionSummary = z.infer<typeof LabSelectionSummarySchema>;
 
 export const AddonBiomarkerSchema = z.object({
   code: z.string(),
@@ -93,7 +55,6 @@ export type AddonSuggestion = z.infer<typeof AddonSuggestionSchema>;
 export const AddonSuggestionsRequestSchema = z.object({
   biomarkers: z.array(z.string().min(1)).min(1),
   selected_item_ids: z.array(z.number().int().positive()).min(1),
-  lab_code: z.string().min(1).optional(),
 });
 
 export type AddonSuggestionsRequest = z.infer<typeof AddonSuggestionsRequestSchema>;
@@ -113,36 +74,11 @@ export const OptimizeResponseSchema = z.object({
   bonus_total_now: z.number().nonnegative().default(0),
   explain: z.record(z.string(), z.array(z.string())),
   uncovered: z.array(z.string()),
-  lab_code: z.string().default(""),
-  lab_name: z.string().default(""),
-  exclusive: z.record(z.string(), z.string()).default({}),
   labels: z.record(z.string(), z.string()).default({}),
-  mode: OptimizeModeSchema.default("auto"),
-  lab_options: z.array(LabAvailabilitySchema).default([]),
-  lab_selections: z.array(LabSelectionSummarySchema).default([]),
   addon_suggestions: z.array(AddonSuggestionSchema).default([]),
 });
 
 export type OptimizeResponse = z.infer<typeof OptimizeResponseSchema>;
-
-export const OptimizeCompareRequestSchema = z.object({
-  biomarkers: z.array(z.string().min(1)).min(1),
-});
-
-export type OptimizeCompareRequest = z.infer<
-  typeof OptimizeCompareRequestSchema
->;
-
-export const OptimizeCompareResponseSchema = z.object({
-  auto: OptimizeResponseSchema,
-  split: OptimizeResponseSchema,
-  by_lab: z.record(z.string(), OptimizeResponseSchema).default({}),
-  lab_options: z.array(LabAvailabilitySchema).default([]),
-});
-
-export type OptimizeCompareResponse = z.infer<
-  typeof OptimizeCompareResponseSchema
->;
 
 export const CredentialsSchema = z.object({
   username: z.string().min(3).max(64),
@@ -350,7 +286,7 @@ export const CatalogMetaSchema = z.object({
 export type CatalogMeta = z.infer<typeof CatalogMetaSchema>;
 
 export const BiomarkerSearchResponseSchema = z.object({
-  results: z.array(BiomarkerSchema.pick({ name: true, elab_code: true, slug: true })),
+  results: z.array(BiomarkerSchema),
 });
 
 export type BiomarkerSearchResponse = z.infer<
@@ -363,9 +299,7 @@ export const CatalogBiomarkerResultSchema = z.object({
   name: z.string(),
   elab_code: z.string().nullable(),
   slug: z.string().nullable(),
-  lab_prices: z
-    .record(z.string(), z.number().int().nonnegative())
-    .default({}),
+  price_now_grosz: z.number().int().nonnegative().nullable(),
 });
 
 export type CatalogBiomarkerResult = z.infer<typeof CatalogBiomarkerResultSchema>;

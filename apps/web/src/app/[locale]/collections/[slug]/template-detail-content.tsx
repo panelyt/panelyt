@@ -1,121 +1,201 @@
 "use client";
 
-import { use, useMemo } from "react";
-import { useRouter } from "../../../../i18n/navigation";
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 
+import { useRouter } from "../../../../i18n/navigation";
 import { Header } from "../../../../components/header";
 import { OptimizationResults } from "../../../../components/optimization-results";
 import { useTemplateDetail } from "../../../../hooks/useBiomarkerListTemplates";
-import { useOptimization } from "../../../../hooks/useOptimization";
+import { useBiomarkerSelection } from "../../../../hooks/useBiomarkerSelection";
+import { useOptimization, useAddonSuggestions } from "../../../../hooks/useOptimization";
+import { usePanelStore } from "../../../../stores/panelStore";
+import { track } from "../../../../lib/analytics";
+import { Button } from "../../../../ui/button";
+import { Card } from "../../../../ui/card";
 
 interface TemplateDetailContentProps {
-  params: Promise<{ slug: string }>;
+  slug: string;
 }
 
-export default function TemplateDetailContent({ params }: TemplateDetailContentProps) {
+export default function TemplateDetailContent({ slug }: TemplateDetailContentProps) {
   const t = useTranslations();
-  const { slug } = use(params);
+  const locale = useLocale();
   const router = useRouter();
   const templateQuery = useTemplateDetail(slug, Boolean(slug));
   const template = templateQuery.data;
+  const selection = useBiomarkerSelection();
+  const addMany = usePanelStore((state) => state.addMany);
+  const replaceAll = usePanelStore((state) => state.replaceAll);
 
   const biomarkerCodes = useMemo(
     () => template?.biomarkers.map((entry) => entry.code) ?? [],
     [template],
   );
-  const optimization = useOptimization(biomarkerCodes, 'auto');
+  const optimizationQuery = useOptimization(biomarkerCodes);
+  const activeResult = optimizationQuery.data;
+  const activeItemIds = useMemo(
+    () => activeResult?.items?.map((item) => item.id) ?? [],
+    [activeResult?.items],
+  );
+  const addonSuggestionsQuery = useAddonSuggestions(
+    optimizationQuery.debouncedBiomarkers,
+    activeItemIds,
+    !optimizationQuery.isLoading,
+  );
+
+  const templateSelection = useMemo(
+    () =>
+      template?.biomarkers.map((entry) => ({
+        code: entry.code,
+        name: entry.display_name,
+      })) ?? [],
+    [template],
+  );
+
+  const handleOpenOptimizer = () => {
+    router.push("/");
+  };
+
+  const handleAddToPanel = () => {
+    if (!template) {
+      return;
+    }
+    addMany(templateSelection);
+    track("panel_apply_template", { mode: "append" });
+    toast(t("collections.appliedAppend", { name: template.name }), {
+      action: {
+        label: t("templateDetail.openOptimizer"),
+        onClick: handleOpenOptimizer,
+      },
+    });
+  };
+
+  const handleReplacePanel = () => {
+    if (!template) {
+      return;
+    }
+    replaceAll(templateSelection);
+    track("panel_apply_template", { mode: "replace" });
+    toast(t("collections.appliedReplace", { name: template.name }), {
+      action: {
+        label: t("templateDetail.openOptimizer"),
+        onClick: handleOpenOptimizer,
+      },
+    });
+  };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-app text-primary">
       <Header />
 
       <div className="mx-auto max-w-6xl px-6 py-8">
         {template ? (
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500">
+          <div className="space-y-4">
+            <p className="text-xs text-secondary">
               <span className="font-mono">{slug}</span>
             </p>
-            <h1 className="text-3xl font-semibold text-white">{template.name}</h1>
-            {template.description && (
-              <p className="max-w-2xl text-sm text-slate-300">{template.description}</p>
-            )}
-            <p className="text-xs text-slate-500">
-              {t("common.biomarkersCount", { count: template.biomarkers.length })} • {t("common.updated")} {new Date(template.updated_at).toLocaleString("pl-PL")}
-            </p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="space-y-2">
+                <h1 className="text-3xl font-semibold text-primary">{template.name}</h1>
+                {template.description && (
+                  <p className="max-w-2xl text-sm text-secondary">
+                    {template.description}
+                  </p>
+                )}
+                <p className="text-xs text-secondary">
+                  {t("common.biomarkersCount", { count: template.biomarkers.length })} •{" "}
+                  {t("common.updated")} {new Date(template.updated_at).toLocaleString(locale)}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="primary" size="sm" type="button" onClick={handleAddToPanel}>
+                  {t("collections.addToPanel")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  onClick={handleReplacePanel}
+                >
+                  {t("collections.replacePanel")}
+                </Button>
+              </div>
+            </div>
           </div>
         ) : templateQuery.isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-slate-300">
+          <div className="flex items-center gap-2 text-sm text-secondary">
             <Loader2 className="h-4 w-4 animate-spin" /> {t("templateDetail.loadingTemplate")}
           </div>
         ) : templateQuery.isError ? (
-          <p className="text-sm text-red-200">{t("templateDetail.failedToLoad")}</p>
+          <p className="text-sm text-accent-red">{t("templateDetail.failedToLoad")}</p>
         ) : null}
       </div>
 
       <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 pb-10">
         {templateQuery.isLoading ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
+          <div className="flex items-center gap-3 rounded-panel border border-border/70 bg-surface-1 px-4 py-6 text-sm text-secondary">
             <Loader2 className="h-5 w-5 animate-spin" /> {t("templateDetail.loadingTemplate")}
           </div>
         ) : templateQuery.isError || !template ? (
-          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-6 text-sm text-red-200">
+          <div className="rounded-panel border border-accent-red/40 bg-accent-red/10 px-4 py-6 text-sm text-accent-red">
             {t("templateDetail.notFound")}
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,_2fr)_minmax(0,_3fr)]">
-            <section className="flex flex-col gap-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+            <Card className="flex flex-col gap-5 p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-emerald">
                     {t("templateDetail.biomarkers")}
                   </p>
-                  <h2 className="text-xl font-semibold text-white">{t("templateDetail.includedMarkers")}</h2>
+                  <h2 className="text-xl font-semibold text-primary">
+                    {t("templateDetail.includedMarkers")}
+                  </h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => router.push(`/?template=${template.slug}`)}
-                  className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
-                >
-                  {t("lists.loadInOptimizer")}
-                </button>
               </div>
-              <ul className="space-y-3 text-sm text-slate-200">
+              <ul className="space-y-3 text-sm text-primary">
                 {template.biomarkers.map((entry) => (
                   <li
                     key={entry.id}
-                    className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3"
+                    className="flex flex-col gap-1 rounded-xl border border-border/70 bg-surface-2/40 px-4 py-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-white">{entry.display_name}</span>
+                      <span className="font-semibold text-primary">{entry.display_name}</span>
                     </div>
                     {entry.biomarker && (
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-secondary">
                         {t("templateDetail.matchedBiomarker")}: {entry.biomarker.name}
                       </p>
                     )}
-                    {entry.notes && <p className="text-xs text-slate-400">{entry.notes}</p>}
+                    {entry.notes && <p className="text-xs text-secondary">{entry.notes}</p>}
                   </li>
                 ))}
               </ul>
-            </section>
+            </Card>
 
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-xl font-semibold text-white">{t("templateDetail.latestPricing")}</h2>
-              <p className="mt-2 text-sm text-slate-300">
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold text-primary">
+                {t("templateDetail.latestPricing")}
+              </h2>
+              <p className="mt-2 text-sm text-secondary">
                 {t("templateDetail.pricingDescription")}
               </p>
               <div className="mt-6">
                 <OptimizationResults
                   selected={biomarkerCodes}
-                  result={optimization.data}
-                  isLoading={optimization.isLoading}
-                  error={optimization.error}
+                  result={activeResult}
+                  isLoading={optimizationQuery.isLoading}
+                  error={optimizationQuery.error}
+                  addonSuggestions={addonSuggestionsQuery.data?.addon_suggestions ?? []}
+                  addonSuggestionsLoading={addonSuggestionsQuery.isLoading}
+                  onApplyAddon={selection.handleApplyAddon}
                   variant="dark"
                 />
               </div>
-            </section>
+            </Card>
           </div>
         )}
       </section>

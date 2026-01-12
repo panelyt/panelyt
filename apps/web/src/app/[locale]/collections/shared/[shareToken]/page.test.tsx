@@ -12,6 +12,10 @@ vi.mock("../../../../../lib/http", () => ({
   getParsedJson: vi.fn(),
 }));
 
+vi.mock("./shared-content", () => ({
+  default: () => null,
+}));
+
 const mockGetTranslations = vi.mocked(getTranslations);
 const mockGetParsedJson = vi.mocked(getParsedJson);
 
@@ -21,7 +25,7 @@ const buildTranslator = () => {
       return `${values?.name} | Panelyt`;
     }
     if (key === "sharedListDescription") {
-      return `View biomarkers and live pricing for the shared list ${values?.name}.`;
+      return `View tests and live pricing for the shared panel ${values?.name}.`;
     }
     return key;
   };
@@ -59,7 +63,7 @@ describe("shared list metadata", () => {
 
     expect(metadata).toMatchObject({
       title: "Hormone panel | Panelyt",
-      description: "View biomarkers and live pricing for the shared list Hormone panel.",
+      description: "View tests and live pricing for the shared panel Hormone panel.",
       alternates: {
         canonical: "/en/collections/shared/token-123",
         languages: {
@@ -69,7 +73,7 @@ describe("shared list metadata", () => {
       },
       openGraph: {
         title: "Hormone panel | Panelyt",
-        description: "View biomarkers and live pricing for the shared list Hormone panel.",
+        description: "View tests and live pricing for the shared panel Hormone panel.",
         locale: "en_US",
         alternateLocale: "pl_PL",
       },
@@ -98,7 +102,7 @@ describe("shared list metadata", () => {
 
     expect(metadata).toMatchObject({
       title: "token-456 | Panelyt",
-      description: "View biomarkers and live pricing for the shared list token-456.",
+      description: "View tests and live pricing for the shared panel token-456.",
       alternates: {
         canonical: "/collections/shared/token-456",
         languages: {
@@ -108,10 +112,26 @@ describe("shared list metadata", () => {
       },
       openGraph: {
         title: "token-456 | Panelyt",
-        description: "View biomarkers and live pricing for the shared list token-456.",
+        description: "View tests and live pricing for the shared panel token-456.",
         locale: "pl_PL",
         alternateLocale: "en_US",
       },
     });
+  });
+});
+
+describe("shared list page", () => {
+  it("passes the share token from params", async () => {
+    const pageModule = (await import("./page")) as unknown as {
+      default: (args: { params: Promise<{ locale: string; shareToken: string }> }) => Promise<{
+        props?: { shareToken?: string };
+      }>;
+    };
+
+    const element = await pageModule.default({
+      params: Promise.resolve({ locale: "en", shareToken: "token-789" }),
+    });
+
+    expect(element.props?.shareToken).toBe("token-789");
   });
 });

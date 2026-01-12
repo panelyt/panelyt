@@ -1,0 +1,210 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+import { renderWithQueryClient } from "@/test/utils";
+import { usePanelStore } from "@/stores/panelStore";
+import { PanelTray } from "@/features/panel/PanelTray";
+import { track } from "@/lib/analytics";
+import { formatCurrency } from "@/lib/format";
+import { useUrlBiomarkerSync } from "@/hooks/useUrlBiomarkerSync";
+import { useBiomarkerDiagUrls } from "@/hooks/useBiomarkerDiagUrls";
+
+vi.mock("@/hooks/useUserSession", () => ({
+  useUserSession: () => ({ data: null, isLoading: false }),
+}));
+
+vi.mock("@/hooks/useUrlBiomarkerSync", () => ({
+  useUrlBiomarkerSync: vi.fn(),
+}));
+
+vi.mock("@/hooks/useBiomarkerDiagUrls", () => ({
+  useBiomarkerDiagUrls: vi.fn(),
+}));
+
+vi.mock("@/lib/analytics", () => ({
+  track: vi.fn(),
+  markTtorStart: vi.fn(),
+  resetTtorStart: vi.fn(),
+}));
+
+const mockUseUrlBiomarkerSync = vi.mocked(useUrlBiomarkerSync);
+const mockUseBiomarkerDiagUrls = vi.mocked(useBiomarkerDiagUrls);
+const trackMock = vi.mocked(track);
+
+describe("PanelTray", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    usePanelStore.setState({ selected: [], lastOptimizationSummary: undefined, lastRemoved: undefined });
+    trackMock.mockClear();
+    mockUseUrlBiomarkerSync.mockReturnValue({
+      isLoadingFromUrl: false,
+      getShareUrl: vi.fn(),
+      copyShareUrl: vi.fn().mockResolvedValue(true),
+    });
+    mockUseBiomarkerDiagUrls.mockReturnValue({
+      data: {},
+      isLoading: false,
+    } as unknown as ReturnType<typeof useBiomarkerDiagUrls>);
+  });
+
+  it("renders selected biomarkers and removes them", async () => {
+    usePanelStore.setState({
+      selected: [
+        { code: "ALT", name: "Alanine aminotransferase" },
+        { code: "AST", name: "Aspartate aminotransferase" },
+      ],
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    expect(screen.getByText("Alanine aminotransferase")).toBeInTheDocument();
+    expect(screen.getByText("Aspartate aminotransferase")).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Remove Alanine aminotransferase"));
+
+    expect(screen.queryByText("Alanine aminotransferase")).not.toBeInTheDocument();
+    expect(usePanelStore.getState().selected).toHaveLength(1);
+  });
+
+  it("shows only biomarker names in the tray list", async () => {
+    usePanelStore.setState({
+      selected: [
+        { code: "124", name: "Testosteron" },
+        { code: "125", name: "Testosteron wolny" },
+      ],
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    expect(screen.getByText("Testosteron")).toBeInTheDocument();
+    expect(screen.getByText("Testosteron wolny")).toBeInTheDocument();
+    expect(screen.queryByText("124")).not.toBeInTheDocument();
+    expect(screen.queryByText("125")).not.toBeInTheDocument();
+  });
+
+  it("links biomarkers to diag.pl when available", async () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
+    });
+    mockUseBiomarkerDiagUrls.mockReturnValue({
+      data: { ALT: "https://diag.pl/sklep/badania/alt-test" },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useBiomarkerDiagUrls>);
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    const link = screen.getByRole("link", { name: "Alanine aminotransferase" });
+    expect(link).toHaveAttribute("href", "https://diag.pl/sklep/badania/alt-test");
+  });
+
+  it("renders selected biomarkers as text rows instead of pills", async () => {
+    usePanelStore.setState({
+      selected: [{ code: "TSH", name: "TSH" }],
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    const listItem = screen.getByText("TSH").closest("li");
+
+    expect(listItem).not.toHaveClass("rounded-full");
+  });
+
+  it("shows the cached optimization summary when available", async () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
+      lastOptimizationSummary: {
+        key: "alt",
+        totalNow: 120,
+        totalMin30: 100,
+        uncoveredCount: 0,
+        updatedAt: "2026-01-01T00:00:00Z",
+      },
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    const totalLabel = formatCurrency(120).replace(/\u00a0/g, " ");
+    const savingsLabel = formatCurrency(20).replace(/\u00a0/g, " ");
+
+    expect(
+      screen.getAllByText((content) => content.replace(/\u00a0/g, " ") === totalLabel)
+        .length,
+    ).toBeGreaterThan(1);
+    expect(
+      screen.getByText((content) => {
+        const normalized = content.replace(/\u00a0/g, " ");
+        return normalized.includes("30-day floor") && normalized.includes(savingsLabel);
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a mobile tray trigger that opens the dialog", async () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getByTestId("panel-tray-mobile"));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("tracks share copy events", async () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "Alanine aminotransferase" }],
+    });
+
+    const copyShareUrl = vi.fn().mockResolvedValue(true);
+    mockUseUrlBiomarkerSync.mockReturnValue({
+      isLoadingFromUrl: false,
+      getShareUrl: vi.fn(),
+      copyShareUrl,
+    });
+
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+    await user.click(
+      screen.getByRole("button", { name: "Share panel" }),
+    );
+
+    expect(copyShareUrl).toHaveBeenCalled();
+    expect(trackMock).toHaveBeenCalledWith("share_copy_url", { status: "success" });
+  });
+
+  it("focuses the tray search when pressing /", async () => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<PanelTray />);
+
+    await user.click(screen.getAllByRole("button", { name: /open panel tray/i })[0]);
+
+    const input = await screen.findByRole("combobox", {
+      name: "Search tests to add...",
+    });
+
+    expect(input).not.toHaveFocus();
+
+    fireEvent.keyDown(window, { key: "/" });
+
+    expect(input).toHaveFocus();
+  });
+});

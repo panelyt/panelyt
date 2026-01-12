@@ -1,50 +1,80 @@
 "use client";
 
-import { use, useMemo } from "react";
+import { useMemo } from "react";
 import { CalendarDays, Loader2 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { Header } from "../../../../../components/header";
 import { useRouter } from "../../../../../i18n/navigation";
 import { OptimizationResults } from "../../../../../components/optimization-results";
 import { useSharedList } from "../../../../../hooks/useSharedList";
 import { useOptimization } from "../../../../../hooks/useOptimization";
+import { useBiomarkerDiagUrls } from "../../../../../hooks/useBiomarkerDiagUrls";
+import { formatExactTimestamp, resolveTimestamp } from "../../../../../lib/dates";
 
 interface SharedContentProps {
-  params: Promise<{ shareToken: string }>;
+  shareToken: string;
 }
 
-export default function SharedContent({ params }: SharedContentProps) {
+export default function SharedContent({ shareToken }: SharedContentProps) {
   const t = useTranslations();
-  const { shareToken } = use(params);
+  const locale = useLocale();
   const router = useRouter();
   const sharedQuery = useSharedList(shareToken, Boolean(shareToken));
   const sharedList = sharedQuery.data;
 
-  const biomarkerCodes = useMemo(
-    () => sharedList?.biomarkers.map((entry) => entry.code) ?? [],
+  const sharedSelection = useMemo(
+    () =>
+      sharedList?.biomarkers.map((entry) => ({
+        code: entry.code,
+        name: entry.display_name,
+      })) ?? [],
     [sharedList],
   );
-  const optimization = useOptimization(biomarkerCodes, 'auto');
+  const biomarkerCodes = useMemo(
+    () => sharedSelection.map((entry) => entry.code),
+    [sharedSelection],
+  );
+  const biomarkerUrls = useBiomarkerDiagUrls(biomarkerCodes);
+  const optimizationQuery = useOptimization(biomarkerCodes);
+  const activeResult = optimizationQuery.data;
+  const sharedTimestampFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+    [locale],
+  );
+  const sharedTimestamp = useMemo(() => {
+    if (!sharedList?.shared_at) {
+      return null;
+    }
+    const resolved = resolveTimestamp(sharedList.shared_at);
+    if (!resolved) {
+      return null;
+    }
+    return formatExactTimestamp(resolved.date, sharedTimestampFormatter);
+  }, [sharedList, sharedTimestampFormatter]);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-app text-primary">
       <Header />
 
       <div className="mx-auto max-w-5xl px-6 py-8">
         {sharedList ? (
           <div className="space-y-3">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-secondary">
               <span className="font-mono">shared/{shareToken}</span>
             </p>
-            <h1 className="text-3xl font-semibold text-white">{sharedList.name}</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="text-3xl font-semibold text-primary">{sharedList.name}</h1>
+            <p className="text-xs text-secondary">
               <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-              {t("sharedList.shared")} {sharedList.shared_at ? new Date(sharedList.shared_at).toLocaleString("pl-PL") : ""}
+              {t("sharedList.shared")} {sharedTimestamp ?? ""}
             </p>
           </div>
         ) : sharedQuery.isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-slate-300">
+          <div className="flex items-center gap-2 text-sm text-secondary">
             <Loader2 className="h-4 w-4 animate-spin" /> {t("sharedList.loadingList")}
           </div>
         ) : sharedQuery.isError ? (
@@ -54,7 +84,7 @@ export default function SharedContent({ params }: SharedContentProps) {
 
       <section className="mx-auto flex max-w-5xl flex-col gap-8 px-6 pb-10">
         {sharedQuery.isLoading ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-6 text-sm text-slate-300">
+          <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-surface-1/80 px-4 py-6 text-sm text-secondary">
             <Loader2 className="h-5 w-5 animate-spin" /> {t("sharedList.fetchingList")}
           </div>
         ) : sharedQuery.isError || !sharedList ? (
@@ -63,51 +93,63 @@ export default function SharedContent({ params }: SharedContentProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
+            <section className="space-y-4 rounded-2xl border border-border/80 bg-surface-1/80 p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
                     {t("sharedList.sharedBiomarkers")}
                   </p>
-                  <h2 className="text-xl font-semibold text-white">{t("sharedList.selectionOverview")}</h2>
+                  <h2 className="text-xl font-semibold text-primary">{t("sharedList.selectionOverview")}</h2>
                 </div>
                 <button
                   type="button"
-                  onClick={() => router.push({ pathname: "/", query: { shared: shareToken } })}
+                  onClick={() => router.push(`/?shared=${shareToken}`)}
                   className="rounded-lg border border-emerald-500/60 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
                 >
                   {t("lists.loadInOptimizer")}
                 </button>
               </div>
-              <ul className="space-y-3 text-sm text-slate-200">
+              <ul className="space-y-3 text-sm text-primary">
                 {sharedList.biomarkers.map((entry) => (
                   <li
                     key={entry.id}
-                    className="flex flex-col gap-1 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3"
+                    className="flex flex-col gap-1 rounded-xl border border-border/80 bg-surface-2/60 px-4 py-3"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-white">{entry.display_name}</span>
+                      {biomarkerUrls.data?.[entry.code] ? (
+                        <a
+                          href={biomarkerUrls.data[entry.code] ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-primary transition hover:text-accent-emerald"
+                        >
+                          {entry.display_name}
+                        </a>
+                      ) : (
+                        <span className="font-semibold text-primary">
+                          {entry.display_name}
+                        </span>
+                      )}
                     </div>
-                    {entry.biomarker_id && (
-                      <p className="text-xs text-slate-400">{t("sharedList.mappedBiomarkerId")}: {entry.biomarker_id}</p>
-                    )}
                   </li>
                 ))}
               </ul>
             </section>
 
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-xl font-semibold text-white">{t("sharedList.livePricing")}</h2>
-              <p className="mt-2 text-sm text-slate-300">
+            <section className="rounded-2xl border border-border/80 bg-surface-1/80 p-6">
+              <h2 className="text-xl font-semibold text-primary">{t("sharedList.livePricing")}</h2>
+              <p className="mt-2 text-sm text-secondary">
                 {t("sharedList.livePricingDescription")}
               </p>
               <div className="mt-6">
                 <OptimizationResults
                   selected={biomarkerCodes}
-                  result={optimization.data}
-                  isLoading={optimization.isLoading}
-                  error={optimization.error}
+                  result={activeResult}
+                  isLoading={optimizationQuery.isLoading}
+                  error={optimizationQuery.error}
                   variant="dark"
+                  addonSuggestions={[]}
+                  addonSuggestionsLoading={false}
                 />
               </div>
             </section>

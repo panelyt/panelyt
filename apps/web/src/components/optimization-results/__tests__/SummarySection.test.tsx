@@ -1,3 +1,5 @@
+import { screen } from '@testing-library/react'
+
 import { renderWithIntl } from '../../../test/utils'
 import { SummarySection } from '../summary-section'
 import { buildOptimizationViewModel } from '../view-model'
@@ -21,8 +23,6 @@ const buildResult = (): OptimizeResponse => ({
       biomarkers: ['ALT', 'AST', 'CHOL'],
       url: 'https://diag.pl/sklep/pakiety/liver-panel',
       on_sale: false,
-      lab_code: 'diag',
-      lab_name: 'Diagnostyka',
     },
     {
       id: 2,
@@ -35,20 +35,12 @@ const buildResult = (): OptimizeResponse => ({
       biomarkers: ['ALT', 'GLU'],
       url: 'https://diag.pl/sklep/pakiety/metabolic-panel',
       on_sale: false,
-      lab_code: 'diag',
-      lab_name: 'Diagnostyka',
     },
   ],
   bonus_total_now: 15,
   explain: {},
   uncovered: [],
-  lab_code: 'diag',
-  lab_name: 'Diagnostyka',
-  exclusive: { ALT: 'Diagnostyka' },
   labels: { ALT: 'ALT', AST: 'AST', CHOL: 'CHOL', GLU: 'GLU' },
-  mode: 'auto',
-  lab_options: [],
-  lab_selections: [],
   addon_suggestions: [],
 })
 
@@ -63,7 +55,6 @@ describe('SummarySection', () => {
     renderWithIntl(
       <SummarySection
         viewModel={viewModel}
-        labCards={[]}
       />,
       { locale: 'pl', messages: plMessages }
     )
@@ -72,8 +63,37 @@ describe('SummarySection', () => {
     expect(document.body.textContent).toContain('Potencjalne oszczędności')
     expect(document.body.textContent).toContain('Wartość bonusu')
     expect(document.body.textContent).toContain('Pozycja ceny')
-    expect(document.body.textContent).toContain('Tylko w laboratorium Diagnostyka')
     expect(document.body.textContent).toContain('Nakładanie pakietów')
-    expect(document.body.textContent).toContain('Kliknij, aby zobaczyć biomarkery w wielu pakietach')
+    expect(document.body.textContent).toContain('Kliknij, aby zobaczyć badania w wielu pakietach')
+  })
+
+  it('uses translated placeholder when savings and bonus are empty', () => {
+    const viewModel = buildOptimizationViewModel({
+      selected: ['ALT', 'AST'],
+      result: {
+        ...buildResult(),
+        total_now: 100,
+        total_min30: 100,
+        bonus_total_now: 0,
+      },
+      variant: 'light',
+    })
+
+    const messages = {
+      ...plMessages,
+      common: {
+        ...plMessages.common,
+        placeholderDash: 'N/A',
+      },
+    } as typeof plMessages
+
+    renderWithIntl(
+      <SummarySection
+        viewModel={viewModel}
+      />,
+      { locale: 'pl', messages }
+    )
+
+    expect(screen.getAllByText('N/A').length).toBeGreaterThan(0)
   })
 })

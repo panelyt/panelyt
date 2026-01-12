@@ -1,109 +1,160 @@
-.PHONY: help install-web install-api install-bot dev-web dev-api dev-bot lint-api test-api migrate-api ingest-api docker-up docker-down fmt-api check typecheck-api lint-web typecheck-web test-web lint-bot typecheck-bot test
+# Standard Makefile (portable)
+# Fill in *_CMD variables or replace the recipes with project-specific commands.
 
 UV ?= uv
 UV_ENV ?= UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache
 PNPM ?= corepack pnpm
 
-help: ## Show this help message
-	@echo "Available commands:"
-	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+SETUP_CMD ?= (cd apps/api && $(UV_ENV) $(UV) sync --extra dev) && 	(cd apps/web && $(PNPM) install) && 	(cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev)
+BUILD_CMD ?= (cd apps/web && $(PNPM) --filter @panelyt/types build)
+TEST_CMD ?= $(MAKE) test-api && $(MAKE) test-web
+LINT_CMD ?= $(MAKE) typecheck-api && $(MAKE) lint-api && 	$(MAKE) typecheck-bot && $(MAKE) lint-bot && 	$(MAKE) typecheck-web && $(MAKE) lint-web
+FMT_CMD ?= $(MAKE) fmt-api
+CLEAN_CMD ?= rm -rf 	apps/api/.pytest_cache apps/api/.mypy_cache apps/api/.ruff_cache 	apps/telegram-bot/.pytest_cache apps/telegram-bot/.mypy_cache apps/telegram-bot/.ruff_cache 	apps/web/.next apps/web/out apps/web/build
 
-install-web: ## Install web frontend dependencies
-	cd apps/web && corepack enable && $(PNPM) install
+.PHONY: help setup build test lint fmt clean verify 	install-web install-api install-bot 	dev-web dev-api dev-bot 	lint-api test-api migrate-api ingest-api 	docker-up docker-down fmt-api check typecheck-api 	lint-web typecheck-web test-web 	lint-bot typecheck-bot
 
-install-api: ## Install API backend dependencies
+help:
+	@printf "%s\n" "Available targets:" \
+		"  setup         Install dependencies" \
+		"  build         Build shared artifacts (types)" \
+		"  test          Run all tests (api + web)" \
+		"  lint          Run lint + typecheck across api/web/bot" \
+		"  fmt           Auto-format API code" \
+		"  clean         Remove build artifacts and caches" \
+		"  verify        Run build + test + lint + fmt (fail fast)" \
+		"" \
+		"  install-api   Install API backend dependencies" \
+		"  install-web   Install web frontend dependencies" \
+		"  install-bot   Install Telegram bot dependencies" \
+		"  dev-api       Start API backend development server" \
+		"  dev-web       Start web frontend development server" \
+		"  dev-bot       Run Telegram bot locally with long polling" \
+		"  lint-api      Run linting checks on API code" \
+		"  fmt-api       Format and fix API code style" \
+		"  typecheck-api Run type checking on API code" \
+		"  test-api      Run API test suite" \
+		"  lint-web      Run linting checks on web frontend" \
+		"  typecheck-web Run type checking on web frontend" \
+		"  test-web      Run web frontend test suite" \
+		"  lint-bot      Run linting checks on Telegram bot code" \
+		"  typecheck-bot Run type checking on Telegram bot code" \
+		"  migrate-api   Run database migrations" \
+		"  ingest-api    Run data ingestion for the API" \
+		"  docker-up     Start all services with Docker Compose" \
+		"  docker-down   Stop all Docker Compose services" \
+		"  check         Run full suite (alias for verify)"
+
+setup:
+	@if [ -n "$(SETUP_CMD)" ]; then \
+		$(SETUP_CMD); \
+	else \
+		printf "%s\n" "setup: SETUP_CMD not set"; \
+		exit 1; \
+	fi
+
+build:
+	@if [ -n "$(BUILD_CMD)" ]; then \
+		$(BUILD_CMD); \
+	else \
+		printf "%s\n" "build: BUILD_CMD not set"; \
+		exit 1; \
+	fi
+
+test:
+	@if [ -n "$(TEST_CMD)" ]; then \
+		$(TEST_CMD); \
+	else \
+		printf "%s\n" "test: TEST_CMD not set"; \
+		exit 1; \
+	fi
+
+lint:
+	@if [ -n "$(LINT_CMD)" ]; then \
+		$(LINT_CMD); \
+	else \
+		printf "%s\n" "lint: LINT_CMD not set"; \
+		exit 1; \
+	fi
+
+fmt:
+	@if [ -n "$(FMT_CMD)" ]; then \
+		$(FMT_CMD); \
+	else \
+		printf "%s\n" "fmt: FMT_CMD not set"; \
+		exit 1; \
+	fi
+
+clean:
+	@if [ -n "$(CLEAN_CMD)" ]; then \
+		$(CLEAN_CMD); \
+	else \
+		printf "%s\n" "clean: CLEAN_CMD not set"; \
+		exit 1; \
+	fi
+
+verify:
+	@$(MAKE) build
+	@$(MAKE) test
+	@$(MAKE) lint
+	@$(MAKE) fmt
+
+install-web:
+	cd apps/web && $(PNPM) install
+
+install-api:
 	cd apps/api && $(UV_ENV) $(UV) sync --extra dev
 
-install-bot: ## Install Telegram bot dependencies
+install-bot:
 	cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev
 
-dev-web: ## Start web frontend development server
-	cd apps/web && corepack enable && $(PNPM) --filter @panelyt/types build && $(PNPM) dev
+dev-web:
+	cd apps/web && $(PNPM) --filter @panelyt/types build && $(PNPM) dev
 
-dev-api: ## Start API backend development server
+dev-api:
 	cd apps/api && $(UV_ENV) $(UV) run uvicorn panelyt_api.main:app --reload --host 0.0.0.0 --port 8000 --reload-dir src
 
-dev-bot: ## Run Telegram bot locally with long polling
+dev-bot:
 	cd apps/telegram-bot && $(UV_ENV) $(UV) run panelyt-telegram-bot
 
-lint-api: ## Run linting checks on API code
-	( cd apps/api && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
-	( cd apps/api && $(UV_ENV) $(UV) run ruff check src ) || ( cd apps/api && .venv/bin/ruff check src )
+lint-api:
+	cd apps/api && $(UV_ENV) $(UV) run --extra dev ruff check src
 
-fmt-api: ## Format and fix API code style
-	cd apps/api && $(UV_ENV) $(UV) run ruff check src --fix
+fmt-api:
+	cd apps/api && $(UV_ENV) $(UV) run --extra dev ruff check src --fix
 
-test-api: ## Run API test suite
-	( cd apps/api && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
-	( cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" $(UV_ENV) $(UV) run pytest ) || \
-		( cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" .venv/bin/pytest )
+test-api:
+	cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" $(UV_ENV) $(UV) run --extra dev pytest
 
-migrate-api: ## Run database migrations
+migrate-api:
 	cd apps/api && $(UV_ENV) $(UV) run alembic upgrade head
 
-ingest-api: ## Run data ingestion for the API
+ingest-api:
 	cd apps/api && $(UV_ENV) $(UV) run python scripts/run_ingestion.py
 
-docker-up: ## Start all services with Docker Compose
+docker-up:
 	cd infra && docker compose up --build
 
-docker-down: ## Stop all Docker Compose services
+docker-down:
 	cd infra && docker compose down
 
-typecheck-api: ## Run type checking on API code
-	( cd apps/api && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
-	( cd apps/api && $(UV_ENV) $(UV) run mypy src ) || ( cd apps/api && .venv/bin/python -m mypy src )
+typecheck-api:
+	cd apps/api && $(UV_ENV) $(UV) run --extra dev mypy src
 
-lint-web: ## Run linting checks on web frontend
+lint-web:
 	cd apps/web && $(PNPM) lint
 
-lint-bot: ## Run linting checks on Telegram bot code
-	( cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
-	( cd apps/telegram-bot && $(UV_ENV) $(UV) run ruff check src ) || ( cd apps/telegram-bot && .venv/bin/ruff check src )
-
-typecheck-web: ## Run type checking on web frontend
+typecheck-web:
 	cd apps/web && $(PNPM) typecheck
 
-typecheck-bot: ## Run type checking on Telegram bot code
-	( cd apps/telegram-bot && $(UV_ENV) $(UV) sync --extra dev ) || echo "Skipping uv sync; using existing virtualenv"
-	( cd apps/telegram-bot && $(UV_ENV) $(UV) run mypy src ) || ( cd apps/telegram-bot && .venv/bin/python -m mypy src )
-
-test-web: ## Run web frontend test suite
+test-web:
 	cd apps/web && $(PNPM) --filter @panelyt/web test:run
 
-test: ## Run all test suites
-	$(MAKE) test-api
-	$(MAKE) test-web
+lint-bot:
+	cd apps/telegram-bot && $(UV_ENV) $(UV) run --extra dev ruff check src
 
-check: ## Run comprehensive code quality checks, tests, and linting for the entire project
-	@echo "🔍 Running comprehensive code quality checks..."
-	@echo ""
-	@echo "📦 Building shared types..."
-	cd apps/web && $(PNPM) --filter @panelyt/types build
-	@echo ""
-	@echo "🔧 API: Type checking..."
-	$(MAKE) typecheck-api
-	@echo ""
-	@echo "🔧 API: Linting..."
-	$(MAKE) lint-api
-	@echo ""
-	@echo "🧪 API: Running tests..."
-	$(MAKE) test-api
-	@echo ""
-	@echo "🤖 Bot: Type checking..."
-	$(MAKE) typecheck-bot
-	@echo ""
-	@echo "🤖 Bot: Linting..."
-	$(MAKE) lint-bot
-	@echo ""
-	@echo "🌐 Web: Type checking..."
-	$(MAKE) typecheck-web
-	@echo ""
-	@echo "🌐 Web: Linting..."
-	$(MAKE) lint-web
-	@echo ""
-	@echo "🌐 Web: Running tests..."
-	$(MAKE) test-web
-	@echo ""
-	@echo "✅ All checks completed successfully!"
+typecheck-bot:
+	cd apps/telegram-bot && $(UV_ENV) $(UV) run --extra dev mypy src
+
+check:
+	@$(MAKE) verify
