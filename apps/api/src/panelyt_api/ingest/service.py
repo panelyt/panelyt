@@ -48,6 +48,10 @@ class IngestionService:
             hours=self._settings.ingestion_staleness_threshold_hours
         )
 
+        # SQLite can return naive timestamps; treat them as UTC.
+        if latest_fetch and latest_fetch.tzinfo is None:
+            latest_fetch = latest_fetch.replace(tzinfo=UTC)
+
         needs_snapshot = latest_snapshot != today
         is_stale = latest_fetch is None or latest_fetch < stale_threshold
 

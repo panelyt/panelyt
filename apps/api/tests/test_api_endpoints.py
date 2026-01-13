@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from sqlalchemy import insert, select
 
+from panelyt_api.core.cache import freshness_cache
 from panelyt_api.db import models
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 
@@ -88,6 +89,12 @@ class TestHealthEndpoints:
 
 
 class TestCatalogEndpoints:
+    @pytest.fixture(autouse=True)
+    def _skip_ingestion_checks(self):
+        freshness_cache.mark_checked(DEFAULT_INSTITUTION_ID)
+        yield
+        freshness_cache.clear(DEFAULT_INSTITUTION_ID)
+
     async def _attach_item(
         self,
         session,
@@ -298,62 +305,68 @@ class TestCatalogEndpoints:
         db_session,
     ):
         """Institution query param should control biomarker pricing."""
-        await db_session.execute(
-            insert(models.Biomarker).values(
-                [
+        freshness_cache.mark_checked(1111)
+        freshness_cache.mark_checked(2222)
+        try:
+            await db_session.execute(
+                insert(models.Biomarker).values(
+                    [
+                        {
+                            "id": 1,
+                            "name": "Alanine aminotransferase",
+                            "elab_code": "ALT",
+                            "slug": "alt",
+                        }
+                    ]
+                )
+            )
+            await db_session.commit()
+
+            await self._attach_item(
+                db_session,
+                biomarker_id=1,
+                item_id=2051,
+                price=1000,
+                institution_id=1111,
+            )
+            await db_session.execute(
+                insert(models.Institution).values({"id": 2222, "name": "Institution 2222"})
+            )
+            await db_session.execute(
+                insert(models.InstitutionItem).values(
                     {
-                        "id": 1,
-                        "name": "Alanine aminotransferase",
-                        "elab_code": "ALT",
-                        "slug": "alt",
+                        "institution_id": 2222,
+                        "item_id": 2051,
+                        "is_available": True,
+                        "currency": "PLN",
+                        "price_now_grosz": 2000,
+                        "price_min30_grosz": 2000,
+                        "sale_price_grosz": None,
+                        "regular_price_grosz": None,
+                        "fetched_at": datetime.now(timezone.utc),
                     }
-                ]
+                )
             )
-        )
-        await db_session.commit()
+            await db_session.commit()
 
-        await self._attach_item(
-            db_session,
-            biomarker_id=1,
-            item_id=2051,
-            price=1000,
-            institution_id=1111,
-        )
-        await db_session.execute(
-            insert(models.Institution).values({"id": 2222, "name": "Institution 2222"})
-        )
-        await db_session.execute(
-            insert(models.InstitutionItem).values(
-                {
-                    "institution_id": 2222,
-                    "item_id": 2051,
-                    "is_available": True,
-                    "currency": "PLN",
-                    "price_now_grosz": 2000,
-                    "price_min30_grosz": 2000,
-                    "sale_price_grosz": None,
-                    "regular_price_grosz": None,
-                    "fetched_at": datetime.now(timezone.utc),
-                }
+            response_a = await async_client.get(
+                "/catalog/biomarkers?query=ALT&institution=1111"
             )
-        )
-        await db_session.commit()
+            response_b = await async_client.get(
+                "/catalog/biomarkers?query=ALT&institution=2222"
+            )
 
-        response_a = await async_client.get(
-            "/catalog/biomarkers?query=ALT&institution=1111"
-        )
-        response_b = await async_client.get(
-            "/catalog/biomarkers?query=ALT&institution=2222"
-        )
+            assert response_a.status_code == 200
+            assert response_b.status_code == 200
 
-        assert response_a.status_code == 200
-        assert response_b.status_code == 200
+            data_a = response_a.json()
+            data_b = response_b.json()
 
-        data_a = response_a.json()
-        data_b = response_b.json()
-
-        assert data_a["results"][0]["price_now_grosz"] == 1000
-        assert data_b["results"][0]["price_now_grosz"] == 2000
+            assert data_a["results"][0]["price_now_grosz"] == 1000
+            assert data_b["results"][0]["price_now_grosz"] == 2000
+        finally:
+            freshness_cache.clear(1111)
+            freshness_cache.clear(2222)
 
     async def test_search_biomarkers_fuzzy_search(self, async_client: AsyncClient, db_session):
         """Test biomarker fuzzy search functionality."""

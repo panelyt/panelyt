@@ -695,7 +695,14 @@ class TestDiagClient:
         ]
         assert mock_http_client.get.call_count == 1
         _, kwargs = mock_http_client.get.call_args
-        assert kwargs.get("params") == {"q": "krak", "page": 2, "limit": 5}
+        assert kwargs.get("params") == {
+            "q": "krak",
+            "page": 2,
+            "limit": 5,
+            "include": "address,city",
+            "filter[attributes]": "ESHOP,ECO,PPA",
+            "filter[temporaryDisabled]": "false",
+        }
 
     async def test_parse_product_single_test(self, diag_client):
         entry = {
