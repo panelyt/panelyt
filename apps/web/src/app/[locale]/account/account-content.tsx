@@ -14,6 +14,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Header } from "../../../components/header";
+import { OfficeSelector } from "../../../components/office-selector";
 import { useAccountSettings } from "../../../hooks/useAccountSettings";
 import { useUserSession } from "../../../hooks/useUserSession";
 import { track } from "../../../lib/analytics";
@@ -133,6 +134,9 @@ export default function AccountContent() {
         <p className="mt-2 max-w-2xl text-sm text-secondary">
           {t("account.description")}
         </p>
+        <div className="mt-4 max-w-sm">
+          <OfficeSelector />
+        </div>
         {mutationError && (
           <p className="mt-4 text-sm text-accent-red">{mutationError}</p>
         )}

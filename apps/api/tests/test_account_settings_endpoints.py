@@ -26,6 +26,7 @@ def test_account_settings_disabled(client: TestClient) -> None:
     payload = response.json()
     assert payload["telegram"]["enabled"] is False
     assert payload["telegram"]["chat_id"] is None
+    assert payload["preferred_institution_id"] is None
 
 
 def test_generate_link_token(client: TestClient, test_settings) -> None:
@@ -67,6 +68,7 @@ def test_link_and_unlink_flow(client: TestClient, test_settings) -> None:
     assert settings_response.status_code == 200
     telegram = settings_response.json()["telegram"]
     assert telegram["chat_id"] == "12345"
+    assert settings_response.json()["preferred_institution_id"] is None
 
     response = client.post("/account/telegram/unlink")
     assert response.status_code == 204
@@ -75,6 +77,7 @@ def test_link_and_unlink_flow(client: TestClient, test_settings) -> None:
     assert settings_response.status_code == 200
     telegram = settings_response.json()["telegram"]
     assert telegram["chat_id"] is None
+    assert settings_response.json()["preferred_institution_id"] is None
 
 
 def test_telegram_secret_enforced(client: TestClient, test_settings) -> None:

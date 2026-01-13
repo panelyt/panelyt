@@ -36,3 +36,11 @@ class DiagIngestionResult:
     fetched_at: datetime
     items: list[RawDiagItem]
     raw_payload: Mapping[str, Any]
+
+
+@dataclass(slots=True)
+class DiagInstitution:
+    id: int
+    name: str
+    city: str | None = None
+    address: str | None = None

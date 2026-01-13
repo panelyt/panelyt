@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "../i18n/navigation";
 import { defaultLocale } from "../i18n/config";
-import { BiomarkerSearchResponseSchema } from "@panelyt/types";
 
-import { getJson } from "../lib/http";
+import { fetchBiomarkerBatch } from "../lib/biomarkers";
+import { useInstitution } from "./useInstitution";
 
 export interface SelectedBiomarker {
   code: string;
@@ -18,50 +18,26 @@ const URL_UPDATE_DEBOUNCE_MS = 300;
 
 /**
  * Looks up display names for biomarker codes.
- * Returns a map of code -> display name.
+ * Returns a map of code -> display name plus unresolved flag.
  * Falls back to code itself if lookup fails.
  */
-async function lookupBiomarkerNames(codes: string[]): Promise<Record<string, string>> {
+async function lookupBiomarkerNames(
+  codes: string[],
+  institutionId: number,
+): Promise<{ lookup: Record<string, string>; hasUnresolved: boolean }> {
   const lookup: Record<string, string> = {};
+  let hasUnresolved = false;
+  const batch = await fetchBiomarkerBatch(codes, institutionId);
 
-  // Initialize with codes as fallback names
   for (const code of codes) {
-    lookup[code] = code;
-  }
-
-  if (codes.length === 0) {
-    return lookup;
-  }
-
-  // Try to find names by searching for each code
-  const searchPromises = codes.map(async (code) => {
-    const normalizedCode = code.trim().toLowerCase();
-    try {
-      const payload = await getJson(`/catalog/biomarkers?query=${encodeURIComponent(code)}`);
-      const response = BiomarkerSearchResponseSchema.parse(payload);
-
-      // Find exact match by elab_code, slug, or name (case-insensitive)
-      const exactMatch = response.results.find((b) => {
-        const normalizedElab = b.elab_code?.trim().toLowerCase();
-        const normalizedSlug = b.slug?.trim().toLowerCase();
-        const normalizedName = b.name.trim().toLowerCase();
-        return (
-          normalizedElab === normalizedCode ||
-          normalizedSlug === normalizedCode ||
-          normalizedName === normalizedCode
-        );
-      });
-      const match = exactMatch ?? (response.results.length === 1 ? response.results[0] : null);
-      if (match) {
-        lookup[code] = match.name;
-      }
-    } catch {
-      // Keep fallback name (the code itself)
+    const name = batch[code]?.name ?? code;
+    lookup[code] = name;
+    if (batch[code] === null) {
+      hasUnresolved = true;
     }
-  });
+  }
 
-  await Promise.all(searchPromises);
-  return lookup;
+  return { lookup, hasUnresolved };
 }
 
 export interface UseUrlBiomarkerSyncOptions {
@@ -78,6 +54,8 @@ export interface UseUrlBiomarkerSyncOptions {
 export interface UseUrlBiomarkerSyncResult {
   /** Whether biomarkers are currently being loaded from URL */
   isLoadingFromUrl: boolean;
+  /** Biomarker codes still loading names from URL */
+  loadingCodes: string[];
   /** Get the shareable URL with current biomarkers */
   getShareUrl: () => string;
   /** Copy the shareable URL to clipboard */
@@ -98,9 +76,11 @@ export function useUrlBiomarkerSync(
 ): UseUrlBiomarkerSyncResult {
   const { selected, onLoadFromUrl, skipSync = false, locale } = options;
 
+  const { institutionId } = useInstitution();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
+  const [loadingCodes, setLoadingCodes] = useState<string[]>([]);
 
   // Track whether we've done initial load from URL
   const initialLoadDoneRef = useRef(false);
@@ -119,6 +99,11 @@ export function useUrlBiomarkerSync(
   const selectedRef = useRef<SelectedBiomarker[]>(selected);
   const selectedKeyRef = useRef<string>(selectedKey);
   const onLoadFromUrlRef = useRef(onLoadFromUrl);
+  const loadedCodesRef = useRef<string[]>([]);
+  const loadedKeyRef = useRef<string | null>(null);
+  const unresolvedCodesRef = useRef<Set<string>>(new Set());
+  const lastLoadedRef = useRef<SelectedBiomarker[] | null>(null);
+  const lastLookupInstitutionRef = useRef<number | null>(null);
 
   useEffect(() => {
     selectedRef.current = selected;
@@ -160,7 +145,15 @@ export function useUrlBiomarkerSync(
 
     const urlKey = codes.join(",");
 
-    if (selectedKeyRef.current && selectedKeyRef.current === urlKey) {
+    const selectedMatchesUrl =
+      selectedKeyRef.current && selectedKeyRef.current === urlKey;
+    const hasUnresolvedSelection = selectedMatchesUrl
+      ? selectedRef.current.some(
+          (entry) =>
+            entry.name.trim().toUpperCase() === entry.code.trim().toUpperCase(),
+        )
+      : false;
+    if (selectedMatchesUrl && !hasUnresolvedSelection) {
       initialLoadDoneRef.current = true;
       lastWrittenCodesRef.current = urlKey;
       return;
@@ -169,20 +162,35 @@ export function useUrlBiomarkerSync(
     // Mark as loading and populate immediate fallbacks
     setIsLoadingFromUrl(true);
     initialLoadDoneRef.current = true;
-    lastWrittenCodesRef.current = codes.join(",");
+    const joinedCodes = codes.join(",");
+    lastWrittenCodesRef.current = joinedCodes;
+    loadedCodesRef.current = codes;
+    loadedKeyRef.current = joinedCodes;
     const selectedNames = new Map(
       selectedRef.current.map((entry) => [entry.code.trim().toUpperCase(), entry.name]),
     );
+    const pendingCodes = codes.filter((code) => {
+      const selectedName = selectedNames.get(code);
+      if (!selectedName) {
+        return true;
+      }
+      return selectedName.trim().toUpperCase() === code;
+    });
     const fallbackBiomarkers = codes.map((code) => ({
       code,
       name: selectedNames.get(code) ?? code,
     }));
-    onLoadFromUrlRef.current(fallbackBiomarkers);
+    setLoadingCodes(pendingCodes);
+    lastLoadedRef.current = fallbackBiomarkers;
+    unresolvedCodesRef.current = new Set(pendingCodes);
+    if (!selectedMatchesUrl) {
+      onLoadFromUrlRef.current(fallbackBiomarkers);
+    }
 
     let cancelled = false;
 
-    lookupBiomarkerNames(codes)
-      .then((nameMap) => {
+    lookupBiomarkerNames(codes, institutionId)
+      .then(({ lookup: nameMap, hasUnresolved }) => {
         if (cancelled) {
           return;
         }
@@ -190,25 +198,100 @@ export function useUrlBiomarkerSync(
           code,
           name: nameMap[code] || code,
         }));
+        unresolvedCodesRef.current = hasUnresolved ? new Set(codes) : new Set();
+        lastLookupInstitutionRef.current = institutionId;
+        const previous = lastLoadedRef.current ?? fallbackBiomarkers;
+        const previousNames = new Map(
+          previous.map((entry) => [entry.code.trim().toUpperCase(), entry.name]),
+        );
         const hasUpdates = biomarkers.some(
           (biomarker) =>
-            fallbackBiomarkers.find((entry) => entry.code === biomarker.code)?.name !==
-            biomarker.name,
+            previousNames.get(biomarker.code.trim().toUpperCase()) !== biomarker.name,
         );
         if (hasUpdates) {
           onLoadFromUrlRef.current(biomarkers);
+          lastLoadedRef.current = biomarkers;
         }
       })
       .finally(() => {
         if (!cancelled) {
           setIsLoadingFromUrl(false);
+          setLoadingCodes([]);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [searchParams, skipSync, hasOtherParams]);
+  }, [institutionId, searchParams, skipSync, hasOtherParams]);
+
+  useEffect(() => {
+    if (!initialLoadDoneRef.current || skipSync || hasOtherParams) {
+      return;
+    }
+
+    const loadedKey = loadedKeyRef.current;
+    if (!loadedKey || loadedCodesRef.current.length === 0) {
+      return;
+    }
+
+    if (selectedKeyRef.current !== loadedKey) {
+      return;
+    }
+
+    if (lastLookupInstitutionRef.current === institutionId) {
+      return;
+    }
+
+    if (unresolvedCodesRef.current.size === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingCodes(Array.from(unresolvedCodesRef.current));
+
+    setIsLoadingFromUrl(true);
+    lookupBiomarkerNames(loadedCodesRef.current, institutionId)
+      .then(({ lookup: nameMap, hasUnresolved }) => {
+        if (cancelled) {
+          return;
+        }
+
+        const biomarkers = loadedCodesRef.current.map((code) => ({
+          code,
+          name: nameMap[code] || code,
+        }));
+
+        unresolvedCodesRef.current = hasUnresolved
+          ? new Set(loadedCodesRef.current)
+          : new Set();
+        lastLookupInstitutionRef.current = institutionId;
+
+        const previous = lastLoadedRef.current ?? [];
+        const previousNames = new Map(
+          previous.map((entry) => [entry.code.trim().toUpperCase(), entry.name]),
+        );
+        const hasUpdates = biomarkers.some(
+          (biomarker) =>
+            previousNames.get(biomarker.code.trim().toUpperCase()) !== biomarker.name,
+        );
+
+        if (hasUpdates) {
+          onLoadFromUrlRef.current(biomarkers);
+          lastLoadedRef.current = biomarkers;
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingFromUrl(false);
+          setLoadingCodes([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [institutionId, skipSync, hasOtherParams]);
 
   // Write to URL when selection changes
   useEffect(() => {
@@ -301,6 +384,7 @@ export function useUrlBiomarkerSync(
 
   return {
     isLoadingFromUrl,
+    loadingCodes,
     getShareUrl,
     copyShareUrl,
   };

@@ -108,6 +108,7 @@
     "enterHint": "Wybierz sugestię, aby ją dodać.",
     "noMatches": "Brak bezpośrednich dopasowań. Spróbuj wpisać nazwę badania.",
     "searching": "Szukanie...",
+    "priceUpdateNotice": "Aktualizujemy ceny dla tej placówki...",
     "groupBiomarkers": "Badania",
     "groupTemplates": "Gotowe panele",
     "saveAsTemplate": "Zapisz jako panel",
@@ -129,7 +130,7 @@
     "emptyState": "Zacznij od dodania badań powyżej. Panelyt natychmiast uruchomi algorytm i zasugeruje najtańszą kombinację pojedynczych badań i pakietów, wyróżniając dodatkowe badania, które otrzymasz w pakiecie.",
     "optimizing": "Obliczanie optymalnej kombinacji...",
     "optimizationFailed": "Optymalizacja nie powiodła się",
-    "currentTotal": "Szacowana cena"
+    "currentTotal": "Cena"
   },
   "lists": {
     "title": "Moje panele",
@@ -272,14 +273,14 @@
     "atFloor": "Najniższa cena",
     "matchingFloor": "Na poziomie minimum z 30 dni",
     "percentAboveFloor": "{percent}% powyżej minimum",
-    "potentialSavings": "Potencjalne oszczędności",
-    "bestPrice": "Masz najlepszą cenę",
-    "premiumOverFloor": "Różnica względem minimum z 30 dni",
+    "potentialSavings": "Oszczędności",
+    "bestPrice": "Brak oszczędności względem pojedynczych badań",
+    "premiumOverFloor": "Oszczędność względem pojedynczych badań",
     "bonusValue": "Wartość bonusu",
     "extraBiomarkersIncluded": "{count, plural, one {# dodatkowe badanie} few {# dodatkowe badania} many {# dodatkowych badań} other {# dodatkowych badań}} w zestawie",
     "noExtraBiomarkers": "Brak dodatkowych badań w zestawie",
     "optimizationSummaryTitle": "Podsumowanie optymalizacji",
-    "optimizationSummaryDescription": "Pokrywa {count, plural, one {# badanie} few {# badania} many {# badań} other {# badań}} w najkorzystniejszym zestawie dostępnym teraz. Porównaj aktualne ceny z cenami minimalnymi z ostatnich 30 dni, aby ocenić oszczędności.",
+    "optimizationSummaryDescription": "Pokrywa {count, plural, one {# badanie} few {# badania} many {# badań} other {# badań}} w najkorzystniejszym zestawie dostępnym teraz. Porównaj łączną cenę optymalizacji z sumą cen pojedynczych badań, aby ocenić oszczędności.",
     "bonusBiomarkersSummary": "{count, plural, one {# bonusowe badanie} few {# bonusowe badania} many {# bonusowych badań} other {# bonusowych badań}} ({total})",
     "packageOverlaps": "Nakładanie pakietów",
     "packageOverlapsExpanded": "Badania występujące w wielu pakietach",
@@ -409,6 +410,17 @@
     "siteName": "Panelyt",
     "homeOgTitle": "Panelyt - Kreator panelu",
     "homeOgDescription": "Znajdź najtańszą kombinację badań krwi. Porównuj ceny badań i pakietów, aby oszczędzać."
+  },
+  "officeSelector": {
+    "triggerLabel": "Placówka: {name}",
+    "searchPlaceholder": "Szukaj placówki...",
+    "currentLabel": "Wybrana placówka: {name}",
+    "loading": "Wyszukiwanie...",
+    "noResults": "Brak wyników"
+  },
+  "officeBanner": {
+    "title": "Wybierz placówkę, aby zobaczyć dokładne ceny",
+    "description": "Ceny i dostępność różnią się w zależności od lokalizacji. Wybierz placówkę, aby dopasować wyniki."
   },
   "language": {
     "switch": "English"

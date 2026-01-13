@@ -80,6 +80,7 @@ class SavedListService:
         user_id: str,
         name: str,
         entries: Sequence[SavedListEntryData],
+        institution_id: int,
     ) -> SavedList:
         prepared = self._prepare_entries(entries)
         biomarker_map = await self._resolver.resolve_for_list_entries(prepared)
@@ -103,7 +104,7 @@ class SavedListService:
                 )
             )
 
-        await self._refresh_list_totals(saved_list, prepared)
+        await self._refresh_list_totals(saved_list, prepared, institution_id)
         saved_list.updated_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
@@ -114,6 +115,7 @@ class SavedListService:
         saved_list: SavedList,
         name: str,
         entries: Sequence[SavedListEntryData],
+        institution_id: int,
     ) -> SavedList:
         prepared = self._prepare_entries(entries)
         biomarker_map = await self._resolver.resolve_for_list_entries(prepared)
@@ -135,7 +137,7 @@ class SavedListService:
                 )
             )
 
-        await self._refresh_list_totals(saved_list, prepared)
+        await self._refresh_list_totals(saved_list, prepared, institution_id)
         saved_list.updated_at = datetime.now(UTC)
         await self._db.flush()
         await self._db.refresh(saved_list, attribute_names=["entries"])
@@ -217,6 +219,7 @@ class SavedListService:
         self,
         saved_list: SavedList,
         entries: Sequence[SavedListEntryData],
+        institution_id: int,
     ) -> None:
         codes = [entry.code for entry in entries]
         timestamp = datetime.now(UTC)
@@ -225,7 +228,10 @@ class SavedListService:
             saved_list.last_total_updated_at = timestamp
             return
 
-        response = await self._optimizer.solve(OptimizeRequest(biomarkers=codes))
+        response = await self._optimizer.solve(
+            OptimizeRequest(biomarkers=codes),
+            institution_id,
+        )
         if response.uncovered:
             saved_list.last_known_total_grosz = None
             saved_list.last_total_updated_at = timestamp
@@ -245,6 +251,5 @@ class SavedListService:
             exists = await self._db.scalar(exists_stmt)
             if not exists:
                 return candidate
-
 
 __all__ = ["SavedListEntryData", "SavedListService"]

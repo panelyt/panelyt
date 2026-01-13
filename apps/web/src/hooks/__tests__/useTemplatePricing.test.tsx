@@ -5,8 +5,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useTemplatePricing } from "../useBiomarkerListTemplates";
 import type { BiomarkerListTemplate } from "@panelyt/types";
+import { buildOptimizationKey } from "../../lib/optimization";
 
 const postParsedJson = vi.fn();
+
+vi.mock("../useInstitution", () => ({
+  useInstitution: () => ({ institutionId: 1135, label: null, setInstitution: vi.fn() }),
+}));
 
 vi.mock("../../lib/http", () => ({
   postParsedJson: (...args: unknown[]) => postParsedJson(...args),
@@ -20,8 +25,11 @@ function createWrapper() {
       mutations: { retry: false },
     },
   });
-  return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return {
+    queryClient,
+    Wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    },
   };
 }
 
@@ -69,8 +77,8 @@ describe("useTemplatePricing", () => {
       });
     });
 
-    const wrapper = createWrapper();
-    renderHook(() => useTemplatePricing(templates), { wrapper });
+    const { Wrapper } = createWrapper();
+    renderHook(() => useTemplatePricing(templates), { wrapper: Wrapper });
 
     await waitFor(() => expect(postParsedJson).toHaveBeenCalledTimes(4));
     expect(inFlight.max).toBeLessThanOrEqual(4);
@@ -85,6 +93,26 @@ describe("useTemplatePricing", () => {
       while (deferreds.length > 0) {
         deferreds.shift()?.();
       }
+    });
+  });
+
+  it("includes institution id in template pricing query keys", async () => {
+    const templates = [makeTemplate("template-1", 1)];
+    postParsedJson.mockResolvedValue({ total_now: 123 } as unknown);
+
+    const { Wrapper, queryClient } = createWrapper();
+    renderHook(() => useTemplatePricing(templates), { wrapper: Wrapper });
+
+    const expectedKey = [
+      "optimize",
+      buildOptimizationKey(["B1"]),
+      "auto",
+      1135,
+    ];
+
+    await waitFor(() => {
+      const keys = queryClient.getQueryCache().findAll().map((query) => query.queryKey);
+      expect(keys).toContainEqual(expectedKey);
     });
   });
 });

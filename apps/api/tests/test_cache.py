@@ -55,22 +55,22 @@ class TestOptimizationCache:
         cache = OptimizationCache(maxsize=100, ttl_seconds=3600)
         biomarkers = ["TSH", "ALT", "AST"]
 
-        key1 = cache.make_key(biomarkers)
-        key2 = cache.make_key(biomarkers)
+        key1 = cache.make_key(biomarkers, 1135)
+        key2 = cache.make_key(biomarkers, 1135)
         assert key1 == key2
 
     def test_make_key_different_for_different_inputs(self):
         cache = OptimizationCache(maxsize=100, ttl_seconds=3600)
-        key1 = cache.make_key(["TSH", "ALT"])
-        key2 = cache.make_key(["TSH", "AST"])
-        key3 = cache.make_key(["ALT", "CRP"])
+        key1 = cache.make_key(["TSH", "ALT"], 1135)
+        key2 = cache.make_key(["TSH", "AST"], 1135)
+        key3 = cache.make_key(["ALT", "CRP"], 1135)
 
         assert len({key1, key2, key3}) == 3  # All different
 
     def test_make_key_order_independent_for_biomarkers(self):
         cache = OptimizationCache(maxsize=100, ttl_seconds=3600)
-        key1 = cache.make_key(["TSH", "ALT", "AST"])
-        key2 = cache.make_key(["AST", "TSH", "ALT"])
+        key1 = cache.make_key(["TSH", "ALT", "AST"], 1135)
+        key2 = cache.make_key(["AST", "TSH", "ALT"], 1135)
         assert key1 == key2
 
     def test_clear_removes_all_cached_values(self):
@@ -85,23 +85,23 @@ class TestOptimizationCache:
 class TestFreshnessCache:
     def test_should_check_returns_true_when_never_checked(self):
         cache = FreshnessCache(ttl_seconds=300)
-        assert cache.should_check() is True
+        assert cache.should_check(1135) is True
 
     def test_should_check_returns_false_after_recent_mark(self):
         cache = FreshnessCache(ttl_seconds=300)
-        cache.mark_checked()
-        assert cache.should_check() is False
+        cache.mark_checked(1135)
+        assert cache.should_check(1135) is False
 
     def test_should_check_returns_true_after_ttl_expires(self):
         cache = FreshnessCache(ttl_seconds=0)  # Immediate expiry
-        cache.mark_checked()
-        assert cache.should_check() is True
+        cache.mark_checked(1135)
+        assert cache.should_check(1135) is True
 
     def test_clear_resets_check_state(self):
         cache = FreshnessCache(ttl_seconds=300)
-        cache.mark_checked()
+        cache.mark_checked(1135)
         cache.clear()
-        assert cache.should_check() is True
+        assert cache.should_check(1135) is True
 
 
 class TestUserActivityDebouncer:

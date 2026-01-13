@@ -46,12 +46,20 @@ vi.mock("../../../hooks/useTemplateModal", () => ({
   useTemplateModal: vi.fn(),
 }));
 
+vi.mock("../../../hooks/useBiomarkerPrices", () => ({
+  useBiomarkerPrices: vi.fn(),
+}));
+
 vi.mock("../../../components/header", () => ({
   Header: ({ onAuthSuccess }: { onAuthSuccess?: () => void }) => (
     <button type="button" data-testid="header-auth" onClick={onAuthSuccess}>
       Header
     </button>
   ),
+}));
+
+vi.mock("../../../components/office-selection-banner", () => ({
+  OfficeSelectionBanner: () => <div data-testid="office-selection-banner" />,
 }));
 
 vi.mock("../../../components/search-box", () => ({
@@ -83,6 +91,7 @@ import { useUrlParamSync } from "../../../hooks/useUrlParamSync";
 import { useUrlBiomarkerSync } from "../../../hooks/useUrlBiomarkerSync";
 import { useSaveListModal } from "../../../hooks/useSaveListModal";
 import { useTemplateModal } from "../../../hooks/useTemplateModal";
+import { useBiomarkerPrices } from "../../../hooks/useBiomarkerPrices";
 import { track } from "../../../lib/analytics";
 import { usePanelStore } from "../../../stores/panelStore";
 import Home from "../home-content";
@@ -96,6 +105,7 @@ const mockUseUrlParamSync = vi.mocked(useUrlParamSync);
 const mockUseUrlBiomarkerSync = vi.mocked(useUrlBiomarkerSync);
 const mockUseSaveListModal = vi.mocked(useSaveListModal);
 const mockUseTemplateModal = vi.mocked(useTemplateModal);
+const mockUseBiomarkerPrices = vi.mocked(useBiomarkerPrices);
 const trackMock = vi.mocked(track);
 
 const selectionStub = {
@@ -180,6 +190,7 @@ describe("HomeContent", () => {
 
     mockUseUrlBiomarkerSync.mockReturnValue({
       isLoadingFromUrl: false,
+      loadingCodes: [],
       getShareUrl: vi.fn(() => ""),
       copyShareUrl: vi.fn(),
     } as ReturnType<typeof useUrlBiomarkerSync>);
@@ -191,6 +202,13 @@ describe("HomeContent", () => {
     mockUseTemplateModal.mockReturnValue(
       templateModalStub as ReturnType<typeof useTemplateModal>,
     );
+
+    mockUseBiomarkerPrices.mockReturnValue({
+      data: { ALT: 14_000 },
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    } as unknown as ReturnType<typeof useBiomarkerPrices>);
   });
 
   it("renders the two-rail layout with a sticky summary bar when selection exists", () => {
@@ -223,6 +241,7 @@ describe("HomeContent", () => {
     const copyShareUrl = vi.fn().mockResolvedValue(true);
     mockUseUrlBiomarkerSync.mockReturnValue({
       isLoadingFromUrl: false,
+      loadingCodes: [],
       getShareUrl: vi.fn(() => ""),
       copyShareUrl,
     } as ReturnType<typeof useUrlBiomarkerSync>);
@@ -248,6 +267,7 @@ describe("HomeContent", () => {
     const copyShareUrl = vi.fn().mockResolvedValue(true);
     mockUseUrlBiomarkerSync.mockReturnValue({
       isLoadingFromUrl: false,
+      loadingCodes: [],
       getShareUrl: vi.fn(() => ""),
       copyShareUrl,
     } as ReturnType<typeof useUrlBiomarkerSync>);
@@ -265,7 +285,7 @@ describe("HomeContent", () => {
   it("renders optimization summary values when data is available", () => {
     const activeResult: OptimizeResponse = {
       total_now: 120,
-      total_min30: 100,
+      total_min30: 110,
       currency: "PLN",
       items: [],
       bonus_total_now: 0,
@@ -297,7 +317,7 @@ describe("HomeContent", () => {
     expect(savingsStat).toHaveTextContent(/20,00/);
   });
 
-  it("does not render optimization summary values when selection changes", () => {
+  it("shows blurred summary placeholders when selection changes", () => {
     const activeResult: OptimizeResponse = {
       total_now: 120,
       total_min30: 100,
@@ -323,8 +343,19 @@ describe("HomeContent", () => {
     const bar = screen.getByTestId("sticky-summary-bar");
     const summary = within(bar);
 
-    expect(summary.queryByText("Source")).not.toBeInTheDocument();
-    expect(summary.queryByText("Estimated price")).not.toBeInTheDocument();
+    expect(summary.getByText("Source")).toBeInTheDocument();
+    expect(summary.getByText("Estimated price")).toBeInTheDocument();
+    expect(summary.getByText("Potential savings")).toBeInTheDocument();
+
+    const totalStat = summary.getByText("Estimated price").closest("div") as HTMLElement;
+    const savingsStat = summary.getByText("Potential savings").closest("div") as HTMLElement;
+    const totalValue = totalStat.querySelector('[data-slot="value"]') as HTMLElement;
+    const savingsValue = savingsStat.querySelector('[data-slot="value"]') as HTMLElement;
+
+    expect(totalValue).toHaveAttribute("data-state", "loading");
+    expect(totalValue).toHaveClass("blur-sm");
+    expect(savingsValue).toHaveAttribute("data-state", "loading");
+    expect(savingsValue).toHaveClass("blur-sm");
   });
 
   it("stores the optimization summary in the panel store when results load", () => {

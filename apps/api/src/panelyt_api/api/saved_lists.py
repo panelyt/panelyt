@@ -14,6 +14,7 @@ from panelyt_api.schemas.saved_lists import (
     SavedListShareResponse,
     SavedListUpsert,
 )
+from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 from panelyt_api.services.saved_lists import SavedListEntryData, SavedListService
 
 router = APIRouter(prefix="/lists", tags=["saved-lists"])
@@ -40,6 +41,9 @@ async def create_saved_list(
     db: SessionDep,
 ) -> SavedListResponse:
     service = SavedListService(db)
+    institution_id = (
+        session_state.user.preferred_institution_id or DEFAULT_INSTITUTION_ID
+    )
     existing = await service.get_by_name_for_user(session_state.user.id, payload.name)
     if existing is not None:
         try:
@@ -47,6 +51,7 @@ async def create_saved_list(
                 saved_list=existing,
                 name=payload.name,
                 entries=[_to_entry_data(entry) for entry in payload.biomarkers],
+                institution_id=institution_id,
             )
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -56,6 +61,7 @@ async def create_saved_list(
             user_id=session_state.user.id,
             name=payload.name,
             entries=[_to_entry_data(entry) for entry in payload.biomarkers],
+            institution_id=institution_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -79,6 +85,8 @@ async def update_saved_list(
             saved_list=saved_list,
             name=payload.name,
             entries=[_to_entry_data(entry) for entry in payload.biomarkers],
+            institution_id=session_state.user.preferred_institution_id
+            or DEFAULT_INSTITUTION_ID,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

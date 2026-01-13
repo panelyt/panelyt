@@ -16,6 +16,7 @@ from panelyt_api.db.models import SavedList, UserAccount
 from panelyt_api.optimization.service import OptimizationService
 from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import OptimizeRequest
+from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,13 @@ class TelegramPriceAlertService:
             self._update_saved_list(saved_list, timestamp, total_grosz=None)
             return None
 
-        response = await self._optimizer.solve(OptimizeRequest(biomarkers=codes))
+        institution_id = (
+            saved_list.user.preferred_institution_id or DEFAULT_INSTITUTION_ID
+        )
+        response = await self._optimizer.solve(
+            OptimizeRequest(biomarkers=codes),
+            institution_id,
+        )
         if response.uncovered:
             self._update_saved_list(saved_list, timestamp, total_grosz=None)
             return None

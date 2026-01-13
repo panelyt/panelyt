@@ -7,13 +7,15 @@ import {
 } from "@panelyt/types";
 
 import { getParsedJson } from "../lib/http";
+import { useInstitution } from "./useInstitution";
 
 export function useCatalogSearch(query: string) {
+  const { institutionId } = useInstitution();
   return useQuery<CatalogSearchResponse, Error>({
-    queryKey: ["catalog-search", query],
+    queryKey: ["catalog-search", query, institutionId],
     queryFn: async () => {
       return getParsedJson(
-        `/catalog/search?query=${encodeURIComponent(query)}`,
+        `/catalog/search?query=${encodeURIComponent(query)}&institution=${institutionId}`,
         CatalogSearchResponseSchema,
       );
     },

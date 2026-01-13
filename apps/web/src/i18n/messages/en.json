@@ -108,6 +108,7 @@
     "enterHint": "Select a suggestion to add it.",
     "noMatches": "No direct matches yet. Try typing the test name.",
     "searching": "Searching...",
+    "priceUpdateNotice": "Updating prices for this office...",
     "groupBiomarkers": "Tests",
     "groupTemplates": "Curated Panels",
     "saveAsTemplate": "Save as panel",
@@ -273,13 +274,13 @@
     "matchingFloor": "Matching the 30-day low",
     "percentAboveFloor": "{percent}% above the floor",
     "potentialSavings": "Potential savings",
-    "bestPrice": "You're at the best price",
-    "premiumOverFloor": "Current premium over 30-day floor",
+    "bestPrice": "No savings vs individual tests",
+    "premiumOverFloor": "Savings vs individual tests",
     "bonusValue": "Bonus value",
     "extraBiomarkersIncluded": "{count, plural, one {# extra test} other {# extra tests}} included",
     "noExtraBiomarkers": "No extra tests in cart",
     "optimizationSummaryTitle": "Optimization summary",
-    "optimizationSummaryDescription": "Covering {count, plural, one {# test} other {# tests}} with the most cost-efficient mix available right now. Compare current pricing against the recent 30-day floor to understand potential savings.",
+    "optimizationSummaryDescription": "Covering {count, plural, one {# test} other {# tests}} with the most cost-efficient mix available right now. Compare the optimized total against the sum of individual tests to understand potential savings.",
     "bonusBiomarkersSummary": "{count, plural, one {# bonus test} other {# bonus tests}} ({total})",
     "packageOverlaps": "Package overlaps",
     "packageOverlapsExpanded": "Tests appearing in multiple packages",
@@ -409,6 +410,17 @@
     "siteName": "Panelyt",
     "homeOgTitle": "Panelyt - Panel Builder",
     "homeOgDescription": "Find the cheapest blood test combination. Compare prices across tests and packages to save money."
+  },
+  "officeSelector": {
+    "triggerLabel": "Office: {name}",
+    "searchPlaceholder": "Search offices...",
+    "currentLabel": "Current office: {name}",
+    "loading": "Searching...",
+    "noResults": "No offices found"
+  },
+  "officeBanner": {
+    "title": "Choose your office for accurate prices",
+    "description": "Prices and availability vary by location. Select your office to personalize results."
   },
   "language": {
     "switch": "Polski"

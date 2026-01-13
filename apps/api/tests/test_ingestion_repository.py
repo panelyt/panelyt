@@ -16,6 +16,11 @@ async def test_upsert_catalog_upserts_items_biomarkers_links_and_snapshots(
     db_session,
 ) -> None:
     repo = CatalogRepository(db_session)
+    await db_session.execute(
+        models.Institution.__table__.insert().values(
+            {"id": 1135, "name": "Default / Lab office"}
+        )
+    )
     fetched_at = datetime(2025, 1, 1, tzinfo=UTC)
     item = RawDiagItem(
         external_id="diag-1",
@@ -38,7 +43,7 @@ async def test_upsert_catalog_upserts_items_biomarkers_links_and_snapshots(
         regular_price_grosz=1000,
     )
 
-    await repo.upsert_catalog([item], fetched_at=fetched_at)
+    await repo.upsert_catalog(1135, singles=[item], packages=[], fetched_at=fetched_at)
     await db_session.commit()
 
     stored_item = await db_session.scalar(
@@ -62,14 +67,26 @@ async def test_upsert_catalog_upserts_items_biomarkers_links_and_snapshots(
     )
     assert link is not None
 
+    institution_item = await db_session.scalar(
+        select(models.InstitutionItem).where(
+            models.InstitutionItem.institution_id == 1135,
+            models.InstitutionItem.item_id == stored_item.id,
+        )
+    )
+    assert institution_item is not None
+    assert institution_item.price_now_grosz == 1000
+    assert institution_item.price_min30_grosz == 900
+
     snapshot = await db_session.scalar(
         select(models.PriceSnapshot).where(
+            models.PriceSnapshot.institution_id == 1135,
             models.PriceSnapshot.item_id == stored_item.id,
             models.PriceSnapshot.snap_date == fetched_at.date(),
         )
     )
     assert snapshot is not None
     assert snapshot.price_now_grosz == 1000
+    assert snapshot.price_min30_grosz == 900
 
     updated_item = RawDiagItem(
         external_id="diag-1",
@@ -92,7 +109,7 @@ async def test_upsert_catalog_upserts_items_biomarkers_links_and_snapshots(
         regular_price_grosz=1200,
     )
 
-    await repo.upsert_catalog([updated_item], fetched_at=fetched_at)
+    await repo.upsert_catalog(1135, singles=[updated_item], packages=[], fetched_at=fetched_at)
     await db_session.commit()
     db_session.expire_all()
 
@@ -118,17 +135,27 @@ async def test_upsert_catalog_upserts_items_biomarkers_links_and_snapshots(
 
     updated_snapshot = await db_session.scalar(
         select(models.PriceSnapshot).where(
+            models.PriceSnapshot.institution_id == 1135,
             models.PriceSnapshot.item_id == stored_item_id,
             models.PriceSnapshot.snap_date == fetched_at.date(),
         )
     )
     assert updated_snapshot is not None
     assert updated_snapshot.price_now_grosz == 1200
+    assert updated_snapshot.price_min30_grosz == 900
 
 
 @pytest.mark.asyncio
-async def test_prune_missing_items_removes_items_not_in_catalog(db_session) -> None:
+async def test_prune_missing_offers_marks_unavailable(db_session) -> None:
     repo = CatalogRepository(db_session)
+    await db_session.execute(
+        models.Institution.__table__.insert().values(
+            [
+                {"id": 1135, "name": "Default / Lab office"},
+                {"id": 2222, "name": "Office 2222"},
+            ]
+        )
+    )
     fetched_at = datetime(2025, 1, 1, tzinfo=UTC)
     item_a = RawDiagItem(
         external_id="diag-1",
@@ -171,27 +198,47 @@ async def test_prune_missing_items_removes_items_not_in_catalog(db_session) -> N
         regular_price_grosz=1200,
     )
 
-    await repo.upsert_catalog([item_a, item_b], fetched_at=fetched_at)
+    await repo.upsert_catalog(1135, singles=[item_a, item_b], packages=[], fetched_at=fetched_at)
+    await repo.upsert_catalog(2222, singles=[item_b], packages=[], fetched_at=fetched_at)
     await db_session.commit()
 
-    await repo.prune_missing_items(["diag-1"])
+    await repo.prune_missing_offers(1135, ["diag-1"])
     await db_session.commit()
     db_session.expire_all()
 
-    remaining_items = await db_session.scalars(
-        select(models.Item.external_id).order_by(models.Item.external_id)
-    )
-    assert remaining_items.all() == ["diag-1"]
+    items = await db_session.scalars(select(models.Item.external_id))
+    assert set(items.all()) == {"diag-1", "diag-2"}
 
-    snapshot_count = await db_session.scalar(
-        select(func.count()).select_from(models.PriceSnapshot)
+    item_b_id = await db_session.scalar(
+        select(models.Item.id).where(models.Item.external_id == "diag-2")
     )
-    assert snapshot_count == 1
+    inst_b_1135 = await db_session.scalar(
+        select(models.InstitutionItem).where(
+            models.InstitutionItem.institution_id == 1135,
+            models.InstitutionItem.item_id == item_b_id,
+        )
+    )
+    assert inst_b_1135 is not None
+    assert inst_b_1135.is_available is False
+
+    inst_b_2222 = await db_session.scalar(
+        select(models.InstitutionItem).where(
+            models.InstitutionItem.institution_id == 2222,
+            models.InstitutionItem.item_id == item_b_id,
+        )
+    )
+    assert inst_b_2222 is not None
+    assert inst_b_2222.is_available is True
 
 
 @pytest.mark.asyncio
-async def test_prune_missing_items_noops_on_empty_list(db_session) -> None:
+async def test_prune_missing_offers_noops_on_empty_list(db_session) -> None:
     repo = CatalogRepository(db_session)
+    await db_session.execute(
+        models.Institution.__table__.insert().values(
+            {"id": 1135, "name": "Default / Lab office"}
+        )
+    )
     fetched_at = datetime(2025, 1, 1, tzinfo=UTC)
     item = RawDiagItem(
         external_id="diag-1",
@@ -214,12 +261,17 @@ async def test_prune_missing_items_noops_on_empty_list(db_session) -> None:
         regular_price_grosz=1000,
     )
 
-    await repo.upsert_catalog([item], fetched_at=fetched_at)
+    await repo.upsert_catalog(1135, singles=[item], packages=[], fetched_at=fetched_at)
     await db_session.commit()
 
-    await repo.prune_missing_items([])
+    await repo.prune_missing_offers(1135, [])
     await db_session.commit()
     db_session.expire_all()
 
     item_count = await db_session.scalar(select(func.count()).select_from(models.Item))
     assert item_count == 1
+    institution_item = await db_session.scalar(
+        select(models.InstitutionItem).where(models.InstitutionItem.institution_id == 1135)
+    )
+    assert institution_item is not None
+    assert institution_item.is_available is True

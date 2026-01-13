@@ -63,14 +63,16 @@ class OptimizationService:
         ] = LRUCache(maxsize=COVER_CACHE_MAXSIZE)
         self._last_context: OptimizationContext | None = None
 
-    async def solve(self, payload: OptimizeRequest) -> OptimizeResponse:
+    async def solve(
+        self, payload: OptimizeRequest, institution_id: int
+    ) -> OptimizeResponse:
         start_time = time.perf_counter()
         try:
             resolved, unresolved_inputs = await self._resolver.resolve_tokens(payload.biomarkers)
             if not resolved:
                 return self._empty_response(payload.biomarkers)
 
-            candidates = await self._collect_candidates(resolved)
+            candidates = await self._collect_candidates(resolved, institution_id)
             if not candidates:
                 return self._empty_response(payload.biomarkers)
 
@@ -80,7 +82,9 @@ class OptimizationService:
                 return self._empty_response(fallback_uncovered)
 
             self._last_context = context
-            outcome = await self._run_solver(context.candidates, context.resolved)
+            outcome = await self._run_solver(
+                context.candidates, context.resolved, institution_id
+            )
             if not outcome.has_selection:
                 fallback_uncovered = self._fallback_uncovered_tokens(
                     resolved, unresolved_inputs
@@ -107,30 +111,34 @@ class OptimizationService:
                 duration_ms,
             )
 
-    async def solve_cached(self, payload: OptimizeRequest) -> OptimizeResponse:
+    async def solve_cached(
+        self, payload: OptimizeRequest, institution_id: int
+    ) -> OptimizeResponse:
         """Solve optimization with caching.
 
         Returns cached result if available for the same biomarkers.
         Cache has 1-hour TTL since prices change at most once daily.
         Also caches the OptimizationContext for faster addon computation.
         """
-        cache_key = optimization_cache.make_key(payload.biomarkers)
+        cache_key = optimization_cache.make_key(payload.biomarkers, institution_id)
 
         cached = optimization_cache.get(cache_key)
         if cached is not None:
             return cached
 
-        result = await self.solve(payload)
+        result = await self.solve(payload, institution_id)
         optimization_cache.set(cache_key, result)
 
         if self._last_context is not None:
-            context_key = optimization_context_cache.make_key(payload.biomarkers)
+            context_key = optimization_context_cache.make_key(
+                payload.biomarkers, institution_id
+            )
             optimization_context_cache.set(context_key, self._last_context)
 
         return result
 
     async def compute_addons(
-        self, payload: AddonSuggestionsRequest
+        self, payload: AddonSuggestionsRequest, institution_id: int
     ) -> AddonSuggestionsResponse:
         """Compute addon suggestions for a given set of selected items.
 
@@ -140,7 +148,9 @@ class OptimizationService:
         Uses cached OptimizationContext from prior solve() call when available,
         avoiding expensive re-computation of candidates.
         """
-        context_key = optimization_context_cache.make_key(payload.biomarkers)
+        context_key = optimization_context_cache.make_key(
+            payload.biomarkers, institution_id
+        )
         context = optimization_context_cache.get(context_key)
 
         if context is not None:
@@ -151,7 +161,7 @@ class OptimizationService:
             if not resolved:
                 return AddonSuggestionsResponse()
 
-            candidates = await self._collect_candidates(resolved)
+            candidates = await self._collect_candidates(resolved, institution_id)
             if not candidates:
                 return AddonSuggestionsResponse()
 
@@ -175,7 +185,7 @@ class OptimizationService:
         existing_labels = self._token_display_map(context.resolved)
 
         suggestions, suggestion_labels = await self._addon_suggestions(
-            context, chosen_items, existing_labels
+            context, chosen_items, existing_labels, institution_id
         )
 
         return AddonSuggestionsResponse(
@@ -184,7 +194,7 @@ class OptimizationService:
         )
 
     async def _collect_candidates(
-        self, biomarkers: Sequence[ResolvedBiomarker]
+        self, biomarkers: Sequence[ResolvedBiomarker], institution_id: int
     ) -> list[CandidateItem]:
         biomarker_ids = [b.id for b in biomarkers]
         if not biomarker_ids:
@@ -197,6 +207,7 @@ class OptimizationService:
                 func.min(models.PriceSnapshot.price_now_grosz).label("hist_min"),
             )
             .where(models.PriceSnapshot.snap_date >= window_start)
+            .where(models.PriceSnapshot.institution_id == institution_id)
             .group_by(models.PriceSnapshot.item_id)
             .subquery()
         )
@@ -204,18 +215,24 @@ class OptimizationService:
         statement = (
             select(
                 models.Item,
+                models.InstitutionItem,
                 models.ItemBiomarker.biomarker_id,
                 models.Biomarker.elab_code,
                 models.Biomarker.slug,
                 models.Biomarker.name,
                 history.c.hist_min,
             )
+            .join(
+                models.InstitutionItem,
+                (models.InstitutionItem.item_id == models.Item.id)
+                & (models.InstitutionItem.institution_id == institution_id),
+            )
             .join(models.ItemBiomarker, models.Item.id == models.ItemBiomarker.item_id)
             .join(models.Biomarker, models.Biomarker.id == models.ItemBiomarker.biomarker_id)
             .outerjoin(history, history.c.item_id == models.Item.id)
             .where(models.ItemBiomarker.biomarker_id.in_(biomarker_ids))
-            .where(models.Item.is_available.is_(True))
-            .where(models.Item.price_now_grosz > 0)
+            .where(models.InstitutionItem.is_available.is_(True))
+            .where(models.InstitutionItem.price_now_grosz > 0)
         )
 
         rows = (await self.session.execute(statement)).all()
@@ -223,6 +240,7 @@ class OptimizationService:
         id_to_token = {b.id: b.token for b in biomarkers}
         for (
             item,
+            offer,
             biomarker_id,
             _elab_code,
             _slug,
@@ -237,12 +255,12 @@ class OptimizationService:
                     name=item.name,
                     slug=item.slug,
                     external_id=item.external_id,
-                    price_now=item.price_now_grosz,
+                    price_now=offer.price_now_grosz,
                     price_min30=self._resolve_price_floor(
-                        hist_min, item.price_min30_grosz, item.price_now_grosz
+                        hist_min, offer.price_min30_grosz, offer.price_now_grosz
                     ),
-                    sale_price=item.sale_price_grosz,
-                    regular_price=item.regular_price_grosz,
+                    sale_price=offer.sale_price_grosz,
+                    regular_price=offer.regular_price_grosz,
                 )
                 by_id[item.id] = candidate
             token = id_to_token.get(biomarker_id)
@@ -371,7 +389,10 @@ class OptimizationService:
         return [item for item in items if item.id in retained]
 
     async def _run_solver(
-        self, candidates: Sequence[CandidateItem], biomarkers: Sequence[ResolvedBiomarker]
+        self,
+        candidates: Sequence[CandidateItem],
+        biomarkers: Sequence[ResolvedBiomarker],
+        institution_id: int,
     ) -> SolverOutcome:
         coverage_map = self._build_coverage_map(candidates)
         model, variables = self._build_solver_model(candidates)
@@ -409,6 +430,7 @@ class OptimizationService:
             chosen,
             uncovered,
             [biomarker.token for biomarker in biomarkers],
+            institution_id,
         )
         total_now_grosz = sum(item.price_now for item in chosen)
         return SolverOutcome(
@@ -435,6 +457,7 @@ class OptimizationService:
         context: OptimizationContext,
         chosen_items: Sequence[CandidateItem],
         existing_labels: dict[str, str],
+        institution_id: int,
     ) -> tuple[list[AddonSuggestion], dict[str, str]]:
         if len(context.resolved) < 2 or not chosen_items:
             return [], {}
@@ -546,7 +569,7 @@ class OptimizationService:
 
         bonus_price_map: dict[str, int] = {}
         if all_bonus_tokens:
-            bonus_price_map = await self._bonus_price_map(all_bonus_tokens)
+            bonus_price_map = await self._bonus_price_map(all_bonus_tokens, institution_id)
 
         bonus_current: set[str] = set()
         for item_id in chosen_ids:
@@ -803,6 +826,7 @@ class OptimizationService:
         chosen: Sequence[CandidateItem],
         uncovered: Sequence[str],
         requested_tokens: Sequence[str],
+        institution_id: int,
     ) -> tuple[OptimizeResponse, dict[str, str]]:
         total_now = round(sum(item.price_now for item in chosen) / 100, 2)
         total_min30 = round(sum(item.price_min30 for item in chosen) / 100, 2)
@@ -822,7 +846,7 @@ class OptimizationService:
                     continue
                 bonus_tokens.setdefault(normalized, token)
 
-        bonus_price_map = await self._bonus_price_map(bonus_tokens)
+        bonus_price_map = await self._bonus_price_map(bonus_tokens, institution_id)
         bonus_total_grosz = sum(bonus_price_map.get(key, 0) for key in bonus_tokens.keys())
         bonus_total_now = round(bonus_total_grosz / 100, 2) if bonus_total_grosz else 0.0
 
@@ -918,7 +942,9 @@ class OptimizationService:
 
         return result, labels
 
-    async def _bonus_price_map(self, tokens: Mapping[str, str]) -> dict[str, int]:
+    async def _bonus_price_map(
+        self, tokens: Mapping[str, str], institution_id: int
+    ) -> dict[str, int]:
         """Return the best-known single-test price (in grosz) for each normalized token."""
         if not tokens:
             return {}
@@ -933,14 +959,19 @@ class OptimizationService:
                 models.Biomarker.elab_code,
                 models.Biomarker.slug,
                 models.Biomarker.name,
-                func.min(models.Item.price_now_grosz).label("min_price"),
+                func.min(models.InstitutionItem.price_now_grosz).label("min_price"),
             )
             .select_from(models.Biomarker)
             .join(models.ItemBiomarker, models.ItemBiomarker.biomarker_id == models.Biomarker.id)
             .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
+            .join(
+                models.InstitutionItem,
+                (models.InstitutionItem.item_id == models.Item.id)
+                & (models.InstitutionItem.institution_id == institution_id),
+            )
             .where(models.Item.kind == "single")
-            .where(models.Item.is_available.is_(True))
-            .where(models.Item.price_now_grosz > 0)
+            .where(models.InstitutionItem.is_available.is_(True))
+            .where(models.InstitutionItem.price_now_grosz > 0)
             .where(
                 or_(
                     models.Biomarker.elab_code.in_(raw_tokens),

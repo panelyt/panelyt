@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from panelyt_api.core.cache import catalog_meta_cache
 from panelyt_api.db import models
 from panelyt_api.schemas.common import (
+    BiomarkerBatchResponse,
     BiomarkerOut,
     BiomarkerSearchResponse,
     CatalogBiomarkerResult,
@@ -17,7 +18,7 @@ from panelyt_api.schemas.common import (
     CatalogTemplateResult,
 )
 from panelyt_api.services.list_templates import BiomarkerListTemplateService
-from panelyt_api.utils.normalization import normalize_search_query
+from panelyt_api.utils.normalization import normalize_search_query, normalize_token
 
 
 async def get_catalog_meta(session: AsyncSession) -> CatalogMeta:
@@ -75,7 +76,7 @@ async def get_catalog_meta_cached(session: AsyncSession) -> CatalogMeta:
 
 
 async def search_biomarkers(
-    session: AsyncSession, query: str, limit: int = 10
+    session: AsyncSession, query: str, institution_id: int, limit: int = 10
 ) -> BiomarkerSearchResponse:
     normalized = normalize_search_query(query)
     if not normalized:
@@ -128,7 +129,7 @@ async def search_biomarkers(
 
     rows = (await session.execute(statement)).all()
     results = [row[0] for row in rows]
-    price_map = await _fetch_prices(session, [row.id for row in results])
+    price_map = await _fetch_prices(session, [row.id for row in results], institution_id)
     payload = []
     for row in results:
         price_now = price_map.get(row.id)
@@ -146,12 +147,110 @@ async def search_biomarkers(
     return BiomarkerSearchResponse(results=payload)
 
 
+async def resolve_biomarkers_by_codes(
+    session: AsyncSession,
+    codes: list[str],
+    institution_id: int,
+) -> BiomarkerBatchResponse:
+    results: dict[str, BiomarkerOut | None] = {code: None for code in codes}
+    normalized_codes = {normalize_token(code) for code in codes}
+    normalized_codes.discard(None)
+    if not normalized_codes:
+        return BiomarkerBatchResponse(results=results)
+
+    elab_lower = func.lower(func.coalesce(models.Biomarker.elab_code, ""))
+    slug_lower = func.lower(func.coalesce(models.Biomarker.slug, ""))
+    name_lower = func.lower(models.Biomarker.name)
+    alias_lower = func.lower(func.coalesce(models.BiomarkerAlias.alias, ""))
+
+    statement = (
+        select(models.Biomarker, models.BiomarkerAlias)
+        .outerjoin(models.BiomarkerAlias)
+        .where(
+            or_(
+                elab_lower.in_(normalized_codes),
+                slug_lower.in_(normalized_codes),
+                name_lower.in_(normalized_codes),
+                alias_lower.in_(normalized_codes),
+            )
+        )
+    )
+
+    rows = (await session.execute(statement)).all()
+    biomarkers_by_id: dict[int, models.Biomarker] = {}
+    alias_map: dict[str, tuple[int, models.Biomarker]] = {}
+    for biomarker, alias in rows:
+        biomarkers_by_id[biomarker.id] = biomarker
+        if alias and alias.alias:
+            normalized_alias = normalize_token(alias.alias)
+            if not normalized_alias:
+                continue
+            existing = alias_map.get(normalized_alias)
+            if existing is None or alias.priority < existing[0]:
+                alias_map[normalized_alias] = (alias.priority, biomarker)
+
+    by_elab = {
+        normalize_token(biomarker.elab_code): biomarker
+        for biomarker in biomarkers_by_id.values()
+        if normalize_token(biomarker.elab_code)
+    }
+    by_slug = {
+        normalize_token(biomarker.slug): biomarker
+        for biomarker in biomarkers_by_id.values()
+        if normalize_token(biomarker.slug)
+    }
+    by_name = {
+        normalize_token(biomarker.name): biomarker
+        for biomarker in biomarkers_by_id.values()
+        if normalize_token(biomarker.name)
+    }
+    by_alias = {alias: entry[1] for alias, entry in alias_map.items()}
+
+    price_map = await _fetch_prices(
+        session,
+        [biomarker.id for biomarker in biomarkers_by_id.values()],
+        institution_id,
+    )
+
+    for code in codes:
+        normalized = normalize_token(code)
+        if not normalized:
+            continue
+        match = (
+            by_elab.get(normalized)
+            or by_slug.get(normalized)
+            or by_alias.get(normalized)
+            or by_name.get(normalized)
+        )
+        if not match:
+            continue
+        price_now = price_map.get(match.id)
+        if price_now is None:
+            continue
+        results[code] = BiomarkerOut(
+            id=match.id,
+            name=match.name,
+            elab_code=match.elab_code,
+            slug=match.slug,
+            price_now_grosz=price_now,
+        )
+
+    return BiomarkerBatchResponse(results=results)
+
+
 async def search_catalog(
-    session: AsyncSession, query: str, *, biomarker_limit: int = 10, template_limit: int = 5
+    session: AsyncSession,
+    query: str,
+    *,
+    institution_id: int,
+    biomarker_limit: int = 10,
+    template_limit: int = 5,
 ) -> CatalogSearchResponse:
     """Search biomarkers and curated templates for a given query."""
 
-    biomarker_response = await search_biomarkers(session, query, limit=biomarker_limit)
+    biomarker_response = await search_biomarkers(
+        session, query, institution_id, limit=biomarker_limit
+    )
 
     template_service = BiomarkerListTemplateService(session)
     template_matches = await template_service.search_active_matches(query, limit=template_limit)
@@ -182,7 +281,7 @@ async def search_catalog(
 
 
 async def _fetch_prices(
-    session: AsyncSession, biomarker_ids: Sequence[int]
+    session: AsyncSession, biomarker_ids: Sequence[int], institution_id: int
 ) -> dict[int, int]:
     if not biomarker_ids:
         return {}
@@ -191,12 +290,17 @@ async def _fetch_prices(
     statement = (
         select(
             models.ItemBiomarker.biomarker_id,
-            func.min(models.Item.price_now_grosz).label("min_price"),
+            func.min(models.InstitutionItem.price_now_grosz).label("min_price"),
         )
         .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
+        .join(
+            models.InstitutionItem,
+            (models.InstitutionItem.item_id == models.Item.id)
+            & (models.InstitutionItem.institution_id == institution_id),
+        )
         .where(models.ItemBiomarker.biomarker_id.in_(biomarker_ids))
-        .where(models.Item.is_available.is_(True))
-        .where(models.Item.price_now_grosz > 0)
+        .where(models.InstitutionItem.is_available.is_(True))
+        .where(models.InstitutionItem.price_now_grosz > 0)
         .where(models.Item.kind == "single")
         .group_by(models.ItemBiomarker.biomarker_id)
     )
@@ -213,12 +317,17 @@ async def _fetch_prices(
     fallback_statement = (
         select(
             models.ItemBiomarker.biomarker_id,
-            func.min(models.Item.price_now_grosz).label("min_price"),
+            func.min(models.InstitutionItem.price_now_grosz).label("min_price"),
         )
         .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
+        .join(
+            models.InstitutionItem,
+            (models.InstitutionItem.item_id == models.Item.id)
+            & (models.InstitutionItem.institution_id == institution_id),
+        )
         .where(models.ItemBiomarker.biomarker_id.in_(remaining_ids))
-        .where(models.Item.is_available.is_(True))
-        .where(models.Item.price_now_grosz > 0)
+        .where(models.InstitutionItem.is_available.is_(True))
+        .where(models.InstitutionItem.price_now_grosz > 0)
         .group_by(models.ItemBiomarker.biomarker_id)
     )
 

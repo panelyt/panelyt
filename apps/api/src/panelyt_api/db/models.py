@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from types import MappingProxyType
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -10,6 +11,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -61,6 +63,42 @@ class BiomarkerAlias(Base):
     biomarker: Mapped[Biomarker] = relationship("Biomarker", back_populates="aliases")
 
 
+class Institution(Base):
+    __tablename__ = "institution"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    city: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    is_temporary_disabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+    attributes: Mapped[dict | None] = mapped_column(JSON_TYPE, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    offers: Mapped[list[InstitutionItem]] = relationship(
+        "InstitutionItem", back_populates="institution", cascade="all, delete-orphan"
+    )
+    snapshots: Mapped[list[PriceSnapshot]] = relationship(
+        "PriceSnapshot", back_populates="institution", cascade="all, delete-orphan"
+    )
+    users: Mapped[list[UserAccount]] = relationship(
+        "UserAccount", back_populates="preferred_institution"
+    )
+
+
 class Item(Base):
     __tablename__ = "item"
 
@@ -83,6 +121,9 @@ class Item(Base):
 
     biomarkers: Mapped[list[ItemBiomarker]] = relationship(
         "ItemBiomarker", back_populates="item", cascade="all, delete-orphan"
+    )
+    offers: Mapped[list[InstitutionItem]] = relationship(
+        "InstitutionItem", back_populates="item", cascade="all, delete-orphan"
     )
     snapshots: Mapped[list[PriceSnapshot]] = relationship(
         "PriceSnapshot", back_populates="item", cascade="all, delete-orphan"
@@ -108,20 +149,76 @@ class ItemBiomarker(Base):
     biomarker: Mapped[Biomarker] = relationship("Biomarker", back_populates="items")
 
 
+class InstitutionItem(Base):
+    __tablename__ = "institution_item"
+    __table_args__ = (
+        UniqueConstraint("institution_id", "item_id", name="uq_institution_item"),
+        Index(
+            "idx_institution_item_available",
+            "institution_id",
+            "is_available",
+            postgresql_where=text("is_available = true"),
+        ),
+        Index(
+            "idx_institution_item_price",
+            "institution_id",
+            "price_now_grosz",
+            postgresql_where=text("is_available = true AND price_now_grosz > 0"),
+        ),
+    )
+
+    institution_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("institution.id", ondelete="CASCADE"), nullable=False
+    )
+    item_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("item.id", ondelete="CASCADE"), nullable=False
+    )
+    is_available: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False)
+    price_now_grosz: Mapped[int] = mapped_column(Integer, nullable=False)
+    price_min30_grosz: Mapped[int] = mapped_column(Integer, nullable=False)
+    sale_price_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    regular_price_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __mapper_args__ = MappingProxyType({"primary_key": (institution_id, item_id)})
+
+    institution: Mapped[Institution] = relationship("Institution", back_populates="offers")
+    item: Mapped[Item] = relationship("Item", back_populates="offers")
+
+
 class PriceSnapshot(Base):
     __tablename__ = "price_snapshot"
+    __table_args__ = (
+        Index(
+            "idx_price_snapshot_institution_date",
+            "institution_id",
+            "snap_date",
+        ),
+    )
 
+    institution_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("institution.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
     item_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("item.id", ondelete="CASCADE"), primary_key=True
     )
     snap_date: Mapped[date] = mapped_column(Date, primary_key=True)
     price_now_grosz: Mapped[int] = mapped_column(Integer, nullable=False)
+    price_min30_grosz: Mapped[int] = mapped_column(Integer, nullable=False)
+    sale_price_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    regular_price_grosz: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
     item: Mapped[Item] = relationship("Item", back_populates="snapshots")
+    institution: Mapped[Institution] = relationship(
+        "Institution", back_populates="snapshots"
+    )
 
 
 class RawSnapshot(Base):
@@ -184,10 +281,18 @@ class UserAccount(Base):
     telegram_linked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    preferred_institution_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("institution.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
+    preferred_institution: Mapped[Institution | None] = relationship(
+        "Institution", back_populates="users"
+    )
     sessions: Mapped[list[UserSession]] = relationship(
         "UserSession", back_populates="user", cascade="all, delete-orphan"
     )
@@ -348,6 +453,8 @@ __all__ = [
     "BiomarkerListTemplate",
     "BiomarkerListTemplateEntry",
     "IngestionLog",
+    "Institution",
+    "InstitutionItem",
     "Item",
     "ItemBiomarker",
     "PriceSnapshot",

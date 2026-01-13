@@ -39,6 +39,7 @@ describe("PanelTray", () => {
     trackMock.mockClear();
     mockUseUrlBiomarkerSync.mockReturnValue({
       isLoadingFromUrl: false,
+      loadingCodes: [],
       getShareUrl: vi.fn(),
       copyShareUrl: vi.fn().mockResolvedValue(true),
     });
@@ -175,6 +176,7 @@ describe("PanelTray", () => {
     const copyShareUrl = vi.fn().mockResolvedValue(true);
     mockUseUrlBiomarkerSync.mockReturnValue({
       isLoadingFromUrl: false,
+      loadingCodes: [],
       getShareUrl: vi.fn(),
       copyShareUrl,
     });

@@ -11,12 +11,29 @@ from typing import Any
 import httpx
 from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from panelyt_api.ingest.types import DiagIngestionResult, RawDiagBiomarker, RawDiagItem
+from panelyt_api.ingest.types import (
+    DiagIngestionResult,
+    DiagInstitution,
+    RawDiagBiomarker,
+    RawDiagItem,
+)
 
 logger = logging.getLogger(__name__)
 
 _DIAG_BASE_URL = "https://api-eshop.diag.pl/api/front/v1/products"
+_DIAG_INSTITUTION_SEARCH_URL = (
+    "https://api-eshop.diag.pl/api/v1/institution-service/institutions/search"
+)
+_DIAG_INSTITUTION_DETAIL_URL = (
+    "https://api-eshop.diag.pl/api/v1/institution-service/institutions"
+)
 _DIAG_DEFAULT_LIMIT = 200
+_DIAG_INSTITUTION_DEFAULT_LIMIT = 20
+_DIAG_INSTITUTION_FILTERS = {
+    "include": "address,city",
+    "filter[attributes]": "ESHOP,ECO,PPA",
+    "filter[temporaryDisabled]": "false",
+}
 
 
 class DiagClient:
@@ -26,7 +43,9 @@ class DiagClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def fetch_all(self) -> DiagIngestionResult:
+    async def fetch_all(self, institution_id: int) -> DiagIngestionResult:
+        institution = str(institution_id)
+
         async def _load_source(
             source: str, params: dict[str, Any]
         ) -> tuple[str, list[RawDiagItem], dict[str, Any]]:
@@ -34,8 +53,11 @@ class DiagClient:
             return source, items, payload
 
         sources = (
-            ("packages", {"filter[type]": "package,shop-package", "filter[institution]": "1135"}),
-            ("singles", {"filter[type]": "bloodtest", "filter[institution]": "1135"}),
+            (
+                "packages",
+                {"filter[type]": "package,shop-package", "filter[institution]": institution},
+            ),
+            ("singles", {"filter[type]": "bloodtest", "filter[institution]": institution}),
         )
 
         combined_items: list[RawDiagItem] = []
@@ -51,6 +73,42 @@ class DiagClient:
             items=combined_items,
             raw_payload=raw_payload,
         )
+
+    async def search_institutions(
+        self, q: str, page: int = 1, limit: int = _DIAG_INSTITUTION_DEFAULT_LIMIT
+    ) -> list[DiagInstitution]:
+        params = {
+            "q": q,
+            "page": page,
+            "limit": limit,
+            **_DIAG_INSTITUTION_FILTERS,
+        }
+        response = await _retrying_request(
+            self._client, _DIAG_INSTITUTION_SEARCH_URL, params=params
+        )
+        payload = response.json()
+        entries = (
+            payload.get("data")
+            or payload.get("items")
+            or payload.get("results")
+            or []
+        )
+        institutions: list[DiagInstitution] = []
+        for entry in entries:
+            parsed = self._parse_institution(entry)
+            if parsed is not None:
+                institutions.append(parsed)
+        return institutions
+
+    async def get_institution(self, institution_id: int) -> DiagInstitution | None:
+        params = dict(_DIAG_INSTITUTION_FILTERS)
+        response = await _retrying_request(
+            self._client,
+            f"{_DIAG_INSTITUTION_DETAIL_URL}/{institution_id}",
+            params=params,
+        )
+        payload = response.json()
+        return self._parse_institution(payload)
 
     async def _fetch_source(
         self, base_params: dict[str, Any]
@@ -164,6 +222,81 @@ class DiagClient:
             )
 
         return biomarkers
+
+    def _parse_institution(self, entry: Any) -> DiagInstitution | None:
+        if not isinstance(entry, dict):
+            return None
+        raw_id = entry.get("id") or entry.get("institutionId") or entry.get("institution_id")
+        if raw_id is None:
+            logger.warning("Skipping institution with missing id: %s", entry)
+            return None
+        try:
+            institution_id = int(raw_id)
+        except (TypeError, ValueError):
+            logger.warning("Skipping institution with invalid id: %s", entry)
+            return None
+
+        name = self._clean_str(
+            entry.get("name") or entry.get("fullName") or entry.get("displayName")
+        )
+        if not name:
+            name = f"Institution {institution_id}"
+
+        city = self._clean_str(entry.get("city") or entry.get("town"))
+        if not city:
+            address = entry.get("address") or {}
+            if isinstance(address, dict):
+                address_city = address.get("city")
+                if isinstance(address_city, dict):
+                    city = self._clean_str(address_city.get("name"))
+                else:
+                    city = self._clean_str(address_city)
+        address = self._extract_address(entry)
+
+        return DiagInstitution(
+            id=institution_id,
+            name=name,
+            city=city,
+            address=address,
+        )
+
+    def _extract_address(self, entry: dict[str, Any]) -> str | None:
+        raw_address = entry.get("address")
+        if isinstance(raw_address, str):
+            return self._clean_str(raw_address)
+        if isinstance(raw_address, dict):
+            address = self._compose_address(raw_address)
+            if address:
+                return address
+            return self._clean_str(raw_address.get("full") or raw_address.get("line1"))
+        return self._compose_address(entry)
+
+    def _compose_address(self, entry: dict[str, Any]) -> str | None:
+        street = self._clean_str(
+            entry.get("street")
+            or entry.get("streetName")
+            or entry.get("street_name")
+        )
+        building = self._clean_str(
+            entry.get("buildingNumber")
+            or entry.get("building")
+            or entry.get("number")
+        )
+        local = self._clean_str(
+            entry.get("localNumber")
+            or entry.get("local")
+            or entry.get("unit")
+        )
+
+        if not any([street, building, local]):
+            return None
+
+        address = street or ""
+        if building:
+            address = f"{address} {building}".strip()
+        if local:
+            address = f"{address}/{local}" if address else local
+        return address or None
 
     @staticmethod
     def _clean_str(value: Any) -> str | None:

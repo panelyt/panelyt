@@ -162,8 +162,92 @@ class TestDatabaseModels:
         assert item.name == "Liver Panel"
         assert elab_codes == {"ALT", "AST"}
 
+    async def test_institution_model(self, db_session):
+        """Test Institution model creation."""
+        await db_session.execute(
+            insert(models.Institution).values({
+                "id": 1135,
+                "name": "Default / Lab office",
+                "city": "Krakow",
+                "address": "Main 1",
+                "postal_code": "00-000",
+                "is_temporary_disabled": False,
+                "attributes": {"eshop": True},
+            })
+        )
+        await db_session.commit()
+
+        result = await db_session.execute(
+            select(models.Institution).where(models.Institution.id == 1135)
+        )
+        institution = result.scalar_one()
+
+        assert institution.name == "Default / Lab office"
+        assert institution.city == "Krakow"
+        assert institution.address == "Main 1"
+        assert institution.postal_code == "00-000"
+        assert institution.is_temporary_disabled is False
+        assert institution.attributes == {"eshop": True}
+
+    async def test_institution_item_model(self, db_session):
+        """Test InstitutionItem model creation."""
+        await db_session.execute(
+            insert(models.Institution).values({
+                "id": 1135,
+                "name": "Default / Lab office",
+            })
+        )
+        await db_session.execute(
+            insert(models.Item).values({
+                "id": 901,
+                "external_id": "901",
+                "kind": "single",
+                "name": "ALT Test",
+                "slug": "alt-test",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 900,
+                "currency": "PLN",
+                "is_available": True,
+                "fetched_at": datetime.now(timezone.utc),
+            })
+        )
+        await db_session.execute(
+            insert(models.InstitutionItem).values({
+                "institution_id": 1135,
+                "item_id": 901,
+                "is_available": True,
+                "currency": "PLN",
+                "price_now_grosz": 1100,
+                "price_min30_grosz": 1000,
+                "sale_price_grosz": 900,
+                "regular_price_grosz": 1200,
+                "fetched_at": datetime.now(timezone.utc),
+            })
+        )
+        await db_session.commit()
+
+        result = await db_session.execute(
+            select(models.InstitutionItem).where(
+                models.InstitutionItem.institution_id == 1135,
+                models.InstitutionItem.item_id == 901,
+            )
+        )
+        institution_item = result.scalar_one()
+
+        assert institution_item.price_now_grosz == 1100
+        assert institution_item.price_min30_grosz == 1000
+        assert institution_item.sale_price_grosz == 900
+        assert institution_item.regular_price_grosz == 1200
+        assert institution_item.is_available is True
+
     async def test_price_snapshot_model(self, db_session):
         """Test PriceSnapshot model."""
+        await db_session.execute(
+            insert(models.Institution).values({
+                "id": 1135,
+                "name": "Default / Lab office",
+            })
+        )
         # Create item first
         await db_session.execute(
             insert(models.Item).values({
@@ -184,9 +268,13 @@ class TestDatabaseModels:
         snap_date = datetime.now(timezone.utc).date()
         await db_session.execute(
             insert(models.PriceSnapshot).values({
+                "institution_id": 1135,
                 "item_id": 789,
                 "snap_date": snap_date,
                 "price_now_grosz": 1500,
+                "price_min30_grosz": 1400,
+                "sale_price_grosz": 1300,
+                "regular_price_grosz": 1600,
                 "is_available": True,
             })
         )
@@ -195,17 +283,46 @@ class TestDatabaseModels:
         # Query snapshot
         result = await db_session.execute(
             select(models.PriceSnapshot).where(
+                models.PriceSnapshot.institution_id == 1135,
                 models.PriceSnapshot.item_id == 789,
                 models.PriceSnapshot.snap_date == snap_date
             )
         )
         snapshot = result.scalar_one()
 
+        assert snapshot.institution_id == 1135
         assert snapshot.item_id == 789
         assert snapshot.snap_date == snap_date
         assert snapshot.price_now_grosz == 1500
+        assert snapshot.price_min30_grosz == 1400
+        assert snapshot.sale_price_grosz == 1300
+        assert snapshot.regular_price_grosz == 1600
         assert snapshot.is_available is True
         assert snapshot.seen_at is not None
+
+    async def test_user_account_preferred_institution(self, db_session):
+        """Test UserAccount preferred institution field."""
+        await db_session.execute(
+            insert(models.Institution).values({
+                "id": 1135,
+                "name": "Default / Lab office",
+            })
+        )
+        user_id = str(uuid4())
+        await db_session.execute(
+            insert(models.UserAccount).values({
+                "id": user_id,
+                "preferred_institution_id": 1135,
+            })
+        )
+        await db_session.commit()
+
+        result = await db_session.execute(
+            select(models.UserAccount).where(models.UserAccount.id == user_id)
+        )
+        user = result.scalar_one()
+
+        assert user.preferred_institution_id == 1135
 
     async def test_ingestion_log_model(self, db_session):
         """Test IngestionLog model."""

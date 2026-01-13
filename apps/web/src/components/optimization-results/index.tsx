@@ -6,6 +6,7 @@ import { CircleAlert, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { useBiomarkerLookup } from "../../hooks/useBiomarkerLookup";
+import { useBiomarkerPrices } from "../../hooks/useBiomarkerPrices";
 import { track, consumeTtorDuration } from "../../lib/analytics";
 import { PriceBreakdownSection } from "./price-breakdown";
 import { AddonSuggestionsCollapsible } from "./addon-suggestions-collapsible";
@@ -53,6 +54,8 @@ export function OptimizationResults({
 
   const { data: biomarkerNames } = useBiomarkerLookup(missingCodes);
   const biomarkerLabels = useMemo(() => biomarkerNames ?? {}, [biomarkerNames]);
+  const { data: biomarkerPrices } = useBiomarkerPrices(selected);
+  const priceLookup = useMemo(() => biomarkerPrices ?? {}, [biomarkerPrices]);
 
   const viewModel = useMemo(
     () =>
@@ -62,9 +65,10 @@ export function OptimizationResults({
             result,
             variant,
             biomarkerNames: biomarkerLabels,
+            biomarkerPrices: priceLookup,
           })
         : null,
-    [selected, result, variant, biomarkerLabels],
+    [selected, result, variant, biomarkerLabels, priceLookup],
   );
 
   const lastEventKeyRef = useRef<string | null>(null);

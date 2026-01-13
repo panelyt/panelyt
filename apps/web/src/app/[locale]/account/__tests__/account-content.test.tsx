@@ -12,6 +12,10 @@ vi.mock("../../../../components/header", () => ({
   Header: () => <div data-testid="header" />,
 }));
 
+vi.mock("../../../../components/office-selector", () => ({
+  OfficeSelector: () => <div data-testid="office-selector" />,
+}));
+
 vi.mock("../../../../hooks/useUserSession", () => ({
   useUserSession: () => ({ data: { registered: true, username: "Egor" }, isLoading: false }),
 }));

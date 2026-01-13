@@ -1,6 +1,7 @@
 import type { OptimizeResponse } from "@panelyt/types";
 
 import { formatCurrency } from "../../lib/format";
+import { sumSelectedBiomarkerPrices } from "../../lib/biomarkers";
 
 export interface OptimizationGroup {
   kind: "package" | "single";
@@ -51,6 +52,7 @@ interface BuildOptimizationViewModelArgs {
   result: OptimizeResponse;
   variant: "light" | "dark";
   biomarkerNames?: Record<string, string>;
+  biomarkerPrices?: Record<string, number | null>;
 }
 
 export function buildOptimizationViewModel({
@@ -58,6 +60,7 @@ export function buildOptimizationViewModel({
   result,
   variant,
   biomarkerNames = {},
+  biomarkerPrices = {},
 }: BuildOptimizationViewModelArgs): OptimizationViewModel {
   const isDark = variant === "dark";
   const selectedSet = new Set(selected);
@@ -73,7 +76,9 @@ export function buildOptimizationViewModel({
     ? Math.round((coveredTokens.length / selected.length) * 100)
     : 0;
 
-  const potentialSavingsRaw = Math.max(result.total_now - result.total_min30, 0);
+  const selectedTotalGrosz = sumSelectedBiomarkerPrices(selected, biomarkerPrices);
+  const selectedTotalNow = selectedTotalGrosz / 100;
+  const potentialSavingsRaw = Math.max(selectedTotalNow - result.total_now, 0);
   const highlightSavings = potentialSavingsRaw > 0.01;
   const potentialSavingsLabel = potentialSavingsRaw > 0 ? formatCurrency(potentialSavingsRaw) : "";
   const totalMin30Label = formatCurrency(result.total_min30);

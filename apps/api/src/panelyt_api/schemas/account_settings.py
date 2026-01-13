@@ -63,6 +63,18 @@ class TelegramLinkStatus(BaseModel):
 
 class AccountSettingsResponse(BaseModel):
     telegram: TelegramLinkStatus
+    preferred_institution_id: int | None = Field(
+        default=None,
+        description="Preferred institution (office) id for pricing",
+    )
+
+
+class AccountSettingsUpdateRequest(BaseModel):
+    preferred_institution_id: int | None = Field(
+        default=None,
+        ge=1,
+        description="Preferred institution (office) id for pricing",
+    )
 
 
 class TelegramLinkTokenResponse(BaseModel):
@@ -93,6 +105,7 @@ class TelegramManualLinkRequest(BaseModel):
 
 __all__ = [
     "AccountSettingsResponse",
+    "AccountSettingsUpdateRequest",
     "TelegramLinkCompleteRequest",
     "TelegramLinkCompleteResponse",
     "TelegramLinkStatus",

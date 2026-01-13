@@ -217,6 +217,23 @@ describe("panelStore", () => {
     expect(usePanelStore.getState().lastOptimizationSummary).toEqual(summary);
   });
 
+  it("clears the optimization summary on demand", () => {
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "ALT" }],
+      lastOptimizationSummary: {
+        key: "alt",
+        totalNow: 120,
+        totalMin30: 100,
+        uncoveredCount: 0,
+        updatedAt: "2026-01-02T00:00:00Z",
+      },
+    });
+
+    usePanelStore.getState().clearOptimizationSummary();
+
+    expect(usePanelStore.getState().lastOptimizationSummary).toBeUndefined();
+  });
+
   it("clears the optimization summary when the selection changes", () => {
     usePanelStore.setState({
       selected: [{ code: "ALT", name: "ALT" }],

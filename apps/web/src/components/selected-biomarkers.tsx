@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/cn";
@@ -23,6 +23,7 @@ interface Props {
   biomarkers: SelectedBiomarker[];
   onRemove: (code: string) => void;
   onClearAll: () => void;
+  loadingCodes?: string[];
 }
 
 interface BiomarkerChipProps {
@@ -31,6 +32,7 @@ interface BiomarkerChipProps {
   removeLabel: string;
   removeText: string;
   isHighlighted: boolean;
+  isLoading: boolean;
 }
 
 const BiomarkerChip = ({
@@ -39,6 +41,7 @@ const BiomarkerChip = ({
   removeLabel,
   removeText,
   isHighlighted,
+  isLoading,
 }: BiomarkerChipProps) => {
   const [isActive, setIsActive] = useState(false);
 
@@ -57,7 +60,7 @@ const BiomarkerChip = ({
             : "",
         )}
         aria-label={removeLabel}
-        title={biomarker.name}
+        title={isLoading ? undefined : biomarker.name}
         onBlur={() => setIsActive(false)}
         onFocus={() => setIsActive(true)}
         onMouseEnter={() => setIsActive(true)}
@@ -67,7 +70,9 @@ const BiomarkerChip = ({
           className={cn(
             "max-w-[200px] truncate text-sm font-semibold transition-opacity",
             isActive ? "opacity-0" : "opacity-100",
+            isLoading ? "blur-[2px] opacity-70" : "",
           )}
+          aria-busy={isLoading}
         >
           {biomarker.name}
         </span>
@@ -81,7 +86,12 @@ const BiomarkerChip = ({
   );
 };
 
-export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) {
+export function SelectedBiomarkers({
+  biomarkers,
+  onRemove,
+  onClearAll,
+  loadingCodes = [],
+}: Props) {
   const t = useTranslations();
   const count = biomarkers.length;
   const shouldConfirmClear = count > 3;
@@ -89,6 +99,11 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
   const previousCodes = useRef<Set<string>>(new Set());
   const hasMounted = useRef(false);
   const highlightTimeouts = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const loadingSet = useMemo(
+    () =>
+      new Set(loadingCodes.map((code) => code.trim().toUpperCase()).filter(Boolean)),
+    [loadingCodes],
+  );
 
   useEffect(() => {
     const currentCodes = new Set(biomarkers.map((biomarker) => biomarker.code));
@@ -225,6 +240,7 @@ export function SelectedBiomarkers({ biomarkers, onRemove, onClearAll }: Props) 
               removeLabel={t("common.remove", { name: biomarker.name })}
               removeText={t("common.removeShort")}
               isHighlighted={highlightedCodes.has(biomarker.code)}
+              isLoading={loadingSet.has(biomarker.code.trim().toUpperCase())}
             />
           ))}
         </ul>

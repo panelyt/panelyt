@@ -122,6 +122,46 @@ export async function postParsedJson<T>(
   return schema.parse(payload);
 }
 
+export async function patchJson<T>(
+  path: string,
+  body?: unknown,
+  init?: RequestInit,
+): Promise<T> {
+  const requestInit: RequestInit = {
+    method: "PATCH",
+    cache: "no-store",
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+    credentials: "include",
+  };
+
+  if (body !== undefined) {
+    requestInit.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(`${env.apiBase}${path}`, requestInit);
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new HttpError(response.status, `PATCH ${path} failed with ${response.status}`, text);
+  }
+
+  return parseResponse<T>(response);
+}
+
+export async function patchParsedJson<T>(
+  path: string,
+  schema: ZodType<T>,
+  body?: unknown,
+  init?: RequestInit,
+): Promise<T> {
+  const payload = await patchJson<unknown>(path, body, init);
+  return schema.parse(payload);
+}
+
 export async function putJson<T>(
   path: string,
   body: unknown,

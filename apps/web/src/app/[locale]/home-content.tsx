@@ -9,6 +9,7 @@ import { useSavedLists } from "../../hooks/useSavedLists";
 import { useUserSession } from "../../hooks/useUserSession";
 import { useOptimization, useAddonSuggestions } from "../../hooks/useOptimization";
 import { useBiomarkerSelection } from "../../hooks/useBiomarkerSelection";
+import { useBiomarkerPrices } from "../../hooks/useBiomarkerPrices";
 import { useUrlParamSync } from "../../hooks/useUrlParamSync";
 import { useUrlBiomarkerSync } from "../../hooks/useUrlBiomarkerSync";
 import { useSaveListModal } from "../../hooks/useSaveListModal";
@@ -16,6 +17,7 @@ import { useTemplateModal } from "../../hooks/useTemplateModal";
 import { usePanelHydrated } from "../../hooks/usePanelHydrated";
 import { Header } from "../../components/header";
 import { OptimizationResults } from "../../components/optimization-results";
+import { OfficeSelectionBanner } from "../../components/office-selection-banner";
 import { SearchBox } from "../../components/search-box";
 import { SelectedBiomarkers } from "../../components/selected-biomarkers";
 import { SaveListModal } from "../../components/save-list-modal";
@@ -26,25 +28,41 @@ import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
 import { dispatchSearchPrefill } from "../../features/optimizer/search-events";
 import { track } from "../../lib/analytics";
 import { requestAuthModal } from "../../lib/auth-events";
+import { cn } from "../../lib/cn";
 import { formatCurrency } from "../../lib/format";
 import { buildOptimizationKey } from "../../lib/optimization";
 import { usePanelStore } from "../../stores/panelStore";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { DIAG_NAME } from "../../lib/diag";
+import { sumSelectedBiomarkerPrices } from "../../lib/biomarkers";
 
 interface SummaryStatProps {
   label: string;
   value: string;
   valueTone?: string;
+  isLoading?: boolean;
 }
 
-const SummaryStat = ({ label, value, valueTone }: SummaryStatProps) => (
+const SummaryStat = ({
+  label,
+  value,
+  valueTone,
+  isLoading = false,
+}: SummaryStatProps) => (
   <div className="flex flex-col gap-1">
     <span className="text-[11px] font-semibold uppercase tracking-wide text-secondary">
       {label}
     </span>
-    <span className={`text-base font-semibold ${valueTone ?? "text-primary"}`}>
+    <span
+      data-slot="value"
+      data-state={isLoading ? "loading" : "ready"}
+      className={cn(
+        "text-base font-semibold transition",
+        valueTone ?? "text-primary",
+        isLoading ? "select-none blur-sm text-secondary/60" : null,
+      )}
+    >
       {value}
     </span>
   </div>
@@ -68,6 +86,12 @@ function HomeContent() {
   // Optimization
   const optimizationQuery = useOptimization(selection.biomarkerCodes);
   const activeResult = optimizationQuery.data;
+  const biomarkerPricesQuery = useBiomarkerPrices(selection.biomarkerCodes);
+  const biomarkerPrices = useMemo(
+    () => biomarkerPricesQuery.data ?? {},
+    [biomarkerPricesQuery.data],
+  );
+  const savingsReady = biomarkerPricesQuery.data !== undefined;
   const activeItemIds = useMemo(
     () => activeResult?.items?.map((item) => item.id) ?? [],
     [activeResult?.items],
@@ -125,20 +149,34 @@ function HomeContent() {
     const sourceName = DIAG_NAME;
 
     const totalNowLabel = formatCurrency(activeResult.total_now);
-    const savingsAmount = Math.max(activeResult.total_now - activeResult.total_min30, 0);
-    const savingsLabel =
-      savingsAmount > 0 ? formatCurrency(savingsAmount) : t("optimization.atFloor");
+    const selectedTotalGrosz = sumSelectedBiomarkerPrices(
+      selection.biomarkerCodes,
+      biomarkerPrices,
+    );
+    const selectedTotalNow = selectedTotalGrosz / 100;
+    const savingsAmount = savingsReady
+      ? Math.max(selectedTotalNow - activeResult.total_now, 0)
+      : 0;
+    const savingsLabel = savingsReady
+      ? savingsAmount > 0
+        ? formatCurrency(savingsAmount)
+        : t("optimization.noSavings")
+      : t("common.placeholderDash");
 
     return {
       sourceName,
       totalNowLabel,
       savingsAmount,
       savingsLabel,
+      savingsReady,
     };
   }, [
     activeResult,
     optimizationQuery.optimizationKey,
     selectionKey,
+    biomarkerPrices,
+    selection.biomarkerCodes,
+    savingsReady,
     t,
   ]);
 
@@ -146,6 +184,16 @@ function HomeContent() {
     summary !== null &&
     !optimizationQuery.isLoading &&
     !optimizationQuery.error;
+  const placeholderMoney = formatCurrency(0);
+  const sourceLabel = summary?.sourceName ?? DIAG_NAME;
+  const totalLabel = summaryReady && summary ? summary.totalNowLabel : placeholderMoney;
+  const savingsLoading = !summaryReady || !summary?.savingsReady;
+  const savingsLabel =
+    savingsLoading || !summary ? placeholderMoney : summary.savingsLabel;
+  const savingsTone =
+    !savingsLoading && summary && summary.savingsAmount > 0
+      ? "text-emerald-300"
+      : "text-secondary";
   const selectionCount = selection.selected.length;
   const hasSelection = isPanelHydrated && selectionCount > 0;
 
@@ -321,6 +369,7 @@ function HomeContent() {
                   {t("home.buildPanel")}
                 </h2>
                 <div className="mt-6 flex flex-col gap-4">
+                  <OfficeSelectionBanner />
                   <SearchBox
                     onSelect={selection.handleSelect}
                     onTemplateSelect={handleTemplateSelect}
@@ -330,6 +379,7 @@ function HomeContent() {
                       biomarkers={selection.selected}
                       onRemove={selection.handleRemove}
                       onClearAll={selection.clearAll}
+                      loadingCodes={urlBiomarkerSync.loadingCodes}
                     />
                   ) : (
                     <div
@@ -373,33 +423,26 @@ function HomeContent() {
                   isVisible={hasSelection}
                   isLoading={optimizationQuery.isLoading}
                   source={
-                    summaryReady ? (
-                      <SummaryStat
-                        label={t("optimization.sourceLabel")}
-                        value={summary.sourceName}
-                      />
-                    ) : undefined
+                    <SummaryStat
+                      label={t("optimization.sourceLabel")}
+                      value={sourceLabel}
+                      isLoading={!summaryReady}
+                    />
                   }
                   total={
-                    summaryReady ? (
-                      <SummaryStat
-                        label={t("results.currentTotal")}
-                        value={summary.totalNowLabel}
-                      />
-                    ) : undefined
+                    <SummaryStat
+                      label={t("results.currentTotal")}
+                      value={totalLabel}
+                      isLoading={!summaryReady}
+                    />
                   }
                   savings={
-                    summaryReady ? (
-                      <SummaryStat
-                        label={t("optimization.potentialSavings")}
-                        value={summary.savingsLabel}
-                        valueTone={
-                          summary.savingsAmount > 0
-                            ? "text-emerald-300"
-                            : "text-secondary"
-                        }
-                      />
-                    ) : undefined
+                    <SummaryStat
+                      label={t("optimization.potentialSavings")}
+                      value={savingsLabel}
+                      valueTone={savingsTone}
+                      isLoading={savingsLoading}
+                    />
                   }
                   actions={
                     <>
