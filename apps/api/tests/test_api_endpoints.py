@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 
 from panelyt_api.core.cache import freshness_cache
 from panelyt_api.db import models
@@ -768,3 +768,65 @@ class TestOptimizeEndpoint:
         assert data["uncovered"] == []
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(2222)
+
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    async def test_optimize_uses_preferred_institution_when_param_missing(
+        self,
+        mock_ensure_fresh,
+        async_client: AsyncClient,
+        db_session,
+        activity_spy: AsyncMock,
+    ):
+        mock_ensure_fresh.return_value = None
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [{"id": 1, "name": "ALT", "elab_code": "ALT", "slug": "alt"}]
+            )
+        )
+        preferred_institution_id = 2222
+        await insert_institution(db_session, DEFAULT_INSTITUTION_ID)
+        await insert_institution(db_session, institution_id=preferred_institution_id)
+
+        items = [
+            {
+                "id": 1,
+                "external_id": "item-1",
+                "kind": "single",
+                "name": "ALT Test",
+                "slug": "alt-test",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 900,
+                "currency": "PLN",
+                "is_available": True,
+            }
+        ]
+        await insert_items_with_offers(
+            db_session, items, institution_id=preferred_institution_id
+        )
+        await db_session.execute(
+            insert(models.ItemBiomarker).values([{"item_id": 1, "biomarker_id": 1}])
+        )
+        await db_session.commit()
+
+        response = await async_client.post("/users/session")
+        assert response.status_code == 200
+        user_id = response.json()["user_id"]
+
+        await db_session.execute(
+            update(models.UserAccount)
+            .where(models.UserAccount.id == user_id)
+            .values(preferred_institution_id=preferred_institution_id)
+        )
+        await db_session.commit()
+
+        payload = {"biomarkers": ["ALT"]}
+        response = await async_client.post("/optimize", json=payload)
+        assert response.status_code == 200
+
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["name"] == "ALT Test"
+        assert data["uncovered"] == []
+        activity_spy.assert_awaited_once()
+        mock_ensure_fresh.assert_awaited_once_with(preferred_institution_id)

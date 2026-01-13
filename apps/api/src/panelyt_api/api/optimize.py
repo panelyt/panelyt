@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from panelyt_api.api.deps import SessionDep
+from panelyt_api.api.deps import SessionDep, SessionStateDep
 from panelyt_api.core.cache import record_user_activity_debounced
 from panelyt_api.core.settings import get_settings
 from panelyt_api.ingest.repository import CatalogRepository
@@ -26,11 +26,16 @@ router = APIRouter()
 async def optimize(
     payload: OptimizeRequest,
     session: SessionDep,
+    session_state: SessionStateDep,
     institution: Annotated[
         int | None, Query(ge=1, description="Institution (office) id")
     ] = None,
 ) -> OptimizeResponse:
-    institution_id = institution or DEFAULT_INSTITUTION_ID
+    institution_id = (
+        institution
+        or session_state.user.preferred_institution_id
+        or DEFAULT_INSTITUTION_ID
+    )
     repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
@@ -43,6 +48,7 @@ async def optimize(
 async def optimize_addons(
     payload: AddonSuggestionsRequest,
     session: SessionDep,
+    session_state: SessionStateDep,
     institution: Annotated[
         int | None, Query(ge=1, description="Institution (office) id")
     ] = None,
@@ -52,6 +58,10 @@ async def optimize_addons(
     This endpoint is called after /optimize to lazily load addon suggestions,
     improving the initial response time of the optimization endpoint.
     """
-    institution_id = institution or DEFAULT_INSTITUTION_ID
+    institution_id = (
+        institution
+        or session_state.user.preferred_institution_id
+        or DEFAULT_INSTITUTION_ID
+    )
     optimizer = OptimizationService(session)
     return await optimizer.compute_addons(payload, institution_id)
