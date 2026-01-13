@@ -57,7 +57,7 @@ describe("OfficeSelector", () => {
           address: "Main 1",
         },
         isLoading: false,
-      } as ReturnType<typeof useInstitutionDetails>,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
     );
     vi.mocked(useInstitutionSearch).mockReturnValue(
       {
@@ -65,7 +65,7 @@ describe("OfficeSelector", () => {
           results: [],
         },
         isFetching: false,
-      } as ReturnType<typeof useInstitutionSearch>,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
     );
 
     render(<OfficeSelector />);
@@ -92,7 +92,7 @@ describe("OfficeSelector", () => {
       {
         data: null,
         isLoading: false,
-      } as ReturnType<typeof useInstitutionDetails>,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
     );
     vi.mocked(useInstitutionSearch).mockReturnValue(
       {
@@ -107,7 +107,7 @@ describe("OfficeSelector", () => {
           ],
         },
         isFetching: false,
-      } as ReturnType<typeof useInstitutionSearch>,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
     );
 
     render(<OfficeSelector />);
@@ -136,7 +136,7 @@ describe("OfficeSelector", () => {
       {
         data: null,
         isLoading: false,
-      } as ReturnType<typeof useInstitutionDetails>,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
     );
     vi.mocked(useInstitutionSearch).mockReturnValue(
       {
@@ -151,7 +151,7 @@ describe("OfficeSelector", () => {
           ],
         },
         isFetching: false,
-      } as ReturnType<typeof useInstitutionSearch>,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
     );
 
     render(<OfficeSelector />);
