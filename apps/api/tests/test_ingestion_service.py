@@ -160,7 +160,7 @@ class TestIngestionService:
     async def test_ensure_fresh_data_waits_for_lock(
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
-        """Ensure ensure_fresh_data uses blocking ingestion on demand."""
+        """Ensure ensure_fresh_data skips queued ingestion when lock is held."""
         mock_session = AsyncMock()
         mock_session.execute = AsyncMock(
             return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
@@ -186,7 +186,7 @@ class TestIngestionService:
                 mock_run.assert_awaited_once_with(
                     institution_id=1135,
                     reason="staleness_check",
-                    blocking=True,
+                    blocking=False,
                 )
                 mock_schedule.assert_not_called()
 
