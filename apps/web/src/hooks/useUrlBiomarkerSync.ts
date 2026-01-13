@@ -4,9 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "../i18n/navigation";
 import { defaultLocale } from "../i18n/config";
-import { BiomarkerSearchResponseSchema } from "@panelyt/types";
 
-import { getJson } from "../lib/http";
+import { fetchBiomarkerBatch } from "../lib/biomarkers";
 import { useInstitution } from "./useInstitution";
 
 export interface SelectedBiomarker {
@@ -27,46 +26,12 @@ async function lookupBiomarkerNames(
   institutionId: number,
 ): Promise<Record<string, string>> {
   const lookup: Record<string, string> = {};
+  const batch = await fetchBiomarkerBatch(codes, institutionId);
 
-  // Initialize with codes as fallback names
   for (const code of codes) {
-    lookup[code] = code;
+    lookup[code] = batch[code]?.name ?? code;
   }
 
-  if (codes.length === 0) {
-    return lookup;
-  }
-
-  // Try to find names by searching for each code
-  const searchPromises = codes.map(async (code) => {
-    const normalizedCode = code.trim().toLowerCase();
-    try {
-      const payload = await getJson(
-        `/catalog/biomarkers?query=${encodeURIComponent(code)}&institution=${institutionId}`,
-      );
-      const response = BiomarkerSearchResponseSchema.parse(payload);
-
-      // Find exact match by elab_code, slug, or name (case-insensitive)
-      const exactMatch = response.results.find((b) => {
-        const normalizedElab = b.elab_code?.trim().toLowerCase();
-        const normalizedSlug = b.slug?.trim().toLowerCase();
-        const normalizedName = b.name.trim().toLowerCase();
-        return (
-          normalizedElab === normalizedCode ||
-          normalizedSlug === normalizedCode ||
-          normalizedName === normalizedCode
-        );
-      });
-      const match = exactMatch ?? (response.results.length === 1 ? response.results[0] : null);
-      if (match) {
-        lookup[code] = match.name;
-      }
-    } catch {
-      // Keep fallback name (the code itself)
-    }
-  });
-
-  await Promise.all(searchPromises);
   return lookup;
 }
 

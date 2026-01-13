@@ -1,43 +1,29 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { BiomarkerSearchResponseSchema } from "@panelyt/types";
+import { useMemo } from "react";
+import type { UseQueryResult } from "@tanstack/react-query";
 
 import { DIAG_SINGLE_ITEM_URL_BASE } from "../lib/diag";
-import { getJson } from "../lib/http";
-import { findBiomarkerMatch } from "../lib/biomarkers";
-import { useInstitution } from "./useInstitution";
+import { useBiomarkerBatch } from "./useBiomarkerBatch";
 
-export function useBiomarkerDiagUrls(codes: string[]) {
-  const { institutionId } = useInstitution();
-  return useQuery<Record<string, string | null>, Error>({
-    queryKey: ["biomarker-diag-urls", [...codes].sort(), institutionId],
-    queryFn: async () => {
-      const lookup: Record<string, string | null> = {};
+export function useBiomarkerDiagUrls(
+  codes: string[],
+): UseQueryResult<Record<string, string | null>, Error> {
+  const batch = useBiomarkerBatch(codes);
+  const data = useMemo(() => {
+    if (!batch.data) {
+      return undefined;
+    }
+    const lookup: Record<string, string | null> = {};
+    for (const code of codes) {
+      const slug = batch.data[code]?.slug;
+      lookup[code] = slug ? `${DIAG_SINGLE_ITEM_URL_BASE}/${slug}` : null;
+    }
+    return lookup;
+  }, [batch.data, codes]);
 
-      for (const rawCode of codes) {
-        const code = rawCode.trim();
-        if (!code) {
-          continue;
-        }
-        lookup[code] = null;
-        try {
-          const payload = await getJson(
-            `/catalog/biomarkers?query=${encodeURIComponent(code)}&institution=${institutionId}`,
-          );
-          const response = BiomarkerSearchResponseSchema.parse(payload);
-          const match = findBiomarkerMatch(response.results, code);
-          if (match?.slug) {
-            lookup[code] = `${DIAG_SINGLE_ITEM_URL_BASE}/${match.slug}`;
-          }
-        } catch {
-          // Fallback is null; link rendering can handle it.
-        }
-      }
-
-      return lookup;
-    },
-    enabled: codes.length > 0,
-    staleTime: 1000 * 60 * 10,
-  });
+  return {
+    ...batch,
+    data,
+  };
 }

@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react'
 import { useUrlBiomarkerSync, type SelectedBiomarker } from '../useUrlBiomarkerSync'
 import { useRouter } from '../../i18n/navigation'
 import { useSearchParams } from 'next/navigation'
-import { getJson } from '../../lib/http'
+import { postParsedJson } from '../../lib/http'
 
 vi.mock('../../i18n/navigation', () => ({
   useRouter: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('../../lib/http', () => ({
-  getJson: vi.fn(),
+  postParsedJson: vi.fn(),
 }))
 
 vi.mock('../useInstitution', () => ({
@@ -23,7 +23,7 @@ vi.mock('../useInstitution', () => ({
 
 const useRouterMock = vi.mocked(useRouter)
 const useSearchParamsMock = vi.mocked(useSearchParams)
-const getJsonMock = vi.mocked(getJson)
+const postParsedJsonMock = vi.mocked(postParsedJson)
 
 describe('useUrlBiomarkerSync', () => {
   beforeEach(() => {
@@ -31,7 +31,7 @@ describe('useUrlBiomarkerSync', () => {
     useSearchParamsMock.mockReturnValue(
       new URLSearchParams() as ReturnType<typeof useSearchParams>,
     )
-    getJsonMock.mockReset()
+    postParsedJsonMock.mockReset()
   })
 
   it('includes locale prefix when building share url', () => {
@@ -111,7 +111,7 @@ describe('useUrlBiomarkerSync', () => {
     )
 
     await waitFor(() => expect(onLoadFromUrl).not.toHaveBeenCalled())
-    expect(getJsonMock).not.toHaveBeenCalled()
+    expect(postParsedJsonMock).not.toHaveBeenCalled()
   })
 
   it('loads biomarker codes immediately before resolving names', async () => {
@@ -121,7 +121,7 @@ describe('useUrlBiomarkerSync', () => {
     const onLoadFromUrl = vi.fn()
     const resolvers: Array<(value: unknown) => void> = []
 
-    getJsonMock.mockImplementation(
+    postParsedJsonMock.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolvers.push(resolve)
@@ -140,24 +140,29 @@ describe('useUrlBiomarkerSync', () => {
       { code: 'TSH', name: 'TSH' },
       { code: 'T4', name: 'T4' },
     ])
+    expect(postParsedJsonMock).toHaveBeenCalledWith(
+      '/catalog/biomarkers/batch?institution=1135',
+      expect.anything(),
+      { codes: ['TSH', 'T4'] },
+    )
 
     resolvers[0]?.({
-      results: [{
-        id: 11,
-        name: 'Thyroid Stimulating Hormone',
-        elab_code: 'TSH',
-        slug: 'tsh',
-        price_now_grosz: 1200,
-      }],
-    })
-    resolvers[1]?.({
-      results: [{
-        id: 12,
-        name: 'Thyroxine',
-        elab_code: 'T4',
-        slug: 't4',
-        price_now_grosz: 800,
-      }],
+      results: {
+        TSH: {
+          id: 11,
+          name: 'Thyroid Stimulating Hormone',
+          elab_code: 'TSH',
+          slug: 'tsh',
+          price_now_grosz: 1200,
+        },
+        T4: {
+          id: 12,
+          name: 'Thyroxine',
+          elab_code: 'T4',
+          slug: 't4',
+          price_now_grosz: 800,
+        },
+      },
     })
 
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(2))
@@ -174,7 +179,7 @@ describe('useUrlBiomarkerSync', () => {
     const onLoadFromUrl = vi.fn()
     const resolvers: Array<(value: unknown) => void> = []
 
-    getJsonMock.mockImplementation(
+    postParsedJsonMock.mockImplementation(
       () =>
         new Promise((resolve) => {
           resolvers.push(resolve)
@@ -196,15 +201,22 @@ describe('useUrlBiomarkerSync', () => {
 
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(1))
     expect(onLoadFromUrl).toHaveBeenCalledWith([{ code: '124', name: '124' }])
+    expect(postParsedJsonMock).toHaveBeenCalledWith(
+      '/catalog/biomarkers/batch?institution=1135',
+      expect.anything(),
+      { codes: ['124'] },
+    )
 
     resolvers[0]?.({
-      results: [{
-        id: 1,
-        name: 'Testosterone',
-        elab_code: '124',
-        slug: 'testosterone',
-        price_now_grosz: 1000,
-      }],
+      results: {
+        124: {
+          id: 1,
+          name: 'Testosterone',
+          elab_code: '124',
+          slug: 'testosterone',
+          price_now_grosz: 1000,
+        },
+      },
     })
 
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(2))

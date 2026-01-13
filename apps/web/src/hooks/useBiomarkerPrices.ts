@@ -1,42 +1,27 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { BiomarkerSearchResponseSchema } from "@panelyt/types";
+import { useMemo } from "react";
+import type { UseQueryResult } from "@tanstack/react-query";
 
-import { getJson } from "../lib/http";
-import { findBiomarkerMatch } from "../lib/biomarkers";
-import { useInstitution } from "./useInstitution";
+import { useBiomarkerBatch } from "./useBiomarkerBatch";
 
-export function useBiomarkerPrices(codes: string[]) {
-  const { institutionId } = useInstitution();
-  return useQuery<Record<string, number | null>, Error>({
-    queryKey: ["biomarker-prices", [...codes].sort(), institutionId],
-    queryFn: async () => {
-      const lookup: Record<string, number | null> = {};
+export function useBiomarkerPrices(
+  codes: string[],
+): UseQueryResult<Record<string, number | null>, Error> {
+  const batch = useBiomarkerBatch(codes);
+  const data = useMemo(() => {
+    if (!batch.data) {
+      return undefined;
+    }
+    const lookup: Record<string, number | null> = {};
+    for (const code of codes) {
+      lookup[code] = batch.data[code]?.price_now_grosz ?? null;
+    }
+    return lookup;
+  }, [batch.data, codes]);
 
-      for (const rawCode of codes) {
-        const code = rawCode.trim();
-        if (!code) {
-          continue;
-        }
-        lookup[code] = null;
-        try {
-          const payload = await getJson(
-            `/catalog/biomarkers?query=${encodeURIComponent(code)}&institution=${institutionId}`,
-          );
-          const response = BiomarkerSearchResponseSchema.parse(payload);
-          const match = findBiomarkerMatch(response.results, code);
-          if (match?.price_now_grosz !== null && match?.price_now_grosz !== undefined) {
-            lookup[code] = match.price_now_grosz;
-          }
-        } catch {
-          // Keep fallback null price.
-        }
-      }
-
-      return lookup;
-    },
-    enabled: codes.length > 0,
-    staleTime: 1000 * 60 * 10,
-  });
+  return {
+    ...batch,
+    data,
+  };
 }

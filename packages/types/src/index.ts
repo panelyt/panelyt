@@ -312,6 +312,18 @@ export type BiomarkerSearchResponse = z.infer<
   typeof BiomarkerSearchResponseSchema
 >;
 
+export const BiomarkerBatchRequestSchema = z.object({
+  codes: z.array(z.string().min(1)).min(1).max(200),
+});
+
+export type BiomarkerBatchRequest = z.infer<typeof BiomarkerBatchRequestSchema>;
+
+export const BiomarkerBatchResponseSchema = z.object({
+  results: z.record(z.string(), BiomarkerSchema.nullable()).default({}),
+});
+
+export type BiomarkerBatchResponse = z.infer<typeof BiomarkerBatchResponseSchema>;
+
 export const CatalogBiomarkerResultSchema = z.object({
   type: z.literal('biomarker'),
   id: z.number().int().positive(),

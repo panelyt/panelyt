@@ -1,26 +1,46 @@
-import type { Biomarker } from "@panelyt/types";
+import { BiomarkerBatchResponseSchema, type Biomarker } from "@panelyt/types";
 
-export const normalizeBiomarkerToken = (value: string | null | undefined) =>
-  value?.trim().toLowerCase();
+import { postParsedJson } from "./http";
 
 export const normalizeBiomarkerCode = (value: string) => value.trim().toUpperCase();
 
-export const findBiomarkerMatch = (results: Biomarker[], code: string) => {
-  const normalizedCode = normalizeBiomarkerToken(code);
-  if (!normalizedCode) {
-    return undefined;
+const BIOMARKER_BATCH_LIMIT = 200;
+
+const chunkCodes = (codes: string[]) => {
+  const chunks: string[][] = [];
+  for (let i = 0; i < codes.length; i += BIOMARKER_BATCH_LIMIT) {
+    chunks.push(codes.slice(i, i + BIOMARKER_BATCH_LIMIT));
+  }
+  return chunks;
+};
+
+export const fetchBiomarkerBatch = async (
+  codes: string[],
+  institutionId: number,
+): Promise<Record<string, Biomarker | null>> => {
+  const trimmedCodes = codes.map((code) => code.trim()).filter(Boolean);
+  const uniqueCodes = Array.from(new Set(trimmedCodes));
+  if (uniqueCodes.length === 0) {
+    return {};
   }
 
-  return results.find((result) => {
-    const normalizedElab = normalizeBiomarkerToken(result.elab_code);
-    const normalizedSlug = normalizeBiomarkerToken(result.slug);
-    const normalizedName = normalizeBiomarkerToken(result.name);
-    return (
-      normalizedElab === normalizedCode ||
-      normalizedSlug === normalizedCode ||
-      normalizedName === normalizedCode
+  const results: Record<string, Biomarker | null> = {};
+  for (const chunk of chunkCodes(uniqueCodes)) {
+    const response = await postParsedJson(
+      `/catalog/biomarkers/batch?institution=${institutionId}`,
+      BiomarkerBatchResponseSchema,
+      { codes: chunk },
     );
-  });
+    Object.assign(results, response.results);
+  }
+
+  for (const code of uniqueCodes) {
+    if (!(code in results)) {
+      results[code] = null;
+    }
+  }
+
+  return results;
 };
 
 export const resolveBiomarkerPrice = (
