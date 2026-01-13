@@ -11,6 +11,10 @@ vi.mock("../../hooks/useInstitutionSearch", () => ({
   useInstitutionSearch: vi.fn(),
 }));
 
+vi.mock("../../hooks/useInstitutionDetails", () => ({
+  useInstitutionDetails: vi.fn(),
+}));
+
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string, values?: Record<string, string>) => {
     if (key === "officeSelector.triggerLabel" && values?.name) {
@@ -30,9 +34,50 @@ vi.mock("next-intl", () => ({
 }));
 
 import { useInstitution } from "../../hooks/useInstitution";
+import { useInstitutionDetails } from "../../hooks/useInstitutionDetails";
 import { useInstitutionSearch } from "../../hooks/useInstitutionSearch";
 
 describe("OfficeSelector", () => {
+  it("uses the institution city when no label is stored", () => {
+    const setInstitution = vi.fn();
+    vi.mocked(useInstitution).mockReturnValue({
+      institutionId: 213,
+      label: null,
+      setInstitution,
+    });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: {
+          id: 213,
+          name: "Clinic Pulawy",
+          city: "Pulawy",
+          address: "Main 1",
+        },
+        isLoading: false,
+      } as ReturnType<typeof useInstitutionDetails>,
+    );
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [],
+        },
+        isFetching: false,
+      } as ReturnType<typeof useInstitutionSearch>,
+    );
+
+    render(<OfficeSelector />);
+
+    expect(
+      screen.getByRole("button", { name: "Office: Pulawy" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Office: Pulawy" }));
+
+    expect(
+      screen.getByText("Current office: Pulawy, Main 1"),
+    ).toBeInTheDocument();
+  });
+
   it("selects an institution from search results", () => {
     const setInstitution = vi.fn();
     vi.mocked(useInstitution).mockReturnValue({
@@ -40,6 +85,12 @@ describe("OfficeSelector", () => {
       label: "Lab office",
       setInstitution,
     });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: null,
+        isLoading: false,
+      } as ReturnType<typeof useInstitutionDetails>,
+    );
     vi.mocked(useInstitutionSearch).mockReturnValue(
       {
         data: {
@@ -78,6 +129,12 @@ describe("OfficeSelector", () => {
       label: "Lab office",
       setInstitution,
     });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: null,
+        isLoading: false,
+      } as ReturnType<typeof useInstitutionDetails>,
+    );
     vi.mocked(useInstitutionSearch).mockReturnValue(
       {
         data: {

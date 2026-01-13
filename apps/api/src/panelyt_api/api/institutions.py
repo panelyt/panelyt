@@ -61,6 +61,52 @@ async def get_institution(
         select(models.Institution).where(models.Institution.id == institution_id)
     )
     institution = result.scalar_one_or_none()
+    should_refresh = institution is None or not institution.city
+    if should_refresh:
+        client = DiagClient()
+        fetched: InstitutionOut | None = None
+        try:
+            external = await client.get_institution(institution_id)
+            if external is not None:
+                fetched = InstitutionOut(
+                    id=external.id,
+                    name=external.name,
+                    city=external.city,
+                    address=external.address,
+                )
+        except httpx.HTTPStatusError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                if institution is None:
+                    raise HTTPException(
+                        status_code=404, detail="Institution not found"
+                    ) from exc
+            elif institution is None:
+                raise HTTPException(
+                    status_code=502, detail="Upstream institution lookup failed"
+                ) from exc
+        except httpx.HTTPError as exc:
+            if institution is None:
+                raise HTTPException(
+                    status_code=503, detail="Institution lookup unavailable"
+                ) from exc
+        finally:
+            await client.close()
+
+        if fetched is not None:
+            if institution is None:
+                institution = models.Institution(
+                    id=fetched.id,
+                    name=fetched.name,
+                    city=fetched.city,
+                    address=fetched.address,
+                )
+                session.add(institution)
+            else:
+                institution.name = fetched.name
+                institution.city = fetched.city
+                institution.address = fetched.address
+            await session.flush()
+
     if institution is None:
         raise HTTPException(status_code=404, detail="Institution not found")
 

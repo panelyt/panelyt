@@ -24,8 +24,16 @@ _DIAG_BASE_URL = "https://api-eshop.diag.pl/api/front/v1/products"
 _DIAG_INSTITUTION_SEARCH_URL = (
     "https://api-eshop.diag.pl/api/v1/institution-service/institutions/search"
 )
+_DIAG_INSTITUTION_DETAIL_URL = (
+    "https://api-eshop.diag.pl/api/v1/institution-service/institutions"
+)
 _DIAG_DEFAULT_LIMIT = 200
 _DIAG_INSTITUTION_DEFAULT_LIMIT = 20
+_DIAG_INSTITUTION_FILTERS = {
+    "include": "address,city",
+    "filter[attributes]": "ESHOP,ECO,PPA",
+    "filter[temporaryDisabled]": "false",
+}
 
 
 class DiagClient:
@@ -73,6 +81,7 @@ class DiagClient:
             "q": q,
             "page": page,
             "limit": limit,
+            **_DIAG_INSTITUTION_FILTERS,
         }
         response = await _retrying_request(
             self._client, _DIAG_INSTITUTION_SEARCH_URL, params=params
@@ -90,6 +99,16 @@ class DiagClient:
             if parsed is not None:
                 institutions.append(parsed)
         return institutions
+
+    async def get_institution(self, institution_id: int) -> DiagInstitution | None:
+        params = dict(_DIAG_INSTITUTION_FILTERS)
+        response = await _retrying_request(
+            self._client,
+            f"{_DIAG_INSTITUTION_DETAIL_URL}/{institution_id}",
+            params=params,
+        )
+        payload = response.json()
+        return self._parse_institution(payload)
 
     async def _fetch_source(
         self, base_params: dict[str, Any]
@@ -223,11 +242,15 @@ class DiagClient:
         if not name:
             name = f"Institution {institution_id}"
 
-        city = self._clean_str(
-            entry.get("city")
-            or entry.get("town")
-            or (entry.get("address") or {}).get("city")
-        )
+        city = self._clean_str(entry.get("city") or entry.get("town"))
+        if not city:
+            address = entry.get("address") or {}
+            if isinstance(address, dict):
+                address_city = address.get("city")
+                if isinstance(address_city, dict):
+                    city = self._clean_str(address_city.get("name"))
+                else:
+                    city = self._clean_str(address_city)
         address = self._extract_address(entry)
 
         return DiagInstitution(

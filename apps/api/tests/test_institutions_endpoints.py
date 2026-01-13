@@ -117,3 +117,44 @@ class TestInstitutionEndpoints:
         response = await async_client.get("/institutions/9999")
 
         assert response.status_code == 404
+
+    @patch("panelyt_api.ingest.client.DiagClient.close", new_callable=AsyncMock)
+    @patch("panelyt_api.ingest.client.DiagClient.get_institution", new_callable=AsyncMock)
+    @pytest.mark.asyncio
+    async def test_get_institution_fetches_missing_city(
+        self,
+        mock_get: AsyncMock,
+        mock_close: AsyncMock,
+        async_client: AsyncClient,
+        db_session,
+    ):
+        await db_session.execute(
+            insert(models.Institution).values(
+                {
+                    "id": 213,
+                    "name": "Institution 213",
+                    "city": None,
+                    "address": None,
+                }
+            )
+        )
+        await db_session.commit()
+
+        mock_get.return_value = DiagInstitution(
+            id=213,
+            name="Punkt Pobran Diagnostyki - Pulawy, ul. Wojska Polskiego 7a",
+            city="Pulawy",
+            address="24-100 Pulawy, ul. Wojska Polskiego 7a",
+        )
+
+        response = await async_client.get("/institutions/213")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "id": 213,
+            "name": "Punkt Pobran Diagnostyki - Pulawy, ul. Wojska Polskiego 7a",
+            "city": "Pulawy",
+            "address": "24-100 Pulawy, ul. Wojska Polskiego 7a",
+        }
+        mock_get.assert_awaited_once_with(213)
+        mock_close.assert_awaited_once()

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { useDebounce } from "../hooks/useDebounce";
 import { useInstitution } from "../hooks/useInstitution";
+import { useInstitutionDetails } from "../hooks/useInstitutionDetails";
 import { useInstitutionSearch } from "../hooks/useInstitutionSearch";
 import { cn } from "../lib/cn";
 
@@ -41,6 +42,20 @@ const formatInstitutionLabel = (institution: {
   return parts.join(" · ");
 };
 
+const formatCurrentOfficeDetail = (
+  institution: { city?: string | null; address?: string | null } | undefined,
+  fallback: string,
+) => {
+  if (!institution) return fallback;
+  const city = institution.city?.trim();
+  const address = institution.address?.trim();
+  if (address && city) {
+    const hasCity = address.toLowerCase().includes(city.toLowerCase());
+    return hasCity ? address : `${city}, ${address}`;
+  }
+  return address ?? city ?? fallback;
+};
+
 export function OfficeSelector({ className }: OfficeSelectorProps) {
   const t = useTranslations();
   const listId = useId();
@@ -51,6 +66,10 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const shouldLoadDetails = isOpen || !label;
+  const institutionDetails = useInstitutionDetails(
+    shouldLoadDetails ? institutionId : null,
+  );
 
   const debounced = useDebounce(query, 200);
   const searchQuery = useInstitutionSearch(debounced);
@@ -59,7 +78,12 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
     [searchQuery.data?.results],
   );
 
-  const currentLabel = label ?? `#${institutionId}`;
+  const currentLabel =
+    label ?? institutionDetails.data?.city ?? `#${institutionId}`;
+  const currentOfficeDetail = formatCurrentOfficeDetail(
+    institutionDetails.data,
+    currentLabel,
+  );
   const showResults = isOpen && query.trim().length >= 2;
   const activeOptionId =
     highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : undefined;
@@ -164,7 +188,7 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
           </div>
 
           <div className="mt-2 text-[11px] text-secondary">
-            {t("officeSelector.currentLabel", { name: currentLabel })}
+            {t("officeSelector.currentLabel", { name: currentOfficeDetail })}
           </div>
 
           {showResults && (
