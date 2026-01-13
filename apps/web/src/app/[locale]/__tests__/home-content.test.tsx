@@ -314,7 +314,7 @@ describe("HomeContent", () => {
     expect(savingsStat).toHaveTextContent(/20,00/);
   });
 
-  it("does not render optimization summary values when selection changes", () => {
+  it("shows blurred summary placeholders when selection changes", () => {
     const activeResult: OptimizeResponse = {
       total_now: 120,
       total_min30: 100,
@@ -340,8 +340,19 @@ describe("HomeContent", () => {
     const bar = screen.getByTestId("sticky-summary-bar");
     const summary = within(bar);
 
-    expect(summary.queryByText("Source")).not.toBeInTheDocument();
-    expect(summary.queryByText("Estimated price")).not.toBeInTheDocument();
+    expect(summary.getByText("Source")).toBeInTheDocument();
+    expect(summary.getByText("Estimated price")).toBeInTheDocument();
+    expect(summary.getByText("Potential savings")).toBeInTheDocument();
+
+    const totalStat = summary.getByText("Estimated price").closest("div") as HTMLElement;
+    const savingsStat = summary.getByText("Potential savings").closest("div") as HTMLElement;
+    const totalValue = totalStat.querySelector('[data-slot="value"]') as HTMLElement;
+    const savingsValue = savingsStat.querySelector('[data-slot="value"]') as HTMLElement;
+
+    expect(totalValue).toHaveAttribute("data-state", "loading");
+    expect(totalValue).toHaveClass("blur-sm");
+    expect(savingsValue).toHaveAttribute("data-state", "loading");
+    expect(savingsValue).toHaveClass("blur-sm");
   });
 
   it("stores the optimization summary in the panel store when results load", () => {

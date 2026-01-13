@@ -28,6 +28,7 @@ import { StickySummaryBar } from "../../features/optimizer/StickySummaryBar";
 import { dispatchSearchPrefill } from "../../features/optimizer/search-events";
 import { track } from "../../lib/analytics";
 import { requestAuthModal } from "../../lib/auth-events";
+import { cn } from "../../lib/cn";
 import { formatCurrency } from "../../lib/format";
 import { buildOptimizationKey } from "../../lib/optimization";
 import { usePanelStore } from "../../stores/panelStore";
@@ -40,14 +41,28 @@ interface SummaryStatProps {
   label: string;
   value: string;
   valueTone?: string;
+  isLoading?: boolean;
 }
 
-const SummaryStat = ({ label, value, valueTone }: SummaryStatProps) => (
+const SummaryStat = ({
+  label,
+  value,
+  valueTone,
+  isLoading = false,
+}: SummaryStatProps) => (
   <div className="flex flex-col gap-1">
     <span className="text-[11px] font-semibold uppercase tracking-wide text-secondary">
       {label}
     </span>
-    <span className={`text-base font-semibold ${valueTone ?? "text-primary"}`}>
+    <span
+      data-slot="value"
+      data-state={isLoading ? "loading" : "ready"}
+      className={cn(
+        "text-base font-semibold transition",
+        valueTone ?? "text-primary",
+        isLoading ? "select-none blur-sm text-secondary/60" : null,
+      )}
+    >
       {value}
     </span>
   </div>
@@ -169,6 +184,16 @@ function HomeContent() {
     summary !== null &&
     !optimizationQuery.isLoading &&
     !optimizationQuery.error;
+  const placeholderMoney = formatCurrency(0);
+  const sourceLabel = summary?.sourceName ?? DIAG_NAME;
+  const totalLabel = summaryReady && summary ? summary.totalNowLabel : placeholderMoney;
+  const savingsLoading = !summaryReady || !summary?.savingsReady;
+  const savingsLabel =
+    savingsLoading || !summary ? placeholderMoney : summary.savingsLabel;
+  const savingsTone =
+    !savingsLoading && summary && summary.savingsAmount > 0
+      ? "text-emerald-300"
+      : "text-secondary";
   const selectionCount = selection.selected.length;
   const hasSelection = isPanelHydrated && selectionCount > 0;
 
@@ -397,33 +422,26 @@ function HomeContent() {
                   isVisible={hasSelection}
                   isLoading={optimizationQuery.isLoading}
                   source={
-                    summaryReady ? (
-                      <SummaryStat
-                        label={t("optimization.sourceLabel")}
-                        value={summary.sourceName}
-                      />
-                    ) : undefined
+                    <SummaryStat
+                      label={t("optimization.sourceLabel")}
+                      value={sourceLabel}
+                      isLoading={!summaryReady}
+                    />
                   }
                   total={
-                    summaryReady ? (
-                      <SummaryStat
-                        label={t("results.currentTotal")}
-                        value={summary.totalNowLabel}
-                      />
-                    ) : undefined
+                    <SummaryStat
+                      label={t("results.currentTotal")}
+                      value={totalLabel}
+                      isLoading={!summaryReady}
+                    />
                   }
                   savings={
-                    summaryReady && summary.savingsReady ? (
-                      <SummaryStat
-                        label={t("optimization.potentialSavings")}
-                        value={summary.savingsLabel}
-                        valueTone={
-                          summary.savingsAmount > 0
-                            ? "text-emerald-300"
-                            : "text-secondary"
-                        }
-                      />
-                    ) : undefined
+                    <SummaryStat
+                      label={t("optimization.potentialSavings")}
+                      value={savingsLabel}
+                      valueTone={savingsTone}
+                      isLoading={savingsLoading}
+                    />
                   }
                   actions={
                     <>
