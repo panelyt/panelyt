@@ -165,6 +165,9 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
                 }
                 if (event.key === "Enter") {
                   event.preventDefault();
+                  if (!showResults) {
+                    return;
+                  }
                   if (highlightedIndex >= 0 && highlightedIndex < results.length) {
                     handleSelect(results[highlightedIndex]);
                     return;

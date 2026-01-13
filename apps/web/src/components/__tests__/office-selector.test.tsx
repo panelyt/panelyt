@@ -168,4 +168,44 @@ describe("OfficeSelector", () => {
       label: "Puck · Gdansk",
     });
   });
+
+  it("does not select stale results when Enter is pressed with a short query", () => {
+    const setInstitution = vi.fn();
+    vi.mocked(useInstitution).mockReturnValue({
+      institutionId: 1135,
+      label: "Lab office",
+      setInstitution,
+    });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: null,
+        isLoading: false,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
+    );
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [
+            {
+              id: 2222,
+              name: "Clinic Alpha",
+              city: "Warsaw",
+              address: "Main 1",
+            },
+          ],
+        },
+        isFetching: false,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
+    );
+
+    render(<OfficeSelector />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Office: Lab office" }));
+
+    const input = screen.getByPlaceholderText("Search offices");
+    fireEvent.change(input, { target: { value: "W" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(setInstitution).not.toHaveBeenCalled();
+  });
 });
