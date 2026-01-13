@@ -234,6 +234,48 @@ class TestCatalogEndpoints:
 
         activity_spy.assert_awaited_once()
 
+    async def test_batch_biomarkers_success(
+        self,
+        async_client: AsyncClient,
+        db_session,
+    ):
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [
+                    {
+                        "id": 10,
+                        "name": "Alanine aminotransferase",
+                        "elab_code": "ALT",
+                        "slug": "alt",
+                    },
+                    {
+                        "id": 11,
+                        "name": "Aspartate aminotransferase",
+                        "elab_code": "AST",
+                        "slug": "ast",
+                    },
+                ]
+            )
+        )
+        await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=10, item_id=3001, price=1000)
+        await self._attach_item(db_session, biomarker_id=11, item_id=3002, price=1200)
+        await db_session.commit()
+
+        response = await async_client.post(
+            f"/catalog/biomarkers/batch?institution={DEFAULT_INSTITUTION_ID}",
+            json={"codes": ["ALT", "AST", "MISSING"]},
+        )
+
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["results"]["ALT"]["elab_code"] == "ALT"
+        assert data["results"]["ALT"]["price_now_grosz"] == 1000
+        assert data["results"]["AST"]["elab_code"] == "AST"
+        assert data["results"]["AST"]["price_now_grosz"] == 1200
+        assert data["results"]["MISSING"] is None
+
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     async def test_search_biomarkers_triggers_ingestion(
         self,

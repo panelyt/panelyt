@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class APIModel(BaseModel):
@@ -41,6 +41,14 @@ class CatalogMeta(APIModel):
 
 class BiomarkerSearchResponse(APIModel):
     results: list[BiomarkerOut]
+
+
+class BiomarkerBatchRequest(APIModel):
+    codes: list[str] = Field(min_length=1, max_length=200)
+
+
+class BiomarkerBatchResponse(APIModel):
+    results: dict[str, BiomarkerOut | None] = Field(default_factory=dict)
 
 
 class CatalogBiomarkerResult(APIModel):

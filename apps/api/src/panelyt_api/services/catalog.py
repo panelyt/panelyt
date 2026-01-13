@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from panelyt_api.core.cache import catalog_meta_cache
 from panelyt_api.db import models
 from panelyt_api.schemas.common import (
+    BiomarkerBatchResponse,
     BiomarkerOut,
     BiomarkerSearchResponse,
     CatalogBiomarkerResult,
@@ -17,7 +18,7 @@ from panelyt_api.schemas.common import (
     CatalogTemplateResult,
 )
 from panelyt_api.services.list_templates import BiomarkerListTemplateService
-from panelyt_api.utils.normalization import normalize_search_query
+from panelyt_api.utils.normalization import normalize_search_query, normalize_token
 
 
 async def get_catalog_meta(session: AsyncSession) -> CatalogMeta:
@@ -144,6 +145,97 @@ async def search_biomarkers(
             )
         )
     return BiomarkerSearchResponse(results=payload)
+
+
+async def resolve_biomarkers_by_codes(
+    session: AsyncSession,
+    codes: list[str],
+    institution_id: int,
+) -> BiomarkerBatchResponse:
+    results: dict[str, BiomarkerOut | None] = {code: None for code in codes}
+    normalized_codes = {normalize_token(code) for code in codes}
+    normalized_codes.discard(None)
+    if not normalized_codes:
+        return BiomarkerBatchResponse(results=results)
+
+    elab_lower = func.lower(func.coalesce(models.Biomarker.elab_code, ""))
+    slug_lower = func.lower(func.coalesce(models.Biomarker.slug, ""))
+    name_lower = func.lower(models.Biomarker.name)
+    alias_lower = func.lower(func.coalesce(models.BiomarkerAlias.alias, ""))
+
+    statement = (
+        select(models.Biomarker, models.BiomarkerAlias)
+        .outerjoin(models.BiomarkerAlias)
+        .where(
+            or_(
+                elab_lower.in_(normalized_codes),
+                slug_lower.in_(normalized_codes),
+                name_lower.in_(normalized_codes),
+                alias_lower.in_(normalized_codes),
+            )
+        )
+    )
+
+    rows = (await session.execute(statement)).all()
+    biomarkers_by_id: dict[int, models.Biomarker] = {}
+    alias_map: dict[str, tuple[int, models.Biomarker]] = {}
+    for biomarker, alias in rows:
+        biomarkers_by_id[biomarker.id] = biomarker
+        if alias and alias.alias:
+            normalized_alias = normalize_token(alias.alias)
+            if not normalized_alias:
+                continue
+            existing = alias_map.get(normalized_alias)
+            if existing is None or alias.priority < existing[0]:
+                alias_map[normalized_alias] = (alias.priority, biomarker)
+
+    by_elab = {
+        normalize_token(biomarker.elab_code): biomarker
+        for biomarker in biomarkers_by_id.values()
+        if normalize_token(biomarker.elab_code)
+    }
+    by_slug = {
+        normalize_token(biomarker.slug): biomarker
+        for biomarker in biomarkers_by_id.values()
+        if normalize_token(biomarker.slug)
+    }
+    by_name = {
+        normalize_token(biomarker.name): biomarker
+        for biomarker in biomarkers_by_id.values()
+        if normalize_token(biomarker.name)
+    }
+    by_alias = {alias: entry[1] for alias, entry in alias_map.items()}
+
+    price_map = await _fetch_prices(
+        session,
+        [biomarker.id for biomarker in biomarkers_by_id.values()],
+        institution_id,
+    )
+
+    for code in codes:
+        normalized = normalize_token(code)
+        if not normalized:
+            continue
+        match = (
+            by_elab.get(normalized)
+            or by_slug.get(normalized)
+            or by_alias.get(normalized)
+            or by_name.get(normalized)
+        )
+        if not match:
+            continue
+        price_now = price_map.get(match.id)
+        if price_now is None:
+            continue
+        results[code] = BiomarkerOut(
+            id=match.id,
+            name=match.name,
+            elab_code=match.elab_code,
+            slug=match.slug,
+            price_now_grosz=price_now,
+        )
+
+    return BiomarkerBatchResponse(results=results)
 
 
 async def search_catalog(
