@@ -130,7 +130,7 @@
     "emptyState": "Zacznij od dodania badań powyżej. Panelyt natychmiast uruchomi algorytm i zasugeruje najtańszą kombinację pojedynczych badań i pakietów, wyróżniając dodatkowe badania, które otrzymasz w pakiecie.",
     "optimizing": "Obliczanie optymalnej kombinacji...",
     "optimizationFailed": "Optymalizacja nie powiodła się",
-    "currentTotal": "Szacowana cena"
+    "currentTotal": "Cena"
   },
   "lists": {
     "title": "Moje panele",
@@ -273,7 +273,7 @@
     "atFloor": "Najniższa cena",
     "matchingFloor": "Na poziomie minimum z 30 dni",
     "percentAboveFloor": "{percent}% powyżej minimum",
-    "potentialSavings": "Potencjalne oszczędności",
+    "potentialSavings": "Oszczędności",
     "bestPrice": "Brak oszczędności względem pojedynczych badań",
     "premiumOverFloor": "Oszczędność względem pojedynczych badań",
     "bonusValue": "Wartość bonusu",

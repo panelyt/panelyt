@@ -60,7 +60,7 @@ describe('SummarySection', () => {
     )
 
     expect(document.body.textContent).toContain('Podsumowanie optymalizacji')
-    expect(document.body.textContent).toContain('Potencjalne oszczędności')
+    expect(document.body.textContent).toContain('Oszczędności')
     expect(document.body.textContent).toContain('Wartość bonusu')
     expect(document.body.textContent).toContain('Pozycja ceny')
     expect(document.body.textContent).toContain('Nakładanie pakietów')
