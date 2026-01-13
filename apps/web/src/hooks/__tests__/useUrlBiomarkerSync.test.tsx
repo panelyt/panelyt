@@ -17,8 +17,10 @@ vi.mock('../../lib/http', () => ({
   postParsedJson: vi.fn(),
 }))
 
+let institutionId = 1135
+
 vi.mock('../useInstitution', () => ({
-  useInstitution: () => ({ institutionId: 1135, label: null, setInstitution: vi.fn() }),
+  useInstitution: () => ({ institutionId, label: null, setInstitution: vi.fn() }),
 }))
 
 const useRouterMock = vi.mocked(useRouter)
@@ -27,6 +29,7 @@ const postParsedJsonMock = vi.mocked(postParsedJson)
 
 describe('useUrlBiomarkerSync', () => {
   beforeEach(() => {
+    institutionId = 1135
     window.history.pushState({}, '', '/')
     useSearchParamsMock.mockReturnValue(
       new URLSearchParams() as ReturnType<typeof useSearchParams>,
@@ -222,6 +225,59 @@ describe('useUrlBiomarkerSync', () => {
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(2))
     expect(onLoadFromUrl.mock.calls[1]?.[0]).toEqual([
       { code: '124', name: 'Testosterone' },
+    ])
+  })
+
+  it('retries name lookup when institution changes and fallback remains unresolved', async () => {
+    useSearchParamsMock.mockReturnValue(
+      new URLSearchParams('biomarkers=TSH') as ReturnType<typeof useSearchParams>,
+    )
+    const onLoadFromUrl = vi.fn()
+
+    postParsedJsonMock.mockImplementation((path) => {
+      if (path.includes('institution=1135')) {
+        return Promise.resolve({
+          results: {
+            TSH: null,
+          },
+        })
+      }
+      return Promise.resolve({
+        results: {
+          TSH: {
+            id: 11,
+            name: 'Thyroid Stimulating Hormone',
+            elab_code: 'TSH',
+            slug: 'tsh',
+            price_now_grosz: 1200,
+          },
+        },
+      })
+    })
+
+    const { rerender } = renderHook(() => {
+      const [selected, setSelected] = useState<SelectedBiomarker[]>([])
+      const handleLoad = useCallback((biomarkers: SelectedBiomarker[]) => {
+        onLoadFromUrl(biomarkers)
+        setSelected(biomarkers)
+      }, [])
+
+      return useUrlBiomarkerSync({
+        selected,
+        onLoadFromUrl: handleLoad,
+      })
+    })
+
+    await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(1))
+    expect(onLoadFromUrl).toHaveBeenCalledWith([{ code: 'TSH', name: 'TSH' }])
+
+    institutionId = 2001
+    rerender()
+
+    await waitFor(() => expect(postParsedJsonMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(2))
+    expect(onLoadFromUrl.mock.calls[1]?.[0]).toEqual([
+      { code: 'TSH', name: 'Thyroid Stimulating Hormone' },
     ])
   })
 })
