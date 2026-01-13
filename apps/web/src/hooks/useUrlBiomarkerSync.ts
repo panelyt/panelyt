@@ -54,6 +54,8 @@ export interface UseUrlBiomarkerSyncOptions {
 export interface UseUrlBiomarkerSyncResult {
   /** Whether biomarkers are currently being loaded from URL */
   isLoadingFromUrl: boolean;
+  /** Biomarker codes still loading names from URL */
+  loadingCodes: string[];
   /** Get the shareable URL with current biomarkers */
   getShareUrl: () => string;
   /** Copy the shareable URL to clipboard */
@@ -78,6 +80,7 @@ export function useUrlBiomarkerSync(
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
+  const [loadingCodes, setLoadingCodes] = useState<string[]>([]);
 
   // Track whether we've done initial load from URL
   const initialLoadDoneRef = useRef(false);
@@ -166,12 +169,20 @@ export function useUrlBiomarkerSync(
     const selectedNames = new Map(
       selectedRef.current.map((entry) => [entry.code.trim().toUpperCase(), entry.name]),
     );
+    const pendingCodes = codes.filter((code) => {
+      const selectedName = selectedNames.get(code);
+      if (!selectedName) {
+        return true;
+      }
+      return selectedName.trim().toUpperCase() === code;
+    });
     const fallbackBiomarkers = codes.map((code) => ({
       code,
       name: selectedNames.get(code) ?? code,
     }));
+    setLoadingCodes(pendingCodes);
     lastLoadedRef.current = fallbackBiomarkers;
-    unresolvedCodesRef.current = new Set(codes);
+    unresolvedCodesRef.current = new Set(pendingCodes);
     if (!selectedMatchesUrl) {
       onLoadFromUrlRef.current(fallbackBiomarkers);
     }
@@ -205,6 +216,7 @@ export function useUrlBiomarkerSync(
       .finally(() => {
         if (!cancelled) {
           setIsLoadingFromUrl(false);
+          setLoadingCodes([]);
         }
       });
 
@@ -236,6 +248,7 @@ export function useUrlBiomarkerSync(
     }
 
     let cancelled = false;
+    setLoadingCodes(Array.from(unresolvedCodesRef.current));
 
     setIsLoadingFromUrl(true);
     lookupBiomarkerNames(loadedCodesRef.current, institutionId)
@@ -271,6 +284,7 @@ export function useUrlBiomarkerSync(
       .finally(() => {
         if (!cancelled) {
           setIsLoadingFromUrl(false);
+          setLoadingCodes([]);
         }
       });
 
@@ -370,6 +384,7 @@ export function useUrlBiomarkerSync(
 
   return {
     isLoadingFromUrl,
+    loadingCodes,
     getShareUrl,
     copyShareUrl,
   };

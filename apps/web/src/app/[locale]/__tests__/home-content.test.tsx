@@ -190,6 +190,7 @@ describe("HomeContent", () => {
 
     mockUseUrlBiomarkerSync.mockReturnValue({
       isLoadingFromUrl: false,
+      loadingCodes: [],
       getShareUrl: vi.fn(() => ""),
       copyShareUrl: vi.fn(),
     } as ReturnType<typeof useUrlBiomarkerSync>);
@@ -240,6 +241,7 @@ describe("HomeContent", () => {
     const copyShareUrl = vi.fn().mockResolvedValue(true);
     mockUseUrlBiomarkerSync.mockReturnValue({
       isLoadingFromUrl: false,
+      loadingCodes: [],
       getShareUrl: vi.fn(() => ""),
       copyShareUrl,
     } as ReturnType<typeof useUrlBiomarkerSync>);
@@ -265,6 +267,7 @@ describe("HomeContent", () => {
     const copyShareUrl = vi.fn().mockResolvedValue(true);
     mockUseUrlBiomarkerSync.mockReturnValue({
       isLoadingFromUrl: false,
+      loadingCodes: [],
       getShareUrl: vi.fn(() => ""),
       copyShareUrl,
     } as ReturnType<typeof useUrlBiomarkerSync>);

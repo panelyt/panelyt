@@ -379,6 +379,7 @@ function HomeContent() {
                       biomarkers={selection.selected}
                       onRemove={selection.handleRemove}
                       onClearAll={selection.clearAll}
+                      loadingCodes={urlBiomarkerSync.loadingCodes}
                     />
                   ) : (
                     <div

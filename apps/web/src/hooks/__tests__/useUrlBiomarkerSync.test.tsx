@@ -131,7 +131,7 @@ describe('useUrlBiomarkerSync', () => {
         }),
     )
 
-    renderHook(() =>
+    const { result } = renderHook(() =>
       useUrlBiomarkerSync({
         selected: [],
         onLoadFromUrl,
@@ -139,6 +139,7 @@ describe('useUrlBiomarkerSync', () => {
     )
 
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(result.current.loadingCodes).toEqual(['TSH', 'T4']))
     expect(onLoadFromUrl).toHaveBeenCalledWith([
       { code: 'TSH', name: 'TSH' },
       { code: 'T4', name: 'T4' },
@@ -169,6 +170,7 @@ describe('useUrlBiomarkerSync', () => {
     })
 
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.loadingCodes).toEqual([]))
     expect(onLoadFromUrl.mock.calls[1]?.[0]).toEqual([
       { code: 'TSH', name: 'Thyroid Stimulating Hormone' },
       { code: 'T4', name: 'Thyroxine' },

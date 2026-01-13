@@ -191,6 +191,19 @@ describe('SelectedBiomarkers', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
+  it('blurs biomarker names while loading', () => {
+    renderWithIntl(
+      <SelectedBiomarkers
+        biomarkers={[{ code: 'ALT', name: 'ALT' }]}
+        loadingCodes={['ALT']}
+        onRemove={mockOnRemove}
+        onClearAll={mockOnClearAll}
+      />,
+    )
+
+    expect(screen.getByText('ALT')).toHaveClass('blur-[2px]')
+  })
+
   it('shows a remove label when hovering over a pill', async () => {
     const user = userEvent.setup()
     const biomarkers = [{ code: 'ALT', name: 'Alanine aminotransferase' }]
