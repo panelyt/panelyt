@@ -42,6 +42,7 @@ class TestFreshnessCacheIntegration:
             mock_repo = AsyncMock()
             mock_repo.latest_fetched_at = AsyncMock(return_value=None)
             mock_repo.latest_snapshot_date = AsyncMock(return_value=None)
+            mock_repo.scalar = AsyncMock(return_value=None)
             mock_repo.execute = AsyncMock(
                 return_value=AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
             )
