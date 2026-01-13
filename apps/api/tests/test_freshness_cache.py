@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -42,7 +42,11 @@ class TestFreshnessCacheIntegration:
             mock_repo = AsyncMock()
             mock_repo.latest_fetched_at = AsyncMock(return_value=None)
             mock_repo.latest_snapshot_date = AsyncMock(return_value=None)
-            mock_repo.scalar = AsyncMock(return_value=None)
+            mock_repo.execute = AsyncMock(
+                return_value=AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
+            )
+            mock_repo.add = MagicMock()
+            mock_repo.flush = AsyncMock()
 
             mock_context = AsyncMock()
             mock_context.__aenter__ = AsyncMock(return_value=mock_repo)

@@ -90,7 +90,7 @@ class TestIngestionService:
             mock_run.assert_awaited_once_with(
                 institution_id=1135,
                 reason="staleness_check",
-                blocking=True,
+                blocking=False,
             )
 
     @patch("panelyt_api.ingest.service.get_session")
@@ -119,7 +119,7 @@ class TestIngestionService:
             mock_run.assert_awaited_once_with(
                 institution_id=1135,
                 reason="staleness_check",
-                blocking=True,
+                blocking=False,
             )
 
     @patch("panelyt_api.ingest.service.InstitutionService")
@@ -493,6 +493,11 @@ class TestIngestionService:
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
         mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        mock_session.add = MagicMock()
+        mock_session.flush = AsyncMock()
         mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_get_session.return_value.__aexit__ = AsyncMock()
 
@@ -521,6 +526,11 @@ class TestIngestionService:
         self, mock_repo_class, mock_get_session, ingestion_service
     ):
         mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        mock_session.add = MagicMock()
+        mock_session.flush = AsyncMock()
         mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
         mock_get_session.return_value.__aexit__ = AsyncMock()
 
