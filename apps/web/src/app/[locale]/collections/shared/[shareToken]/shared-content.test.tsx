@@ -7,6 +7,7 @@ import enMessages from "../../../../../i18n/messages/en.json";
 import { useSharedList } from "../../../../../hooks/useSharedList";
 import { useOptimization, useAddonSuggestions } from "../../../../../hooks/useOptimization";
 import { useBiomarkerDiagUrls } from "../../../../../hooks/useBiomarkerDiagUrls";
+import { useBiomarkerPrices } from "../../../../../hooks/useBiomarkerPrices";
 import { useRouter } from "../../../../../i18n/navigation";
 import SharedContent from "./shared-content";
 
@@ -31,10 +32,15 @@ vi.mock("../../../../../hooks/useBiomarkerDiagUrls", () => ({
   useBiomarkerDiagUrls: vi.fn(),
 }));
 
+vi.mock("../../../../../hooks/useBiomarkerPrices", () => ({
+  useBiomarkerPrices: vi.fn(),
+}));
+
 const mockUseSharedList = vi.mocked(useSharedList);
 const mockUseOptimization = vi.mocked(useOptimization);
 const mockUseAddonSuggestions = vi.mocked(useAddonSuggestions);
 const mockUseBiomarkerDiagUrls = vi.mocked(useBiomarkerDiagUrls);
+const mockUseBiomarkerPrices = vi.mocked(useBiomarkerPrices);
 const mockUseRouter = vi.mocked(useRouter);
 
 const sharedListData = {
@@ -155,6 +161,12 @@ describe("SharedContent", () => {
       },
       isLoading: false,
     } as unknown as ReturnType<typeof useBiomarkerDiagUrls>);
+    mockUseBiomarkerPrices.mockReturnValue({
+      data: {},
+      isLoading: false,
+      isFetching: false,
+      error: null,
+    } as ReturnType<typeof useBiomarkerPrices>);
     mockUseRouter.mockReturnValue({
       push,
       replace: vi.fn(),

@@ -23,6 +23,9 @@ vi.mock("next-intl", () => ({
     if (key === "officeSelector.searchPlaceholder") {
       return "Search offices";
     }
+    if (key === "officeSelector.currentLabel" && values?.name) {
+      return `Current office: ${values.name}`;
+    }
     if (key === "officeSelector.noResults") {
       return "No offices found";
     }

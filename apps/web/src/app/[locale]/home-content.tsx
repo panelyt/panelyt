@@ -9,6 +9,7 @@ import { useSavedLists } from "../../hooks/useSavedLists";
 import { useUserSession } from "../../hooks/useUserSession";
 import { useOptimization, useAddonSuggestions } from "../../hooks/useOptimization";
 import { useBiomarkerSelection } from "../../hooks/useBiomarkerSelection";
+import { useBiomarkerPrices } from "../../hooks/useBiomarkerPrices";
 import { useUrlParamSync } from "../../hooks/useUrlParamSync";
 import { useUrlBiomarkerSync } from "../../hooks/useUrlBiomarkerSync";
 import { useSaveListModal } from "../../hooks/useSaveListModal";
@@ -33,6 +34,7 @@ import { usePanelStore } from "../../stores/panelStore";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { DIAG_NAME } from "../../lib/diag";
+import { sumSelectedBiomarkerPrices } from "../../lib/biomarkers";
 
 interface SummaryStatProps {
   label: string;
@@ -69,6 +71,12 @@ function HomeContent() {
   // Optimization
   const optimizationQuery = useOptimization(selection.biomarkerCodes);
   const activeResult = optimizationQuery.data;
+  const biomarkerPricesQuery = useBiomarkerPrices(selection.biomarkerCodes);
+  const biomarkerPrices = useMemo(
+    () => biomarkerPricesQuery.data ?? {},
+    [biomarkerPricesQuery.data],
+  );
+  const savingsReady = biomarkerPricesQuery.data !== undefined;
   const activeItemIds = useMemo(
     () => activeResult?.items?.map((item) => item.id) ?? [],
     [activeResult?.items],
@@ -126,20 +134,34 @@ function HomeContent() {
     const sourceName = DIAG_NAME;
 
     const totalNowLabel = formatCurrency(activeResult.total_now);
-    const savingsAmount = Math.max(activeResult.total_now - activeResult.total_min30, 0);
-    const savingsLabel =
-      savingsAmount > 0 ? formatCurrency(savingsAmount) : t("optimization.atFloor");
+    const selectedTotalGrosz = sumSelectedBiomarkerPrices(
+      selection.biomarkerCodes,
+      biomarkerPrices,
+    );
+    const selectedTotalNow = selectedTotalGrosz / 100;
+    const savingsAmount = savingsReady
+      ? Math.max(selectedTotalNow - activeResult.total_now, 0)
+      : 0;
+    const savingsLabel = savingsReady
+      ? savingsAmount > 0
+        ? formatCurrency(savingsAmount)
+        : t("optimization.noSavings")
+      : t("common.placeholderDash");
 
     return {
       sourceName,
       totalNowLabel,
       savingsAmount,
       savingsLabel,
+      savingsReady,
     };
   }, [
     activeResult,
     optimizationQuery.optimizationKey,
     selectionKey,
+    biomarkerPrices,
+    selection.biomarkerCodes,
+    savingsReady,
     t,
   ]);
 
@@ -391,7 +413,7 @@ function HomeContent() {
                     ) : undefined
                   }
                   savings={
-                    summaryReady ? (
+                    summaryReady && summary.savingsReady ? (
                       <SummaryStat
                         label={t("optimization.potentialSavings")}
                         value={summary.savingsLabel}

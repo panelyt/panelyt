@@ -11,6 +11,10 @@ vi.mock('../../hooks/useBiomarkerLookup', () => ({
   useBiomarkerLookup: vi.fn(),
 }))
 
+vi.mock('../../hooks/useBiomarkerPrices', () => ({
+  useBiomarkerPrices: vi.fn(),
+}))
+
 vi.mock('../../lib/analytics', () => ({
   track: vi.fn(),
   consumeTtorDuration: vi.fn(),
@@ -22,8 +26,10 @@ vi.mock('../../lib/format', () => ({
 }))
 
 import { useBiomarkerLookup } from '../../hooks/useBiomarkerLookup'
+import { useBiomarkerPrices } from '../../hooks/useBiomarkerPrices'
 
 const mockUseBiomarkerLookup = vi.mocked(useBiomarkerLookup)
+const mockUseBiomarkerPrices = vi.mocked(useBiomarkerPrices)
 const trackMock = vi.mocked(track)
 const consumeTtorDurationMock = vi.mocked(consumeTtorDuration)
 
@@ -102,6 +108,14 @@ describe('OptimizationResults', () => {
           CHOL: 'Total cholesterol',
         },
       }),
+    )
+    mockUseBiomarkerPrices.mockReturnValue(
+      {
+        data: {},
+        isFetching: false,
+        isLoading: false,
+        error: null,
+      } as unknown as ReturnType<typeof useBiomarkerPrices>,
     )
   })
 

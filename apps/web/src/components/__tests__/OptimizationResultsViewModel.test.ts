@@ -108,11 +108,16 @@ describe('buildOptimizationViewModel', () => {
       biomarkerNames: {
         GLU: 'Glucose',
       },
+      biomarkerPrices: {
+        ALT: 1500,
+        AST: 900,
+        GLU: 1600,
+      },
     })
 
     expect(viewModel.coverage.percent).toBe(67)
     expect(viewModel.coverage.uncoveredTokens).toEqual(['GLU'])
-    expect(viewModel.pricing.potentialSavingsRaw).toBeCloseTo(5)
+    expect(viewModel.pricing.potentialSavingsRaw).toBeCloseTo(10)
     expect(viewModel.pricing.highlightSavings).toBe(true)
     expect(viewModel.counts.packages).toBe(2)
     expect(viewModel.counts.onSale).toBe(1)

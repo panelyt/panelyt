@@ -3,17 +3,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { BiomarkerSearchResponseSchema } from "@panelyt/types";
 
-import { DIAG_SINGLE_ITEM_URL_BASE } from "../lib/diag";
 import { getJson } from "../lib/http";
 import { findBiomarkerMatch } from "../lib/biomarkers";
 import { useInstitution } from "./useInstitution";
 
-export function useBiomarkerDiagUrls(codes: string[]) {
+export function useBiomarkerPrices(codes: string[]) {
   const { institutionId } = useInstitution();
-  return useQuery<Record<string, string | null>, Error>({
-    queryKey: ["biomarker-diag-urls", [...codes].sort(), institutionId],
+  return useQuery<Record<string, number | null>, Error>({
+    queryKey: ["biomarker-prices", [...codes].sort(), institutionId],
     queryFn: async () => {
-      const lookup: Record<string, string | null> = {};
+      const lookup: Record<string, number | null> = {};
 
       for (const rawCode of codes) {
         const code = rawCode.trim();
@@ -27,11 +26,11 @@ export function useBiomarkerDiagUrls(codes: string[]) {
           );
           const response = BiomarkerSearchResponseSchema.parse(payload);
           const match = findBiomarkerMatch(response.results, code);
-          if (match?.slug) {
-            lookup[code] = `${DIAG_SINGLE_ITEM_URL_BASE}/${match.slug}`;
+          if (match?.price_now_grosz !== null && match?.price_now_grosz !== undefined) {
+            lookup[code] = match.price_now_grosz;
           }
         } catch {
-          // Fallback is null; link rendering can handle it.
+          // Keep fallback null price.
         }
       }
 
