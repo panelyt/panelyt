@@ -166,4 +166,52 @@ describe("useInstitution", () => {
     expect(useInstitutionStore.getState().institutionId).toBe(3333);
     expect(mutate).not.toHaveBeenCalled();
   });
+
+  it("syncs local selection to account when user logs in without a preference", async () => {
+    const mutate = vi.fn();
+    useInstitutionStore.setState({
+      institutionId: 4444,
+      label: "Katowice",
+      hasSelectedInstitution: true,
+    });
+    vi.mocked(useUserSession).mockReturnValue(
+      {
+        data: {
+          user_id: "user-2",
+          username: "egor",
+          registered: true,
+          is_admin: false,
+        },
+        isLoading: false,
+      } as ReturnType<typeof useUserSession>,
+    );
+    vi.mocked(useAccountSettings).mockReturnValue(
+      {
+        settingsQuery: {
+          data: {
+            telegram: {
+              enabled: false,
+              chat_id: null,
+              linked_at: null,
+              link_token: null,
+              link_token_expires_at: null,
+              bot_username: null,
+              link_url: null,
+            },
+            preferred_institution_id: null,
+            preferred_institution_label: null,
+          },
+          isLoading: false,
+        },
+        updateSettingsMutation: { mutate },
+      } as unknown as ReturnType<typeof useAccountSettings>,
+    );
+
+    const wrapper = createWrapper();
+    renderHook(() => useInstitution(), { wrapper });
+
+    await waitFor(() => {
+      expect(mutate).toHaveBeenCalledWith({ preferred_institution_id: 4444 });
+    });
+  });
 });

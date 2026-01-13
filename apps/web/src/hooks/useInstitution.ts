@@ -14,9 +14,13 @@ import { usePanelStore } from "../stores/panelStore";
 export function useInstitution() {
   const institutionId = useInstitutionStore((state) => state.institutionId);
   const label = useInstitutionStore((state) => state.label);
+  const hasSelectedInstitution = useInstitutionStore(
+    (state) => state.hasSelectedInstitution,
+  );
   const setInstitutionState = useInstitutionStore((state) => state.setInstitution);
   const clearOptimizationSummary = usePanelStore((state) => state.clearOptimizationSummary);
   const lastInstitutionIdRef = useRef<number | null>(null);
+  const hasSyncedSelectionRef = useRef(false);
 
   const session = useUserSession();
   const account = useAccountSettings(Boolean(session.data));
@@ -37,6 +41,36 @@ export function useInstitution() {
 
     setInstitutionState({ id: preferredId, label: preferredLabel });
   }, [institutionId, label, preferredId, preferredLabel, setInstitutionState]);
+
+  useEffect(() => {
+    if (!session.data) {
+      hasSyncedSelectionRef.current = false;
+      return;
+    }
+    if (!account.settingsQuery.data) {
+      return;
+    }
+    if (preferredId !== null) {
+      return;
+    }
+    if (!hasSelectedInstitution) {
+      return;
+    }
+    if (hasSyncedSelectionRef.current) {
+      return;
+    }
+    hasSyncedSelectionRef.current = true;
+    account.updateSettingsMutation.mutate({
+      preferred_institution_id: institutionId,
+    });
+  }, [
+    account.settingsQuery.data,
+    account.updateSettingsMutation,
+    hasSelectedInstitution,
+    institutionId,
+    preferredId,
+    session.data,
+  ]);
 
   useEffect(() => {
     if (lastInstitutionIdRef.current === null) {
