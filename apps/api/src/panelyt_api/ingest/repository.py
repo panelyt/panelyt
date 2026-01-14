@@ -203,12 +203,12 @@ class CatalogRepository:
         }
         existing_by_elab: dict[str, tuple[str, str | None]] = {}
         if elab_codes:
-            stmt = select(
+            select_stmt = select(
                 models.Biomarker.elab_code,
                 models.Biomarker.slug,
                 models.Biomarker.name,
             ).where(models.Biomarker.elab_code.in_(elab_codes))
-            rows = await self.session.execute(stmt)
+            rows = await self.session.execute(select_stmt)
             existing_by_elab = {
                 _normalize_elab_code(elab_code) or "": (slug, name)
                 for elab_code, slug, name in rows.all()
@@ -250,15 +250,15 @@ class CatalogRepository:
             )
 
         for batch in _chunked(normalized_values, _UPSERT_BATCH_SIZE):
-            stmt = insert(models.Biomarker).values(list(batch))
-            stmt = stmt.on_conflict_do_update(
+            insert_stmt = insert(models.Biomarker).values(list(batch))
+            insert_stmt = insert_stmt.on_conflict_do_update(
                 index_elements=["slug"],
                 set_={
-                    "name": stmt.excluded.name,
-                    "elab_code": stmt.excluded.elab_code,
+                    "name": insert_stmt.excluded.name,
+                    "elab_code": insert_stmt.excluded.elab_code,
                 },
             )
-            await self.session.execute(stmt)
+            await self.session.execute(insert_stmt)
 
         statement = select(models.Biomarker.slug, models.Biomarker.id).where(
             models.Biomarker.slug.in_(normalized_slugs)
