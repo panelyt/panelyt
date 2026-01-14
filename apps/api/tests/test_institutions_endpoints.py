@@ -21,8 +21,22 @@ class TestInstitutionEndpoints:
         async_client: AsyncClient,
     ):
         mock_search.return_value = [
-            DiagInstitution(id=123, name="Office A", city="Krakow", address="Main 1"),
-            DiagInstitution(id=456, name="Office B", city=None, address=None),
+            DiagInstitution(
+                id=123,
+                name="Office A",
+                city="Krakow",
+                address="Main 1",
+                slug="office-a",
+                city_slug="krakow",
+            ),
+            DiagInstitution(
+                id=456,
+                name="Office B",
+                city=None,
+                address=None,
+                slug=None,
+                city_slug=None,
+            ),
         ]
 
         response = await async_client.get(
@@ -37,12 +51,16 @@ class TestInstitutionEndpoints:
                 "name": "Office A",
                 "city": "Krakow",
                 "address": "Main 1",
+                "slug": "office-a",
+                "city_slug": "krakow",
             },
             {
                 "id": 456,
                 "name": "Office B",
                 "city": None,
                 "address": None,
+                "slug": None,
+                "city_slug": None,
             },
         ]
 
@@ -110,6 +128,8 @@ class TestInstitutionEndpoints:
             "name": "Office 1135",
             "city": "Krakow",
             "address": "Main 1",
+            "slug": None,
+            "city_slug": None,
         }
 
     @pytest.mark.asyncio
@@ -155,6 +175,8 @@ class TestInstitutionEndpoints:
             "name": "Punkt Pobran Diagnostyki - Pulawy, ul. Wojska Polskiego 7a",
             "city": "Pulawy",
             "address": "24-100 Pulawy, ul. Wojska Polskiego 7a",
+            "slug": None,
+            "city_slug": None,
         }
         mock_get.assert_awaited_once_with(213)
         mock_close.assert_awaited_once()

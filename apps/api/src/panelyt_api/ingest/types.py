@@ -44,3 +44,5 @@ class DiagInstitution:
     name: str
     city: str | None = None
     address: str | None = None
+    slug: str | None = None
+    city_slug: str | None = None

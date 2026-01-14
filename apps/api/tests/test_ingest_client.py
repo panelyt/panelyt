@@ -26,3 +26,28 @@ async def test_parse_institution_reads_city_from_address_city():
 
     assert parsed is not None
     assert parsed.city == "Pulawy"
+
+
+@pytest.mark.asyncio
+async def test_parse_institution_reads_slug_and_city_slug():
+    client = DiagClient(httpx.AsyncClient())
+    entry = {
+        "id": 295,
+        "name": "Punkt Pobrań Diagnostyki – Warszawa, al. Dwudziestolatków 3",
+        "slug": "punkt-pobran-diagnostyki-warszawa-al-dwudziestolatkow-3",
+        "address": {
+            "fullAddress": "02-157 Warszawa, al. Dwudziestolatków 3",
+            "city": {
+                "id": 155,
+                "name": "Warszawa",
+                "slug": "warszawa",
+            },
+        },
+    }
+
+    parsed = client._parse_institution(entry)
+    await client.close()
+
+    assert parsed is not None
+    assert parsed.slug == "punkt-pobran-diagnostyki-warszawa-al-dwudziestolatkow-3"
+    assert parsed.city_slug == "warszawa"

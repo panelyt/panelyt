@@ -416,7 +416,8 @@
     "searchPlaceholder": "Search offices...",
     "currentLabel": "Current office: {name}",
     "loading": "Searching...",
-    "noResults": "No offices found"
+    "noResults": "No offices found",
+    "openOnDiag": "Open on diag.pl"
   },
   "officeBanner": {
     "title": "Choose your office for accurate prices",

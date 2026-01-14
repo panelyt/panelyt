@@ -46,6 +46,8 @@ async def search_institutions(
                 name=entry.name,
                 city=entry.city,
                 address=entry.address,
+                slug=entry.slug,
+                city_slug=entry.city_slug,
             )
             for entry in institutions
         ]
@@ -115,4 +117,6 @@ async def get_institution(
         name=institution.name,
         city=institution.city,
         address=institution.address,
+        slug=None,
+        city_slug=None,
     )
