@@ -242,15 +242,23 @@ class DiagClient:
         if not name:
             name = f"Institution {institution_id}"
 
-        city = self._clean_str(entry.get("city") or entry.get("town"))
+        city = None
         city_slug = None
+        raw_city = entry.get("city") or entry.get("town")
+        if isinstance(raw_city, dict):
+            city = self._clean_str(raw_city.get("name"))
+            city_slug = self._clean_str(raw_city.get("slug"))
+        else:
+            city = self._clean_str(raw_city)
+
         address = entry.get("address") or {}
         if isinstance(address, dict):
             address_city = address.get("city")
             if isinstance(address_city, dict):
                 if not city:
                     city = self._clean_str(address_city.get("name"))
-                city_slug = self._clean_str(address_city.get("slug"))
+                if not city_slug:
+                    city_slug = self._clean_str(address_city.get("slug"))
             else:
                 if not city:
                     city = self._clean_str(address_city)
