@@ -222,7 +222,7 @@ class IngestionService:
             return False
 
         # Avoid awaiting to keep the non-blocking path atomic in the event loop.
-        setattr(self._run_lock, "_locked", True)
+        self._run_lock._locked = True
 
         try:
             await self.run(
