@@ -9,12 +9,6 @@ import { useInstitution } from "../hooks/useInstitution";
 import { useInstitutionDetails } from "../hooks/useInstitutionDetails";
 import { useInstitutionSearch } from "../hooks/useInstitutionSearch";
 import { cn } from "../lib/cn";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
 
 interface OfficeSelectorProps {
   className?: string;
@@ -229,58 +223,50 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
                   {t("officeSelector.noResults")}
                 </div>
               )}
-              <TooltipProvider delayDuration={0}>
-                {!searchQuery.isFetching &&
-                  results.map((institution, index) => {
-                    const isActive = index === highlightedIndex;
-                    const optionLabel = formatInstitutionLabel(institution);
-                    const displayName = normalizeInstitutionName(institution.name);
-                    const diagUrl = buildDiagInstitutionUrl(institution);
-                    return (
-                      <div
-                        key={institution.id}
-                        id={`${listId}-option-${index}`}
-                        role="option"
-                        aria-label={optionLabel}
-                        aria-selected={isActive}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => handleSelect(institution)}
-                        className={cn(
-                          "flex items-center gap-2 px-3 py-2 text-left text-sm transition",
-                          isActive
-                            ? "bg-emerald-500/20 text-primary"
-                            : "text-secondary hover:bg-surface-2/80 hover:text-primary",
-                        )}
-                      >
-                        <div className="min-w-0 flex-1">
+              {!searchQuery.isFetching &&
+                results.map((institution, index) => {
+                  const isActive = index === highlightedIndex;
+                  const optionLabel = formatInstitutionLabel(institution);
+                  const displayName = normalizeInstitutionName(institution.name);
+                  const diagUrl = buildDiagInstitutionUrl(institution);
+                  return (
+                    <div
+                      key={institution.id}
+                      id={`${listId}-option-${index}`}
+                      role="option"
+                      aria-label={optionLabel}
+                      aria-selected={isActive}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => handleSelect(institution)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-left text-sm transition",
+                        isActive
+                          ? "bg-emerald-500/20 text-primary"
+                          : "text-secondary hover:bg-surface-2/80 hover:text-primary",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
                         <div className="truncate font-medium text-primary">
                           {displayName}
                         </div>
                       </div>
-                        {diagUrl && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <a
-                                href={diagUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                aria-label={t("officeSelector.openOnDiag")}
-                                onClick={(event) => event.stopPropagation()}
-                                onMouseDown={(event) => event.stopPropagation()}
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-secondary transition hover:border-border hover:text-primary"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </a>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {t("officeSelector.openOnDiag")}
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                      </div>
-                    );
-                  })}
-              </TooltipProvider>
+                      {diagUrl && (
+                        <a
+                          href={diagUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={t("officeSelector.openOnDiag")}
+                          title={t("officeSelector.openOnDiag")}
+                          onClick={(event) => event.stopPropagation()}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-secondary transition hover:border-border hover:text-primary"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>
