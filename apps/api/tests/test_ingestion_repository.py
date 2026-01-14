@@ -146,6 +146,70 @@ async def test_upsert_catalog_upserts_items_biomarkers_links_and_snapshots(
 
 
 @pytest.mark.asyncio
+async def test_upsert_catalog_reuses_existing_biomarker_on_elab_conflict(
+    db_session,
+) -> None:
+    repo = CatalogRepository(db_session)
+    await db_session.execute(
+        models.Institution.__table__.insert().values(
+            {"id": 1135, "name": "Default / Lab office"}
+        )
+    )
+    existing = models.Biomarker(
+        slug="ppj-ana2-met-iif-typ-swiecenia-miano-dsdna-ama",
+        name="Existing ANA",
+        elab_code="601",
+    )
+    db_session.add(existing)
+    await db_session.flush()
+
+    fetched_at = datetime(2025, 1, 1, tzinfo=UTC)
+    item = RawDiagItem(
+        external_id="diag-601",
+        kind="single",
+        name="ANA1 - PPJ met. IIF (typ swiecenia, miano)",
+        slug="ana1-ppj-met-iif-typ-swiecenia-miano",
+        price_now_grosz=1000,
+        price_min30_grosz=900,
+        currency="PLN",
+        is_available=True,
+        biomarkers=[
+            RawDiagBiomarker(
+                external_id="ana1",
+                name="ANA1 - PPJ met. IIF (typ swiecenia, miano)",
+                elab_code="601",
+                slug="ana1-ppj-met-iif-typ-swiecenia-miano",
+            )
+        ],
+        sale_price_grosz=None,
+        regular_price_grosz=1000,
+    )
+
+    await repo.upsert_catalog(1135, singles=[item], packages=[], fetched_at=fetched_at)
+    await db_session.commit()
+    db_session.expire_all()
+
+    stored = await db_session.scalar(
+        select(models.Biomarker).where(models.Biomarker.elab_code == "601")
+    )
+    assert stored is not None
+    assert stored.slug == existing.slug
+    assert stored.name == existing.name
+
+    stored_item = await db_session.scalar(
+        select(models.Item).where(models.Item.external_id == "diag-601")
+    )
+    assert stored_item is not None
+    link = await db_session.scalar(
+        select(models.ItemBiomarker).where(
+            models.ItemBiomarker.item_id == stored_item.id,
+            models.ItemBiomarker.biomarker_id == stored.id,
+        )
+    )
+    assert link is not None
+
+
+@pytest.mark.asyncio
 async def test_prune_missing_offers_marks_unavailable(db_session) -> None:
     repo = CatalogRepository(db_session)
     await db_session.execute(

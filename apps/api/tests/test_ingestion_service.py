@@ -190,6 +190,61 @@ class TestIngestionService:
                 )
                 mock_schedule.assert_not_called()
 
+    async def test_run_with_lock_nonblocking_acquires_when_free(self, ingestion_service):
+        lock = asyncio.Lock()
+        with patch.object(IngestionService, "_run_lock", lock):
+            with patch.object(ingestion_service, "run", new_callable=AsyncMock) as mock_run:
+                result = await ingestion_service._run_with_lock(
+                    scheduled=False,
+                    reason="staleness_check",
+                    blocking=False,
+                    institution_id=1135,
+                )
+
+                assert result is True
+                mock_run.assert_awaited_once_with(
+                    scheduled=False,
+                    reason="staleness_check",
+                    institution_id=1135,
+                )
+
+    async def test_run_with_lock_nonblocking_returns_fast_when_locked(
+        self, ingestion_service
+    ):
+        lock = asyncio.Lock()
+        run_started = asyncio.Event()
+        run_release = asyncio.Event()
+
+        async def hold_run(*_args, **_kwargs):
+            run_started.set()
+            await run_release.wait()
+
+        with patch.object(IngestionService, "_run_lock", lock):
+            with patch.object(ingestion_service, "run", new=AsyncMock(side_effect=hold_run)) as mock_run:
+                first = asyncio.create_task(
+                    ingestion_service._run_with_lock(
+                        scheduled=False,
+                        reason="staleness_check",
+                        blocking=False,
+                        institution_id=1135,
+                    )
+                )
+                await run_started.wait()
+
+                second = asyncio.create_task(
+                    ingestion_service._run_with_lock(
+                        scheduled=False,
+                        reason="staleness_check",
+                        blocking=False,
+                        institution_id=1135,
+                    )
+                )
+
+                assert await asyncio.wait_for(second, timeout=0.1) is False
+                run_release.set()
+                assert await asyncio.wait_for(first, timeout=0.1) is True
+                assert mock_run.await_count == 1
+
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_run_successful_ingestion(

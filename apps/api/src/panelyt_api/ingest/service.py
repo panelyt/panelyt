@@ -6,6 +6,7 @@ import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from panelyt_api.core import metrics
 from panelyt_api.core.cache import clear_all_caches, freshness_cache
@@ -215,10 +216,14 @@ class IngestionService:
                 )
             return True
 
-        try:
-            await asyncio.wait_for(self._run_lock.acquire(), timeout=0)
-        except TimeoutError:
+        waiters = getattr(self._run_lock, "_waiters", None)
+        if self._run_lock.locked() or (
+            waiters and any(not waiter.cancelled() for waiter in waiters)
+        ):
             return False
+
+        # Avoid awaiting to keep the non-blocking path atomic in the event loop.
+        cast(Any, self._run_lock)._locked = True
 
         try:
             await self.run(
