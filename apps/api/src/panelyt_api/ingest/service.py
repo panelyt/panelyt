@@ -215,10 +215,14 @@ class IngestionService:
                 )
             return True
 
-        if self._run_lock.locked():
+        waiters = getattr(self._run_lock, "_waiters", None)
+        if self._run_lock.locked() or (
+            waiters and any(not waiter.cancelled() for waiter in waiters)
+        ):
             return False
 
-        await self._run_lock.acquire()
+        # Avoid awaiting to keep the non-blocking path atomic in the event loop.
+        setattr(self._run_lock, "_locked", True)
 
         try:
             await self.run(
