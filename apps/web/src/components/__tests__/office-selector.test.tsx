@@ -220,6 +220,47 @@ describe("OfficeSelector", () => {
     expect(setInstitution).not.toHaveBeenCalled();
   });
 
+  it("does not render subtitles for search results", () => {
+    const setInstitution = vi.fn();
+    vi.mocked(useInstitution).mockReturnValue({
+      institutionId: 1135,
+      label: "Lab office",
+      setInstitution,
+    });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: null,
+        isLoading: false,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
+    );
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [
+            {
+              id: 2222,
+              name: "Warsaw, Main 1",
+              city: "Warsaw",
+              address: "Main 1",
+              slug: "warsaw-main-1",
+              city_slug: "warszawa",
+            },
+          ],
+        },
+        isFetching: false,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
+    );
+
+    render(<OfficeSelector />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Office: Lab office" }));
+
+    const input = screen.getByPlaceholderText("Search offices");
+    fireEvent.change(input, { target: { value: "Warsaw" } });
+
+    expect(screen.queryByText("Warsaw · Main 1")).not.toBeInTheDocument();
+  });
+
   it("renders a diag.pl link button for results with slugs", () => {
     const setInstitution = vi.fn();
     vi.mocked(useInstitution).mockReturnValue({

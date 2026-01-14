@@ -253,17 +253,10 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
                         )}
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium text-primary">
-                            {displayName}
-                          </div>
-                          {(institution.city || institution.address) && (
-                            <div className="truncate text-[11px] text-secondary">
-                              {[institution.city, institution.address]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </div>
-                          )}
+                        <div className="truncate font-medium text-primary">
+                          {displayName}
                         </div>
+                      </div>
                         {diagUrl && (
                           <Tooltip>
                             <TooltipTrigger asChild>
