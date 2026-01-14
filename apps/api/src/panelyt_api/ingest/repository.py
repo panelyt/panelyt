@@ -109,7 +109,12 @@ class CatalogRepository:
         if not item_map:
             return
 
-        biomarker_ids = await self._upsert_diag_biomarkers(biomarker_map)
+        biomarker_ids, slug_aliases = await self._upsert_diag_biomarkers(biomarker_map)
+        if slug_aliases:
+            for external_id, slugs in item_to_biomarkers.items():
+                item_to_biomarkers[external_id] = [
+                    slug_aliases.get(slug, slug) for slug in slugs
+                ]
         item_ids = await self._upsert_diag_items(item_map, fetched_at)
         await self._replace_diag_item_biomarkers(item_ids, item_to_biomarkers, biomarker_ids)
         await self._upsert_institution_items(institution_id, item_map, item_ids, fetched_at)
@@ -180,36 +185,86 @@ class CatalogRepository:
 
     async def _upsert_diag_biomarkers(
         self, biomarker_map: Mapping[str, RawDiagBiomarker]
-    ) -> dict[str, int]:
-        biomarker_pairs = list(biomarker_map.items())
-        if biomarker_pairs:
-            for batch in _chunked(biomarker_pairs, _UPSERT_BATCH_SIZE):
-                values = [
-                    {
-                        "slug": _truncate(slug, 255) or slug,
-                        "name": _truncate(biomarker.name, 255) or slug,
-                        "elab_code": _truncate(biomarker.elab_code, 64),
-                    }
-                    for slug, biomarker in batch
-                ]
-                stmt = insert(models.Biomarker).values(values)
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["slug"],
-                    set_={
-                        "name": stmt.excluded.name,
-                        "elab_code": stmt.excluded.elab_code,
-                    },
-                )
-                await self.session.execute(stmt)
+    ) -> tuple[dict[str, int], dict[str, str]]:
+        def _normalize_elab_code(value: str | None) -> str | None:
+            if not value:
+                return None
+            trimmed = value.strip()
+            return trimmed or None
 
-        slugs = [slug for slug, _ in biomarker_pairs]
-        if not slugs:
-            return {}
+        biomarker_pairs = list(biomarker_map.items())
+        if not biomarker_pairs:
+            return {}, {}
+
+        elab_codes = {
+            normalized
+            for _, biomarker in biomarker_pairs
+            if (normalized := _normalize_elab_code(biomarker.elab_code))
+        }
+        existing_by_elab: dict[str, tuple[str, str | None]] = {}
+        if elab_codes:
+            stmt = select(
+                models.Biomarker.elab_code,
+                models.Biomarker.slug,
+                models.Biomarker.name,
+            ).where(models.Biomarker.elab_code.in_(elab_codes))
+            rows = await self.session.execute(stmt)
+            existing_by_elab = {
+                _normalize_elab_code(elab_code) or "": (slug, name)
+                for elab_code, slug, name in rows.all()
+            }
+
+        slug_aliases: dict[str, str] = {}
+        normalized_values: list[dict[str, str | None]] = []
+        normalized_slugs: list[str] = []
+        seen_elab: dict[str, str] = {}
+
+        for slug, biomarker in biomarker_pairs:
+            canonical_slug = slug
+            name = biomarker.name
+            elab_code = _normalize_elab_code(biomarker.elab_code)
+            if elab_code:
+                existing = existing_by_elab.get(elab_code)
+                if existing is not None:
+                    canonical_slug = existing[0]
+                    if existing[1]:
+                        name = existing[1]
+                elif elab_code in seen_elab:
+                    canonical_slug = seen_elab[elab_code]
+                else:
+                    seen_elab[elab_code] = slug
+
+            if canonical_slug != slug:
+                slug_aliases[slug] = canonical_slug
+
+            if canonical_slug in normalized_slugs:
+                continue
+
+            normalized_slugs.append(canonical_slug)
+            normalized_values.append(
+                {
+                    "slug": _truncate(canonical_slug, 255) or canonical_slug,
+                    "name": _truncate(name, 255) or canonical_slug,
+                    "elab_code": _truncate(elab_code, 64),
+                }
+            )
+
+        for batch in _chunked(normalized_values, _UPSERT_BATCH_SIZE):
+            stmt = insert(models.Biomarker).values(list(batch))
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["slug"],
+                set_={
+                    "name": stmt.excluded.name,
+                    "elab_code": stmt.excluded.elab_code,
+                },
+            )
+            await self.session.execute(stmt)
+
         statement = select(models.Biomarker.slug, models.Biomarker.id).where(
-            models.Biomarker.slug.in_(slugs)
+            models.Biomarker.slug.in_(normalized_slugs)
         )
         rows = await self.session.execute(statement)
-        return {slug: identifier for slug, identifier in rows.all()}
+        return {slug: identifier for slug, identifier in rows.all()}, slug_aliases
 
     async def _upsert_diag_items(
         self,

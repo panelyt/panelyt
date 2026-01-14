@@ -215,10 +215,10 @@ class IngestionService:
                 )
             return True
 
-        try:
-            await asyncio.wait_for(self._run_lock.acquire(), timeout=0)
-        except TimeoutError:
+        if self._run_lock.locked():
             return False
+
+        await self._run_lock.acquire()
 
         try:
             await self.run(

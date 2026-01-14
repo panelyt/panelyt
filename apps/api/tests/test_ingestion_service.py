@@ -190,6 +190,24 @@ class TestIngestionService:
                 )
                 mock_schedule.assert_not_called()
 
+    async def test_run_with_lock_nonblocking_acquires_when_free(self, ingestion_service):
+        lock = asyncio.Lock()
+        with patch.object(IngestionService, "_run_lock", lock):
+            with patch.object(ingestion_service, "run", new_callable=AsyncMock) as mock_run:
+                result = await ingestion_service._run_with_lock(
+                    scheduled=False,
+                    reason="staleness_check",
+                    blocking=False,
+                    institution_id=1135,
+                )
+
+                assert result is True
+                mock_run.assert_awaited_once_with(
+                    scheduled=False,
+                    reason="staleness_check",
+                    institution_id=1135,
+                )
+
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_run_successful_ingestion(
