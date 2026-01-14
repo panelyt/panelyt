@@ -306,4 +306,50 @@ describe("OfficeSelector", () => {
     );
     expect(link).toHaveAttribute("target", "_blank");
   });
+
+  it("uses pointer cursors for results and the diag link", () => {
+    const setInstitution = vi.fn();
+    vi.mocked(useInstitution).mockReturnValue({
+      institutionId: 1135,
+      label: "Lab office",
+      setInstitution,
+    });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: null,
+        isLoading: false,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
+    );
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [
+            {
+              id: 2222,
+              name: "Clinic Alpha",
+              city: "Warsaw",
+              address: "Main 1",
+              slug: "clinic-alpha",
+              city_slug: "warszawa",
+            },
+          ],
+        },
+        isFetching: false,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
+    );
+
+    render(<OfficeSelector />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Office: Lab office" }));
+
+    const input = screen.getByPlaceholderText("Search offices");
+    fireEvent.change(input, { target: { value: "Warsaw" } });
+
+    expect(
+      screen.getByRole("option", { name: "Clinic Alpha · Warsaw" }),
+    ).toHaveClass("cursor-pointer");
+    expect(screen.getByRole("link", { name: "Open on diag.pl" })).toHaveClass(
+      "cursor-pointer",
+    );
+  });
 });

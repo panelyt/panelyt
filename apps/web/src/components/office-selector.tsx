@@ -239,7 +239,7 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => handleSelect(institution)}
                       className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-left text-sm transition",
+                        "flex cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm transition",
                         isActive
                           ? "bg-emerald-500/20 text-primary"
                           : "text-secondary hover:bg-surface-2/80 hover:text-primary",
@@ -259,7 +259,7 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
                           title={t("officeSelector.openOnDiag")}
                           onClick={(event) => event.stopPropagation()}
                           onMouseDown={(event) => event.stopPropagation()}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 text-secondary transition hover:border-border hover:text-primary"
+                          className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border/60 text-secondary transition hover:border-border hover:text-primary"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
