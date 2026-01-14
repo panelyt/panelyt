@@ -101,6 +101,8 @@ export const InstitutionSchema = z.object({
   name: z.string(),
   city: z.string().nullable(),
   address: z.string().nullable(),
+  slug: z.string().nullable(),
+  city_slug: z.string().nullable(),
 });
 
 export type Institution = z.infer<typeof InstitutionSchema>;

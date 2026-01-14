@@ -26,6 +26,9 @@ vi.mock("next-intl", () => ({
     if (key === "officeSelector.currentLabel" && values?.name) {
       return `Current office: ${values.name}`;
     }
+    if (key === "officeSelector.openOnDiag") {
+      return "Open on diag.pl";
+    }
     if (key === "officeSelector.noResults") {
       return "No offices found";
     }
@@ -55,6 +58,8 @@ describe("OfficeSelector", () => {
           name: "Clinic Pulawy",
           city: "Pulawy",
           address: "Main 1",
+          slug: null,
+          city_slug: null,
         },
         isLoading: false,
       } as unknown as ReturnType<typeof useInstitutionDetails>,
@@ -103,6 +108,8 @@ describe("OfficeSelector", () => {
               name: "Clinic Alpha",
               city: "Warsaw",
               address: "Main 1",
+              slug: null,
+              city_slug: null,
             },
           ],
         },
@@ -147,6 +154,8 @@ describe("OfficeSelector", () => {
               name: "Punkt Pobran Diagnostyki - Puck",
               city: "Gdansk",
               address: "Main 2",
+              slug: null,
+              city_slug: null,
             },
           ],
         },
@@ -191,6 +200,8 @@ describe("OfficeSelector", () => {
               name: "Clinic Alpha",
               city: "Warsaw",
               address: "Main 1",
+              slug: null,
+              city_slug: null,
             },
           ],
         },
@@ -207,5 +218,138 @@ describe("OfficeSelector", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(setInstitution).not.toHaveBeenCalled();
+  });
+
+  it("does not render subtitles for search results", () => {
+    const setInstitution = vi.fn();
+    vi.mocked(useInstitution).mockReturnValue({
+      institutionId: 1135,
+      label: "Lab office",
+      setInstitution,
+    });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: null,
+        isLoading: false,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
+    );
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [
+            {
+              id: 2222,
+              name: "Warsaw, Main 1",
+              city: "Warsaw",
+              address: "Main 1",
+              slug: "warsaw-main-1",
+              city_slug: "warszawa",
+            },
+          ],
+        },
+        isFetching: false,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
+    );
+
+    render(<OfficeSelector />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Office: Lab office" }));
+
+    const input = screen.getByPlaceholderText("Search offices");
+    fireEvent.change(input, { target: { value: "Warsaw" } });
+
+    expect(screen.queryByText("Warsaw · Main 1")).not.toBeInTheDocument();
+  });
+
+  it("renders a diag.pl link button for results with slugs", () => {
+    const setInstitution = vi.fn();
+    vi.mocked(useInstitution).mockReturnValue({
+      institutionId: 1135,
+      label: "Lab office",
+      setInstitution,
+    });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: null,
+        isLoading: false,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
+    );
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [
+            {
+              id: 2222,
+              name: "Clinic Alpha",
+              city: "Warsaw",
+              address: "Main 1",
+              slug: "clinic-alpha",
+              city_slug: "warszawa",
+            },
+          ],
+        },
+        isFetching: false,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
+    );
+
+    render(<OfficeSelector />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Office: Lab office" }));
+
+    const input = screen.getByPlaceholderText("Search offices");
+    fireEvent.change(input, { target: { value: "Warsaw" } });
+
+    const link = screen.getByRole("link", { name: "Open on diag.pl" });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://diag.pl/placowki/warszawa/clinic-alpha/",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("uses pointer cursors for results and the diag link", () => {
+    const setInstitution = vi.fn();
+    vi.mocked(useInstitution).mockReturnValue({
+      institutionId: 1135,
+      label: "Lab office",
+      setInstitution,
+    });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: null,
+        isLoading: false,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
+    );
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [
+            {
+              id: 2222,
+              name: "Clinic Alpha",
+              city: "Warsaw",
+              address: "Main 1",
+              slug: "clinic-alpha",
+              city_slug: "warszawa",
+            },
+          ],
+        },
+        isFetching: false,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
+    );
+
+    render(<OfficeSelector />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Office: Lab office" }));
+
+    const input = screen.getByPlaceholderText("Search offices");
+    fireEvent.change(input, { target: { value: "Warsaw" } });
+
+    expect(
+      screen.getByRole("option", { name: "Clinic Alpha · Warsaw" }),
+    ).toHaveClass("cursor-pointer");
+    expect(screen.getByRole("link", { name: "Open on diag.pl" })).toHaveClass(
+      "cursor-pointer",
+    );
   });
 });

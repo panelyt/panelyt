@@ -416,7 +416,8 @@
     "searchPlaceholder": "Szukaj placówki...",
     "currentLabel": "Wybrana placówka: {name}",
     "loading": "Wyszukiwanie...",
-    "noResults": "Brak wyników"
+    "noResults": "Brak wyników",
+    "openOnDiag": "Otwórz na diag.pl"
   },
   "officeBanner": {
     "title": "Wybierz placówkę, aby zobaczyć dokładne ceny",

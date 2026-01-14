@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useId } from "react";
-import { ChevronDown, Loader2, Search } from "lucide-react";
+import { ChevronDown, ExternalLink, Loader2, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { useDebounce } from "../hooks/useDebounce";
@@ -54,6 +54,18 @@ const formatCurrentOfficeDetail = (
     return hasCity ? address : `${city}, ${address}`;
   }
   return address ?? city ?? fallback;
+};
+
+const buildDiagInstitutionUrl = (institution: {
+  slug?: string | null;
+  city_slug?: string | null;
+}) => {
+  const slug = institution.slug?.trim();
+  const citySlug = institution.city_slug?.trim();
+  if (!slug || !citySlug) {
+    return null;
+  }
+  return `https://diag.pl/placowki/${citySlug}/${slug}/`;
 };
 
 export function OfficeSelector({ className }: OfficeSelectorProps) {
@@ -216,34 +228,43 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
                   const isActive = index === highlightedIndex;
                   const optionLabel = formatInstitutionLabel(institution);
                   const displayName = normalizeInstitutionName(institution.name);
+                  const diagUrl = buildDiagInstitutionUrl(institution);
                   return (
-                    <button
+                    <div
                       key={institution.id}
                       id={`${listId}-option-${index}`}
-                      type="button"
                       role="option"
                       aria-label={optionLabel}
                       aria-selected={isActive}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => handleSelect(institution)}
                       className={cn(
-                        "w-full px-3 py-2 text-left text-sm transition",
+                        "flex cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm transition",
                         isActive
                           ? "bg-emerald-500/20 text-primary"
                           : "text-secondary hover:bg-surface-2/80 hover:text-primary",
                       )}
                     >
-                      <div className="truncate font-medium text-primary">
-                        {displayName}
-                      </div>
-                      {(institution.city || institution.address) && (
-                        <div className="truncate text-[11px] text-secondary">
-                          {[institution.city, institution.address]
-                            .filter(Boolean)
-                            .join(" · ")}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium text-primary">
+                          {displayName}
                         </div>
+                      </div>
+                      {diagUrl && (
+                        <a
+                          href={diagUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={t("officeSelector.openOnDiag")}
+                          title={t("officeSelector.openOnDiag")}
+                          onClick={(event) => event.stopPropagation()}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border/60 text-secondary transition hover:border-border hover:text-primary"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
             </div>

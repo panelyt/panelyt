@@ -17,6 +17,7 @@ from panelyt_api.ingest.types import (
     RawDiagBiomarker,
     RawDiagItem,
 )
+from panelyt_api.utils.normalization import expand_polish_diacritic_queries
 
 logger = logging.getLogger(__name__)
 
@@ -77,28 +78,31 @@ class DiagClient:
     async def search_institutions(
         self, q: str, page: int = 1, limit: int = _DIAG_INSTITUTION_DEFAULT_LIMIT
     ) -> list[DiagInstitution]:
-        params = {
-            "q": q,
+        base_params = {
             "page": page,
             "limit": limit,
             **_DIAG_INSTITUTION_FILTERS,
         }
-        response = await _retrying_request(
-            self._client, _DIAG_INSTITUTION_SEARCH_URL, params=params
-        )
-        payload = response.json()
-        entries = (
-            payload.get("data")
-            or payload.get("items")
-            or payload.get("results")
-            or []
-        )
-        institutions: list[DiagInstitution] = []
-        for entry in entries:
-            parsed = self._parse_institution(entry)
-            if parsed is not None:
-                institutions.append(parsed)
-        return institutions
+        for query in expand_polish_diacritic_queries(q):
+            params = {**base_params, "q": query}
+            response = await _retrying_request(
+                self._client, _DIAG_INSTITUTION_SEARCH_URL, params=params
+            )
+            payload = response.json()
+            entries = (
+                payload.get("data")
+                or payload.get("items")
+                or payload.get("results")
+                or []
+            )
+            institutions: list[DiagInstitution] = []
+            for entry in entries:
+                parsed = self._parse_institution(entry)
+                if parsed is not None:
+                    institutions.append(parsed)
+            if institutions:
+                return institutions
+        return []
 
     async def get_institution(self, institution_id: int) -> DiagInstitution | None:
         params = dict(_DIAG_INSTITUTION_FILTERS)
@@ -242,22 +246,36 @@ class DiagClient:
         if not name:
             name = f"Institution {institution_id}"
 
-        city = self._clean_str(entry.get("city") or entry.get("town"))
-        if not city:
-            address = entry.get("address") or {}
-            if isinstance(address, dict):
-                address_city = address.get("city")
-                if isinstance(address_city, dict):
+        city = None
+        city_slug = None
+        raw_city = entry.get("city") or entry.get("town")
+        if isinstance(raw_city, dict):
+            city = self._clean_str(raw_city.get("name"))
+            city_slug = self._clean_str(raw_city.get("slug"))
+        else:
+            city = self._clean_str(raw_city)
+
+        address = entry.get("address") or {}
+        if isinstance(address, dict):
+            address_city = address.get("city")
+            if isinstance(address_city, dict):
+                if not city:
                     city = self._clean_str(address_city.get("name"))
-                else:
+                if not city_slug:
+                    city_slug = self._clean_str(address_city.get("slug"))
+            else:
+                if not city:
                     city = self._clean_str(address_city)
         address = self._extract_address(entry)
+        slug = self._clean_str(entry.get("slug"))
 
         return DiagInstitution(
             id=institution_id,
             name=name,
             city=city,
             address=address,
+            slug=slug,
+            city_slug=city_slug,
         )
 
     def _extract_address(self, entry: dict[str, Any]) -> str | None:
