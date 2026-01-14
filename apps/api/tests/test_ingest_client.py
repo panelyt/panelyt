@@ -3,6 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from panelyt_api.ingest import client as diag_client
 from panelyt_api.ingest.client import DiagClient
 
 
@@ -74,6 +75,44 @@ async def test_parse_institution_reads_city_slug_from_city_object():
     assert parsed is not None
     assert parsed.city == "Warszawa"
     assert parsed.city_slug == "warszawa"
+
+
+@pytest.mark.asyncio
+async def test_search_institutions_falls_back_to_diacritics(monkeypatch):
+    calls: list[str] = []
+
+    async def fake_request(_, __, *, params):
+        query = params["q"]
+        calls.append(query)
+        if query == "pul":
+            return httpx.Response(200, json={"data": []})
+        if query == "puł":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": 213,
+                            "name": "Punkt Pobrań Diagnostyki – Puławy, ul. Wojska Polskiego 7a",
+                            "slug": "punkt-pobran-diagnostyki-pulawy",
+                            "address": {
+                                "fullAddress": "24-100 Puławy, ul. Wojska Polskiego 7a",
+                                "city": {"name": "Puławy"},
+                            },
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(f"Unexpected query: {query}")
+
+    monkeypatch.setattr(diag_client, "_retrying_request", fake_request)
+
+    client = DiagClient(httpx.AsyncClient())
+    results = await client.search_institutions("pul", page=1, limit=5)
+    await client.close()
+
+    assert calls == ["pul", "puł"]
+    assert [result.city for result in results] == ["Puławy"]
 
 
 @pytest.mark.asyncio

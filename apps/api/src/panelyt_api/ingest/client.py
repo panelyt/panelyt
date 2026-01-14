@@ -17,6 +17,7 @@ from panelyt_api.ingest.types import (
     RawDiagBiomarker,
     RawDiagItem,
 )
+from panelyt_api.utils.normalization import expand_polish_diacritic_queries
 
 logger = logging.getLogger(__name__)
 
@@ -77,28 +78,31 @@ class DiagClient:
     async def search_institutions(
         self, q: str, page: int = 1, limit: int = _DIAG_INSTITUTION_DEFAULT_LIMIT
     ) -> list[DiagInstitution]:
-        params = {
-            "q": q,
+        base_params = {
             "page": page,
             "limit": limit,
             **_DIAG_INSTITUTION_FILTERS,
         }
-        response = await _retrying_request(
-            self._client, _DIAG_INSTITUTION_SEARCH_URL, params=params
-        )
-        payload = response.json()
-        entries = (
-            payload.get("data")
-            or payload.get("items")
-            or payload.get("results")
-            or []
-        )
-        institutions: list[DiagInstitution] = []
-        for entry in entries:
-            parsed = self._parse_institution(entry)
-            if parsed is not None:
-                institutions.append(parsed)
-        return institutions
+        for query in expand_polish_diacritic_queries(q):
+            params = {**base_params, "q": query}
+            response = await _retrying_request(
+                self._client, _DIAG_INSTITUTION_SEARCH_URL, params=params
+            )
+            payload = response.json()
+            entries = (
+                payload.get("data")
+                or payload.get("items")
+                or payload.get("results")
+                or []
+            )
+            institutions: list[DiagInstitution] = []
+            for entry in entries:
+                parsed = self._parse_institution(entry)
+                if parsed is not None:
+                    institutions.append(parsed)
+            if institutions:
+                return institutions
+        return []
 
     async def get_institution(self, institution_id: int) -> DiagInstitution | None:
         params = dict(_DIAG_INSTITUTION_FILTERS)
