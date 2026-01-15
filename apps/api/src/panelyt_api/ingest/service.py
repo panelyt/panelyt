@@ -36,8 +36,9 @@ class IngestionService:
         *,
         blocking: bool = False,
     ) -> None:
-        # Skip check if freshness was verified recently for this institution
-        if not freshness_cache.should_check(institution_id):
+        # Skip check if freshness was verified recently for this institution,
+        # unless a blocking check was explicitly requested.
+        if not blocking and not freshness_cache.should_check(institution_id):
             return
 
         now_utc = datetime.now(UTC)

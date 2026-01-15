@@ -59,3 +59,30 @@ class TestFreshnessCacheIntegration:
 
             # Cache should now be populated
             assert not freshness_cache.should_check(1135)
+
+    async def test_ensure_fresh_data_blocking_bypasses_cache(self, test_settings):
+        """Blocking mode should bypass freshness cache."""
+        from panelyt_api.ingest.service import IngestionService
+
+        service = IngestionService(test_settings)
+        freshness_cache.mark_checked(1135)
+
+        with patch("panelyt_api.ingest.service.get_session") as mock_session:
+            mock_repo = AsyncMock()
+            mock_repo.latest_fetched_at = AsyncMock(return_value=None)
+            mock_repo.latest_snapshot_date = AsyncMock(return_value=None)
+            mock_repo.scalar = AsyncMock(return_value=None)
+            mock_repo.execute = AsyncMock(
+                return_value=AsyncMock(scalar_one_or_none=MagicMock(return_value=None))
+            )
+            mock_repo.add = MagicMock()
+            mock_repo.flush = AsyncMock()
+
+            mock_context = AsyncMock()
+            mock_context.__aenter__ = AsyncMock(return_value=mock_repo)
+            mock_context.__aexit__ = AsyncMock(return_value=None)
+            mock_session.return_value = mock_context
+
+            await service.ensure_fresh_data(1135, blocking=True)
+
+            mock_session.assert_called()
