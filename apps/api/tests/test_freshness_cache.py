@@ -24,7 +24,10 @@ class TestFreshnessCacheIntegration:
         freshness_cache.mark_checked(1135)
 
         # Mock the session to ensure no DB calls happen
-        with patch("panelyt_api.ingest.service.get_session") as mock_session:
+        with (
+            patch("panelyt_api.ingest.service.get_session") as mock_session,
+            patch.object(service, "_run_with_lock", new_callable=AsyncMock) as mock_run,
+        ):
             await service.ensure_fresh_data(1135, background=True)
             # Should not have called get_session since freshness is cached
             mock_session.assert_not_called()
@@ -86,3 +89,8 @@ class TestFreshnessCacheIntegration:
             await service.ensure_fresh_data(1135, blocking=True)
 
             mock_session.assert_called()
+            mock_run.assert_awaited_once_with(
+                institution_id=1135,
+                reason="staleness_check",
+                blocking=True,
+            )
