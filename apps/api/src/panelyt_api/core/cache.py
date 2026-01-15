@@ -20,8 +20,7 @@ from cachetools import TTLCache
 if TYPE_CHECKING:
     from panelyt_api.ingest.repository import CatalogRepository
     from panelyt_api.optimization.context import OptimizationContext
-    from panelyt_api.schemas.common import BiomarkerOut
-    from panelyt_api.schemas.common import CatalogMeta
+    from panelyt_api.schemas.common import BiomarkerOut, CatalogMeta
     from panelyt_api.schemas.optimize import OptimizeResponse
 
 logger = logging.getLogger(__name__)
