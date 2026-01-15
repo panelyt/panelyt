@@ -20,7 +20,7 @@ from cachetools import TTLCache
 if TYPE_CHECKING:
     from panelyt_api.ingest.repository import CatalogRepository
     from panelyt_api.optimization.context import OptimizationContext
-    from panelyt_api.schemas.common import CatalogMeta
+    from panelyt_api.schemas.common import BiomarkerOut, CatalogMeta
     from panelyt_api.schemas.optimize import OptimizeResponse
 
 logger = logging.getLogger(__name__)
@@ -171,6 +171,58 @@ class OptimizationContextCache:
         return {"hits": self._hits, "misses": self._misses, "size": len(self._cache)}
 
 
+class BiomarkerBatchCache:
+    """Cache for biomarker batch lookups.
+
+    Stores a mapping of normalized biomarker code -> BiomarkerOut | None.
+    Uses a short TTL since prices only change after ingestion.
+    """
+
+    def __init__(self, maxsize: int = 2000, ttl_seconds: int = 600) -> None:
+        self._cache: TTLCache[str, dict[str, BiomarkerOut | None]] = TTLCache(
+            maxsize=maxsize, ttl=ttl_seconds
+        )
+        self._hits = 0
+        self._misses = 0
+
+    def get(self, key: str) -> dict[str, BiomarkerOut | None] | None:
+        result = self._cache.get(key)
+        if result is not None:
+            self._hits += 1
+            logger.debug(
+                "biomarker batch cache hit key=%s (hits=%d, misses=%d, size=%d)",
+                key[:8],
+                self._hits,
+                self._misses,
+                len(self._cache),
+            )
+        else:
+            self._misses += 1
+            logger.debug(
+                "biomarker batch cache miss key=%s (hits=%d, misses=%d, size=%d)",
+                key[:8],
+                self._hits,
+                self._misses,
+                len(self._cache),
+            )
+        return result
+
+    def set(self, key: str, value: dict[str, BiomarkerOut | None]) -> None:
+        self._cache[key] = value
+
+    def make_key(self, biomarkers: Sequence[str], institution_id: int) -> str:
+        sorted_biomarkers = sorted(b.lower().strip() for b in biomarkers)
+        key_string = f"{institution_id}:" + ",".join(sorted_biomarkers)
+        return hashlib.sha256(key_string.encode()).hexdigest()[:32]
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+    @property
+    def stats(self) -> dict[str, int]:
+        return {"hits": self._hits, "misses": self._misses, "size": len(self._cache)}
+
+
 class FreshnessCache:
     """Cache for data freshness check results.
 
@@ -263,6 +315,8 @@ def _get_cache_settings() -> dict[str, int]:
             "catalog_meta_ttl": s.cache_catalog_meta_ttl,
             "optimization_ttl": s.cache_optimization_ttl,
             "optimization_maxsize": s.cache_optimization_maxsize,
+            "biomarker_batch_ttl": s.cache_biomarker_batch_ttl,
+            "biomarker_batch_maxsize": s.cache_biomarker_batch_maxsize,
             "freshness_ttl": s.cache_freshness_ttl,
             "user_activity_debounce": s.cache_user_activity_debounce,
         }
@@ -272,6 +326,8 @@ def _get_cache_settings() -> dict[str, int]:
             "catalog_meta_ttl": 300,
             "optimization_ttl": 3600,
             "optimization_maxsize": 1000,
+            "biomarker_batch_ttl": 600,
+            "biomarker_batch_maxsize": 2000,
             "freshness_ttl": 300,
             "user_activity_debounce": 60,
         }
@@ -285,16 +341,22 @@ optimization_cache = OptimizationCache(
 optimization_context_cache = OptimizationContextCache(
     maxsize=_cfg["optimization_maxsize"], ttl_seconds=_cfg["optimization_ttl"]
 )
+biomarker_batch_cache = BiomarkerBatchCache(
+    maxsize=_cfg["biomarker_batch_maxsize"], ttl_seconds=_cfg["biomarker_batch_ttl"]
+)
 freshness_cache = FreshnessCache(ttl_seconds=_cfg["freshness_ttl"])
 user_activity_debouncer = UserActivityDebouncer(
     debounce_seconds=_cfg["user_activity_debounce"]
 )
 logger.debug(
     "Caches initialized: catalog_meta_ttl=%d, optimization_ttl=%d, "
-    "optimization_maxsize=%d, freshness_ttl=%d, user_activity_debounce=%d",
+    "optimization_maxsize=%d, biomarker_batch_ttl=%d, biomarker_batch_maxsize=%d, "
+    "freshness_ttl=%d, user_activity_debounce=%d",
     _cfg["catalog_meta_ttl"],
     _cfg["optimization_ttl"],
     _cfg["optimization_maxsize"],
+    _cfg["biomarker_batch_ttl"],
+    _cfg["biomarker_batch_maxsize"],
     _cfg["freshness_ttl"],
     _cfg["user_activity_debounce"],
 )
@@ -305,6 +367,7 @@ def clear_all_caches() -> None:
     catalog_meta_cache.clear()
     optimization_cache.clear()
     optimization_context_cache.clear()
+    biomarker_batch_cache.clear()
     freshness_cache.clear()
     user_activity_debouncer.clear()
 

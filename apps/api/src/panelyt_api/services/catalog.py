@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from panelyt_api.core.cache import catalog_meta_cache
+from panelyt_api.core.cache import biomarker_batch_cache, catalog_meta_cache
 from panelyt_api.db import models
 from panelyt_api.schemas.common import (
     BiomarkerBatchResponse,
@@ -158,6 +158,17 @@ async def resolve_biomarkers_by_codes(
     if not normalized_codes:
         return BiomarkerBatchResponse(results=results)
 
+    normalized_list = [code for code in normalized_codes if code is not None]
+    cache_key = biomarker_batch_cache.make_key(sorted(normalized_list), institution_id)
+    cached = biomarker_batch_cache.get(cache_key)
+    if cached is not None:
+        for code in codes:
+            normalized = normalize_token(code)
+            if not normalized:
+                continue
+            results[code] = cached.get(normalized)
+        return BiomarkerBatchResponse(results=results)
+
     elab_lower = func.lower(func.coalesce(models.Biomarker.elab_code, ""))
     slug_lower = func.lower(func.coalesce(models.Biomarker.slug, ""))
     name_lower = func.lower(models.Biomarker.name)
@@ -234,6 +245,16 @@ async def resolve_biomarkers_by_codes(
             slug=match.slug,
             price_now_grosz=price_now,
         )
+
+    normalized_results: dict[str, BiomarkerOut | None] = {}
+    for code in codes:
+        normalized = normalize_token(code)
+        if not normalized:
+            continue
+        value = results.get(code)
+        if normalized not in normalized_results or normalized_results[normalized] is None:
+            normalized_results[normalized] = value
+    biomarker_batch_cache.set(cache_key, normalized_results)
 
     return BiomarkerBatchResponse(results=results)
 

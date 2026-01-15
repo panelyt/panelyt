@@ -10,6 +10,11 @@ import {
   useInstitutionStore,
 } from "../stores/institutionStore";
 import { usePanelStore } from "../stores/panelStore";
+import {
+  fetchBiomarkerBatch,
+  normalizeBiomarkerBatchResults,
+  normalizeBiomarkerCode,
+} from "../lib/biomarkers";
 
 export function useInstitution() {
   const institutionId = useInstitutionStore((state) => state.institutionId);
@@ -19,6 +24,7 @@ export function useInstitution() {
   );
   const setInstitutionState = useInstitutionStore((state) => state.setInstitution);
   const clearOptimizationSummary = usePanelStore((state) => state.clearOptimizationSummary);
+  const selectedBiomarkers = usePanelStore((state) => state.selected);
   const lastInstitutionIdRef = useRef<number | null>(null);
   const hasSyncedSelectionRef = useRef(false);
 
@@ -84,7 +90,24 @@ export function useInstitution() {
     clearOptimizationSummary();
     queryClient.invalidateQueries({ queryKey: ["optimize"] });
     queryClient.invalidateQueries({ queryKey: ["optimize-addons"] });
-  }, [clearOptimizationSummary, institutionId, queryClient]);
+
+    const codes = selectedBiomarkers
+      .map((biomarker) => biomarker.code.trim())
+      .filter(Boolean);
+    const cacheKey = Array.from(
+      new Set(codes.map((code) => normalizeBiomarkerCode(code)).filter(Boolean)),
+    ).sort();
+    if (codes.length > 0) {
+      void queryClient.prefetchQuery({
+        queryKey: ["biomarker-batch", cacheKey, institutionId],
+        queryFn: async () => {
+          const response = await fetchBiomarkerBatch(codes, institutionId);
+          return normalizeBiomarkerBatchResults(response);
+        },
+        staleTime: 1000 * 60 * 10,
+      });
+    }
+  }, [clearOptimizationSummary, institutionId, queryClient, selectedBiomarkers]);
 
   const setInstitution = useCallback(
     (selection: InstitutionSelection) => {

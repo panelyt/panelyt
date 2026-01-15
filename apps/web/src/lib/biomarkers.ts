@@ -4,7 +4,22 @@ import { postParsedJson } from "./http";
 
 export const normalizeBiomarkerCode = (value: string) => value.trim().toUpperCase();
 
+export const normalizeBiomarkerBatchResults = (
+  results: Record<string, Biomarker | null>,
+) => {
+  const normalized: Record<string, Biomarker | null> = {};
+  for (const [code, biomarker] of Object.entries(results)) {
+    const normalizedCode = normalizeBiomarkerCode(code);
+    if (!normalizedCode) continue;
+    if (!(normalizedCode in normalized) || normalized[normalizedCode] === null) {
+      normalized[normalizedCode] = biomarker;
+    }
+  }
+  return normalized;
+};
+
 const BIOMARKER_BATCH_LIMIT = 200;
+const MAX_CONCURRENT_BATCHES = 4;
 
 const chunkCodes = (codes: string[]) => {
   const chunks: string[][] = [];
@@ -25,18 +40,46 @@ export const fetchBiomarkerBatch = async (
   }
 
   const results: Record<string, Biomarker | null> = {};
-  for (const chunk of chunkCodes(uniqueCodes)) {
+  const chunks = chunkCodes(uniqueCodes);
+  const inFlight = new Set<Promise<void>>();
+
+  const runChunk = async (chunk: string[]) => {
     const response = await postParsedJson(
       `/catalog/biomarkers/batch?institution=${institutionId}`,
       BiomarkerBatchResponseSchema,
       { codes: chunk },
     );
-    Object.assign(results, response.results);
+    for (const [code, value] of Object.entries(response.results)) {
+      results[code] = value;
+      const normalized = normalizeBiomarkerCode(code);
+      if (normalized && !(normalized in results)) {
+        results[normalized] = value;
+      }
+    }
+  };
+
+  for (const chunk of chunks) {
+    let task: Promise<void>;
+    task = runChunk(chunk).finally(() => {
+      inFlight.delete(task);
+    });
+    inFlight.add(task);
+    if (inFlight.size >= MAX_CONCURRENT_BATCHES) {
+      await Promise.race(inFlight);
+    }
+  }
+
+  if (inFlight.size > 0) {
+    await Promise.all(inFlight);
   }
 
   for (const code of uniqueCodes) {
     if (!(code in results)) {
       results[code] = null;
+    }
+    const normalized = normalizeBiomarkerCode(code);
+    if (normalized && !(normalized in results)) {
+      results[normalized] = results[code];
     }
   }
 

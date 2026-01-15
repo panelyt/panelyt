@@ -1,11 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "../i18n/navigation";
 import { defaultLocale } from "../i18n/config";
 
-import { fetchBiomarkerBatch } from "../lib/biomarkers";
+import {
+  fetchBiomarkerBatch,
+  normalizeBiomarkerBatchResults,
+  normalizeBiomarkerCode,
+} from "../lib/biomarkers";
 import { useInstitution } from "./useInstitution";
 
 export interface SelectedBiomarker {
@@ -24,15 +29,27 @@ const URL_UPDATE_DEBOUNCE_MS = 300;
 async function lookupBiomarkerNames(
   codes: string[],
   institutionId: number,
+  queryClient: QueryClient,
 ): Promise<{ lookup: Record<string, string>; hasUnresolved: boolean }> {
   const lookup: Record<string, string> = {};
   let hasUnresolved = false;
-  const batch = await fetchBiomarkerBatch(codes, institutionId);
+  const cacheKey = Array.from(
+    new Set(codes.map((code) => normalizeBiomarkerCode(code)).filter(Boolean)),
+  ).sort();
+  const batch = await queryClient.fetchQuery({
+    queryKey: ["biomarker-batch", cacheKey, institutionId],
+    queryFn: async () => {
+      const response = await fetchBiomarkerBatch(codes, institutionId);
+      return normalizeBiomarkerBatchResults(response);
+    },
+    staleTime: 1000 * 60 * 10,
+  });
 
   for (const code of codes) {
-    const name = batch[code]?.name ?? code;
+    const normalized = normalizeBiomarkerCode(code);
+    const name = normalized ? batch[normalized]?.name ?? code : code;
     lookup[code] = name;
-    if (batch[code] === null) {
+    if (normalized && batch[normalized] === null) {
       hasUnresolved = true;
     }
   }
@@ -77,6 +94,7 @@ export function useUrlBiomarkerSync(
   const { selected, onLoadFromUrl, skipSync = false, locale } = options;
 
   const { institutionId } = useInstitution();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
@@ -189,7 +207,7 @@ export function useUrlBiomarkerSync(
 
     let cancelled = false;
 
-    lookupBiomarkerNames(codes, institutionId)
+    lookupBiomarkerNames(codes, institutionId, queryClient)
       .then(({ lookup: nameMap, hasUnresolved }) => {
         if (cancelled) {
           return;
@@ -223,7 +241,7 @@ export function useUrlBiomarkerSync(
     return () => {
       cancelled = true;
     };
-  }, [institutionId, searchParams, skipSync, hasOtherParams]);
+  }, [institutionId, searchParams, skipSync, hasOtherParams, queryClient]);
 
   useEffect(() => {
     if (!initialLoadDoneRef.current || skipSync || hasOtherParams) {
@@ -251,7 +269,7 @@ export function useUrlBiomarkerSync(
     setLoadingCodes(Array.from(unresolvedCodesRef.current));
 
     setIsLoadingFromUrl(true);
-    lookupBiomarkerNames(loadedCodesRef.current, institutionId)
+    lookupBiomarkerNames(loadedCodesRef.current, institutionId, queryClient)
       .then(({ lookup: nameMap, hasUnresolved }) => {
         if (cancelled) {
           return;
@@ -291,7 +309,7 @@ export function useUrlBiomarkerSync(
     return () => {
       cancelled = true;
     };
-  }, [institutionId, skipSync, hasOtherParams]);
+  }, [institutionId, skipSync, hasOtherParams, queryClient]);
 
   // Write to URL when selection changes
   useEffect(() => {
