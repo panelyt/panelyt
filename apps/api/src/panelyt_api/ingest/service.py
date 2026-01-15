@@ -30,7 +30,11 @@ class IngestionService:
         self._settings = settings
 
     async def ensure_fresh_data(
-        self, institution_id: int, background: bool = False
+        self,
+        institution_id: int,
+        background: bool = False,
+        *,
+        blocking: bool = False,
     ) -> None:
         # Skip check if freshness was verified recently for this institution
         if not freshness_cache.should_check(institution_id):
@@ -69,6 +73,12 @@ class IngestionService:
             if background:
                 self._schedule_background_run(
                     institution_id=institution_id, reason="staleness_check"
+                )
+            elif blocking:
+                await self._run_with_lock(
+                    institution_id=institution_id,
+                    reason="staleness_check",
+                    blocking=True,
                 )
             else:
                 ran = await self._run_with_lock(

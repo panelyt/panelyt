@@ -142,6 +142,61 @@ describe("useInstitution", () => {
     expect(mutate).toHaveBeenCalledWith({ preferred_institution_id: 3333 });
   });
 
+  it("does not overwrite user selection while preference update is pending", async () => {
+    let pending = false;
+    const mutate = vi.fn(() => {
+      pending = true;
+    });
+    vi.mocked(useUserSession).mockReturnValue(
+      {
+        data: {
+          user_id: "user-1",
+          username: "egor",
+          registered: true,
+          is_admin: false,
+        },
+        isLoading: false,
+      } as ReturnType<typeof useUserSession>,
+    );
+    vi.mocked(useAccountSettings).mockImplementation(
+      () =>
+        ({
+          settingsQuery: {
+            data: {
+              telegram: {
+                enabled: false,
+                chat_id: null,
+                linked_at: null,
+                link_token: null,
+                link_token_expires_at: null,
+                bot_username: null,
+                link_url: null,
+              },
+              preferred_institution_id: 2222,
+              preferred_institution_label: "Warsaw",
+            },
+            isLoading: false,
+          },
+          updateSettingsMutation: { mutate, isPending: pending },
+        }) as unknown as ReturnType<typeof useAccountSettings>,
+    );
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useInstitution(), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(useInstitutionStore.getState().institutionId).toBe(2222);
+    });
+
+    act(() => {
+      result.current.setInstitution({ id: 3333, label: "Gdansk" });
+    });
+
+    await waitFor(() => {
+      expect(useInstitutionStore.getState().institutionId).toBe(3333);
+    });
+  });
+
   it("does not update account settings for anonymous users", () => {
     const mutate = vi.fn();
     vi.mocked(useUserSession).mockReturnValue(

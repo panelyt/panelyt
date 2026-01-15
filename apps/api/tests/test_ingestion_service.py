@@ -122,6 +122,34 @@ class TestIngestionService:
                 blocking=False,
             )
 
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_ensure_fresh_data_blocks_when_requested(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        """Test ensure_fresh_data blocks when blocking is requested."""
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        mock_session.add = MagicMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        stale_time = datetime.now(UTC) - timedelta(hours=25)
+        mock_repo.latest_fetched_at.return_value = stale_time
+        mock_repo.latest_snapshot_date.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        with patch.object(ingestion_service, "_run_with_lock", new_callable=AsyncMock) as mock_run:
+            await ingestion_service.ensure_fresh_data(1135, blocking=True)
+            mock_run.assert_awaited_once_with(
+                institution_id=1135,
+                reason="staleness_check",
+                blocking=True,
+            )
+
     @patch("panelyt_api.ingest.service.InstitutionService")
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")

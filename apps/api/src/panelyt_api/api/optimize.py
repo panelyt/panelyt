@@ -39,7 +39,7 @@ async def optimize(
     repo = CatalogRepository(session)
     await record_user_activity_debounced(repo, datetime.now(UTC))
     ingestion_service = IngestionService(get_settings())
-    await ingestion_service.ensure_fresh_data(institution_id)
+    await ingestion_service.ensure_fresh_data(institution_id, blocking=True)
     optimizer = OptimizationService(session)
     return await optimizer.solve_cached(payload, institution_id)
 

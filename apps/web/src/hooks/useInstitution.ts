@@ -35,9 +35,14 @@ export function useInstitution() {
   const preferredId = account.settingsQuery.data?.preferred_institution_id ?? null;
   const preferredLabel =
     account.settingsQuery.data?.preferred_institution_label ?? null;
+  const isUpdatingPreference = Boolean(account.updateSettingsMutation.isPending);
 
   useEffect(() => {
     if (!preferredId) {
+      return;
+    }
+
+    if (isUpdatingPreference) {
       return;
     }
 
@@ -46,7 +51,14 @@ export function useInstitution() {
     }
 
     setInstitutionState({ id: preferredId, label: preferredLabel });
-  }, [institutionId, label, preferredId, preferredLabel, setInstitutionState]);
+  }, [
+    institutionId,
+    isUpdatingPreference,
+    label,
+    preferredId,
+    preferredLabel,
+    setInstitutionState,
+  ]);
 
   useEffect(() => {
     if (!session.data) {
