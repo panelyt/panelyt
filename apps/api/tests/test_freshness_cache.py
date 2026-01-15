@@ -41,7 +41,10 @@ class TestFreshnessCacheIntegration:
         # Clear cache to simulate expiry
         freshness_cache.clear()
 
-        with patch("panelyt_api.ingest.service.get_session") as mock_session:
+        with (
+            patch("panelyt_api.ingest.service.get_session") as mock_session,
+            patch.object(service, "_run_with_lock", new_callable=AsyncMock) as mock_run,
+        ):
             mock_repo = AsyncMock()
             mock_repo.latest_fetched_at = AsyncMock(return_value=None)
             mock_repo.latest_snapshot_date = AsyncMock(return_value=None)
