@@ -30,10 +30,14 @@ class IngestionService:
         self._settings = settings
 
     def _lock_is_busy(self) -> bool:
+        if self._run_lock.locked():
+            return True
+
         waiters = getattr(self._run_lock, "_waiters", None)
-        return self._run_lock.locked() or (
-            waiters and any(not waiter.cancelled() for waiter in waiters)
-        )
+        if not waiters:
+            return False
+
+        return any(not waiter.cancelled() for waiter in waiters)
 
     async def _evaluate_freshness(self, institution_id: int) -> tuple[bool, bool]:
         now_utc = datetime.now(UTC)
