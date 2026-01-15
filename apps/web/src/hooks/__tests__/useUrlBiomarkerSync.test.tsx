@@ -102,8 +102,7 @@ describe('useUrlBiomarkerSync', () => {
           onLoadFromUrl: vi.fn(),
           locale: 'en',
         }),
-      { initialProps: { selected: [] as SelectedBiomarker[] } },
-      { wrapper: Wrapper },
+      { initialProps: { selected: [] as SelectedBiomarker[] }, wrapper: Wrapper },
     )
 
     rerender({ selected: [{ code: 'A1C', name: 'A1C' }] })

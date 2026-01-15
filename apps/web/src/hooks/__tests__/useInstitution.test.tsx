@@ -18,9 +18,13 @@ vi.mock("../useUserSession", () => ({
   useUserSession: vi.fn(),
 }));
 
-vi.mock("../../lib/biomarkers", () => ({
-  fetchBiomarkerBatch: vi.fn().mockResolvedValue({}),
-}));
+vi.mock("../../lib/biomarkers", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/biomarkers")>();
+  return {
+    ...actual,
+    fetchBiomarkerBatch: vi.fn().mockResolvedValue({}),
+  };
+});
 
 import { useAccountSettings } from "../useAccountSettings";
 import { useUserSession } from "../useUserSession";
