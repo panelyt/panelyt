@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { useCallback, useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useCallback, useState, type ReactNode } from 'react'
 import { useUrlBiomarkerSync, type SelectedBiomarker } from '../useUrlBiomarkerSync'
 import { useRouter } from '../../i18n/navigation'
 import { useSearchParams } from 'next/navigation'
@@ -28,6 +29,16 @@ const useSearchParamsMock = vi.mocked(useSearchParams)
 const postParsedJsonMock = vi.mocked(postParsedJson)
 
 describe('useUrlBiomarkerSync', () => {
+  const createWrapper = () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const Wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    return { Wrapper, queryClient }
+  }
+
   beforeEach(() => {
     institutionId = 1135
     window.history.pushState({}, '', '/')
@@ -39,13 +50,16 @@ describe('useUrlBiomarkerSync', () => {
 
   it('includes locale prefix when building share url', () => {
     const origin = window.location.origin
-    const { result } = renderHook(() =>
+    const { Wrapper } = createWrapper()
+    const { result } = renderHook(
+      () =>
       useUrlBiomarkerSync({
         selected: [{ code: 'A1C', name: 'A1C' }],
         onLoadFromUrl: vi.fn(),
         skipSync: true,
         locale: 'en',
       }),
+      { wrapper: Wrapper },
     )
 
     expect(result.current.getShareUrl()).toBe(`${origin}/en?biomarkers=A1C`)
@@ -53,13 +67,16 @@ describe('useUrlBiomarkerSync', () => {
 
   it('keeps default locale share url without prefix', () => {
     const origin = window.location.origin
-    const { result } = renderHook(() =>
+    const { Wrapper } = createWrapper()
+    const { result } = renderHook(
+      () =>
       useUrlBiomarkerSync({
         selected: [{ code: 'A1C', name: 'A1C' }],
         onLoadFromUrl: vi.fn(),
         skipSync: true,
         locale: 'pl',
       }),
+      { wrapper: Wrapper },
     )
 
     expect(result.current.getShareUrl()).toBe(`${origin}/?biomarkers=A1C`)
@@ -77,6 +94,7 @@ describe('useUrlBiomarkerSync', () => {
       prefetch: vi.fn(),
     })
 
+    const { Wrapper } = createWrapper()
     const { rerender } = renderHook(
       ({ selected }: { selected: SelectedBiomarker[] }) =>
         useUrlBiomarkerSync({
@@ -85,6 +103,7 @@ describe('useUrlBiomarkerSync', () => {
           locale: 'en',
         }),
       { initialProps: { selected: [] as SelectedBiomarker[] } },
+      { wrapper: Wrapper },
     )
 
     rerender({ selected: [{ code: 'A1C', name: 'A1C' }] })
@@ -103,7 +122,9 @@ describe('useUrlBiomarkerSync', () => {
     )
     const onLoadFromUrl = vi.fn()
 
-    renderHook(() =>
+    const { Wrapper } = createWrapper()
+    renderHook(
+      () =>
       useUrlBiomarkerSync({
         selected: [
           { code: 'TSH', name: 'Thyroid Stimulating Hormone' },
@@ -111,6 +132,7 @@ describe('useUrlBiomarkerSync', () => {
         ],
         onLoadFromUrl,
       }),
+      { wrapper: Wrapper },
     )
 
     await waitFor(() => expect(onLoadFromUrl).not.toHaveBeenCalled())
@@ -131,11 +153,14 @@ describe('useUrlBiomarkerSync', () => {
         }),
     )
 
-    const { result } = renderHook(() =>
+    const { Wrapper } = createWrapper()
+    const { result } = renderHook(
+      () =>
       useUrlBiomarkerSync({
         selected: [],
         onLoadFromUrl,
       }),
+      { wrapper: Wrapper },
     )
 
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(1))
@@ -191,7 +216,9 @@ describe('useUrlBiomarkerSync', () => {
         }),
     )
 
-    renderHook(() => {
+    const { Wrapper } = createWrapper()
+    renderHook(
+      () => {
       const [selected, setSelected] = useState<SelectedBiomarker[]>([])
       const handleLoad = useCallback((biomarkers: SelectedBiomarker[]) => {
         onLoadFromUrl(biomarkers)
@@ -202,7 +229,9 @@ describe('useUrlBiomarkerSync', () => {
         selected,
         onLoadFromUrl: handleLoad,
       })
-    })
+    },
+      { wrapper: Wrapper },
+    )
 
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(1))
     expect(onLoadFromUrl).toHaveBeenCalledWith([{ code: '124', name: '124' }])
@@ -257,7 +286,9 @@ describe('useUrlBiomarkerSync', () => {
       })
     })
 
-    const { rerender } = renderHook(() => {
+    const { Wrapper } = createWrapper()
+    const { rerender } = renderHook(
+      () => {
       const [selected, setSelected] = useState<SelectedBiomarker[]>([])
       const handleLoad = useCallback((biomarkers: SelectedBiomarker[]) => {
         onLoadFromUrl(biomarkers)
@@ -268,7 +299,9 @@ describe('useUrlBiomarkerSync', () => {
         selected,
         onLoadFromUrl: handleLoad,
       })
-    })
+    },
+      { wrapper: Wrapper },
+    )
 
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(1))
     expect(onLoadFromUrl).toHaveBeenCalledWith([{ code: 'TSH', name: 'TSH' }])
@@ -280,6 +313,50 @@ describe('useUrlBiomarkerSync', () => {
     await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(2))
     expect(onLoadFromUrl.mock.calls[1]?.[0]).toEqual([
       { code: 'TSH', name: 'Thyroid Stimulating Hormone' },
+    ])
+  })
+
+  it('uses cached biomarker batches before hitting the API', async () => {
+    useSearchParamsMock.mockReturnValue(
+      new URLSearchParams('biomarkers=TSH,T4') as ReturnType<typeof useSearchParams>,
+    )
+    const onLoadFromUrl = vi.fn()
+    const { Wrapper, queryClient } = createWrapper()
+
+    queryClient.setQueryData(
+      ['biomarker-batch', ['T4', 'TSH'], 1135],
+      {
+        TSH: {
+          id: 11,
+          name: 'Thyroid Stimulating Hormone',
+          elab_code: 'TSH',
+          slug: 'tsh',
+          price_now_grosz: 1200,
+        },
+        T4: {
+          id: 12,
+          name: 'Thyroxine',
+          elab_code: 'T4',
+          slug: 't4',
+          price_now_grosz: 800,
+        },
+      },
+    )
+
+    renderHook(
+      () =>
+        useUrlBiomarkerSync({
+          selected: [],
+          onLoadFromUrl,
+        }),
+      { wrapper: Wrapper },
+    )
+
+    await waitFor(() => expect(onLoadFromUrl).toHaveBeenCalledTimes(2))
+    expect(postParsedJsonMock).not.toHaveBeenCalled()
+    expect(onLoadFromUrl.mock.calls[1]?.[0]).toEqual([
+      { code: 'TSH', name: 'Thyroid Stimulating Hormone' },
+      { code: 'T4', name: 'Thyroxine' },
     ])
   })
 })
