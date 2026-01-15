@@ -522,7 +522,7 @@ class TestOptimizeEndpoint:
         assert data["explain"] == {}
         assert data["uncovered"] == []
         activity_spy.assert_awaited_once()
-        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID)
+        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     async def test_optimize_unknown_biomarkers(
@@ -543,7 +543,7 @@ class TestOptimizeEndpoint:
         assert data["items"] == []
         assert data["uncovered"] == ["UNKNOWN1", "UNKNOWN2"]
         activity_spy.assert_awaited_once()
-        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID)
+        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     async def test_optimize_successful_optimization(
@@ -634,7 +634,7 @@ class TestOptimizeEndpoint:
         assert "Liver Panel" in data["explain"]["ALT"]
         assert "Liver Panel" in data["explain"]["AST"]
         activity_spy.assert_awaited_once()
-        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID)
+        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     async def test_optimize_compare_returns_bundle(
@@ -718,7 +718,7 @@ class TestOptimizeEndpoint:
         assert data["uncovered"] == ["UNKNOWN_BIOMARKER"]
         assert "ALT" in data["explain"]
         activity_spy.assert_awaited_once()
-        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID)
+        mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     async def test_optimize_uses_institution_param(
@@ -767,7 +767,7 @@ class TestOptimizeEndpoint:
         assert data["items"][0]["name"] == "ALT Test"
         assert data["uncovered"] == []
         activity_spy.assert_awaited_once()
-        mock_ensure_fresh.assert_awaited_once_with(2222)
+        mock_ensure_fresh.assert_awaited_once_with(2222, blocking=True)
 
     @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
     async def test_optimize_uses_preferred_institution_when_param_missing(
@@ -829,4 +829,4 @@ class TestOptimizeEndpoint:
         assert data["items"][0]["name"] == "ALT Test"
         assert data["uncovered"] == []
         activity_spy.assert_awaited_once()
-        mock_ensure_fresh.assert_awaited_once_with(preferred_institution_id)
+        mock_ensure_fresh.assert_awaited_once_with(preferred_institution_id, blocking=True)
