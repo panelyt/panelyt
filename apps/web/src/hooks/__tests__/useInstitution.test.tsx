@@ -8,6 +8,7 @@ import {
   DEFAULT_INSTITUTION_ID,
   useInstitutionStore,
 } from "../../stores/institutionStore";
+import { usePanelStore } from "../../stores/panelStore";
 
 vi.mock("../useAccountSettings", () => ({
   useAccountSettings: vi.fn(),
@@ -17,17 +18,23 @@ vi.mock("../useUserSession", () => ({
   useUserSession: vi.fn(),
 }));
 
+vi.mock("../../lib/biomarkers", () => ({
+  fetchBiomarkerBatch: vi.fn().mockResolvedValue({}),
+}));
+
 import { useAccountSettings } from "../useAccountSettings";
 import { useUserSession } from "../useUserSession";
+import { fetchBiomarkerBatch } from "../../lib/biomarkers";
 
 describe("useInstitution", () => {
   const createWrapper = () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
-    return function Wrapper({ children }: { children: ReactNode }) {
+    const Wrapper = ({ children }: { children: ReactNode }) => {
       return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
     };
+    return { Wrapper, queryClient };
   };
 
   beforeEach(() => {
@@ -38,6 +45,8 @@ describe("useInstitution", () => {
       hasSelectedInstitution: false,
     });
     useInstitutionStore.persist.clearStorage();
+    usePanelStore.setState({ selected: [] });
+    vi.mocked(fetchBiomarkerBatch).mockClear();
   });
 
   it("hydrates the store from account settings when available", async () => {
@@ -74,8 +83,8 @@ describe("useInstitution", () => {
       } as unknown as ReturnType<typeof useAccountSettings>,
     );
 
-    const wrapper = createWrapper();
-    renderHook(() => useInstitution(), { wrapper });
+    const { Wrapper } = createWrapper();
+    renderHook(() => useInstitution(), { wrapper: Wrapper });
 
     await waitFor(() => {
       expect(useInstitutionStore.getState().institutionId).toBe(2222);
@@ -118,8 +127,8 @@ describe("useInstitution", () => {
       } as unknown as ReturnType<typeof useAccountSettings>,
     );
 
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useInstitution(), { wrapper });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useInstitution(), { wrapper: Wrapper });
 
     act(() => {
       result.current.setInstitution({ id: 3333, label: "Gdansk" });
@@ -156,8 +165,8 @@ describe("useInstitution", () => {
       } as unknown as ReturnType<typeof useAccountSettings>,
     );
 
-    const wrapper = createWrapper();
-    const { result } = renderHook(() => useInstitution(), { wrapper });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useInstitution(), { wrapper: Wrapper });
 
     act(() => {
       result.current.setInstitution({ id: 3333, label: "Gdansk" });
@@ -207,11 +216,53 @@ describe("useInstitution", () => {
       } as unknown as ReturnType<typeof useAccountSettings>,
     );
 
-    const wrapper = createWrapper();
-    renderHook(() => useInstitution(), { wrapper });
+    const { Wrapper } = createWrapper();
+    renderHook(() => useInstitution(), { wrapper: Wrapper });
 
     await waitFor(() => {
       expect(mutate).toHaveBeenCalledWith({ preferred_institution_id: 4444 });
+    });
+  });
+
+  it("prefetches biomarker batches when the institution changes", async () => {
+    vi.mocked(useUserSession).mockReturnValue(
+      { data: null, isLoading: false } as ReturnType<typeof useUserSession>,
+    );
+    vi.mocked(useAccountSettings).mockReturnValue(
+      {
+        settingsQuery: {
+          data: {
+            telegram: {
+              enabled: false,
+              chat_id: null,
+              linked_at: null,
+              link_token: null,
+              link_token_expires_at: null,
+              bot_username: null,
+              link_url: null,
+            },
+            preferred_institution_id: null,
+            preferred_institution_label: null,
+          },
+          isLoading: false,
+        },
+        updateSettingsMutation: { mutate: vi.fn() },
+      } as unknown as ReturnType<typeof useAccountSettings>,
+    );
+
+    usePanelStore.setState({
+      selected: [{ code: "ALT", name: "ALT" }],
+    });
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useInstitution(), { wrapper: Wrapper });
+
+    act(() => {
+      result.current.setInstitution({ id: 9999, label: "Lodz" });
+    });
+
+    await waitFor(() => {
+      expect(fetchBiomarkerBatch).toHaveBeenCalledWith(["ALT"], 9999);
     });
   });
 });
