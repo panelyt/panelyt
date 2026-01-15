@@ -35,7 +35,13 @@ export const fetchBiomarkerBatch = async (
       BiomarkerBatchResponseSchema,
       { codes: chunk },
     );
-    Object.assign(results, response.results);
+    for (const [code, value] of Object.entries(response.results)) {
+      results[code] = value;
+      const normalized = normalizeBiomarkerCode(code);
+      if (normalized && !(normalized in results)) {
+        results[normalized] = value;
+      }
+    }
   };
 
   for (const chunk of chunks) {
@@ -56,6 +62,10 @@ export const fetchBiomarkerBatch = async (
   for (const code of uniqueCodes) {
     if (!(code in results)) {
       results[code] = null;
+    }
+    const normalized = normalizeBiomarkerCode(code);
+    if (normalized && !(normalized in results)) {
+      results[normalized] = results[code];
     }
   }
 
