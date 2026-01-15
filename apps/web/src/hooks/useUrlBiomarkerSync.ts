@@ -6,7 +6,11 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "../i18n/navigation";
 import { defaultLocale } from "../i18n/config";
 
-import { fetchBiomarkerBatch, normalizeBiomarkerCode } from "../lib/biomarkers";
+import {
+  fetchBiomarkerBatch,
+  normalizeBiomarkerBatchResults,
+  normalizeBiomarkerCode,
+} from "../lib/biomarkers";
 import { useInstitution } from "./useInstitution";
 
 export interface SelectedBiomarker {
@@ -34,14 +38,18 @@ async function lookupBiomarkerNames(
   ).sort();
   const batch = await queryClient.fetchQuery({
     queryKey: ["biomarker-batch", cacheKey, institutionId],
-    queryFn: async () => fetchBiomarkerBatch(codes, institutionId),
+    queryFn: async () => {
+      const response = await fetchBiomarkerBatch(codes, institutionId);
+      return normalizeBiomarkerBatchResults(response);
+    },
     staleTime: 1000 * 60 * 10,
   });
 
   for (const code of codes) {
-    const name = batch[code]?.name ?? code;
+    const normalized = normalizeBiomarkerCode(code);
+    const name = normalized ? batch[normalized]?.name ?? code : code;
     lookup[code] = name;
-    if (batch[code] === null) {
+    if (normalized && batch[normalized] === null) {
       hasUnresolved = true;
     }
   }

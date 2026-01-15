@@ -10,7 +10,11 @@ import {
   useInstitutionStore,
 } from "../stores/institutionStore";
 import { usePanelStore } from "../stores/panelStore";
-import { fetchBiomarkerBatch, normalizeBiomarkerCode } from "../lib/biomarkers";
+import {
+  fetchBiomarkerBatch,
+  normalizeBiomarkerBatchResults,
+  normalizeBiomarkerCode,
+} from "../lib/biomarkers";
 
 export function useInstitution() {
   const institutionId = useInstitutionStore((state) => state.institutionId);
@@ -96,7 +100,10 @@ export function useInstitution() {
     if (codes.length > 0) {
       void queryClient.prefetchQuery({
         queryKey: ["biomarker-batch", cacheKey, institutionId],
-        queryFn: async () => fetchBiomarkerBatch(codes, institutionId),
+        queryFn: async () => {
+          const response = await fetchBiomarkerBatch(codes, institutionId);
+          return normalizeBiomarkerBatchResults(response);
+        },
         staleTime: 1000 * 60 * 10,
       });
     }

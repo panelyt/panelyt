@@ -4,6 +4,20 @@ import { postParsedJson } from "./http";
 
 export const normalizeBiomarkerCode = (value: string) => value.trim().toUpperCase();
 
+export const normalizeBiomarkerBatchResults = (
+  results: Record<string, Biomarker | null>,
+) => {
+  const normalized: Record<string, Biomarker | null> = {};
+  for (const [code, biomarker] of Object.entries(results)) {
+    const normalizedCode = normalizeBiomarkerCode(code);
+    if (!normalizedCode) continue;
+    if (!(normalizedCode in normalized) || normalized[normalizedCode] === null) {
+      normalized[normalizedCode] = biomarker;
+    }
+  }
+  return normalized;
+};
+
 const BIOMARKER_BATCH_LIMIT = 200;
 const MAX_CONCURRENT_BATCHES = 4;
 
