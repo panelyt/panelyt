@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import insert, select
 
+from panelyt_api.core.cache import biomarker_batch_cache
 from panelyt_api.db import models
 from panelyt_api.services import catalog
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
@@ -408,6 +409,37 @@ class TestCatalogService:
 
         assert len(result.results) == 1
         assert result.results[0].price_now_grosz == 900
+
+    async def test_resolve_biomarkers_by_codes_uses_cache(self, db_session, monkeypatch):
+        biomarker_batch_cache.clear()
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                {"id": 1, "name": "Alanine aminotransferase", "elab_code": "ALT", "slug": "alt"}
+            )
+        )
+        await db_session.commit()
+        await self._attach_item(db_session, biomarker_id=1, item_id=1901, price=1100)
+        await db_session.commit()
+
+        call_count = {"count": 0}
+        original_fetch_prices = catalog._fetch_prices
+
+        async def wrapped_fetch_prices(*args, **kwargs):
+            call_count["count"] += 1
+            return await original_fetch_prices(*args, **kwargs)
+
+        monkeypatch.setattr(catalog, "_fetch_prices", wrapped_fetch_prices)
+
+        result_first = await catalog.resolve_biomarkers_by_codes(
+            db_session, ["ALT"], institution_id=DEFAULT_INSTITUTION_ID
+        )
+        result_second = await catalog.resolve_biomarkers_by_codes(
+            db_session, ["alt"], institution_id=DEFAULT_INSTITUTION_ID
+        )
+
+        assert call_count["count"] == 1
+        assert result_first.results["ALT"].elab_code == "ALT"
+        assert result_second.results["alt"].elab_code == "ALT"
 
     async def _attach_item(
         self,

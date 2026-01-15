@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     cache_catalog_meta_ttl: int = Field(default=300, alias="CACHE_CATALOG_META_TTL")
     cache_optimization_ttl: int = Field(default=3600, alias="CACHE_OPTIMIZATION_TTL")
     cache_optimization_maxsize: int = Field(default=1000, alias="CACHE_OPTIMIZATION_MAXSIZE")
+    cache_biomarker_batch_ttl: int = Field(default=600, alias="CACHE_BIOMARKER_BATCH_TTL")
+    cache_biomarker_batch_maxsize: int = Field(
+        default=2000, alias="CACHE_BIOMARKER_BATCH_MAXSIZE"
+    )
     cache_freshness_ttl: int = Field(default=300, alias="CACHE_FRESHNESS_TTL")
     cache_user_activity_debounce: int = Field(default=60, alias="CACHE_USER_ACTIVITY_DEBOUNCE")
 
