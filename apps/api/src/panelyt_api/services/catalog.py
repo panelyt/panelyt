@@ -158,7 +158,7 @@ async def resolve_biomarkers_by_codes(
     if not normalized_codes:
         return BiomarkerBatchResponse(results=results)
 
-    cache_key = biomarker_batch_cache.make_key(normalized_codes, institution_id)
+    cache_key = biomarker_batch_cache.make_key(sorted(normalized_codes), institution_id)
     cached = biomarker_batch_cache.get(cache_key)
     if cached is not None:
         for code in codes:
