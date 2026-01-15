@@ -29,18 +29,13 @@ class IngestionService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def ensure_fresh_data(
-        self,
-        institution_id: int,
-        background: bool = False,
-        *,
-        blocking: bool = False,
-    ) -> None:
-        # Skip check if freshness was verified recently for this institution,
-        # unless a blocking check was explicitly requested.
-        if not blocking and not freshness_cache.should_check(institution_id):
-            return
+    def _lock_is_busy(self) -> bool:
+        waiters = getattr(self._run_lock, "_waiters", None)
+        return self._run_lock.locked() or (
+            waiters and any(not waiter.cancelled() for waiter in waiters)
+        )
 
+    async def _evaluate_freshness(self, institution_id: int) -> tuple[bool, bool]:
         now_utc = datetime.now(UTC)
         async with get_session() as session:
             institution_service = InstitutionService(session)
@@ -60,7 +55,21 @@ class IngestionService:
 
         needs_snapshot = latest_snapshot != today
         is_stale = latest_fetch is None or latest_fetch < stale_threshold
+        return needs_snapshot, is_stale
 
+    async def ensure_fresh_data(
+        self,
+        institution_id: int,
+        background: bool = False,
+        *,
+        blocking: bool = False,
+    ) -> None:
+        # Skip check if freshness was verified recently for this institution,
+        # unless a blocking check was explicitly requested.
+        if not blocking and not freshness_cache.should_check(institution_id):
+            return
+
+        needs_snapshot, is_stale = await self._evaluate_freshness(institution_id)
         # Mark freshness as checked regardless of outcome
         freshness_cache.mark_checked(institution_id)
 
@@ -76,6 +85,20 @@ class IngestionService:
                     institution_id=institution_id, reason="staleness_check"
                 )
             elif blocking:
+                if self._lock_is_busy():
+                    async with self._run_lock:
+                        needs_snapshot, is_stale = await self._evaluate_freshness(
+                            institution_id
+                        )
+                        freshness_cache.mark_checked(institution_id)
+                        if not (needs_snapshot or is_stale):
+                            return
+                        await self.run(
+                            reason="staleness_check",
+                            institution_id=institution_id,
+                        )
+                    return
+
                 await self._run_with_lock(
                     institution_id=institution_id,
                     reason="staleness_check",
@@ -227,10 +250,7 @@ class IngestionService:
                 )
             return True
 
-        waiters = getattr(self._run_lock, "_waiters", None)
-        if self._run_lock.locked() or (
-            waiters and any(not waiter.cancelled() for waiter in waiters)
-        ):
+        if self._lock_is_busy():
             return False
 
         # Avoid awaiting to keep the non-blocking path atomic in the event loop.

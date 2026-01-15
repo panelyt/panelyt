@@ -150,6 +150,43 @@ class TestIngestionService:
                 blocking=True,
             )
 
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_ensure_fresh_data_blocking_rechecks_after_wait(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        """Ensure blocking re-checks freshness after waiting on the lock."""
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None))
+        )
+        mock_session.add = MagicMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        stale_time = datetime.now(UTC) - timedelta(hours=25)
+        fresh_time = datetime.now(UTC)
+        mock_repo.latest_fetched_at.side_effect = [stale_time, fresh_time]
+        mock_repo.latest_snapshot_date.side_effect = [None, fresh_time.date()]
+        mock_repo_class.return_value = mock_repo
+
+        lock = asyncio.Lock()
+        await lock.acquire()
+
+        async def release_lock() -> None:
+            await asyncio.sleep(0)
+            lock.release()
+
+        with patch.object(IngestionService, "_run_lock", lock):
+            with patch.object(
+                ingestion_service, "run", new_callable=AsyncMock
+            ) as mock_run:
+                release_task = asyncio.create_task(release_lock())
+                await ingestion_service.ensure_fresh_data(1135, blocking=True)
+                await release_task
+                mock_run.assert_not_awaited()
+
     @patch("panelyt_api.ingest.service.InstitutionService")
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
