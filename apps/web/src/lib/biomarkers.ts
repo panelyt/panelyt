@@ -5,6 +5,7 @@ import { postParsedJson } from "./http";
 export const normalizeBiomarkerCode = (value: string) => value.trim().toUpperCase();
 
 const BIOMARKER_BATCH_LIMIT = 200;
+const MAX_CONCURRENT_BATCHES = 4;
 
 const chunkCodes = (codes: string[]) => {
   const chunks: string[][] = [];
@@ -25,13 +26,31 @@ export const fetchBiomarkerBatch = async (
   }
 
   const results: Record<string, Biomarker | null> = {};
-  for (const chunk of chunkCodes(uniqueCodes)) {
+  const chunks = chunkCodes(uniqueCodes);
+  const inFlight = new Set<Promise<void>>();
+
+  const runChunk = async (chunk: string[]) => {
     const response = await postParsedJson(
       `/catalog/biomarkers/batch?institution=${institutionId}`,
       BiomarkerBatchResponseSchema,
       { codes: chunk },
     );
     Object.assign(results, response.results);
+  };
+
+  for (const chunk of chunks) {
+    let task: Promise<void>;
+    task = runChunk(chunk).finally(() => {
+      inFlight.delete(task);
+    });
+    inFlight.add(task);
+    if (inFlight.size >= MAX_CONCURRENT_BATCHES) {
+      await Promise.race(inFlight);
+    }
+  }
+
+  if (inFlight.size > 0) {
+    await Promise.all(inFlight);
   }
 
   for (const code of uniqueCodes) {
