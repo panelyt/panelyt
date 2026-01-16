@@ -86,6 +86,9 @@ describe('useBiomarkerSelection', () => {
     sessionStorage.clear()
     await resetStore()
     toast.dismiss()
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
   })
 
   it('shows a toast when a template adds biomarkers', async () => {
