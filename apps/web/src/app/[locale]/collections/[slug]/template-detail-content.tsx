@@ -13,6 +13,7 @@ import { useBiomarkerSelection } from "../../../../hooks/useBiomarkerSelection";
 import { useOptimization, useAddonSuggestions } from "../../../../hooks/useOptimization";
 import { usePanelStore } from "../../../../stores/panelStore";
 import { track } from "../../../../lib/analytics";
+import { getTemplateDescription, getTemplateName } from "../../../../lib/template-localization";
 import { Button } from "../../../../ui/button";
 import { Card } from "../../../../ui/card";
 
@@ -55,6 +56,9 @@ export default function TemplateDetailContent({ slug }: TemplateDetailContentPro
     [template],
   );
 
+  const templateName = template ? getTemplateName(template, locale) : "";
+  const templateDescription = template ? getTemplateDescription(template, locale) : null;
+
   const handleOpenOptimizer = () => {
     router.push("/");
   };
@@ -65,7 +69,7 @@ export default function TemplateDetailContent({ slug }: TemplateDetailContentPro
     }
     addMany(templateSelection);
     track("panel_apply_template", { mode: "append" });
-    toast(t("collections.appliedAppend", { name: template.name }), {
+    toast(t("collections.appliedAppend", { name: templateName }), {
       action: {
         label: t("templateDetail.openOptimizer"),
         onClick: handleOpenOptimizer,
@@ -79,7 +83,7 @@ export default function TemplateDetailContent({ slug }: TemplateDetailContentPro
     }
     replaceAll(templateSelection);
     track("panel_apply_template", { mode: "replace" });
-    toast(t("collections.appliedReplace", { name: template.name }), {
+    toast(t("collections.appliedReplace", { name: templateName }), {
       action: {
         label: t("templateDetail.openOptimizer"),
         onClick: handleOpenOptimizer,
@@ -99,10 +103,10 @@ export default function TemplateDetailContent({ slug }: TemplateDetailContentPro
             </p>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-2">
-                <h1 className="text-3xl font-semibold text-primary">{template.name}</h1>
-                {template.description && (
+                <h1 className="text-3xl font-semibold text-primary">{templateName}</h1>
+                {templateDescription && (
                   <p className="max-w-2xl text-sm text-secondary">
-                    {template.description}
+                    {templateDescription}
                   </p>
                 )}
                 <p className="text-xs text-secondary">

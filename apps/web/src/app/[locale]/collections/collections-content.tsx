@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { useRouter } from "../../../i18n/navigation";
@@ -19,6 +19,7 @@ import { useUserSession } from "../../../hooks/useUserSession";
 import { usePanelStore } from "../../../stores/panelStore";
 import { track } from "../../../lib/analytics";
 import { slugify } from "../../../lib/slug";
+import { getTemplateDescription, getTemplateName } from "../../../lib/template-localization";
 import { Button } from "../../../ui/button";
 import {
   Dialog,
@@ -30,6 +31,7 @@ import {
 
 export default function CollectionsContent() {
   const t = useTranslations();
+  const locale = useLocale();
   const router = useRouter();
   const session = useUserSession();
   const isAdmin = Boolean(session.data?.is_admin);
@@ -44,9 +46,11 @@ export default function CollectionsContent() {
   const replaceAll = usePanelStore((state) => state.replaceAll);
   const [adminError, setAdminError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalName, setModalName] = useState("");
+  const [modalNameEn, setModalNameEn] = useState("");
+  const [modalNamePl, setModalNamePl] = useState("");
   const [modalSlug, setModalSlug] = useState("");
-  const [modalDescription, setModalDescription] = useState("");
+  const [modalDescriptionEn, setModalDescriptionEn] = useState("");
+  const [modalDescriptionPl, setModalDescriptionPl] = useState("");
   const [modalIsActive, setModalIsActive] = useState(true);
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalSubmitting, setModalSubmitting] = useState(false);
@@ -69,9 +73,11 @@ export default function CollectionsContent() {
   };
 
   const openModalForTemplate = (template: (typeof templates)[number]) => {
-    setModalName(template.name);
+    setModalNameEn(template.name_en);
+    setModalNamePl(template.name_pl);
     setModalSlug(template.slug);
-    setModalDescription(template.description ?? "");
+    setModalDescriptionEn(template.description_en ?? "");
+    setModalDescriptionPl(template.description_pl ?? "");
     setModalIsActive(template.is_active);
     setModalSourceSlug(template.slug);
     setModalError(null);
@@ -87,10 +93,17 @@ export default function CollectionsContent() {
     setIsModalOpen(true);
   };
 
-  const handleModalNameChange = (value: string) => {
-    setModalName(value);
+  const handleModalNameEnChange = (value: string) => {
+    setModalNameEn(value);
     if (!modalSlugTouched) {
-      setModalSlug(slugify(value));
+      setModalSlug(slugify(value || modalNamePl));
+    }
+  };
+
+  const handleModalNamePlChange = (value: string) => {
+    setModalNamePl(value);
+    if (!modalSlugTouched) {
+      setModalSlug(slugify(modalNameEn || value));
     }
   };
 
@@ -103,10 +116,15 @@ export default function CollectionsContent() {
     if (!modalSourceSlug) {
       return;
     }
-    const trimmedName = modalName.trim();
-    const normalizedSlug = slugify(modalSlug || modalName);
-    if (!trimmedName) {
-      setModalError(t("errors.templateNameEmpty"));
+    const trimmedNameEn = modalNameEn.trim();
+    const trimmedNamePl = modalNamePl.trim();
+    const normalizedSlug = slugify(modalSlug || modalNameEn || modalNamePl);
+    if (!trimmedNameEn) {
+      setModalError(t("errors.templateNameEnEmpty"));
+      return;
+    }
+    if (!trimmedNamePl) {
+      setModalError(t("errors.templateNamePlEmpty"));
       return;
     }
     if (!normalizedSlug) {
@@ -120,8 +138,10 @@ export default function CollectionsContent() {
         currentSlug: modalSourceSlug,
         payload: {
           slug: normalizedSlug,
-          name: trimmedName,
-          description: modalDescription.trim() || null,
+          name_en: trimmedNameEn,
+          name_pl: trimmedNamePl,
+          description_en: modalDescriptionEn.trim() || null,
+          description_pl: modalDescriptionPl.trim() || null,
           is_active: modalIsActive,
           biomarkers: modalBiomarkers,
         },
@@ -160,6 +180,7 @@ export default function CollectionsContent() {
   };
 
   const handleAddToPanel = (template: (typeof templates)[number]) => {
+    const templateName = getTemplateName(template, locale);
     addMany(
       template.biomarkers.map((entry) => ({
         code: entry.code,
@@ -167,10 +188,11 @@ export default function CollectionsContent() {
       })),
     );
     track("panel_apply_template", { mode: "append" });
-    toast(t("collections.appliedAppend", { name: template.name }));
+    toast(t("collections.appliedAppend", { name: templateName }));
   };
 
   const handleReplacePanel = (template: (typeof templates)[number]) => {
+    const templateName = getTemplateName(template, locale);
     replaceAll(
       template.biomarkers.map((entry) => ({
         code: entry.code,
@@ -178,7 +200,7 @@ export default function CollectionsContent() {
       })),
     );
     track("panel_apply_template", { mode: "replace" });
-    toast(t("collections.appliedReplace", { name: template.name }));
+    toast(t("collections.appliedReplace", { name: templateName }));
   };
 
   const filteredTemplates = useMemo(() => {
@@ -193,10 +215,12 @@ export default function CollectionsContent() {
       if (!normalizedQuery) {
         return true;
       }
-      const haystack = `${template.name} ${template.description ?? ""}`.toLowerCase();
+      const localizedName = getTemplateName(template, locale);
+      const localizedDescription = getTemplateDescription(template, locale) ?? "";
+      const haystack = `${localizedName} ${localizedDescription}`.toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [isAdmin, searchQuery, showInactive, templates]);
+  }, [isAdmin, searchQuery, showInactive, templates, locale]);
 
   const sortedTemplates = useMemo(() => {
     const sorted = [...filteredTemplates];
@@ -287,7 +311,9 @@ export default function CollectionsContent() {
                 onViewDetails={() => router.push(`/collections/${template.slug}`)}
                 isAdmin={isAdmin}
                 onEdit={() => openModalForTemplate(template)}
-                onDelete={() => openDeleteDialog(template.slug, template.name)}
+                onDelete={() =>
+                  openDeleteDialog(template.slug, getTemplateName(template, locale))
+                }
               />
             ))}
           </div>
@@ -326,15 +352,19 @@ export default function CollectionsContent() {
         open={isAdmin && isModalOpen}
         title={t("templateModal.editTemplate")}
         submitLabel={modalSubmitting ? t("templateModal.saving") : t("templateModal.saveChanges")}
-        name={modalName}
+        nameEn={modalNameEn}
+        namePl={modalNamePl}
         slug={modalSlug}
-        description={modalDescription}
+        descriptionEn={modalDescriptionEn}
+        descriptionPl={modalDescriptionPl}
         isActive={modalIsActive}
         error={modalError}
         isSubmitting={modalSubmitting}
-        onNameChange={handleModalNameChange}
+        onNameEnChange={handleModalNameEnChange}
+        onNamePlChange={handleModalNamePlChange}
         onSlugChange={handleModalSlugChange}
-        onDescriptionChange={setModalDescription}
+        onDescriptionEnChange={setModalDescriptionEn}
+        onDescriptionPlChange={setModalDescriptionPl}
         onIsActiveChange={setModalIsActive}
         onClose={() => {
           setIsModalOpen(false);

@@ -21,17 +21,21 @@ export interface UseTemplateModalOptions {
 
 export interface UseTemplateModalResult {
   isOpen: boolean;
-  name: string;
+  nameEn: string;
+  namePl: string;
   slug: string;
-  description: string;
+  descriptionEn: string;
+  descriptionPl: string;
   isActive: boolean;
   error: string | null;
   isSaving: boolean;
   open: () => void;
   close: () => void;
-  setName: (name: string) => void;
+  setNameEn: (name: string) => void;
+  setNamePl: (name: string) => void;
   setSlug: (slug: string) => void;
-  setDescription: (description: string) => void;
+  setDescriptionEn: (description: string) => void;
+  setDescriptionPl: (description: string) => void;
   setIsActive: (isActive: boolean) => void;
   handleConfirm: () => Promise<void>;
 }
@@ -43,9 +47,11 @@ export function useTemplateModal(
   const { biomarkers, onSuccess } = options;
 
   const [isOpen, setIsOpen] = useState(false);
-  const [name, setNameState] = useState("");
+  const [nameEn, setNameEnState] = useState("");
+  const [namePl, setNamePlState] = useState("");
   const [slug, setSlugState] = useState("");
-  const [description, setDescription] = useState("");
+  const [descriptionEn, setDescriptionEn] = useState("");
+  const [descriptionPl, setDescriptionPl] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -60,9 +66,11 @@ export function useTemplateModal(
         })
       : "";
     const initialSlug = defaultName ? slugify(defaultName) : "";
-    setNameState(defaultName);
+    setNameEnState(defaultName);
+    setNamePlState(defaultName);
     setSlugState(initialSlug);
-    setDescription("");
+    setDescriptionEn("");
+    setDescriptionPl("");
     setIsActive(true);
     setError(null);
     setSlugTouched(Boolean(initialSlug));
@@ -75,12 +83,25 @@ export function useTemplateModal(
     setSlugTouched(false);
   }, []);
 
-  const setName = useCallback((value: string) => {
-    setNameState(value);
-    if (!slugTouched) {
-      setSlugState(slugify(value));
-    }
-  }, [slugTouched]);
+  const setNameEn = useCallback(
+    (value: string) => {
+      setNameEnState(value);
+      if (!slugTouched) {
+        setSlugState(slugify(value || namePl));
+      }
+    },
+    [namePl, slugTouched],
+  );
+
+  const setNamePl = useCallback(
+    (value: string) => {
+      setNamePlState(value);
+      if (!slugTouched) {
+        setSlugState(slugify(nameEn || value));
+      }
+    },
+    [nameEn, slugTouched],
+  );
 
   const setSlug = useCallback((value: string) => {
     setSlugState(value);
@@ -93,11 +114,16 @@ export function useTemplateModal(
       return;
     }
 
-    const trimmedName = name.trim();
-    const normalizedSlug = slugify(slug || name);
+    const trimmedNameEn = nameEn.trim();
+    const trimmedNamePl = namePl.trim();
+    const normalizedSlug = slugify(slug || nameEn || namePl);
 
-    if (!trimmedName) {
-      setError(t("errors.templateNameEmpty"));
+    if (!trimmedNameEn) {
+      setError(t("errors.templateNameEnEmpty"));
+      return;
+    }
+    if (!trimmedNamePl) {
+      setError(t("errors.templateNamePlEmpty"));
       return;
     }
     if (!normalizedSlug) {
@@ -109,8 +135,10 @@ export function useTemplateModal(
     try {
       await templateAdmin.createMutation.mutateAsync({
         slug: normalizedSlug,
-        name: trimmedName,
-        description: description.trim() || null,
+        name_en: trimmedNameEn,
+        name_pl: trimmedNamePl,
+        description_en: descriptionEn.trim() || null,
+        description_pl: descriptionPl.trim() || null,
         is_active: isActive,
         biomarkers: biomarkers.map((entry) => ({
           code: entry.code,
@@ -128,9 +156,11 @@ export function useTemplateModal(
     }
   }, [
     biomarkers,
-    name,
+    nameEn,
+    namePl,
     slug,
-    description,
+    descriptionEn,
+    descriptionPl,
     isActive,
     templateAdmin.createMutation,
     onSuccess,
@@ -140,17 +170,21 @@ export function useTemplateModal(
 
   return {
     isOpen,
-    name,
+    nameEn,
+    namePl,
     slug,
-    description,
+    descriptionEn,
+    descriptionPl,
     isActive,
     error,
     isSaving,
     open,
     close,
-    setName,
+    setNameEn,
+    setNamePl,
     setSlug,
-    setDescription,
+    setDescriptionEn,
+    setDescriptionPl,
     setIsActive,
     handleConfirm,
   };

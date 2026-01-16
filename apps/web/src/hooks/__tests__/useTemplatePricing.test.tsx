@@ -36,8 +36,10 @@ function createWrapper() {
 const makeTemplate = (slug: string, id: number): BiomarkerListTemplate => ({
   id,
   slug,
-  name: slug,
-  description: null,
+  name_en: slug,
+  name_pl: slug,
+  description_en: null,
+  description_pl: null,
   is_active: true,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-05T00:00:00Z",

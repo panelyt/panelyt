@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 import { Loader2, Search as SearchIcon } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { type CatalogSearchResult } from "@panelyt/types";
 
 import { useDebounce } from "@/hooks/useDebounce";
 import { useCatalogSearch } from "@/hooks/useCatalogSearch";
 import { formatGroszToPln } from "@/lib/format";
+import { getTemplateDescription, getTemplateName } from "@/lib/template-localization";
 import { SEARCH_PREFILL_EVENT } from "@/features/optimizer/search-events";
 
 interface SelectedBiomarker {
@@ -32,6 +33,7 @@ export function SearchBox({
   hotkeyScope = "global",
 }: Props) {
   const t = useTranslations();
+  const locale = useLocale();
   const listId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const tipDismissedKey = "panelyt-search-tip-dismissed";
@@ -112,7 +114,10 @@ export function SearchBox({
       setEnterHintVisible(false);
       dismissTip();
       if (suggestion.type === "template") {
-        onTemplateSelect({ slug: suggestion.slug, name: suggestion.name });
+        onTemplateSelect({
+          slug: suggestion.slug,
+          name: getTemplateName(suggestion, locale),
+        });
       } else {
         let code = suggestion.elab_code ?? suggestion.slug ?? suggestion.name;
         if (!code) {
@@ -126,7 +131,7 @@ export function SearchBox({
       setHighlightedIndex(-1);
       setPendingQuery(null);
     },
-    [dismissTip, onSelect, onTemplateSelect],
+    [dismissTip, locale, onSelect, onTemplateSelect],
   );
 
   const handleSubmit = () => {
@@ -352,7 +357,9 @@ export function SearchBox({
                 const optionKey = `${item.type}-${item.id}`;
                 const optionIndex = optionIndexByKey.get(optionKey) ?? -1;
                 const isHighlighted = optionIndex === highlightedIndex;
-                const templateDescription = item.description?.trim() ?? "";
+                const templateName = getTemplateName(item, locale);
+                const templateDescription =
+                  getTemplateDescription(item, locale)?.trim() ?? "";
                 return (
                   <li key={optionKey}>
                     <button
@@ -373,7 +380,7 @@ export function SearchBox({
                             isHighlighted ? "text-white" : "text-slate-100"
                           }`}
                         >
-                          {item.name}
+                          {templateName}
                         </span>
                         <span
                           className={`text-[11px] uppercase tracking-wide ${

@@ -9,16 +9,20 @@ import { TemplateCard } from "../template-card";
 const makeTemplate = (overrides: Partial<{
   id: number;
   slug: string;
-  name: string;
-  description: string | null;
+  name_en: string;
+  name_pl: string;
+  description_en: string | null;
+  description_pl: string | null;
   is_active: boolean;
   updated_at: string;
   biomarkers: Array<{ code: string; display_name: string }>;
 }> = {}) => ({
   id: overrides.id ?? 1,
   slug: overrides.slug ?? "template-1",
-  name: overrides.name ?? "Template One",
-  description: overrides.description ?? "Template description",
+  name_en: overrides.name_en ?? "Template One",
+  name_pl: overrides.name_pl ?? "Szablon Jeden",
+  description_en: overrides.description_en ?? "Template description",
+  description_pl: overrides.description_pl ?? "Opis szablonu",
   is_active: overrides.is_active ?? true,
   updated_at: overrides.updated_at ?? "2024-01-08T12:00:00Z",
   biomarkers:
@@ -44,9 +48,9 @@ describe("TemplateCard", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: template.name }),
+      screen.getByRole("heading", { name: template.name_en }),
     ).toBeInTheDocument();
-    expect(screen.getByText(template.description)).toBeInTheDocument();
+    expect(screen.getByText(template.description_en)).toBeInTheDocument();
     expect(screen.getByText("2 tests")).toBeInTheDocument();
     expect(screen.getByText("ALT")).toBeInTheDocument();
   });

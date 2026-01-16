@@ -43,8 +43,10 @@ describe('SearchBox', () => {
     type: 'template' as const,
     id: 42,
     slug: 'liver-bundle',
-    name: 'Liver bundle',
-    description: 'Daily liver health insights',
+    name_en: 'Liver bundle',
+    name_pl: 'Pakiet watroba',
+    description_en: 'Daily liver health insights',
+    description_pl: 'Codzienne wskazniki watroby',
     biomarker_count: 4,
   }
 

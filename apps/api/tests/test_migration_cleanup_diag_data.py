@@ -31,7 +31,14 @@ async def test_cleanup_migration_prunes_orphans_and_non_diag_snapshots(db_sessio
 
     user = models.UserAccount(id="user-1")
     saved_list = models.SavedList(id="list-1", user_id=user.id, name="Main list")
-    template = models.BiomarkerListTemplate(id=1, slug="base", name="Base")
+    template = models.BiomarkerListTemplate(
+        id=1,
+        slug="base",
+        name_en="Base",
+        name_pl="Baza",
+        description_en=None,
+        description_pl=None,
+    )
 
     biomarker_item = models.Biomarker(id=1, name="Item BM", slug="item-bm", elab_code="I1")
     biomarker_saved = models.Biomarker(id=2, name="Saved BM", slug="saved-bm", elab_code="S1")

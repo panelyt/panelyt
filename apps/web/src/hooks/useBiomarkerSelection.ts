@@ -2,11 +2,12 @@
 
 import { useCallback, useState } from "react";
 import { BiomarkerListTemplateSchema, type SavedList } from "@panelyt/types";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
-import { getJson, extractErrorMessage } from "../lib/http";
+import { extractErrorMessage, getJson } from "../lib/http";
 import { track } from "../lib/analytics";
+import { getTemplateName } from "../lib/template-localization";
 import { usePanelStore, type PanelBiomarker } from "../stores/panelStore";
 
 export type SelectedBiomarker = PanelBiomarker;
@@ -66,6 +67,7 @@ export function useBiomarkerSelection(
   options: UseBiomarkerSelectionOptions = {},
 ): UseBiomarkerSelectionResult {
   const t = useTranslations();
+  const locale = useLocale();
   const { onSelectionChange } = options;
 
   const selected = usePanelStore((state) => state.selected);
@@ -161,11 +163,12 @@ export function useBiomarkerSelection(
         const existing = new Set(current.map((item) => item.code));
         const additions = template.biomarkers.filter((entry) => !existing.has(entry.code));
 
+        const templateName = getTemplateName(template, locale);
         const message = additions.length === 0
-          ? t("selection.alreadySelected", { name: template.name })
+          ? t("selection.alreadySelected", { name: templateName })
           : t("selection.addedFrom", {
               count: additions.length,
-              name: template.name,
+              name: templateName,
             });
         setError(null);
         toast(message);
@@ -188,7 +191,7 @@ export function useBiomarkerSelection(
         setError(extractErrorMessage(err, t("errors.generic")));
       }
     },
-    [addMany, onSelectionChange, t],
+    [addMany, locale, onSelectionChange, t],
   );
 
   const handleApplyAddon = useCallback(

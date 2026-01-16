@@ -58,8 +58,10 @@ const trackMock = vi.mocked(track);
 const templateData = {
   id: 1,
   slug: "heart-template",
-  name: "Heart Health",
-  description: "Cardio focus",
+  name_en: "Heart Health",
+  name_pl: "Zdrowie serca",
+  description_en: "Cardio focus",
+  description_pl: "Fokus kardiologiczny",
   is_active: true,
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-02T00:00:00Z",
@@ -164,7 +166,7 @@ describe("TemplateDetailContent", () => {
 
     const appendedToast = enMessages.collections.appliedAppend.replace(
       "{name}",
-      templateData.name,
+      templateData.name_en,
     );
     expect(await screen.findByText(appendedToast)).toBeInTheDocument();
     expect(
@@ -194,7 +196,7 @@ describe("TemplateDetailContent", () => {
 
     const replacedToast = enMessages.collections.appliedReplace.replace(
       "{name}",
-      templateData.name,
+      templateData.name_en,
     );
     expect(await screen.findByText(replacedToast)).toBeInTheDocument();
     expect(trackMock).toHaveBeenCalledWith("panel_apply_template", { mode: "replace" });

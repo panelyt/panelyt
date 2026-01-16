@@ -46,8 +46,10 @@ class BiomarkerListEntry(BaseModel):
 class BiomarkerListTemplateResponse(BaseModel):
     id: int
     slug: str
-    name: str
-    description: str | None
+    name_en: str
+    name_pl: str
+    description_en: str | None
+    description_pl: str | None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -58,8 +60,10 @@ class BiomarkerListTemplateResponse(BaseModel):
         return cls(
             id=model.id,
             slug=model.slug,
-            name=model.name,
-            description=model.description,
+            name_en=model.name_en,
+            name_pl=model.name_pl,
+            description_en=model.description_en,
+            description_pl=model.description_pl,
             is_active=model.is_active,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -87,8 +91,10 @@ class BiomarkerTemplateEntryPayload(BaseModel):
 
 class BiomarkerListTemplateUpsert(BaseModel):
     slug: str = Field(..., min_length=1, max_length=128)
-    name: str = Field(..., min_length=1, max_length=128)
-    description: str | None = Field(default=None, max_length=512)
+    name_en: str = Field(..., min_length=1, max_length=128)
+    name_pl: str = Field(..., min_length=1, max_length=128)
+    description_en: str | None = Field(default=None, max_length=512)
+    description_pl: str | None = Field(default=None, max_length=512)
     is_active: bool = Field(default=True)
     biomarkers: list[BiomarkerTemplateEntryPayload] = Field(default_factory=list, max_length=200)
 

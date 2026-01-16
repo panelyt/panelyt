@@ -65,8 +65,10 @@ class CatalogTemplateResult(APIModel):
     type: Literal["template"] = "template"
     id: int
     slug: str
-    name: str
-    description: str | None = None
+    name_en: str
+    name_pl: str
+    description_en: str | None = None
+    description_pl: str | None = None
     biomarker_count: int
 
 

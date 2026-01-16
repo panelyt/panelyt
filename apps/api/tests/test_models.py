@@ -420,7 +420,16 @@ class TestDatabaseModels:
         """Template entries should be ordered by sort_order at the ORM level."""
         result = await db_session.execute(
             insert(models.BiomarkerListTemplate)
-            .values({"slug": "template", "name": "Template", "is_active": True})
+            .values(
+                {
+                    "slug": "template",
+                    "name_en": "Template",
+                    "name_pl": "Szablon",
+                    "description_en": None,
+                    "description_pl": None,
+                    "is_active": True,
+                }
+            )
             .returning(models.BiomarkerListTemplate.id)
         )
         template_id = result.scalar_one()
