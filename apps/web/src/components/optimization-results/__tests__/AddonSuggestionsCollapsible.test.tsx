@@ -17,6 +17,7 @@ const makeSuggestion = (): OptimizeResponse['addon_suggestions'][number] => ({
     biomarkers: ['ALT'],
     url: 'https://example.com/liver-panel',
     on_sale: false,
+    is_synthetic_package: false,
   },
   upgrade_cost_grosz: 100,
   upgrade_cost: 1,

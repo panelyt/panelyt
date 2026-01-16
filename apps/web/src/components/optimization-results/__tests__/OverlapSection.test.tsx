@@ -22,6 +22,7 @@ const makeResult = (): OptimizeResponse => ({
       biomarkers: ['ALT'],
       url: 'https://example.com/liver-panel',
       on_sale: false,
+      is_synthetic_package: false,
     },
     {
       id: 2,
@@ -34,6 +35,7 @@ const makeResult = (): OptimizeResponse => ({
       biomarkers: ['ALT'],
       url: 'https://example.com/basic-panel',
       on_sale: false,
+      is_synthetic_package: false,
     },
   ],
   bonus_total_now: 0,
