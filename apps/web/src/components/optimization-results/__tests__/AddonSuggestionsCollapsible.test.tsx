@@ -119,4 +119,22 @@ describe('AddonSuggestionsCollapsible', () => {
     const removedPill = screen.getByText('GGTP')
     expect(removedPill).toHaveClass('bg-rose-500/20')
   })
+
+  it('shows a tooltip for added biomarkers', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(
+      <AddonSuggestionsCollapsible suggestions={[makeSuggestion()]} isLoading={false} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Add more for less/i }))
+
+    const addedPill = screen.getByText('AST')
+    await user.hover(addedPill)
+
+    expect(
+      await screen.findByRole('tooltip', {
+        name: /will be added/i,
+      }),
+    ).toBeInTheDocument()
+  })
 })
