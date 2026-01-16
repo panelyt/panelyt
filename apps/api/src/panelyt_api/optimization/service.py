@@ -395,7 +395,7 @@ class OptimizationService:
 
         rows = (await self.session.execute(statement)).all()
         for item, offer, hist_min in rows:
-            mapping = None
+            mapping: SyntheticPackage | None = None
             if item.external_id in mapping_by_external:
                 mapping = mapping_by_external[item.external_id]
             elif item.slug in mapping_by_slug:
