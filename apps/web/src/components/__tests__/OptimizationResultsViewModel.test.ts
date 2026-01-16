@@ -151,4 +151,52 @@ describe('buildOptimizationViewModel', () => {
     expect(viewModel.bonusPricing.totalNowValue).toBe(0)
     expect(viewModel.bonusPricing.totalNowLabel).toBe(formatCurrency(0))
   })
+
+  it('treats synthetic packages as packages in grouping and overlaps', () => {
+    const response = makeOptimizeResponse({
+      items: [
+        {
+          kind: 'single',
+          name: 'Panel pierwiastków Zn, Cu, Se',
+          price_now_grosz: 10355,
+          price_min30_grosz: 10355,
+          biomarkers: ['CYNK', 'MIEDZ', 'SELEN'],
+          url: 'https://example.com/panel',
+          on_sale: false,
+          is_synthetic_package: true,
+        },
+        {
+          kind: 'package',
+          name: 'Pakiet minerały',
+          price_now_grosz: 9800,
+          price_min30_grosz: 9000,
+          biomarkers: ['CYNK', 'SELEN'],
+          url: 'https://example.com/mineraly',
+          on_sale: false,
+        },
+        {
+          kind: 'single',
+          name: 'Cynk',
+          price_now_grosz: 4000,
+          price_min30_grosz: 3500,
+          biomarkers: ['CYNK'],
+          url: 'https://example.com/cynk',
+          on_sale: false,
+        },
+      ],
+    })
+
+    const viewModel = buildOptimizationViewModel({
+      selected: ['CYNK', 'MIEDZ'],
+      result: response,
+      variant: 'light',
+    })
+
+    expect(viewModel.counts.packages).toBe(2)
+    expect(viewModel.groups[0]?.items[0]?.name).toBe('Panel pierwiastków Zn, Cu, Se')
+    expect(viewModel.overlaps[0]?.packages).toEqual([
+      'Panel pierwiastków Zn, Cu, Se',
+      'Pakiet minerały',
+    ])
+  })
 })

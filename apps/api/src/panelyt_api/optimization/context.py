@@ -31,6 +31,7 @@ class CandidateItem:
     price_min30: int
     sale_price: int | None
     regular_price: int | None
+    is_synthetic_package: bool = False
     coverage: set[str] = field(default_factory=set)
 
     @property

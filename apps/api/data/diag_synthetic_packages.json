@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "source_external_id": "605348830",
+      "source_slug": "proby-watrobowe-alt-ast-alp-bil-ggtp",
+      "panel_elab_code": "19",
+      "component_elab_codes": ["20", "21", "22", "23", "26"]
+    },
+    {
+      "source_external_id": "605376893",
+      "source_slug": "panel-pierwiastkow-zn-cu-se-cynk-miedz-selen",
+      "panel_elab_code": "4215",
+      "component_elab_codes": ["555", "556", "3095"]
+    },
+    {
+      "source_external_id": "605376894",
+      "source_slug": "panel-pierwiastkow-zn-se-cynk-selen",
+      "panel_elab_code": "4216",
+      "component_elab_codes": ["555", "3095"]
+    },
+    {
+      "source_external_id": "605376895",
+      "source_slug": "panel-pierwiastkow-zn-se-i-cynk-selen-jod",
+      "panel_elab_code": "4217",
+      "component_elab_codes": ["555", "3095", "3261"]
+    },
+    {
+      "source_external_id": "605356332",
+      "source_slug": "panel-witamin-a-i-e",
+      "panel_elab_code": "3399",
+      "component_elab_codes": ["3380", "3344"]
+    },
+    {
+      "source_external_id": "605349649",
+      "source_slug": "panel-witamin-a-c-e",
+      "panel_elab_code": "3394",
+      "component_elab_codes": ["3380", "3346", "3344"]
+    },
+    {
+      "source_external_id": "605349046",
+      "source_slug": "psa-panel-psafpsa-wskaznik-fpsapsa",
+      "panel_elab_code": "3700",
+      "component_elab_codes": ["200", "201"]
+    }
+  ]
+}

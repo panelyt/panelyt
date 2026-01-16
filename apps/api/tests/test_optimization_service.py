@@ -271,6 +271,295 @@ class TestOptimizationService:
         assert liver_panel.price_now == 2000
 
     @pytest.mark.asyncio
+    async def test_collect_candidates_applies_synthetic_package_mapping(
+        self, service, db_session
+    ):
+        """Synthetic packages should add coverage even without item biomarkers."""
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.InstitutionItem))
+        await db_session.execute(delete(models.Institution))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        await insert_institution(db_session)
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [
+                    {"id": 1, "name": "ALT", "elab_code": "20", "slug": "alt"},
+                    {"id": 2, "name": "AST", "elab_code": "21", "slug": "ast"},
+                    {"id": 3, "name": "Bilirubin", "elab_code": "23", "slug": "bil"},
+                    {
+                        "id": 4,
+                        "name": "Liver panel",
+                        "elab_code": "19",
+                        "slug": "proby-watrobowe",
+                    },
+                ]
+            )
+        )
+
+        panel_item = {
+            "id": 10,
+            "external_id": "605348830",
+            "kind": "single",
+            "name": "Proby watrobowe (ALT, AST, ALP, BIL, GGTP)",
+            "slug": "proby-watrobowe-alt-ast-alp-bil-ggtp",
+            "price_now_grosz": 6555,
+            "price_min30_grosz": 2375,
+            "currency": "PLN",
+            "is_available": True,
+        }
+        await insert_items_with_offers(db_session, [panel_item])
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [{"item_id": 10, "biomarker_id": 4}]
+            )
+        )
+        await db_session.commit()
+
+        biomarkers = [
+            ResolvedBiomarker(id=1, token="20", display_name="ALT", original="ALT"),
+            ResolvedBiomarker(id=2, token="21", display_name="AST", original="AST"),
+            ResolvedBiomarker(id=3, token="23", display_name="BIL", original="BIL"),
+        ]
+
+        candidates = await service._collect_candidates(biomarkers, DEFAULT_INSTITUTION_ID)
+
+        assert len(candidates) == 1
+        panel = candidates[0]
+        assert panel.id == 10
+        assert panel.kind == "single"
+        assert panel.is_synthetic_package is True
+        assert panel.coverage == {"20", "21", "22", "23", "26"}
+
+    @pytest.mark.asyncio
+    async def test_collect_candidates_expands_synthetic_panel_aliases_for_packages(
+        self, service, db_session
+    ):
+        """Packages with panel biomarkers should cover mapped component tokens."""
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.InstitutionItem))
+        await db_session.execute(delete(models.Institution))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        await insert_institution(db_session)
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [
+                    {"id": 1, "name": "ALT", "elab_code": "20", "slug": "alt"},
+                    {"id": 2, "name": "AST", "elab_code": "21", "slug": "ast"},
+                    {"id": 3, "name": "Bilirubin", "elab_code": "23", "slug": "bil"},
+                    {
+                        "id": 4,
+                        "name": "Liver panel",
+                        "elab_code": "19",
+                        "slug": "proby-watrobowe",
+                    },
+                ]
+            )
+        )
+
+        package_item = {
+            "id": 11,
+            "external_id": "605377233",
+            "kind": "package",
+            "name": "Badania na wątrobę i trzustkę",
+            "slug": "badania-na-watrobe-i-trzustke",
+            "price_now_grosz": 8900,
+            "price_min30_grosz": 8900,
+            "currency": "PLN",
+            "is_available": True,
+        }
+        await insert_items_with_offers(db_session, [package_item])
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [{"item_id": 11, "biomarker_id": 4}]
+            )
+        )
+        await db_session.commit()
+
+        biomarkers = [
+            ResolvedBiomarker(id=1, token="20", display_name="ALT", original="ALT"),
+            ResolvedBiomarker(id=2, token="21", display_name="AST", original="AST"),
+            ResolvedBiomarker(id=3, token="23", display_name="BIL", original="BIL"),
+        ]
+
+        candidates = await service._collect_candidates(biomarkers, DEFAULT_INSTITUTION_ID)
+
+        assert len(candidates) == 1
+        package = candidates[0]
+        assert package.id == 11
+        assert package.kind == "package"
+        assert package.coverage == {"20", "21", "22", "23", "26"}
+
+    @pytest.mark.asyncio
+    async def test_build_response_uses_synthetic_coverage(self, service, db_session):
+        """Synthetic packages should return component biomarkers in responses."""
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.InstitutionItem))
+        await db_session.execute(delete(models.Institution))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        await insert_institution(db_session)
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [
+                    {"id": 19, "name": "Panel", "elab_code": "19", "slug": "panel"},
+                    {"id": 20, "name": "Cynk", "elab_code": "20", "slug": "cynk"},
+                    {"id": 21, "name": "Miedz", "elab_code": "21", "slug": "miedz"},
+                    {"id": 22, "name": "Selen", "elab_code": "22", "slug": "selen"},
+                    {"id": 23, "name": "Bil", "elab_code": "23", "slug": "bil"},
+                    {"id": 26, "name": "Ggtp", "elab_code": "26", "slug": "ggtp"},
+                ]
+            )
+        )
+
+        panel_item = {
+            "id": 10,
+            "external_id": "605348830",
+            "kind": "single",
+            "name": "Proby watrobowe (ALT, AST, ALP, BIL, GGTP)",
+            "slug": "proby-watrobowe-alt-ast-alp-bil-ggtp",
+            "price_now_grosz": 6555,
+            "price_min30_grosz": 2375,
+            "currency": "PLN",
+            "is_available": True,
+        }
+        await insert_items_with_offers(db_session, [panel_item])
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [{"item_id": 10, "biomarker_id": 19}]
+            )
+        )
+        await db_session.commit()
+
+        candidate = CandidateItem(
+            id=10,
+            kind="single",
+            name=panel_item["name"],
+            slug=panel_item["slug"],
+            external_id=panel_item["external_id"],
+            price_now=panel_item["price_now_grosz"],
+            price_min30=panel_item["price_min30_grosz"],
+            sale_price=None,
+            regular_price=None,
+            is_synthetic_package=True,
+            coverage={"20", "21", "22", "23", "26"},
+        )
+
+        response, labels = await service._build_response(
+            [candidate],
+            [],
+            ["20", "21", "22", "23", "26"],
+            DEFAULT_INSTITUTION_ID,
+        )
+
+        assert response.items[0].biomarkers == ["20", "21", "22", "23", "26"]
+        assert response.items[0].is_synthetic_package is True
+        assert labels["20"] == "Cynk"
+        assert labels["21"] == "Miedz"
+        assert labels["22"] == "Selen"
+
+    @pytest.mark.asyncio
+    async def test_build_response_expands_panel_biomarkers_for_packages(
+        self, service, db_session
+    ):
+        """Packages with panel biomarkers should display component pills."""
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.InstitutionItem))
+        await db_session.execute(delete(models.Institution))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        await insert_institution(db_session)
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [
+                    {"id": 1, "name": "ALT", "elab_code": "20", "slug": "alt"},
+                    {"id": 2, "name": "AST", "elab_code": "21", "slug": "ast"},
+                    {"id": 3, "name": "ALP", "elab_code": "22", "slug": "alp"},
+                    {"id": 4, "name": "Bilirubin", "elab_code": "23", "slug": "bil"},
+                    {"id": 5, "name": "GGTP", "elab_code": "26", "slug": "ggtp"},
+                    {
+                        "id": 6,
+                        "name": "Liver panel",
+                        "elab_code": "19",
+                        "slug": "proby-watrobowe",
+                    },
+                    {"id": 7, "name": "Lipaza", "elab_code": "30", "slug": "lipaza"},
+                    {"id": 8, "name": "Amylaza", "elab_code": "31", "slug": "amylaza"},
+                ]
+            )
+        )
+
+        package_item = {
+            "id": 11,
+            "external_id": "605377233",
+            "kind": "package",
+            "name": "Badania na wątrobę i trzustkę",
+            "slug": "badania-na-watrobe-i-trzustke",
+            "price_now_grosz": 8900,
+            "price_min30_grosz": 8900,
+            "currency": "PLN",
+            "is_available": True,
+        }
+        await insert_items_with_offers(db_session, [package_item])
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [
+                    {"item_id": 11, "biomarker_id": 6},
+                    {"item_id": 11, "biomarker_id": 7},
+                    {"item_id": 11, "biomarker_id": 8},
+                ]
+            )
+        )
+        await db_session.commit()
+
+        candidate = CandidateItem(
+            id=11,
+            kind="package",
+            name=package_item["name"],
+            slug=package_item["slug"],
+            external_id=package_item["external_id"],
+            price_now=package_item["price_now_grosz"],
+            price_min30=package_item["price_min30_grosz"],
+            sale_price=None,
+            regular_price=None,
+            coverage=set(),
+        )
+
+        response, _labels = await service._build_response(
+            [candidate],
+            [],
+            ["20", "21", "22", "23", "26", "30", "31"],
+            DEFAULT_INSTITUTION_ID,
+        )
+
+        assert response.items[0].biomarkers == [
+            "20",
+            "21",
+            "22",
+            "23",
+            "26",
+            "30",
+            "31",
+        ]
+
+    @pytest.mark.asyncio
     async def test_collect_candidates_filters_by_institution(
         self, service, db_session
     ):
