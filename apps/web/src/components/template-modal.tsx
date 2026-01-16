@@ -16,15 +16,19 @@ interface TemplateModalProps {
   open: boolean;
   title: string;
   submitLabel: string;
-  name: string;
+  nameEn: string;
+  namePl: string;
   slug: string;
-  description: string;
+  descriptionEn: string;
+  descriptionPl: string;
   isActive: boolean;
   error: string | null;
   isSubmitting: boolean;
-  onNameChange: (value: string) => void;
+  onNameEnChange: (value: string) => void;
+  onNamePlChange: (value: string) => void;
   onSlugChange: (value: string) => void;
-  onDescriptionChange: (value: string) => void;
+  onDescriptionEnChange: (value: string) => void;
+  onDescriptionPlChange: (value: string) => void;
   onIsActiveChange: (value: boolean) => void;
   onClose: () => void;
   onConfirm: () => Promise<void> | void;
@@ -34,15 +38,19 @@ export function TemplateModal({
   open,
   title,
   submitLabel,
-  name,
+  nameEn,
+  namePl,
   slug,
-  description,
+  descriptionEn,
+  descriptionPl,
   isActive,
   error,
   isSubmitting,
-  onNameChange,
+  onNameEnChange,
+  onNamePlChange,
   onSlugChange,
-  onDescriptionChange,
+  onDescriptionEnChange,
+  onDescriptionPlChange,
   onIsActiveChange,
   onClose,
   onConfirm,
@@ -88,17 +96,32 @@ export function TemplateModal({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <label
-                htmlFor="template-name"
+                htmlFor="template-name-en"
                 className="text-xs font-semibold uppercase tracking-wide text-secondary"
               >
-                {t("templateModal.templateName")}
+                {t("templateModal.templateNameEn")}
               </label>
               <input
-                id="template-name"
-                value={name}
-                onChange={(event) => onNameChange(event.target.value)}
-                placeholder={t("templateModal.templateNamePlaceholder")}
+                id="template-name-en"
+                value={nameEn}
+                onChange={(event) => onNameEnChange(event.target.value)}
+                placeholder={t("templateModal.templateNamePlaceholderEn")}
                 autoFocus
+                className="w-full rounded-xl border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-secondary focus-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="template-name-pl"
+                className="text-xs font-semibold uppercase tracking-wide text-secondary"
+              >
+                {t("templateModal.templateNamePl")}
+              </label>
+              <input
+                id="template-name-pl"
+                value={namePl}
+                onChange={(event) => onNamePlChange(event.target.value)}
+                placeholder={t("templateModal.templateNamePlaceholderPl")}
                 className="w-full rounded-xl border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-secondary focus-ring"
               />
             </div>
@@ -119,21 +142,39 @@ export function TemplateModal({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label
-              htmlFor="template-description"
-              className="text-xs font-semibold uppercase tracking-wide text-secondary"
-            >
-              {t("templateModal.description")}
-            </label>
-            <textarea
-              id="template-description"
-              value={description}
-              onChange={(event) => onDescriptionChange(event.target.value)}
-              placeholder={t("templateModal.descriptionPlaceholder")}
-              rows={3}
-              className="w-full rounded-xl border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-secondary focus-ring"
-            />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="template-description-en"
+                className="text-xs font-semibold uppercase tracking-wide text-secondary"
+              >
+                {t("templateModal.descriptionEn")}
+              </label>
+              <textarea
+                id="template-description-en"
+                value={descriptionEn}
+                onChange={(event) => onDescriptionEnChange(event.target.value)}
+                placeholder={t("templateModal.descriptionPlaceholderEn")}
+                rows={3}
+                className="w-full rounded-xl border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-secondary focus-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label
+                htmlFor="template-description-pl"
+                className="text-xs font-semibold uppercase tracking-wide text-secondary"
+              >
+                {t("templateModal.descriptionPl")}
+              </label>
+              <textarea
+                id="template-description-pl"
+                value={descriptionPl}
+                onChange={(event) => onDescriptionPlChange(event.target.value)}
+                placeholder={t("templateModal.descriptionPlaceholderPl")}
+                rows={3}
+                className="w-full rounded-xl border border-border/80 bg-surface-2 px-3 py-2 text-sm text-primary placeholder:text-secondary focus-ring"
+              />
+            </div>
           </div>
 
           <label className="flex items-center justify-between rounded-xl border border-border/70 bg-surface-2 px-4 py-3 text-sm text-secondary">

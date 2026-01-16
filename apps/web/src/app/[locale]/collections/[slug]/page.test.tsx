@@ -43,7 +43,8 @@ describe("template detail metadata", () => {
     const translator = buildTranslator() as unknown as Awaited<ReturnType<typeof getTranslations>>;
     mockGetTranslations.mockResolvedValue(translator);
     mockGetParsedJson.mockResolvedValue({
-      name: "Heart Health",
+      name_en: "Heart Health",
+      name_pl: "Zdrowie serca",
     });
 
     const pageModule = (await import("./page")) as unknown as {

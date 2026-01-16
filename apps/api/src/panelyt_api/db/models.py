@@ -393,8 +393,10 @@ class BiomarkerListTemplate(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     slug: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(128), nullable=False)
-    description: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    name_en: Mapped[str] = mapped_column(String(128), nullable=False)
+    name_pl: Mapped[str] = mapped_column(String(128), nullable=False)
+    description_en: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    description_pl: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { BiomarkerListTemplateSchema } from "@panelyt/types";
 
 import { getParsedJson } from "../../../../lib/http";
+import { getTemplateName } from "../../../../lib/template-localization";
 import TemplateDetailContent from "./template-detail-content";
 
 interface PageProps {
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       `/biomarker-lists/templates/${slug}`,
       BiomarkerListTemplateSchema,
     );
-    templateName = template.name;
+    templateName = getTemplateName(template, locale);
   } catch {
     // Use slug as fallback if template fetch fails
   }

@@ -21,14 +21,18 @@ async def test_template_endpoints(async_client: AsyncClient, db_session: AsyncSe
 
     template_active = BiomarkerListTemplate(
         slug="liver-check",
-        name="Liver Check",
-        description="Liver health markers",
+        name_en="Liver Check",
+        name_pl="Kontrola watroby",
+        description_en="Liver health markers",
+        description_pl="Markery zdrowia watroby",
         is_active=True,
     )
     template_inactive = BiomarkerListTemplate(
         slug="archived",
-        name="Archived",
-        description="Should not appear",
+        name_en="Archived",
+        name_pl="Zarchiwizowane",
+        description_en="Should not appear",
+        description_pl="Nie powinno sie pojawic",
         is_active=False,
     )
     db_session.add_all([template_active, template_inactive])
@@ -55,7 +59,8 @@ async def test_template_endpoints(async_client: AsyncClient, db_session: AsyncSe
     detail = await async_client.get("/biomarker-lists/templates/liver-check")
     assert detail.status_code == 200
     detail_payload = detail.json()
-    assert detail_payload["name"] == "Liver Check"
+    assert detail_payload["name_en"] == "Liver Check"
+    assert detail_payload["name_pl"] == "Kontrola watroby"
     assert [entry["code"] for entry in detail_payload["biomarkers"]] == ["ALT"]
 
     missing = await async_client.get("/biomarker-lists/templates/missing")
@@ -120,8 +125,10 @@ async def test_admin_template_crud(async_client: AsyncClient, db_session: AsyncS
 
     create_payload = {
         "slug": "metabolic-basics",
-        "name": "Metabolic Basics",
-        "description": "Core metabolic markers",
+        "name_en": "Metabolic Basics",
+        "name_pl": "Podstawy metabolizmu",
+        "description_en": "Core metabolic markers",
+        "description_pl": "Podstawowe markery metaboliczne",
         "is_active": True,
         "biomarkers": [
             {"code": "GLU", "display_name": "Glucose", "notes": "Fasting"},
@@ -144,8 +151,10 @@ async def test_admin_template_crud(async_client: AsyncClient, db_session: AsyncS
 
     update_payload = {
         "slug": "metabolic-insight",
-        "name": "Metabolic Insight",
-        "description": "Updated panel",
+        "name_en": "Metabolic Insight",
+        "name_pl": "Wglad metaboliczny",
+        "description_en": "Updated panel",
+        "description_pl": "Zaktualizowany panel",
         "is_active": False,
         "biomarkers": [
             {"code": "GLU", "display_name": "Glucose", "notes": None},
@@ -159,7 +168,8 @@ async def test_admin_template_crud(async_client: AsyncClient, db_session: AsyncS
     updated = update_response.json()
     assert updated["slug"] == "metabolic-insight"
     assert updated["is_active"] is False
-    assert updated["name"] == "Metabolic Insight"
+    assert updated["name_en"] == "Metabolic Insight"
+    assert updated["name_pl"] == "Wglad metaboliczny"
 
     delete_response = await async_client.delete(
         "/biomarker-lists/admin/templates/metabolic-insight"
@@ -181,8 +191,10 @@ async def test_admin_endpoints_require_privileges(async_client: AsyncClient) -> 
         "/biomarker-lists/admin/templates",
         json={
             "slug": "forbidden",
-            "name": "Forbidden",
-            "description": None,
+            "name_en": "Forbidden",
+            "name_pl": "Zabronione",
+            "description_en": None,
+            "description_pl": None,
             "is_active": True,
             "biomarkers": [],
         },

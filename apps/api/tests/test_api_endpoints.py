@@ -428,14 +428,18 @@ class TestCatalogEndpoints:
         
         active_template = models.BiomarkerListTemplate(
             slug="cholesterol-panel",
-            name="Cholesterol panel",
-            description=None,
+            name_en="Cholesterol panel",
+            name_pl="Panel cholesterolu",
+            description_en=None,
+            description_pl=None,
             is_active=True,
         )
         inactive_template = models.BiomarkerListTemplate(
             slug="archived-template",
-            name="Archived template",
-            description=None,
+            name_en="Archived template",
+            name_pl="Zarchiwizowany szablon",
+            description_en=None,
+            description_pl=None,
             is_active=False,
         )
         db_session.add_all([active_template, inactive_template])

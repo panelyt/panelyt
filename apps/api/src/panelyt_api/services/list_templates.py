@@ -24,8 +24,10 @@ class TemplateEntryData:
 class TemplateSearchMatch:
     id: int
     slug: str
-    name: str
-    description: str | None
+    name_en: str
+    name_pl: str
+    description_en: str | None
+    description_pl: str | None
     biomarker_count: int
 
 
@@ -56,14 +58,17 @@ class BiomarkerListTemplateService:
         contains_pattern = f"%{normalized}%"
         prefix_pattern = f"{normalized}%"
 
-        name_lower = func.lower(BiomarkerListTemplate.name)
+        name_en_lower = func.lower(BiomarkerListTemplate.name_en)
+        name_pl_lower = func.lower(BiomarkerListTemplate.name_pl)
         slug_lower = func.lower(BiomarkerListTemplate.slug)
 
         match_rank = case(
             (slug_lower == normalized, 0),
-            (name_lower == normalized, 1),
-            (slug_lower.like(prefix_pattern), 2),
-            (name_lower.like(prefix_pattern), 3),
+            (name_en_lower == normalized, 1),
+            (name_pl_lower == normalized, 2),
+            (slug_lower.like(prefix_pattern), 3),
+            (name_en_lower.like(prefix_pattern), 4),
+            (name_pl_lower.like(prefix_pattern), 5),
             else_=10,
         )
 
@@ -73,8 +78,10 @@ class BiomarkerListTemplateService:
             select(
                 BiomarkerListTemplate.id,
                 BiomarkerListTemplate.slug,
-                BiomarkerListTemplate.name,
-                BiomarkerListTemplate.description,
+                BiomarkerListTemplate.name_en,
+                BiomarkerListTemplate.name_pl,
+                BiomarkerListTemplate.description_en,
+                BiomarkerListTemplate.description_pl,
                 entry_count,
             )
             .outerjoin(BiomarkerListTemplate.entries)
@@ -82,16 +89,19 @@ class BiomarkerListTemplateService:
             .where(
                 or_(
                     slug_lower.like(contains_pattern),
-                    name_lower.like(contains_pattern),
+                    name_en_lower.like(contains_pattern),
+                    name_pl_lower.like(contains_pattern),
                 )
             )
             .group_by(
                 BiomarkerListTemplate.id,
                 BiomarkerListTemplate.slug,
-                BiomarkerListTemplate.name,
-                BiomarkerListTemplate.description,
+                BiomarkerListTemplate.name_en,
+                BiomarkerListTemplate.name_pl,
+                BiomarkerListTemplate.description_en,
+                BiomarkerListTemplate.description_pl,
             )
-            .order_by(match_rank, BiomarkerListTemplate.name.asc())
+            .order_by(match_rank, BiomarkerListTemplate.name_en.asc())
             .limit(limit)
         )
 
@@ -102,8 +112,10 @@ class BiomarkerListTemplateService:
                 TemplateSearchMatch(
                     id=row.id,
                     slug=row.slug,
-                    name=row.name,
-                    description=row.description,
+                    name_en=row.name_en,
+                    name_pl=row.name_pl,
+                    description_en=row.description_en,
+                    description_pl=row.description_pl,
                     biomarker_count=row.biomarker_count or 0,
                 )
             )
@@ -126,8 +138,10 @@ class BiomarkerListTemplateService:
         self,
         *,
         slug: str,
-        name: str,
-        description: str | None,
+        name_en: str,
+        name_pl: str,
+        description_en: str | None,
+        description_pl: str | None,
         is_active: bool,
         entries: Sequence[TemplateEntryData],
     ) -> BiomarkerListTemplate:
@@ -139,8 +153,10 @@ class BiomarkerListTemplateService:
 
         template = BiomarkerListTemplate(
             slug=normalized_slug,
-            name=name.strip(),
-            description=(description.strip() if description else None),
+            name_en=name_en.strip(),
+            name_pl=name_pl.strip(),
+            description_en=(description_en.strip() if description_en else None),
+            description_pl=(description_pl.strip() if description_pl else None),
             is_active=is_active,
         )
         self._db.add(template)
@@ -166,8 +182,10 @@ class BiomarkerListTemplateService:
         template: BiomarkerListTemplate,
         *,
         slug: str,
-        name: str,
-        description: str | None,
+        name_en: str,
+        name_pl: str,
+        description_en: str | None,
+        description_pl: str | None,
         is_active: bool,
         entries: Sequence[TemplateEntryData],
     ) -> BiomarkerListTemplate:
@@ -179,8 +197,10 @@ class BiomarkerListTemplateService:
         biomarker_map = await self._resolver.resolve_for_list_entries(prepared_entries)
 
         template.slug = normalized_slug
-        template.name = name.strip()
-        template.description = description.strip() if description else None
+        template.name_en = name_en.strip()
+        template.name_pl = name_pl.strip()
+        template.description_en = description_en.strip() if description_en else None
+        template.description_pl = description_pl.strip() if description_pl else None
         template.is_active = is_active
 
         await self._db.execute(
@@ -217,7 +237,7 @@ class BiomarkerListTemplateService:
                     BiomarkerListTemplateEntry.biomarker
                 )
             )
-            .order_by(BiomarkerListTemplate.name.asc())
+            .order_by(BiomarkerListTemplate.name_en.asc())
         )
 
     async def _fetch_by_id(self, template_id: int) -> BiomarkerListTemplate:

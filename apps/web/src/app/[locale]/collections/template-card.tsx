@@ -13,6 +13,7 @@ import {
   formatRelativeTimestamp,
   resolveTimestamp,
 } from "@/lib/dates";
+import { getTemplateDescription, getTemplateName } from "@/lib/template-localization";
 import { Card } from "@/ui/card";
 import { Skeleton } from "@/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/tooltip";
@@ -20,8 +21,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/t
 type TemplateCardData = {
   id: number;
   slug: string;
-  name: string;
-  description: string | null;
+  name_en: string;
+  name_pl: string;
+  description_en: string | null;
+  description_pl: string | null;
   is_active: boolean;
   updated_at: string;
   biomarkers: Array<{ code: string; display_name: string }>;
@@ -77,6 +80,9 @@ export function TemplateCard({
     };
   }, [exactTimeFormatter, relativeTimeFormatter, template.updated_at]);
 
+  const name = getTemplateName(template, locale);
+  const description = getTemplateDescription(template, locale);
+
   return (
     <Card
       className={cn(
@@ -89,7 +95,7 @@ export function TemplateCard({
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-semibold text-primary md:text-lg">
-                {template.name}
+                {name}
               </h3>
               {!template.is_active ? (
                 <span className="rounded-pill border border-border/80 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-secondary">
@@ -121,7 +127,7 @@ export function TemplateCard({
             </div>
           </div>
           <p className="line-clamp-2 text-sm text-secondary">
-            {template.description ?? t("collections.noDescription")}
+            {description ?? t("collections.noDescription")}
           </p>
           <TemplateBiomarkerChips biomarkers={template.biomarkers} />
         </div>

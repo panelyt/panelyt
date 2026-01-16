@@ -90,8 +90,10 @@ async def create_template(
     try:
         template = await service.create_template(
             slug=payload.slug,
-            name=payload.name,
-            description=payload.description,
+            name_en=payload.name_en,
+            name_pl=payload.name_pl,
+            description_en=payload.description_en,
+            description_pl=payload.description_pl,
             is_active=payload.is_active,
             entries=[_to_entry_data(entry) for entry in payload.biomarkers],
         )
@@ -115,8 +117,10 @@ async def update_template(
         updated = await service.update_template(
             template,
             slug=payload.slug,
-            name=payload.name,
-            description=payload.description,
+            name_en=payload.name_en,
+            name_pl=payload.name_pl,
+            description_en=payload.description_en,
+            description_pl=payload.description_pl,
             is_active=payload.is_active,
             entries=[_to_entry_data(entry) for entry in payload.biomarkers],
         )

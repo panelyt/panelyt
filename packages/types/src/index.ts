@@ -254,8 +254,10 @@ export type BiomarkerListEntry = z.infer<typeof BiomarkerListEntrySchema>;
 export const BiomarkerListTemplateSchema = z.object({
   id: z.number().int().positive(),
   slug: z.string(),
-  name: z.string(),
-  description: z.string().nullable(),
+  name_en: z.string(),
+  name_pl: z.string(),
+  description_en: z.string().nullable(),
+  description_pl: z.string().nullable(),
   is_active: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -284,8 +286,10 @@ export type BiomarkerTemplateEntryPayload = z.infer<
 
 export const BiomarkerListTemplateUpsertSchema = z.object({
   slug: z.string().min(1).max(128),
-  name: z.string().min(1).max(128),
-  description: z.string().max(512).nullable(),
+  name_en: z.string().min(1).max(128),
+  name_pl: z.string().min(1).max(128),
+  description_en: z.string().max(512).nullable(),
+  description_pl: z.string().max(512).nullable(),
   is_active: z.boolean(),
   biomarkers: z
     .array(BiomarkerTemplateEntryPayloadSchema)
@@ -342,8 +346,10 @@ export const CatalogTemplateResultSchema = z.object({
   type: z.literal('template'),
   id: z.number().int().positive(),
   slug: z.string(),
-  name: z.string(),
-  description: z.string().nullable(),
+  name_en: z.string(),
+  name_pl: z.string(),
+  description_en: z.string().nullable(),
+  description_pl: z.string().nullable(),
   biomarker_count: z.number().int().nonnegative(),
 });
 

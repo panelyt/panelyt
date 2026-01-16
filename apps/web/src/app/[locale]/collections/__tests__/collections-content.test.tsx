@@ -44,8 +44,10 @@ vi.mock("../../../../hooks/useUserSession", () => ({
 let templatesData: Array<{
   id: number;
   slug: string;
-  name: string;
-  description: string | null;
+  name_en: string;
+  name_pl: string;
+  description_en: string | null;
+  description_pl: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -116,8 +118,10 @@ const makeTemplate = (
 ): (typeof templatesData)[number] => ({
   id: overrides.id ?? 1,
   slug: overrides.slug ?? "template-1",
-  name: overrides.name ?? "Template One",
-  description: overrides.description ?? "",
+  name_en: overrides.name_en ?? "Template One",
+  name_pl: overrides.name_pl ?? "Szablon Jeden",
+  description_en: overrides.description_en ?? "",
+  description_pl: overrides.description_pl ?? "",
   is_active: overrides.is_active ?? true,
   created_at: overrides.created_at ?? "2024-01-01T00:00:00Z",
   updated_at: overrides.updated_at ?? "2024-01-05T00:00:00Z",
@@ -200,7 +204,7 @@ describe("CollectionsContent", () => {
   });
 
   it("shows a no results state with clear filters when filters hide all templates", async () => {
-    templatesData = [makeTemplate({ id: 20, name: "Visible Template" })];
+    templatesData = [makeTemplate({ id: 20, name_en: "Visible Template" })];
 
     renderWithIntl("en", enMessages);
 
@@ -220,8 +224,8 @@ describe("CollectionsContent", () => {
 
   it("hides inactive templates for non-admin users", () => {
     templatesData = [
-      makeTemplate({ id: 1, name: "Active Template", is_active: true }),
-      makeTemplate({ id: 2, name: "Hidden Template", is_active: false }),
+      makeTemplate({ id: 1, name_en: "Active Template", is_active: true }),
+      makeTemplate({ id: 2, name_en: "Hidden Template", is_active: false }),
     ];
 
     renderWithIntl("en", enMessages);
@@ -232,8 +236,8 @@ describe("CollectionsContent", () => {
 
   it("filters templates by search term across name and description", async () => {
     templatesData = [
-      makeTemplate({ id: 3, name: "Heart Health", description: "Cholesterol" }),
-      makeTemplate({ id: 4, name: "Thyroid Panel", description: "Hormone focus" }),
+      makeTemplate({ id: 3, name_en: "Heart Health", description_en: "Cholesterol" }),
+      makeTemplate({ id: 4, name_en: "Thyroid Panel", description_en: "Hormone focus" }),
     ];
 
     renderWithIntl("en", enMessages);
@@ -247,8 +251,8 @@ describe("CollectionsContent", () => {
 
   it("defaults to sorting by most recently updated", () => {
     templatesData = [
-      makeTemplate({ id: 5, name: "Older", updated_at: "2024-01-01T00:00:00Z" }),
-      makeTemplate({ id: 6, name: "Newer", updated_at: "2024-02-01T00:00:00Z" }),
+      makeTemplate({ id: 5, name_en: "Older", updated_at: "2024-01-01T00:00:00Z" }),
+      makeTemplate({ id: 6, name_en: "Newer", updated_at: "2024-02-01T00:00:00Z" }),
     ];
 
     renderWithIntl("en", enMessages);
@@ -262,7 +266,7 @@ describe("CollectionsContent", () => {
     templatesData = [
       makeTemplate({
         id: 7,
-        name: "Small",
+        name_en: "Small",
         biomarkers: [
           {
             id: 1,
@@ -276,7 +280,7 @@ describe("CollectionsContent", () => {
       }),
       makeTemplate({
         id: 8,
-        name: "Large",
+        name_en: "Large",
         biomarkers: [
           {
             id: 2,
@@ -310,8 +314,8 @@ describe("CollectionsContent", () => {
 
   it("sorts templates by current total when selected", async () => {
     templatesData = [
-      makeTemplate({ id: 9, slug: "alpha", name: "Alpha" }),
-      makeTemplate({ id: 10, slug: "beta", name: "Beta" }),
+      makeTemplate({ id: 9, slug: "alpha", name_en: "Alpha" }),
+      makeTemplate({ id: 10, slug: "beta", name_en: "Beta" }),
     ];
     pricingBySlug = {
       alpha: { status: "success", totalNow: 240 },
@@ -338,8 +342,8 @@ describe("CollectionsContent", () => {
       templatesData = [
         makeTemplate({
           id: 11,
-          name: "Baseline",
-          description: descriptionText,
+          name_en: "Baseline",
+          description_en: descriptionText,
           updated_at: "2024-01-08T12:00:00Z",
         }),
       ];
@@ -374,7 +378,7 @@ describe("CollectionsContent", () => {
       templatesData = [
         makeTemplate({
           id: 19,
-          name: "Relative Time",
+          name_en: "Relative Time",
           updated_at: "2024-01-08T12:00:00Z",
         }),
       ];
@@ -411,7 +415,7 @@ describe("CollectionsContent", () => {
     templatesData = [
       makeTemplate({
         id: 12,
-        name: "Extended",
+        name_en: "Extended",
         slug: "extended",
         biomarkers: Array.from({ length: 12 }, (_, index) => ({
           id: index + 1,
@@ -443,7 +447,7 @@ describe("CollectionsContent", () => {
     templatesData = [
       makeTemplate({
         id: 13,
-        name: "Append Set",
+        name_en: "Append Set",
         slug: "append",
         biomarkers: [
           {
@@ -472,7 +476,7 @@ describe("CollectionsContent", () => {
     templatesData = [
       makeTemplate({
         id: 14,
-        name: "Replace Set",
+        name_en: "Replace Set",
         slug: "replace",
         biomarkers: [
           {
@@ -507,7 +511,7 @@ describe("CollectionsContent", () => {
   it("opens the edit dialog from the admin menu", async () => {
     sessionData = { is_admin: true };
     templatesData = [
-      makeTemplate({ id: 15, name: "Admin Template", slug: "admin-template" }),
+      makeTemplate({ id: 15, name_en: "Admin Template", slug: "admin-template" }),
     ];
 
     renderWithIntl("en", enMessages);
@@ -525,7 +529,7 @@ describe("CollectionsContent", () => {
   it("confirms deletions via a dialog before calling the delete mutation", async () => {
     sessionData = { is_admin: true };
     templatesData = [
-      makeTemplate({ id: 16, name: "Delete Me", slug: "delete-me" }),
+      makeTemplate({ id: 16, name_en: "Delete Me", slug: "delete-me" }),
     ];
 
     renderWithIntl("en", enMessages);
@@ -552,7 +556,7 @@ describe("CollectionsContent", () => {
 
   it("tracks and toasts when templates are appended to the panel", async () => {
     templatesData = [
-      makeTemplate({ id: 17, name: "Appendable", slug: "appendable" }),
+      makeTemplate({ id: 17, name_en: "Appendable", slug: "appendable" }),
     ];
 
     renderWithIntl("en", enMessages, true);
@@ -572,7 +576,7 @@ describe("CollectionsContent", () => {
 
   it("tracks and toasts when templates replace the panel selection", async () => {
     templatesData = [
-      makeTemplate({ id: 18, name: "Replacement", slug: "replacement" }),
+      makeTemplate({ id: 18, name_en: "Replacement", slug: "replacement" }),
     ];
 
     renderWithIntl("en", enMessages, true);

@@ -291,8 +291,10 @@ async def search_catalog(
         CatalogTemplateResult(
             id=match.id,
             slug=match.slug,
-            name=match.name,
-            description=match.description,
+            name_en=match.name_en,
+            name_pl=match.name_pl,
+            description_en=match.description_en,
+            description_pl=match.description_pl,
             biomarker_count=match.biomarker_count,
         )
         for match in template_matches
