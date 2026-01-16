@@ -102,4 +102,21 @@ describe('AddonSuggestionsCollapsible', () => {
     const coveredPill = screen.getByText('ALT')
     expect(coveredPill).toHaveClass('bg-surface-1')
   })
+
+  it('shows removed bonus biomarkers as red pills', async () => {
+    const user = userEvent.setup()
+    const suggestionWithRemove = {
+      ...makeSuggestion(),
+      removes: [{ code: 'GGTP', display_name: 'GGTP' }],
+    }
+
+    renderWithIntl(
+      <AddonSuggestionsCollapsible suggestions={[suggestionWithRemove]} isLoading={false} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Add more for less/i }))
+
+    const removedPill = screen.getByText('GGTP')
+    expect(removedPill).toHaveClass('bg-rose-500/20')
+  })
 })

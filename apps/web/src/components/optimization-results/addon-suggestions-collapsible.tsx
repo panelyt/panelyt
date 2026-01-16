@@ -2,7 +2,7 @@
 
 import { useId, useState, useEffect } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
-import { ChevronDown, ChevronUp, Plus, Sparkles, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Sparkles, Loader2, Flame } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { formatCurrency } from "../../lib/format";
@@ -209,6 +209,19 @@ export function AddonSuggestionsCollapsible({
                         }`}
                       >
                         <Sparkles className="h-2.5 w-2.5" />
+                        {biomarker.display_name}
+                      </span>
+                    ))}
+                    {(suggestion.removes ?? []).map((biomarker) => (
+                      <span
+                        key={`remove-${biomarker.code}`}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          isDark
+                            ? "bg-rose-500/20 text-rose-200"
+                            : "bg-rose-100 text-rose-700"
+                        }`}
+                      >
+                        <Flame className="h-2.5 w-2.5" />
                         {biomarker.display_name}
                       </span>
                     ))}
