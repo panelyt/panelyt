@@ -73,8 +73,15 @@ fmt target="all" args="":
 clean:
   @{{clean_cmd}}
 
-# check: run build -> test -> lint -> fmt sequentially
-check: build test lint fmt
+# check: run build -> test -> lint -> fmt sequentially (target=api|web|bot|all)
+check target="all":
+  @case "{{target}}" in \
+    api) just build && just test api && just lint api && just fmt api ;; \
+    web) just build && just test web && just lint web ;; \
+    bot) just lint bot ;; \
+    all|"") just build && just test all && just lint all && just fmt all ;; \
+    *) echo "error: unknown check target '{{target}}' (use api, web, bot, all)" >&2; exit 2 ;; \
+  esac
 
 # _install-web: install web dependencies
 _install-web:
