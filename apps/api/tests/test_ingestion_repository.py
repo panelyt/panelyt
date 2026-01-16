@@ -210,6 +210,74 @@ async def test_upsert_catalog_reuses_existing_biomarker_on_elab_conflict(
 
 
 @pytest.mark.asyncio
+async def test_upsert_catalog_canonicalizes_elab_code_aliases(
+    db_session,
+) -> None:
+    repo = CatalogRepository(db_session)
+    await db_session.execute(
+        models.Institution.__table__.insert().values(
+            {"id": 1135, "name": "Default / Lab office"}
+        )
+    )
+    canonical = models.Biomarker(
+        slug="hemoglobina-glikowana",
+        name="Hemoglobina glikowana",
+        elab_code="150",
+    )
+    db_session.add(canonical)
+    await db_session.flush()
+
+    fetched_at = datetime(2025, 1, 1, tzinfo=UTC)
+    item = RawDiagItem(
+        external_id="diag-151",
+        kind="package",
+        name="Panel HbA1c",
+        slug="panel-hba1c",
+        price_now_grosz=2500,
+        price_min30_grosz=2500,
+        currency="PLN",
+        is_available=True,
+        biomarkers=[
+            RawDiagBiomarker(
+                external_id="hba1c",
+                name="Hemoglobina glikowana",
+                elab_code="151",
+                slug=None,
+            )
+        ],
+        sale_price_grosz=None,
+        regular_price_grosz=2500,
+    )
+
+    await repo.upsert_catalog(1135, singles=[], packages=[item], fetched_at=fetched_at)
+    await db_session.commit()
+    db_session.expire_all()
+
+    stored_canonical = await db_session.scalar(
+        select(models.Biomarker).where(models.Biomarker.elab_code == "150")
+    )
+    assert stored_canonical is not None
+    assert stored_canonical.id == canonical.id
+
+    stored_alias = await db_session.scalar(
+        select(models.Biomarker).where(models.Biomarker.elab_code == "151")
+    )
+    assert stored_alias is None
+
+    stored_item = await db_session.scalar(
+        select(models.Item).where(models.Item.external_id == "diag-151")
+    )
+    assert stored_item is not None
+    link = await db_session.scalar(
+        select(models.ItemBiomarker).where(
+            models.ItemBiomarker.item_id == stored_item.id,
+            models.ItemBiomarker.biomarker_id == stored_canonical.id,
+        )
+    )
+    assert link is not None
+
+
+@pytest.mark.asyncio
 async def test_prune_missing_offers_marks_unavailable(db_session) -> None:
     repo = CatalogRepository(db_session)
     await db_session.execute(

@@ -42,6 +42,12 @@
       "source_slug": "psa-panel-psafpsa-wskaznik-fpsapsa",
       "panel_elab_code": "3700",
       "component_elab_codes": ["200", "201"]
+    },
+    {
+      "source_external_id": "605348822",
+      "source_slug": "lipidogram-chol-hdl-nie-hdl-ldl-tg",
+      "panel_elab_code": "14",
+      "component_elab_codes": ["15", "16", "17", "18"]
     }
   ]
 }
