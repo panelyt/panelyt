@@ -710,6 +710,7 @@ class OptimizationService:
         lookup_ids = set(package_ids)
         lookup_ids.update({item.id for item in chosen_items_list})
         biomarkers_map, label_map = await self._get_all_biomarkers_for_items(list(lookup_ids))
+        self._expand_synthetic_panel_biomarkers(biomarkers_map)
         self._apply_synthetic_coverage_overrides(
             [*chosen_items_list, *(entry.candidate for entry in top_candidates)],
             biomarkers_map,

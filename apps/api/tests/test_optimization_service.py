@@ -559,6 +559,13 @@ class TestOptimizationService:
             "31",
         ]
 
+    def test_expand_synthetic_panel_biomarkers_replaces_panel_tokens(self, service):
+        biomarkers_by_item = {1: ["19", "30"]}
+
+        service._expand_synthetic_panel_biomarkers(biomarkers_by_item)
+
+        assert biomarkers_by_item[1] == ["20", "21", "22", "23", "26", "30"]
+
     @pytest.mark.asyncio
     async def test_collect_candidates_filters_by_institution(
         self, service, db_session
