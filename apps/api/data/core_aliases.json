@@ -4430,14 +4430,15 @@
         "priority": 1
       },
       {
-        "alias": "glycated hemoglobin",
-        "type": "translation",
-        "priority": 2
-      }
-    ]
-  },
-  "Hemoglobina glikowana (HbA1c)": {
-    "aliases": [
+        "alias": "151",
+        "type": "alternative_name",
+        "priority": 1
+      },
+      {
+        "alias": "Hemoglobina glikowana (HbA1c)",
+        "type": "alternative_name",
+        "priority": 1
+      },
       {
         "alias": "cukier trzymiesięczny",
         "type": "common_name",

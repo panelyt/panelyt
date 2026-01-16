@@ -15,6 +15,9 @@ from panelyt_api.utils.slugify import slugify_identifier_pl
 
 RetentionWindow = timedelta(days=35)
 _UPSERT_BATCH_SIZE = 500
+_ELAB_CODE_ALIASES = {
+    "151": "150",
+}
 
 
 T = TypeVar("T")
@@ -190,7 +193,9 @@ class CatalogRepository:
             if not value:
                 return None
             trimmed = value.strip()
-            return trimmed or None
+            if not trimmed:
+                return None
+            return _ELAB_CODE_ALIASES.get(trimmed, trimmed)
 
         biomarker_pairs = list(biomarker_map.items())
         if not biomarker_pairs:
