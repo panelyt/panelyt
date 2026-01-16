@@ -187,6 +187,18 @@ export function AddonSuggestionsCollapsible({
                       : t("optimization.packageUpgrade")}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(suggestion.covers ?? []).map((biomarker) => (
+                      <span
+                        key={`cover-${biomarker.code}`}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          isDark
+                            ? "bg-surface-1 text-secondary"
+                            : "bg-slate-200 text-slate-700"
+                        }`}
+                      >
+                        {biomarker.display_name}
+                      </span>
+                    ))}
                     {(suggestion.adds ?? []).map((biomarker) => (
                       <span
                         key={`add-${biomarker.code}`}

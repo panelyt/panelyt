@@ -22,7 +22,7 @@ const makeSuggestion = (): OptimizeResponse['addon_suggestions'][number] => ({
   upgrade_cost: 1,
   estimated_total_now_grosz: 1100,
   estimated_total_now: 11,
-  covers: [],
+  covers: [{ code: 'ALT', display_name: 'ALT' }],
   adds: [{ code: 'AST', display_name: 'AST' }],
   removes: [],
   keeps: [],
@@ -89,5 +89,17 @@ describe('AddonSuggestionsCollapsible', () => {
     }).not.toThrow()
 
     expect(screen.getByText('Add more for less')).toBeInTheDocument()
+  })
+
+  it('shows covered biomarkers as neutral pills', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(
+      <AddonSuggestionsCollapsible suggestions={[makeSuggestion()]} isLoading={false} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Add more for less/i }))
+
+    const coveredPill = screen.getByText('ALT')
+    expect(coveredPill).toHaveClass('bg-surface-1')
   })
 })
