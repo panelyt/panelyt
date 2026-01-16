@@ -6,6 +6,7 @@ import pytest
 from ortools.sat.python import cp_model
 from sqlalchemy import delete, insert
 
+from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.db import models
 from panelyt_api.optimization.service import (
     CandidateItem,
@@ -1919,6 +1920,161 @@ class TestOptimizationService:
         assert suggestion.package.name == "Package AB Extended"
         assert {entry.code for entry in suggestion.covers} == {"A", "B"}
         assert {entry.code for entry in suggestion.adds} == {"E", "F"}
+
+    @pytest.mark.asyncio
+    async def test_compute_addons_skips_no_adds_before_limit(
+        self, service, db_session
+    ):
+        """Addon suggestions should skip no-add packages and still fill to the limit."""
+        clear_all_caches()
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.InstitutionItem))
+        await db_session.execute(delete(models.Institution))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+        await insert_institution(db_session)
+
+        biomarkers = [
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "marker-a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "marker-b"},
+            {"id": 3, "name": "Marker C", "elab_code": "C", "slug": "marker-c"},
+            {"id": 4, "name": "Marker D", "elab_code": "D", "slug": "marker-d"},
+            {"id": 5, "name": "Marker E", "elab_code": "E", "slug": "marker-e"},
+            {"id": 6, "name": "Marker F", "elab_code": "F", "slug": "marker-f"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            {
+                "id": 10,
+                "external_id": "single-a",
+                "kind": "single",
+                "name": "Single A",
+                "slug": "single-a",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 1000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 11,
+                "external_id": "single-b",
+                "kind": "single",
+                "name": "Single B",
+                "slug": "single-b",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 1000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 12,
+                "external_id": "single-c",
+                "kind": "single",
+                "name": "Single C",
+                "slug": "single-c",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 1000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 13,
+                "external_id": "single-d",
+                "kind": "single",
+                "name": "Single D",
+                "slug": "single-d",
+                "price_now_grosz": 1000,
+                "price_min30_grosz": 1000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 20,
+                "external_id": "package-ab",
+                "kind": "package",
+                "name": "Package AB",
+                "slug": "package-ab",
+                "price_now_grosz": 2100,
+                "price_min30_grosz": 2100,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 21,
+                "external_id": "package-cd",
+                "kind": "package",
+                "name": "Package CD",
+                "slug": "package-cd",
+                "price_now_grosz": 2100,
+                "price_min30_grosz": 2100,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 22,
+                "external_id": "package-ab-bonus",
+                "kind": "package",
+                "name": "Package AB Bonus",
+                "slug": "package-ab-bonus",
+                "price_now_grosz": 4000,
+                "price_min30_grosz": 4000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 23,
+                "external_id": "package-cd-bonus",
+                "kind": "package",
+                "name": "Package CD Bonus",
+                "slug": "package-cd-bonus",
+                "price_now_grosz": 4200,
+                "price_min30_grosz": 4200,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await insert_items_with_offers(db_session, items)
+
+        relationships = [
+            {"item_id": 10, "biomarker_id": 1},
+            {"item_id": 11, "biomarker_id": 2},
+            {"item_id": 12, "biomarker_id": 3},
+            {"item_id": 13, "biomarker_id": 4},
+            {"item_id": 20, "biomarker_id": 1},
+            {"item_id": 20, "biomarker_id": 2},
+            {"item_id": 21, "biomarker_id": 3},
+            {"item_id": 21, "biomarker_id": 4},
+            {"item_id": 22, "biomarker_id": 1},
+            {"item_id": 22, "biomarker_id": 2},
+            {"item_id": 22, "biomarker_id": 5},
+            {"item_id": 23, "biomarker_id": 3},
+            {"item_id": 23, "biomarker_id": 4},
+            {"item_id": 23, "biomarker_id": 6},
+        ]
+        await db_session.execute(insert(models.ItemBiomarker).values(relationships))
+        await db_session.commit()
+
+        opt_request = OptimizeRequest(biomarkers=["A", "B", "C", "D"])
+        opt_result = await service.solve(opt_request, DEFAULT_INSTITUTION_ID)
+        selected_item_ids = [item.id for item in opt_result.items]
+
+        addon_request = AddonSuggestionsRequest(
+            biomarkers=["A", "B", "C", "D"],
+            selected_item_ids=selected_item_ids,
+        )
+        addon_result = await service.compute_addons(addon_request, DEFAULT_INSTITUTION_ID)
+
+        assert len(addon_result.addon_suggestions) == 2
+        package_names = {entry.package.name for entry in addon_result.addon_suggestions}
+        assert package_names == {"Package AB Bonus", "Package CD Bonus"}
+        add_codes = {
+            biomarker.code
+            for entry in addon_result.addon_suggestions
+            for biomarker in entry.adds
+        }
+        assert add_codes == {"E", "F"}
 
     @pytest.mark.asyncio
     async def test_compute_addons_empty_when_no_suggestions(self, service, db_session):

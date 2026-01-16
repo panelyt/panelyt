@@ -55,6 +55,8 @@ SOLVER_WORKERS = 8
 PRICE_HISTORY_LOOKBACK_DAYS = 30
 MAX_PACKAGE_VARIANTS_PER_COVERAGE = 2
 MAX_SINGLE_VARIANTS_PER_TOKEN = 2
+ADDON_SUGGESTION_LIMIT = 2
+ADDON_CANDIDATE_POOL_SIZE = 10
 COVER_CACHE_MAXSIZE = 1000
 
 
@@ -708,8 +710,9 @@ class OptimizationService:
                 entry.candidate.id,
             )
         )
-        top_candidates = computations[:2]
-        package_ids = [entry.candidate.id for entry in top_candidates]
+        pool_size = max(ADDON_SUGGESTION_LIMIT, ADDON_CANDIDATE_POOL_SIZE)
+        candidate_pool = computations[:pool_size]
+        package_ids = [entry.candidate.id for entry in candidate_pool]
         if not package_ids:
             return [], {}
 
@@ -718,7 +721,7 @@ class OptimizationService:
         biomarkers_map, label_map = await self._get_all_biomarkers_for_items(list(lookup_ids))
         self._expand_synthetic_panel_biomarkers(biomarkers_map)
         self._apply_synthetic_coverage_overrides(
-            [*chosen_items_list, *(entry.candidate for entry in top_candidates)],
+            [*chosen_items_list, *(entry.candidate for entry in candidate_pool)],
             biomarkers_map,
         )
         await self._augment_labels_for_tokens(
@@ -732,7 +735,7 @@ class OptimizationService:
 
         # Pre-compute all potential bonus tokens for batched price lookup
         all_bonus_tokens: dict[str, str] = {}
-        for entry in top_candidates:
+        for entry in candidate_pool:
             item = entry.candidate
             biomarkers = biomarkers_map.get(item.id, [])
             for token in biomarkers:
@@ -752,16 +755,9 @@ class OptimizationService:
                     bonus_current.add(token)
 
         suggestions: list[AddonSuggestion] = []
-        for entry in top_candidates:
+        for entry in candidate_pool:
             item = entry.candidate
             biomarkers = sorted(biomarkers_map.get(item.id, []))
-            for token in biomarkers:
-                label = label_map.get(token)
-                if label:
-                    additional_labels.setdefault(token, label)
-
-            upgrade_cost_grosz = entry.estimated_total_grosz - chosen_total_grosz
-
             remaining_ids = [
                 item_id for item_id in chosen_ids if item_id not in entry.dropped_item_ids
             ]
@@ -815,6 +811,12 @@ class OptimizationService:
 
             if not adds:
                 continue
+            for token in biomarkers:
+                label = label_map.get(token)
+                if label:
+                    additional_labels.setdefault(token, label)
+
+            upgrade_cost_grosz = entry.estimated_total_grosz - chosen_total_grosz
 
             removes = [
                 AddonBiomarker(code=token, display_name=resolve_display(token))
@@ -858,6 +860,8 @@ class OptimizationService:
                     keeps=keeps,
                 )
             )
+            if len(suggestions) >= ADDON_SUGGESTION_LIMIT:
+                break
 
         return suggestions, additional_labels
 
