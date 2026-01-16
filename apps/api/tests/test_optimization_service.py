@@ -6,6 +6,7 @@ import pytest
 from ortools.sat.python import cp_model
 from sqlalchemy import delete, insert
 
+from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.db import models
 from panelyt_api.optimization.service import (
     CandidateItem,
@@ -1925,6 +1926,7 @@ class TestOptimizationService:
         self, service, db_session
     ):
         """Addon suggestions should skip no-add packages and still fill to the limit."""
+        clear_all_caches()
         await db_session.execute(delete(models.ItemBiomarker))
         await db_session.execute(delete(models.Item))
         await db_session.execute(delete(models.InstitutionItem))
