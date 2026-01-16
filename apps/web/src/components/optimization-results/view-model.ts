@@ -94,7 +94,7 @@ export function buildOptimizationViewModel({
 
   const overlaps = Array.from(
     result.items.reduce((acc, item) => {
-      if (item.kind !== "package") {
+      if (!isPackageItem(item)) {
         return acc;
       }
       for (const biomarker of item.biomarkers) {
@@ -169,7 +169,7 @@ function groupByKind(items: OptimizeResponse["items"]): OptimizationGroup[] {
   const packages: OptimizeResponse["items"] = [];
   const singles: OptimizeResponse["items"] = [];
   for (const item of items) {
-    if (item.kind === "package") {
+    if (isPackageItem(item)) {
       packages.push(item);
     } else {
       singles.push(item);
@@ -183,4 +183,8 @@ function groupByKind(items: OptimizeResponse["items"]): OptimizationGroup[] {
     { kind: "package", items: packages },
     { kind: "single", items: singles },
   ];
+}
+
+function isPackageItem(item: OptimizeResponse["items"][number]) {
+  return item.kind === "package" || item.is_synthetic_package;
 }

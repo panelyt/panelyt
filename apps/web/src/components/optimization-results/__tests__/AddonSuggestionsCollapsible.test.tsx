@@ -17,12 +17,13 @@ const makeSuggestion = (): OptimizeResponse['addon_suggestions'][number] => ({
     biomarkers: ['ALT'],
     url: 'https://example.com/liver-panel',
     on_sale: false,
+    is_synthetic_package: false,
   },
   upgrade_cost_grosz: 100,
   upgrade_cost: 1,
   estimated_total_now_grosz: 1100,
   estimated_total_now: 11,
-  covers: [],
+  covers: [{ code: 'ALT', display_name: 'ALT' }],
   adds: [{ code: 'AST', display_name: 'AST' }],
   removes: [],
   keeps: [],
@@ -89,5 +90,52 @@ describe('AddonSuggestionsCollapsible', () => {
     }).not.toThrow()
 
     expect(screen.getByText('Add more for less')).toBeInTheDocument()
+  })
+
+  it('shows covered biomarkers as neutral pills', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(
+      <AddonSuggestionsCollapsible suggestions={[makeSuggestion()]} isLoading={false} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Add more for less/i }))
+
+    const coveredPill = screen.getByText('ALT')
+    expect(coveredPill).toHaveClass('bg-surface-1')
+  })
+
+  it('shows removed bonus biomarkers as red pills', async () => {
+    const user = userEvent.setup()
+    const suggestionWithRemove = {
+      ...makeSuggestion(),
+      removes: [{ code: 'GGTP', display_name: 'GGTP' }],
+    }
+
+    renderWithIntl(
+      <AddonSuggestionsCollapsible suggestions={[suggestionWithRemove]} isLoading={false} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Add more for less/i }))
+
+    const removedPill = screen.getByText('GGTP')
+    expect(removedPill).toHaveClass('bg-rose-500/20')
+  })
+
+  it('shows a tooltip for added biomarkers', async () => {
+    const user = userEvent.setup()
+    renderWithIntl(
+      <AddonSuggestionsCollapsible suggestions={[makeSuggestion()]} isLoading={false} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Add more for less/i }))
+
+    const addedPill = screen.getByText('AST')
+    await user.hover(addedPill)
+
+    expect(
+      await screen.findByRole('tooltip', {
+        name: /will be added/i,
+      }),
+    ).toBeInTheDocument()
   })
 })

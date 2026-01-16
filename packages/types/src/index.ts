@@ -21,6 +21,7 @@ export const ItemSchema = z.object({
   biomarkers: z.array(z.string()),
   url: z.string().url(),
   on_sale: z.boolean(),
+  is_synthetic_package: z.boolean().default(false),
 });
 
 export type Item = z.infer<typeof ItemSchema>;

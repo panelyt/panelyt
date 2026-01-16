@@ -2,10 +2,11 @@
 
 import { useId, useState, useEffect } from "react";
 import type { OptimizeResponse } from "@panelyt/types";
-import { ChevronDown, ChevronUp, Plus, Sparkles, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Sparkles, Loader2, Flame } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { formatCurrency } from "../../lib/format";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/tooltip";
 
 const STORAGE_KEY = "panelyt:addons-expanded";
 
@@ -186,21 +187,66 @@ export function AddonSuggestionsCollapsible({
                         })
                       : t("optimization.packageUpgrade")}
                   </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(suggestion.adds ?? []).map((biomarker) => (
-                      <span
-                        key={`add-${biomarker.code}`}
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                          isDark
-                            ? "bg-emerald-500/20 text-emerald-200"
-                            : "bg-emerald-100 text-emerald-700"
-                        }`}
-                      >
-                        <Sparkles className="h-2.5 w-2.5" />
-                        {biomarker.display_name}
-                      </span>
-                    ))}
-                  </div>
+                  <TooltipProvider delayDuration={200}>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(suggestion.covers ?? []).map((biomarker) => (
+                        <Tooltip key={`cover-${biomarker.code}`}>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                isDark
+                                  ? "bg-surface-1 text-secondary"
+                                  : "bg-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {biomarker.display_name}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {t("optimization.addonPillTooltipCovered")}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                      {(suggestion.adds ?? []).map((biomarker) => (
+                        <Tooltip key={`add-${biomarker.code}`}>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                isDark
+                                  ? "bg-emerald-500/20 text-emerald-200"
+                                  : "bg-emerald-100 text-emerald-700"
+                              }`}
+                            >
+                              <Sparkles className="h-2.5 w-2.5" />
+                              {biomarker.display_name}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {t("optimization.addonPillTooltipAdds")}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                      {(suggestion.removes ?? []).map((biomarker) => (
+                        <Tooltip key={`remove-${biomarker.code}`}>
+                          <TooltipTrigger asChild>
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                isDark
+                                  ? "bg-rose-500/20 text-rose-200"
+                                  : "bg-rose-100 text-rose-700"
+                              }`}
+                            >
+                              <Flame className="h-2.5 w-2.5" />
+                              {biomarker.display_name}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {t("optimization.addonPillTooltipRemoves")}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </TooltipProvider>
                 </div>
                 <div className="text-right">
                   <p

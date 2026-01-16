@@ -29,6 +29,7 @@ class ItemOut(APIModel):
     biomarkers: list[str]
     url: str
     on_sale: bool
+    is_synthetic_package: bool = False
 
 
 class CatalogMeta(APIModel):

@@ -24,6 +24,7 @@ const makeOptimizeResponse = (overrides: Partial<OptimizeResponse> = {}): Optimi
       biomarkers: ['ALT'],
       url: 'https://diag.pl/sklep/badania/alt-test',
       on_sale: false,
+      is_synthetic_package: false,
     },
   ],
   bonus_total_now: 0,

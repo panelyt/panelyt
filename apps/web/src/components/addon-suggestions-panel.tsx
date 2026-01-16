@@ -1,5 +1,9 @@
+"use client";
+
 import type { OptimizeResponse } from "@panelyt/types";
 import { Flame, Sparkles, Workflow } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/tooltip";
+import { useTranslations } from "next-intl";
 
 import { formatCurrency } from "../lib/format";
 import { DIAG_NAME } from "../lib/diag";
@@ -59,6 +63,8 @@ function LoadingSkeleton() {
 }
 
 export function AddonSuggestionsPanel({ suggestions = [], onApply, isLoading }: AddonSuggestionsPanelProps) {
+  const t = useTranslations();
+
   if (isLoading) {
     return <LoadingSkeleton />;
   }
@@ -105,35 +111,49 @@ export function AddonSuggestionsPanel({ suggestions = [], onApply, isLoading }: 
                   {DIAG_NAME}
                 </p>
                 <p className="text-sm font-semibold text-white">{suggestion.package.name}</p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {(suggestion.adds ?? []).map((pill) => (
-                    <span
-                      key={`add-${pill.code}`}
-                      className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200"
-                    >
-                      <Sparkles className="mr-1 h-3 w-3" />
-                      {pill.display_name}
-                    </span>
-                  ))}
-                  {(suggestion.keeps ?? []).map((pill) => (
-                    <span
-                      key={`keep-${pill.code}`}
-                      className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300"
-                    >
-                      <Workflow className="mr-1 h-3 w-3" />
-                      {pill.display_name}
-                    </span>
-                  ))}
-                  {(suggestion.removes ?? []).map((pill) => (
-                    <span
-                      key={`remove-${pill.code}`}
-                      className="inline-flex items-center rounded-full border border-rose-400/40 bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200"
-                    >
-                      <Flame className="mr-1 h-3 w-3" />
-                      {pill.display_name}
-                    </span>
-                  ))}
-                </div>
+                <TooltipProvider delayDuration={200}>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {(suggestion.adds ?? []).map((pill) => (
+                      <Tooltip key={`add-${pill.code}`}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
+                            <Sparkles className="mr-1 h-3 w-3" />
+                            {pill.display_name}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {t("optimization.addonPillTooltipAdds")}
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                    {(suggestion.keeps ?? []).map((pill) => (
+                      <Tooltip key={`keep-${pill.code}`}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                            <Workflow className="mr-1 h-3 w-3" />
+                            {pill.display_name}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {t("optimization.addonPillTooltipCovered")}
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                    {(suggestion.removes ?? []).map((pill) => (
+                      <Tooltip key={`remove-${pill.code}`}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center rounded-full border border-rose-400/40 bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
+                            <Flame className="mr-1 h-3 w-3" />
+                            {pill.display_name}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {t("optimization.addonPillTooltipRemoves")}
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
               </div>
               <div className="space-y-2 text-right text-xs text-slate-300">
                 <div>

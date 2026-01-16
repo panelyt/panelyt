@@ -23,6 +23,7 @@ const buildResult = (): OptimizeResponse => ({
       biomarkers: ['ALT', 'AST', 'CHOL'],
       url: 'https://diag.pl/sklep/pakiety/liver-panel',
       on_sale: false,
+      is_synthetic_package: false,
     },
     {
       id: 2,
@@ -35,6 +36,7 @@ const buildResult = (): OptimizeResponse => ({
       biomarkers: ['ALT', 'GLU'],
       url: 'https://diag.pl/sklep/pakiety/metabolic-panel',
       on_sale: false,
+      is_synthetic_package: false,
     },
   ],
   bonus_total_now: 15,
