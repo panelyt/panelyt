@@ -339,7 +339,9 @@ class OptimizationService:
         if not synthetic_packages or not biomarkers:
             return
 
-        selected_lookup = create_normalized_lookup({entry.token: entry.token for entry in biomarkers})
+        selected_lookup = create_normalized_lookup(
+            {entry.token: entry.token for entry in biomarkers}
+        )
 
         mapping_by_external: dict[str, SyntheticPackage] = {}
         mapping_by_slug: dict[str, SyntheticPackage] = {}
@@ -353,7 +355,11 @@ class OptimizationService:
                 tokens_all.add(code)
             if not tokens_all:
                 continue
-            tokens_selected = {token for token in tokens_all if selected_lookup.get(normalize_token(token) or "")}
+            tokens_selected = {
+                token
+                for token in tokens_all
+                if selected_lookup.get(normalize_token(token) or "")
+            }
             if not tokens_selected:
                 continue
             mapping_tokens[mapping] = tokens_all
