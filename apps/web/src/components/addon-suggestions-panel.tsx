@@ -178,4 +178,3 @@ export function AddonSuggestionsPanel({ suggestions = [], onApply, isLoading }: 
     </section>
   );
 }
-\"use client\";
