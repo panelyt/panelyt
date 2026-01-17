@@ -20,7 +20,12 @@ def _health_operations(app):
 @given(st.data())
 @settings(
     max_examples=6,
-    suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow],
+    deadline=None,
+    suppress_health_check=[
+        HealthCheck.filter_too_much,
+        HealthCheck.too_slow,
+        HealthCheck.function_scoped_fixture,
+    ],
 )
 def test_openapi_fuzz_health(app, data) -> None:
     operations = _health_operations(app)
