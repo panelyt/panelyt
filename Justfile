@@ -46,8 +46,8 @@ test target="all" args="":
   @case "{{target}}" in \
     api) just _test-api {{args}} ;; \
     web) just _test-web {{args}} ;; \
-    all|"") just _test-api {{args}} && just _test-web {{args}} ;; \
-    bot) echo "error: test target 'bot' is not supported" >&2; exit 2 ;; \
+    bot) just _test-bot {{args}} ;; \
+    all|"") just _test-api {{args}} && just _test-web {{args}} && just _test-bot {{args}} ;; \
     *) echo "error: unknown test target '{{target}}' (use api, web, bot, all)" >&2; exit 2 ;; \
   esac
 
@@ -78,7 +78,7 @@ check target="all":
   @case "{{target}}" in \
     api) just build && just test api && just lint api && just fmt api ;; \
     web) just build && just test web && just lint web ;; \
-    bot) just lint bot ;; \
+    bot) just test bot && just lint bot ;; \
     all|"") just build && just test all && just lint all && just fmt all ;; \
     *) echo "error: unknown check target '{{target}}' (use api, web, bot, all)" >&2; exit 2 ;; \
   esac
@@ -167,6 +167,10 @@ _typecheck-web:
 # _test-web: run web tests (optional args supported)
 _test-web args="":
   @cd apps/web && {{pnpm}} --filter @panelyt/web test:coverage {{args}}
+
+# _test-bot: run bot tests (optional args supported)
+_test-bot args="":
+  @cd apps/telegram-bot && {{uv_env}} {{uv}} run --extra dev pytest {{args}}
 
 # _lint-bot: lint bot code (optional args supported)
 _lint-bot args="":
