@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import pytest
 
 from panelyt_api.core.cache import clear_all_caches
+from panelyt_api.core.diag import DIAG_CODE
 from panelyt_api.core.settings import Settings
 from panelyt_api.ingest.client import DiagClient, _normalize_identifier, _pln_to_grosz
 from panelyt_api.ingest.types import DiagInstitution
@@ -187,6 +188,30 @@ class TestIngestionService:
                 await ingestion_service.ensure_fresh_data(1135, blocking=True)
                 await release_task
                 mock_run.assert_not_awaited()
+
+    async def test_ensure_fresh_data_blocking_busy_rechecks_and_runs(
+        self, ingestion_service
+    ):
+        lock = asyncio.Lock()
+        with patch.object(IngestionService, "_run_lock", lock), patch.object(
+            ingestion_service, "_lock_is_busy", return_value=True
+        ), patch.object(
+            ingestion_service, "_evaluate_freshness", new_callable=AsyncMock
+        ) as mock_evaluate, patch.object(
+            ingestion_service, "run", new_callable=AsyncMock
+        ) as mock_run, patch(
+            "panelyt_api.ingest.service.freshness_cache.mark_checked"
+        ) as mock_mark_checked:
+            mock_evaluate.side_effect = [(True, False), (True, False)]
+
+            await ingestion_service.ensure_fresh_data(2222, blocking=True)
+
+            mock_evaluate.assert_has_awaits([call(2222), call(2222)])
+            assert mock_mark_checked.call_args_list == [call(2222), call(2222)]
+            mock_run.assert_awaited_once_with(
+                reason="staleness_check",
+                institution_id=2222,
+            )
 
     @patch("panelyt_api.ingest.service.InstitutionService")
     @patch("panelyt_api.ingest.service.get_session")
@@ -416,6 +441,172 @@ class TestIngestionService:
             mock_repo.prune_snapshots.assert_called_once()
             mock_repo.prune_missing_offers.assert_awaited_once_with(1135, ["1"])
             mock_repo.finalize_run_log.assert_called_with(1, status="completed")
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_run_writes_raw_snapshot_payload(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        fixed_now = datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC)
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        lab_result = DiagIngestionResult(
+            fetched_at=fixed_now,
+            items=[],
+            raw_payload={"sample": "payload"},
+        )
+
+        with patch.object(
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
+        ) as mock_fetch, patch.object(
+            ingestion_service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ) as mock_alerts:
+            mock_fetch.return_value = [lab_result]
+
+            await ingestion_service.run(reason="test-raw-snapshot")
+
+        mock_repo.write_raw_snapshot.assert_awaited_once_with(
+            source=f"{DIAG_CODE}:catalog",
+            payload={
+                "source": DIAG_CODE,
+                "institution_id": 1135,
+                "fetched_at": fixed_now.isoformat(),
+                "payload": {"sample": "payload"},
+            },
+        )
+        mock_alerts.assert_awaited_once_with(mock_repo)
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_run_dedupes_external_ids_before_prune(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo.upsert_catalog.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        sample_biomarker = RawDiagBiomarker(
+            external_id="alt",
+            name="ALT",
+            elab_code="ALT",
+            slug="alt",
+        )
+        items = [
+            RawDiagItem(
+                external_id=" 1 ",
+                kind="single",
+                name="ALT Test",
+                slug="alt-test",
+                price_now_grosz=1000,
+                price_min30_grosz=900,
+                currency="PLN",
+                is_available=True,
+                biomarkers=[sample_biomarker],
+                sale_price_grosz=None,
+                regular_price_grosz=1000,
+            ),
+            RawDiagItem(
+                external_id="1",
+                kind="single",
+                name="ALT Test",
+                slug="alt-test",
+                price_now_grosz=1000,
+                price_min30_grosz=900,
+                currency="PLN",
+                is_available=True,
+                biomarkers=[sample_biomarker],
+                sale_price_grosz=None,
+                regular_price_grosz=1000,
+            ),
+            RawDiagItem(
+                external_id="2",
+                kind="single",
+                name="ALT Test",
+                slug="alt-test",
+                price_now_grosz=1000,
+                price_min30_grosz=900,
+                currency="PLN",
+                is_available=True,
+                biomarkers=[sample_biomarker],
+                sale_price_grosz=None,
+                regular_price_grosz=1000,
+            ),
+        ]
+        lab_result = DiagIngestionResult(
+            fetched_at=datetime.now(UTC),
+            items=items,
+            raw_payload=None,
+        )
+
+        with patch.object(
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
+        ) as mock_fetch, patch.object(
+            ingestion_service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ):
+            mock_fetch.return_value = [lab_result]
+
+            await ingestion_service.run(reason="test-dedupe")
+
+        mock_repo.prune_missing_offers.assert_awaited_once_with(1135, ["1", "2"])
+
+    @patch("panelyt_api.ingest.service.metrics.increment")
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_run_reports_completed_status_metric(
+        self, mock_repo_class, mock_get_session, mock_metrics_increment, ingestion_service
+    ):
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo.upsert_catalog.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        lab_result = DiagIngestionResult(
+            fetched_at=datetime.now(UTC),
+            items=[],
+            raw_payload=None,
+        )
+
+        with patch.object(
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
+        ) as mock_fetch, patch.object(
+            ingestion_service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ):
+            mock_fetch.return_value = [lab_result]
+
+            await ingestion_service.run(reason="test-metrics")
+
+        mock_metrics_increment.assert_called_once_with(
+            "ingestion.run",
+            status="completed",
+            scheduled="False",
+        )
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
