@@ -42,3 +42,15 @@ def test_test_api_includes_coverage_flags():
 
     for flag in required_flags:
         assert flag in command_text
+
+
+def test_test_api_does_not_use_repo_root_db():
+    repo_root = Path(__file__).resolve().parents[3]
+    justfile_path = repo_root / "Justfile"
+    justfile_text = justfile_path.read_text(encoding="utf-8")
+
+    recipe_body = _extract_recipe_body(justfile_text, "_test-api")
+    assert recipe_body, "Expected _test-api recipe to have a command body."
+
+    command_text = " ".join(recipe_body)
+    assert "sqlite+aiosqlite:///test.db" not in command_text
