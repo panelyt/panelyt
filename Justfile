@@ -121,11 +121,11 @@ _test-api args="":
 
 # mutation: run api mutation testing (max_children optional)
 mutation max_children="4":
-  @cd apps/api && {{uv_env}} {{uv}} run --extra dev mutmut run --max-children={{max_children}}
+  @cd apps/api && max_children="{{max_children}}" && max_children="${max_children#max_children=}" && {{uv_env}} {{uv}} run --extra dev mutmut run --max-children="${max_children}"
 
 # mutation-baseline: update mutation baseline (max_children optional)
 mutation-baseline max_children="4":
-  @cd apps/api && {{uv_env}} {{uv}} run --extra dev mutmut run --max-children={{max_children}}
+  @cd apps/api && max_children="{{max_children}}" && max_children="${max_children#max_children=}" && {{uv_env}} {{uv}} run --extra dev mutmut run --max-children="${max_children}"
   @cd apps/api && {{uv_env}} {{uv}} run --extra dev python scripts/mutation_report.py --output mutation-report.json --baseline mutation-baseline.json --update-baseline
 
 # migrate: run api migrations
