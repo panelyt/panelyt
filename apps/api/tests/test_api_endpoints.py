@@ -626,6 +626,7 @@ class TestOptimizeEndpoint:
             "currency",
             "items",
             "bonus_total_now",
+            "bonus_biomarkers",
             "explain",
             "uncovered",
             "labels",

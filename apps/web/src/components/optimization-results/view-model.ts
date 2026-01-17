@@ -65,9 +65,7 @@ export function buildOptimizationViewModel({
   const isDark = variant === "dark";
   const selectedSet = new Set(selected);
   const labelMap = result.labels ?? {};
-  const allBiomarkers = result.items.flatMap((item) => item.biomarkers);
-  const uniqueBiomarkers = Array.from(new Set(allBiomarkers));
-  const bonusBiomarkers = uniqueBiomarkers.filter((code) => !selectedSet.has(code));
+  const bonusBiomarkers = Array.from(new Set(result.bonus_biomarkers));
   const displayNameFor = createDisplayResolver(labelMap, biomarkerNames);
 
   const uncoveredTokens = result.uncovered ?? [];

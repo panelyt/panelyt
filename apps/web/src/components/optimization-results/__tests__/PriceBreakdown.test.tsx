@@ -28,6 +28,7 @@ const makeOptimizeResponse = (overrides: Partial<OptimizeResponse> = {}): Optimi
     },
   ],
   bonus_total_now: 0,
+  bonus_biomarkers: [],
   explain: {},
   uncovered: [],
   labels: { ALT: 'ALT' },

@@ -87,6 +87,7 @@ const makeOptimizeResponse = (
     currency: 'PLN',
     items,
     bonus_total_now: 0,
+    bonus_biomarkers: [],
     explain: {},
     uncovered: [],
     labels: {},
@@ -365,6 +366,7 @@ describe('OptimizationResults', () => {
       total_now: 15.0,
       total_min30: 14.0,
       bonus_total_now: 42,
+      bonus_biomarkers: ['CHOL'],
       items: [
         {
           id: 1,

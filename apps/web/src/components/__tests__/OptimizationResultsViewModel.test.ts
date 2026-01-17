@@ -47,6 +47,7 @@ function makeOptimizeResponse(overrides: OptimizeResponseOverrides): OptimizeRes
     currency: 'PLN',
     items,
     bonus_total_now: 0,
+    bonus_biomarkers: [],
     explain: {},
     uncovered: [],
     labels: {},
@@ -198,5 +199,31 @@ describe('buildOptimizationViewModel', () => {
       'Panel pierwiastków Zn, Cu, Se',
       'Pakiet minerały',
     ])
+  })
+
+  it('uses bonus biomarkers from the response payload', () => {
+    const response = makeOptimizeResponse({
+      items: [
+        {
+          kind: 'single',
+          name: 'Panel pierwiastków Zn, Cu, Se',
+          price_now_grosz: 10355,
+          price_min30_grosz: 10355,
+          biomarkers: ['CYNK', 'MIEDZ', 'SELEN'],
+          url: 'https://example.com/panel',
+          on_sale: false,
+          is_synthetic_package: true,
+        },
+      ],
+      bonus_biomarkers: [],
+    })
+
+    const viewModel = buildOptimizationViewModel({
+      selected: ['CYNK'],
+      result: response,
+      variant: 'light',
+    })
+
+    expect(viewModel.bonusBiomarkers).toEqual([])
   })
 })
