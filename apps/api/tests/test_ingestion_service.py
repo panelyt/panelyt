@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -855,10 +856,16 @@ class TestDiagClient:
         assert result is not None
         assert result.external_id == "123"
         assert result.kind == "single"
+        assert result.name == "ALT Test"
+        assert result.slug == "alt-test"
         assert result.price_now_grosz == 800
         assert result.price_min30_grosz == 900
+        assert result.currency == "PLN"
+        assert result.is_available is True
         assert result.biomarkers[0].elab_code == "ALT"
         assert result.biomarkers[0].external_id == "123"
+        assert result.biomarkers[0].slug == "alt-test"
+        assert result.biomarkers[0].name == "ALT Test"
 
     async def test_parse_product_package(self, diag_client):
         entry = {
@@ -882,9 +889,16 @@ class TestDiagClient:
         assert result is not None
         assert result.external_id == "456"
         assert result.kind == "package"
+        assert result.name == "Liver Panel"
+        assert result.slug == "liver-panel"
         assert result.price_now_grosz == 2000
+        assert result.price_min30_grosz == 2000
+        assert result.currency == "PLN"
+        assert result.is_available is True
         assert {b.elab_code for b in result.biomarkers} == {"ALT", "AST"}
         assert {b.external_id for b in result.biomarkers} == {"1001", "1002"}
+        assert {b.slug for b in result.biomarkers} == {"alt", "ast"}
+        assert {b.name for b in result.biomarkers} == {"ALT", "AST"}
 
     def test_pln_to_grosz(self):
         assert _pln_to_grosz("12,34") == 1234
@@ -893,10 +907,15 @@ class TestDiagClient:
     def test_normalize_identifier(self):
         assert _normalize_identifier("Białko całkowite") == "białko-całkowite"
 
-    async def test_parse_product_invalid_id(self, diag_client):
+    async def test_parse_product_invalid_id(self, diag_client, caplog):
         entry = {"id": "invalid", "name": "Test"}
+        caplog.set_level(logging.WARNING, logger="panelyt_api.ingest.client")
         result = diag_client._parse_product(entry)
         assert result is None
+        assert any(
+            "Skipping product without valid id" in record.message and "invalid" in record.message
+            for record in caplog.records
+        )
 
     async def test_parse_product_unavailable(self, diag_client):
         entry = {
@@ -910,6 +929,56 @@ class TestDiagClient:
 
         assert result is not None
         assert result.is_available is False
+
+    async def test_extract_biomarkers_bloodtest_uses_slug_and_fallback(self, diag_client):
+        entry = {
+            "type": "bloodtest",
+            "id": None,
+            "slug": "entry-slug",
+            "name": "ALT",
+            "elabCode": "ALT",
+        }
+
+        biomarkers = diag_client._extract_biomarkers_from_item(
+            entry, fallback_slug="fallback-slug"
+        )
+
+        assert len(biomarkers) == 1
+        biomarker = biomarkers[0]
+        assert biomarker.slug == "entry-slug"
+        assert biomarker.name == "ALT"
+        assert biomarker.external_id == "entry-slug"
+        assert biomarker.metadata == {"source": "diag_solo"}
+
+    async def test_extract_biomarkers_uses_fallback_slug_when_missing(self, diag_client):
+        entry = {"type": "bloodtest", "id": None, "name": "ALT"}
+
+        biomarkers = diag_client._extract_biomarkers_from_item(
+            entry, fallback_slug="fallback-slug"
+        )
+
+        assert len(biomarkers) == 1
+        biomarker = biomarkers[0]
+        assert biomarker.slug == "fallback-slug"
+        assert biomarker.external_id == "fallback-slug"
+
+    async def test_extract_biomarkers_from_products(self, diag_client):
+        entry = {
+            "type": "package",
+            "products": [
+                {"id": "1001", "slug": "alt", "name": "ALT", "elabCode": "ALT"},
+                {"name": "Gamma"},
+                "not-a-dict",
+            ],
+        }
+
+        biomarkers = diag_client._extract_biomarkers_from_item(entry, fallback_slug=None)
+
+        assert len(biomarkers) == 2
+        assert {b.external_id for b in biomarkers} == {"1001", "gamma"}
+        assert {b.slug for b in biomarkers} == {"alt", None}
+        assert {b.name for b in biomarkers} == {"ALT", "Gamma"}
+        assert all(b.metadata == {"source": "diag_package"} for b in biomarkers)
 
     async def test_close(self, diag_client, mock_http_client):
         """Test client cleanup."""

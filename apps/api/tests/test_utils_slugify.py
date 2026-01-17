@@ -16,3 +16,7 @@ def test_slugify_identifier_pl_preserves_polish_letters():
 def test_slugify_identifier_pl_collapses_non_alphanumerics():
     assert slugify_identifier_pl("LDL--cholesterol") == "ldl-cholesterol"
     assert slugify_identifier_pl(" LDL  cholesterol ") == "ldl-cholesterol"
+
+
+def test_slugify_identifier_pl_does_not_strip_letters():
+    assert slugify_identifier_pl("X-ALT-X") == "x-alt-x"
