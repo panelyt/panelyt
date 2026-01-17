@@ -117,7 +117,7 @@ _fmt-api args="":
 
 # _test-api: run api tests (optional args supported)
 _test-api args="":
-  @cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" {{uv_env}} {{uv}} run --extra dev pytest {{args}}
+  @cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" {{uv_env}} {{uv}} run --extra dev pytest --cov=panelyt_api --cov-report=term-missing --cov-report=xml --cov-fail-under=70 {{args}}
 
 # migrate: run api migrations
 migrate:
