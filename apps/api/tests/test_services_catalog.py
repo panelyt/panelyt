@@ -10,6 +10,7 @@ from panelyt_api.core.cache import biomarker_batch_cache
 from panelyt_api.db import models
 from panelyt_api.services import catalog
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
+from tests.factories import make_biomarker, make_institution, make_item, make_price_snapshot
 
 
 class TestCatalogService:
@@ -29,8 +30,8 @@ class TestCatalogService:
             # Add test biomarkers
             await db_session.execute(
                 insert(models.Biomarker).values([
-                    {"name": "ALT", "elab_code": "ALT", "slug": "alt"},
-                    {"name": "AST", "elab_code": "AST", "slug": "ast"},
+                    make_biomarker(name="ALT", elab_code="ALT", slug="alt"),
+                    make_biomarker(name="AST", elab_code="AST", slug="ast"),
                 ])
             )
 
@@ -38,35 +39,29 @@ class TestCatalogService:
             fetched_time = datetime.now(timezone.utc)
             await db_session.execute(
                 insert(models.Institution).values(
-                    {"id": DEFAULT_INSTITUTION_ID, "name": "Institution 1135"}
+                    make_institution(id=DEFAULT_INSTITUTION_ID, name="Institution 1135")
                 )
             )
             await db_session.execute(
                 insert(models.Item).values([
-                    {
-                        "id": 1,
-                        "external_id": "item-1",
-                        "kind": "single",
-                        "name": "ALT Test",
-                        "slug": "alt-test",
-                        "price_now_grosz": 1000,
-                        "price_min30_grosz": 950,
-                        "currency": "PLN",
-                        "is_available": True,
-                        "fetched_at": fetched_time,
-                    },
-                    {
-                        "id": 2,
-                        "external_id": "item-2",
-                        "kind": "single",
-                        "name": "AST Test",
-                        "slug": "ast-test",
-                        "price_now_grosz": 1200,
-                        "price_min30_grosz": 1100,
-                        "currency": "PLN",
-                        "is_available": True,
-                        "fetched_at": fetched_time,
-                    },
+                    make_item(
+                        id=1,
+                        external_id="item-1",
+                        name="ALT Test",
+                        slug="alt-test",
+                        price_now_grosz=1000,
+                        price_min30_grosz=950,
+                        fetched_at=fetched_time,
+                    ),
+                    make_item(
+                        id=2,
+                        external_id="item-2",
+                        name="AST Test",
+                        slug="ast-test",
+                        price_now_grosz=1200,
+                        price_min30_grosz=1100,
+                        fetched_at=fetched_time,
+                    ),
                 ])
             )
 
@@ -76,30 +71,27 @@ class TestCatalogService:
 
             await db_session.execute(
                 insert(models.PriceSnapshot).values([
-                    {
-                        "institution_id": DEFAULT_INSTITUTION_ID,
-                        "item_id": 1,
-                        "snap_date": today,
-                        "price_now_grosz": 1000,
-                        "price_min30_grosz": 1000,
-                        "is_available": True,
-                    },
-                    {
-                        "institution_id": DEFAULT_INSTITUTION_ID,
-                        "item_id": 1,
-                        "snap_date": yesterday,
-                        "price_now_grosz": 1100,
-                        "price_min30_grosz": 1100,
-                        "is_available": True,
-                    },
-                    {
-                        "institution_id": DEFAULT_INSTITUTION_ID,
-                        "item_id": 2,
-                        "snap_date": today,
-                        "price_now_grosz": 1200,
-                        "price_min30_grosz": 1200,
-                        "is_available": True,
-                    },
+                    make_price_snapshot(
+                        institution_id=DEFAULT_INSTITUTION_ID,
+                        item_id=1,
+                        snap_date=today,
+                        price_now_grosz=1000,
+                        price_min30_grosz=1000,
+                    ),
+                    make_price_snapshot(
+                        institution_id=DEFAULT_INSTITUTION_ID,
+                        item_id=1,
+                        snap_date=yesterday,
+                        price_now_grosz=1100,
+                        price_min30_grosz=1100,
+                    ),
+                    make_price_snapshot(
+                        institution_id=DEFAULT_INSTITUTION_ID,
+                        item_id=2,
+                        snap_date=today,
+                        price_now_grosz=1200,
+                        price_min30_grosz=1200,
+                    ),
                 ])
             )
 

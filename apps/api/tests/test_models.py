@@ -9,6 +9,7 @@ from sqlalchemy import insert, select
 from sqlalchemy.orm import selectinload
 
 from panelyt_api.db import models
+from tests.factories import make_item, make_raw_snapshot
 
 
 class TestDatabaseModels:
@@ -78,20 +79,22 @@ class TestDatabaseModels:
             fetched_time = datetime.now(timezone.utc)
 
             await db_session.execute(
-                insert(models.Item).values({
-                    "id": 123,
-                    "external_id": "123",
-                    "kind": "single",
-                    "name": "ALT Test",
-                    "slug": "alt-test",
-                    "price_now_grosz": 1000,
-                    "price_min30_grosz": 900,
-                    "currency": "PLN",
-                    "is_available": True,
-                    "fetched_at": fetched_time,
-                    "sale_price_grosz": 800,
-                    "regular_price_grosz": 1000,
-                })
+                insert(models.Item).values(
+                    make_item(
+                        id=123,
+                        external_id="123",
+                        kind="single",
+                        name="ALT Test",
+                        slug="alt-test",
+                        price_now_grosz=1000,
+                        price_min30_grosz=900,
+                        currency="PLN",
+                        is_available=True,
+                        fetched_at=fetched_time,
+                        sale_price_grosz=800,
+                        regular_price_grosz=1000,
+                    )
+                )
             )
             await db_session.commit()
 
@@ -475,11 +478,13 @@ class TestDatabaseModels:
             raw_data = {"test": "data", "items": [1, 2, 3]}
 
             await db_session.execute(
-                insert(models.RawSnapshot).values({
-                    "source": "test-source",
-                    "fetched_at": snapshot_time,
-                    "payload": raw_data,
-                })
+                insert(models.RawSnapshot).values(
+                    make_raw_snapshot(
+                        source="test-source",
+                        fetched_at=snapshot_time,
+                        payload=raw_data,
+                    )
+                )
             )
             await db_session.commit()
 
