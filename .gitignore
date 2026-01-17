@@ -12,6 +12,7 @@ __pycache__/
 *.pyd
 *.egg-info/
 build/
+.coverage
 .env
 .venv/
 .uv-cache/
@@ -20,6 +21,7 @@ build/
 .next/
 out/
 dist/
+coverage.xml
 coverage/
 *.tsbuildinfo
 
