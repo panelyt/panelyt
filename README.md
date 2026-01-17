@@ -51,7 +51,7 @@ infra/
 ## Backend highlights
 
 - FastAPI + SQLAlchemy + Alembic, backed by Postgres (`panelyt` schema).
-- APScheduler triggers ingestion nightly at 03:15 Europe/Oslo and on-demand when data is stale (>3h).
+- APScheduler triggers ingestion nightly at 03:15 Europe/Warsaw and on-demand when data is stale (>24h).
 - Ingestion normalizes diag.pl products, stores per-item snapshots, and prunes history beyond 35 days.
 - Optimization uses OR-Tools CP-SAT to cover requested biomarkers while minimizing current prices and
   reporting 30-day historical totals.
