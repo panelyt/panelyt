@@ -40,6 +40,7 @@ dev = [
   "schemathesis>=3.27",
   "respx>=0.21",
   "freezegun>=1.5",
+  "hypothesis>=6.103",
   "ruff>=0.5",
   "mypy>=1.10",
   "types-cachetools",
