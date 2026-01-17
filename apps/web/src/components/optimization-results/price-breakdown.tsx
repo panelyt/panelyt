@@ -20,13 +20,14 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
     isDark,
     variant,
     groups,
-    selectedSet,
+    bonusBiomarkers,
     displayNameFor,
     counts,
     result,
     pricing,
     overlaps,
   } = viewModel;
+  const bonusSet = new Set(bonusBiomarkers);
 
   const [isHighlighting, setIsHighlighting] = useState(false);
   const previousTotalRef = useRef<number | null>(null);
@@ -146,7 +147,7 @@ export function PriceBreakdownSection({ viewModel }: PriceBreakdownSectionProps)
                         </a>
                         <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] font-semibold">
                           {item.biomarkers.map((biomarker) => {
-                            const isBonus = !selectedSet.has(biomarker);
+                            const isBonus = bonusSet.has(biomarker);
                             const displayName = displayNameFor(biomarker);
                             return (
                               <span

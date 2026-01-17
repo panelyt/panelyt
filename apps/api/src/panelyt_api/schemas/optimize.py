@@ -39,6 +39,7 @@ class OptimizeResponse(APIModel):
     currency: str = "PLN"
     items: list[ItemOut]
     bonus_total_now: float = 0.0
+    bonus_biomarkers: list[str] = Field(default_factory=list)
     explain: dict[str, list[str]]
     uncovered: list[str]
     labels: dict[str, str] = Field(default_factory=dict)

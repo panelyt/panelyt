@@ -94,6 +94,7 @@ const sampleResult = {
     },
   ],
   bonus_total_now: 0,
+  bonus_biomarkers: [],
   explain: {},
   uncovered: [],
   labels: {

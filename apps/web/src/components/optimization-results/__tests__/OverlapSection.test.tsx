@@ -39,6 +39,7 @@ const makeResult = (): OptimizeResponse => ({
     },
   ],
   bonus_total_now: 0,
+  bonus_biomarkers: [],
   explain: {},
   uncovered: [],
   labels: { ALT: 'ALT' },

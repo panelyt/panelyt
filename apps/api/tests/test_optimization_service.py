@@ -473,6 +473,72 @@ class TestOptimizationService:
         assert labels["22"] == "Selen"
 
     @pytest.mark.asyncio
+    async def test_build_response_expands_panel_requests_for_bonus(
+        self, service, db_session
+    ):
+        """Panel selections should not mark component biomarkers as bonus."""
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.InstitutionItem))
+        await db_session.execute(delete(models.Institution))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+
+        await insert_institution(db_session)
+
+        await db_session.execute(
+            insert(models.Biomarker).values(
+                [
+                    {"id": 19, "name": "Panel", "elab_code": "19", "slug": "panel"},
+                    {"id": 20, "name": "ALT", "elab_code": "20", "slug": "alt"},
+                    {"id": 21, "name": "AST", "elab_code": "21", "slug": "ast"},
+                    {"id": 22, "name": "ALP", "elab_code": "22", "slug": "alp"},
+                    {"id": 23, "name": "BIL", "elab_code": "23", "slug": "bil"},
+                    {"id": 26, "name": "GGTP", "elab_code": "26", "slug": "ggtp"},
+                ]
+            )
+        )
+
+        panel_item = {
+            "id": 10,
+            "external_id": "605348830",
+            "kind": "single",
+            "name": "Proby watrobowe (ALT, AST, ALP, BIL, GGTP)",
+            "slug": "proby-watrobowe-alt-ast-alp-bil-ggtp",
+            "price_now_grosz": 6555,
+            "price_min30_grosz": 2375,
+            "currency": "PLN",
+            "is_available": True,
+        }
+        await insert_items_with_offers(db_session, [panel_item])
+        await db_session.commit()
+
+        candidate = CandidateItem(
+            id=10,
+            kind="single",
+            name=panel_item["name"],
+            slug=panel_item["slug"],
+            external_id=panel_item["external_id"],
+            price_now=panel_item["price_now_grosz"],
+            price_min30=panel_item["price_min30_grosz"],
+            sale_price=None,
+            regular_price=None,
+            is_synthetic_package=True,
+            coverage={"20", "21", "22", "23", "26"},
+        )
+
+        response, _labels = await service._build_response(
+            [candidate],
+            [],
+            ["19"],
+            DEFAULT_INSTITUTION_ID,
+        )
+
+        assert response.items[0].biomarkers == ["20", "21", "22", "23", "26"]
+        assert response.bonus_biomarkers == []
+        assert response.bonus_total_now == 0.0
+
+    @pytest.mark.asyncio
     async def test_build_response_expands_panel_biomarkers_for_packages(
         self, service, db_session
     ):

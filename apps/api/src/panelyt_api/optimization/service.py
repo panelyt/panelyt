@@ -1020,7 +1020,7 @@ class OptimizationService:
             labels,
         )
 
-        requested_normalized = normalize_tokens_set(list(requested_tokens))
+        requested_normalized = self._expand_requested_tokens(requested_tokens)
         bonus_tokens: dict[str, str] = {}
         for item in chosen:
             for token in biomarkers_by_item.get(item.id, []):
@@ -1034,6 +1034,7 @@ class OptimizationService:
         bonus_price_map = await self._bonus_price_map(bonus_tokens, institution_id)
         bonus_total_grosz = sum(bonus_price_map.get(key, 0) for key in bonus_tokens.keys())
         bonus_total_now = round(bonus_total_grosz / 100, 2) if bonus_total_grosz else 0.0
+        bonus_biomarkers = sorted({token for token in bonus_tokens.values() if token})
 
         items_payload = [
             ItemOut(
@@ -1058,6 +1059,7 @@ class OptimizationService:
             currency=DEFAULT_CURRENCY,
             items=items_payload,
             bonus_total_now=bonus_total_now,
+            bonus_biomarkers=bonus_biomarkers,
             explain=explain,
             uncovered=list(uncovered),
             labels=labels,
@@ -1084,16 +1086,7 @@ class OptimizationService:
         if not synthetic_packages or not biomarkers_by_item:
             return
 
-        panel_components: dict[str, tuple[str, ...]] = {}
-        for mapping in synthetic_packages:
-            panel_code = mapping.panel_elab_code
-            if not panel_code or not mapping.component_elab_codes:
-                continue
-            normalized_panel = normalize_token(panel_code)
-            if not normalized_panel:
-                continue
-            panel_components[normalized_panel] = mapping.component_elab_codes
-
+        panel_components = OptimizationService._panel_components_by_code(synthetic_packages)
         if not panel_components:
             return
 
@@ -1117,6 +1110,44 @@ class OptimizationService:
                     expanded.append(token)
                     seen.add(token)
             biomarkers_by_item[item_id] = expanded
+
+    @staticmethod
+    def _panel_components_by_code(
+        synthetic_packages: Sequence[SyntheticPackage],
+    ) -> dict[str, tuple[str, ...]]:
+        panel_components: dict[str, tuple[str, ...]] = {}
+        for mapping in synthetic_packages:
+            panel_code = mapping.panel_elab_code
+            if not panel_code or not mapping.component_elab_codes:
+                continue
+            normalized_panel = normalize_token(panel_code)
+            if not normalized_panel:
+                continue
+            panel_components[normalized_panel] = mapping.component_elab_codes
+        return panel_components
+
+    @staticmethod
+    def _expand_requested_tokens(requested_tokens: Sequence[str]) -> set[str]:
+        if not requested_tokens:
+            return set()
+
+        synthetic_packages = load_diag_synthetic_packages()
+        if not synthetic_packages:
+            return normalize_tokens_set(list(requested_tokens))
+
+        panel_components = OptimizationService._panel_components_by_code(synthetic_packages)
+        if not panel_components:
+            return normalize_tokens_set(list(requested_tokens))
+
+        expanded: list[str] = []
+        for token in requested_tokens:
+            normalized = normalize_token(token)
+            components = panel_components.get(normalized or "")
+            if components:
+                expanded.extend(components)
+            else:
+                expanded.append(token)
+        return normalize_tokens_set(expanded)
 
     async def _augment_labels_for_tokens(
         self,
