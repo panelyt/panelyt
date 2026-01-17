@@ -15,12 +15,11 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "pnpm dev",
+    command: `pnpm exec next dev --hostname 0.0.0.0 --port ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     env: {
       NEXT_PUBLIC_API_URL: "http://localhost:8000",
-      PORT: String(PORT),
     },
   },
   projects: [

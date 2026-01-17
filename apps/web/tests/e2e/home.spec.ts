@@ -299,7 +299,10 @@ test.describe("optimizer e2e", () => {
     await page.getByRole("option", { name: "ALT" }).click();
     await expect(page.getByRole("button", { name: "Remove ALT" })).toBeVisible();
 
-    await page.getByRole("button", { name: "Save" }).click();
+    await page
+      .getByTestId("sticky-summary-bar")
+      .getByRole("button", { name: "Save" })
+      .click();
     await page.getByLabel("Panel name").fill("Annual checkup");
     await page.getByRole("button", { name: "Save panel" }).click();
     await expect(page.locator("#save-list-name")).toBeHidden();
