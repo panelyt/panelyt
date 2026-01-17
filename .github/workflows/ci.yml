@@ -54,3 +54,36 @@ jobs:
           name: api-coverage
           path: apps/api/coverage.xml
           if-no-files-found: error
+
+  api-integration:
+    name: Run API integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: panelyt_integration
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Sync API dependencies
+        run: cd apps/api && UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache uv sync --extra dev
+
+      - name: Run API integration tests
+        env:
+          INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/panelyt_integration
+          INTEGRATION_DB_SCHEMA: panelyt_integration
+        run: cd apps/api && UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache uv run --extra dev pytest -m integration

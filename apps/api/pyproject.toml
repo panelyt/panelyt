@@ -53,6 +53,7 @@ where = ["src"]
 addopts = "-ra --randomly-seed=last"
 asyncio_mode = "auto"
 pythonpath = ["src"]
+markers = ["integration: tests that require PostgreSQL"]
 
 [tool.ruff]
 line-length = 100
