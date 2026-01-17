@@ -87,3 +87,30 @@ jobs:
           INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/panelyt_integration
           INTEGRATION_DB_SCHEMA: panelyt_integration
         run: cd apps/api && UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache uv run --extra dev pytest -m integration
+
+  web-e2e:
+    name: Run web e2e tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @panelyt/web exec playwright install --with-deps
+
+      - name: Run Playwright tests
+        run: pnpm --filter @panelyt/web test:e2e
