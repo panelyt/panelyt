@@ -47,12 +47,12 @@ const optimizeResponse = {
 
 describe("useOptimization", () => {
   it("includes institution id in optimize query keys and request", async () => {
-    let lastUrl: URL | null = null;
+    let lastUrl: string | null = null;
     let lastBody: unknown = null;
 
     server.use(
       http.post("http://localhost:8000/optimize", async ({ request }) => {
-        lastUrl = new URL(request.url);
+        lastUrl = request.url;
         lastBody = await request.json();
         return HttpResponse.json(optimizeResponse);
       }),
@@ -65,7 +65,11 @@ describe("useOptimization", () => {
 
     const keys = queryClient.getQueryCache().findAll().map((query) => query.queryKey);
     expect(keys).toContainEqual(["optimize", "alt", 2222]);
-    expect(lastUrl?.searchParams.get("institution")).toBe("2222");
+    if (!lastUrl) {
+      throw new Error("Expected optimize request URL to be captured");
+    }
+    const parsedUrl = new URL(lastUrl);
+    expect(parsedUrl.searchParams.get("institution")).toBe("2222");
     expect(lastBody).toEqual({ biomarkers: ["ALT"] });
   });
 
@@ -85,12 +89,12 @@ describe("useOptimization", () => {
 
 describe("useAddonSuggestions", () => {
   it("includes institution id and selected ids in addon request", async () => {
-    let lastUrl: URL | null = null;
+    let lastUrl: string | null = null;
     let lastBody: unknown = null;
 
     server.use(
       http.post("http://localhost:8000/optimize/addons", async ({ request }) => {
-        lastUrl = new URL(request.url);
+        lastUrl = request.url;
         lastBody = await request.json();
         return HttpResponse.json({ addon_suggestions: [], labels: {} });
       }),
@@ -106,7 +110,11 @@ describe("useAddonSuggestions", () => {
 
     const keys = queryClient.getQueryCache().findAll().map((query) => query.queryKey);
     expect(keys).toContainEqual(["optimize-addons", "alt", "1,2", 2222]);
-    expect(lastUrl?.searchParams.get("institution")).toBe("2222");
+    if (!lastUrl) {
+      throw new Error("Expected addon request URL to be captured");
+    }
+    const parsedUrl = new URL(lastUrl);
+    expect(parsedUrl.searchParams.get("institution")).toBe("2222");
     expect(lastBody).toEqual({ biomarkers: ["ALT"], selected_item_ids: [1, 2] });
   });
 });

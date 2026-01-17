@@ -21,11 +21,11 @@ function createWrapper() {
 
 describe("useCatalogSearch", () => {
   it("requests catalog search with query params", async () => {
-    let lastUrl: URL | null = null;
+    const lastUrlRef = { current: null as string | null };
 
     server.use(
       http.get("http://localhost:8000/catalog/search", ({ request }) => {
-        lastUrl = new URL(request.url);
+        lastUrlRef.current = request.url;
         return HttpResponse.json({
           results: [
             {
@@ -46,8 +46,13 @@ describe("useCatalogSearch", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(lastUrl?.searchParams.get("query")).toBe("ALT");
-    expect(lastUrl?.searchParams.get("institution")).toBe("2222");
+    if (!lastUrlRef.current) {
+      throw new Error("Expected catalog request URL to be captured");
+    }
+
+    const parsedUrl = new URL(lastUrlRef.current);
+    expect(parsedUrl.searchParams.get("query")).toBe("ALT");
+    expect(parsedUrl.searchParams.get("institution")).toBe("2222");
   });
 
   it("surfaces schema errors for invalid catalog payloads", async () => {
