@@ -311,6 +311,50 @@ class TestIngestionService:
                 assert await asyncio.wait_for(first, timeout=0.1) is True
                 assert mock_run.await_count == 1
 
+    def test_lock_is_busy_true_with_active_waiters(self, ingestion_service) -> None:
+        class DummyWaiter:
+            def __init__(self, cancelled: bool) -> None:
+                self._cancelled = cancelled
+
+            def cancelled(self) -> bool:
+                return self._cancelled
+
+        class DummyLock:
+            def __init__(self) -> None:
+                self._waiters = [DummyWaiter(False)]
+
+            def locked(self) -> bool:
+                return False
+
+        with patch.object(IngestionService, "_run_lock", DummyLock()):
+            assert ingestion_service._lock_is_busy() is True
+
+    def test_lock_is_busy_false_with_cancelled_waiters(self, ingestion_service) -> None:
+        class DummyWaiter:
+            def __init__(self, cancelled: bool) -> None:
+                self._cancelled = cancelled
+
+            def cancelled(self) -> bool:
+                return self._cancelled
+
+        class DummyLock:
+            def __init__(self) -> None:
+                self._waiters = [DummyWaiter(True)]
+
+            def locked(self) -> bool:
+                return False
+
+        with patch.object(IngestionService, "_run_lock", DummyLock()):
+            assert ingestion_service._lock_is_busy() is False
+
+    def test_lock_is_busy_false_without_waiters_attribute(self, ingestion_service) -> None:
+        class DummyLock:
+            def locked(self) -> bool:
+                return False
+
+        with patch.object(IngestionService, "_run_lock", DummyLock()):
+            assert ingestion_service._lock_is_busy() is False
+
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_run_successful_ingestion(
@@ -607,6 +651,119 @@ class TestIngestionService:
 
         result = await ingestion_service._should_skip_scheduled_run({1135})
         assert result is False
+
+    @patch("panelyt_api.ingest.service.InstitutionService")
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_evaluate_freshness_uses_institution_id(
+        self,
+        mock_repo_class,
+        mock_get_session,
+        mock_institution_service,
+        ingestion_service,
+        monkeypatch,
+    ):
+        fixed_now = datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC)
+
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return fixed_now
+
+        monkeypatch.setattr("panelyt_api.ingest.service.datetime", FixedDateTime)
+
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.latest_fetched_at.return_value = fixed_now
+        mock_repo.latest_snapshot_date.return_value = fixed_now.date()
+        mock_repo_class.return_value = mock_repo
+
+        service_instance = mock_institution_service.return_value
+        service_instance.ensure_institution = AsyncMock()
+
+        needs_snapshot, is_stale = await ingestion_service._evaluate_freshness(2222)
+
+        assert needs_snapshot is False
+        assert is_stale is False
+        mock_repo.latest_fetched_at.assert_awaited_once_with(2222)
+        mock_repo.latest_snapshot_date.assert_awaited_once_with(2222)
+
+    @patch("panelyt_api.ingest.service.InstitutionService")
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_evaluate_freshness_handles_naive_fetch_time(
+        self,
+        mock_repo_class,
+        mock_get_session,
+        mock_institution_service,
+        ingestion_service,
+        monkeypatch,
+    ):
+        fixed_now = datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC)
+
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return fixed_now
+
+        monkeypatch.setattr("panelyt_api.ingest.service.datetime", FixedDateTime)
+
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.latest_fetched_at.return_value = fixed_now.replace(tzinfo=None)
+        mock_repo.latest_snapshot_date.return_value = fixed_now.date()
+        mock_repo_class.return_value = mock_repo
+        mock_institution_service.return_value.ensure_institution = AsyncMock()
+
+        needs_snapshot, is_stale = await ingestion_service._evaluate_freshness(1135)
+
+        assert needs_snapshot is False
+        assert is_stale is False
+
+    @patch("panelyt_api.ingest.service.InstitutionService")
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_evaluate_freshness_stale_threshold_boundary(
+        self,
+        mock_repo_class,
+        mock_get_session,
+        mock_institution_service,
+        ingestion_service,
+        monkeypatch,
+    ):
+        fixed_now = datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC)
+
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return fixed_now
+
+        monkeypatch.setattr("panelyt_api.ingest.service.datetime", FixedDateTime)
+
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        stale_threshold = fixed_now - timedelta(
+            hours=ingestion_service._settings.ingestion_staleness_threshold_hours
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.latest_fetched_at.return_value = stale_threshold
+        mock_repo.latest_snapshot_date.return_value = fixed_now.date()
+        mock_repo_class.return_value = mock_repo
+        mock_institution_service.return_value.ensure_institution = AsyncMock()
+
+        needs_snapshot, is_stale = await ingestion_service._evaluate_freshness(1135)
+
+        assert needs_snapshot is False
+        assert is_stale is False
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")

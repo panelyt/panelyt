@@ -91,31 +91,34 @@ def test_backfill_institution_items_copies_item_fields():
     engine = create_engine("sqlite://")
     fetched_at = "2026-01-12 10:00:00"
 
-    with engine.begin() as connection:
-        _create_item_table(connection)
-        _create_institution_item_table(connection)
-        connection.execute(
-            text(
-                "INSERT INTO item ("
-                "id, is_available, currency, price_now_grosz, price_min30_grosz, "
-                "sale_price_grosz, regular_price_grosz, fetched_at"
-                ") VALUES ("
-                "1, 1, 'PLN', 1200, 1000, 800, 1500, :fetched_at"
-                ")"
-            ),
-            {"fetched_at": fetched_at},
-        )
-
-        module._backfill_institution_items(connection, 1135)
-
-        row = connection.execute(
-            text(
-                "SELECT institution_id, item_id, is_available, currency, "
-                "price_now_grosz, price_min30_grosz, sale_price_grosz, "
-                "regular_price_grosz, fetched_at "
-                "FROM institution_item"
+    try:
+        with engine.begin() as connection:
+            _create_item_table(connection)
+            _create_institution_item_table(connection)
+            connection.execute(
+                text(
+                    "INSERT INTO item ("
+                    "id, is_available, currency, price_now_grosz, price_min30_grosz, "
+                    "sale_price_grosz, regular_price_grosz, fetched_at"
+                    ") VALUES ("
+                    "1, 1, 'PLN', 1200, 1000, 800, 1500, :fetched_at"
+                    ")"
+                ),
+                {"fetched_at": fetched_at},
             )
-        ).one()
+
+            module._backfill_institution_items(connection, 1135)
+
+            row = connection.execute(
+                text(
+                    "SELECT institution_id, item_id, is_available, currency, "
+                    "price_now_grosz, price_min30_grosz, sale_price_grosz, "
+                    "regular_price_grosz, fetched_at "
+                    "FROM institution_item"
+                )
+            ).one()
+    finally:
+        engine.dispose()
 
     assert row[0] == 1135
     assert row[1] == 1
@@ -134,38 +137,41 @@ def test_backfill_price_snapshots_sets_institution_and_prices():
     engine = create_engine("sqlite://")
     seen_at = "2026-01-12 11:00:00"
 
-    with engine.begin() as connection:
-        _create_item_table(connection)
-        _create_price_snapshot_table(connection)
-        connection.execute(
-            text(
-                "INSERT INTO item ("
-                "id, is_available, currency, price_now_grosz, price_min30_grosz, "
-                "sale_price_grosz, regular_price_grosz, fetched_at"
-                ") VALUES ("
-                "9, 1, 'PLN', 1600, 1400, 1200, 1800, :fetched_at"
-                ")"
-            ),
-            {"fetched_at": seen_at},
-        )
-        connection.execute(
-            text(
-                "INSERT INTO price_snapshot ("
-                "item_id, snap_date, price_now_grosz, is_available, seen_at"
-                ") VALUES ("
-                "9, '2026-01-12', 1600, 1, :seen_at"
-                ")"
-            ),
-            {"seen_at": seen_at},
-        )
-
-        module._backfill_price_snapshots(connection, 1135)
-
-        row = connection.execute(
-            text(
-                "SELECT institution_id, price_min30_grosz, sale_price_grosz, "
-                "regular_price_grosz FROM price_snapshot"
+    try:
+        with engine.begin() as connection:
+            _create_item_table(connection)
+            _create_price_snapshot_table(connection)
+            connection.execute(
+                text(
+                    "INSERT INTO item ("
+                    "id, is_available, currency, price_now_grosz, price_min30_grosz, "
+                    "sale_price_grosz, regular_price_grosz, fetched_at"
+                    ") VALUES ("
+                    "9, 1, 'PLN', 1600, 1400, 1200, 1800, :fetched_at"
+                    ")"
+                ),
+                {"fetched_at": seen_at},
             )
-        ).one()
+            connection.execute(
+                text(
+                    "INSERT INTO price_snapshot ("
+                    "item_id, snap_date, price_now_grosz, is_available, seen_at"
+                    ") VALUES ("
+                    "9, '2026-01-12', 1600, 1, :seen_at"
+                    ")"
+                ),
+                {"seen_at": seen_at},
+            )
+
+            module._backfill_price_snapshots(connection, 1135)
+
+            row = connection.execute(
+                text(
+                    "SELECT institution_id, price_min30_grosz, sale_price_grosz, "
+                    "regular_price_grosz FROM price_snapshot"
+                )
+            ).one()
+    finally:
+        engine.dispose()
 
     assert row == (1135, 1400, 1200, 1800)

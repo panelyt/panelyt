@@ -41,27 +41,36 @@ def test_enforce_slug_not_null_raises_when_null_exists():
     module = _load_migration_module()
 
     engine = create_engine("sqlite://")
-    with engine.begin() as connection:
-        _create_biomarker_table(connection)
-        connection.execute(
-            text("INSERT INTO biomarker (id, elab_code, slug, name) VALUES (1, 'A1', NULL, 'Alpha')")
-        )
+    try:
+        with engine.begin() as connection:
+            _create_biomarker_table(connection)
+            connection.execute(
+                text(
+                    "INSERT INTO biomarker (id, elab_code, slug, name) "
+                    "VALUES (1, 'A1', NULL, 'Alpha')"
+                )
+            )
 
-        with pytest.raises(RuntimeError, match="biomarker.slug contains NULLs"):
-            module._ensure_biomarker_slug_not_null(connection)
+            with pytest.raises(RuntimeError, match="biomarker.slug contains NULLs"):
+                module._ensure_biomarker_slug_not_null(connection)
+    finally:
+        engine.dispose()
 
 
 def test_enforce_slug_not_null_passes_when_data_clean():
     module = _load_migration_module()
 
     engine = create_engine("sqlite://")
-    with engine.begin() as connection:
-        _create_biomarker_table(connection)
-        connection.execute(
-            text(
-                "INSERT INTO biomarker (id, elab_code, slug, name) "
-                "VALUES (1, 'A1', 'alpha', 'Alpha')"
+    try:
+        with engine.begin() as connection:
+            _create_biomarker_table(connection)
+            connection.execute(
+                text(
+                    "INSERT INTO biomarker (id, elab_code, slug, name) "
+                    "VALUES (1, 'A1', 'alpha', 'Alpha')"
+                )
             )
-        )
 
-        module._ensure_biomarker_slug_not_null(connection)
+            module._ensure_biomarker_slug_not_null(connection)
+    finally:
+        engine.dispose()
