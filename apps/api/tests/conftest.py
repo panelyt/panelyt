@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.core.settings import Settings, get_settings
+from panelyt_api.db import session as session_module
 from panelyt_api.db.base import Base
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
@@ -37,6 +38,12 @@ def clear_caches() -> None:
     clear_all_caches()
     load_diag_synthetic_packages.cache_clear()
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+async def dispose_global_engine() -> None:
+    yield
+    await session_module.dispose_engine()
 
 
 @pytest.fixture
@@ -115,9 +122,10 @@ def app(override_get_settings, override_get_db_session):
 
 
 @pytest.fixture
-def client(app) -> TestClient:
+def client(app) -> Iterator[TestClient]:
     """Create test client."""
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture

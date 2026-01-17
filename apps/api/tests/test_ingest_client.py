@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from unittest.mock import AsyncMock
 
 from panelyt_api.ingest import client as diag_client
 from panelyt_api.ingest.client import DiagClient
@@ -113,3 +114,61 @@ async def test_parse_institution_reads_slug_and_city_slug():
     assert parsed is not None
     assert parsed.slug == "punkt-pobran-diagnostyki-warszawa-al-dwudziestolatkow-3"
     assert parsed.city_slug == "warszawa"
+
+
+def test_parse_institution_falls_back_to_institution_id():
+    client = DiagClient(client=AsyncMock())
+    entry = {
+        "institutionId": "314",
+        "fullName": "Diag Center",
+        "address": "Main 1",
+    }
+
+    parsed = client._parse_institution(entry)
+    assert parsed is not None
+    assert parsed.id == 314
+    assert parsed.name == "Diag Center"
+
+
+def test_compose_address_uses_fallback_keys():
+    client = DiagClient(client=AsyncMock())
+    entry = {
+        "streetName": "Main",
+        "buildingNumber": "12",
+        "localNumber": "5",
+    }
+
+    assert client._compose_address(entry) == "Main 12/5"
+
+
+def test_compose_address_handles_missing_street():
+    client = DiagClient(client=AsyncMock())
+    entry = {"building": "7", "local": "2"}
+
+    assert client._compose_address(entry) == "7/2"
+
+
+def test_compose_address_returns_none_when_empty():
+    client = DiagClient(client=AsyncMock())
+    assert client._compose_address({}) is None
+
+
+def test_extract_address_prefers_address_string():
+    client = DiagClient(client=AsyncMock())
+    entry = {"address": "  Main 1  "}
+
+    assert client._extract_address(entry) == "Main 1"
+
+
+def test_extract_address_falls_back_to_full_line():
+    client = DiagClient(client=AsyncMock())
+    entry = {"address": {"full": "Main 2"}}
+
+    assert client._extract_address(entry) == "Main 2"
+
+
+def test_extract_address_from_entry_fields():
+    client = DiagClient(client=AsyncMock())
+    entry = {"street": "Main", "number": "3"}
+
+    assert client._extract_address(entry) == "Main 3"

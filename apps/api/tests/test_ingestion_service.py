@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
 from panelyt_api.core.cache import clear_all_caches
+from panelyt_api.core.diag import DIAG_CODE
 from panelyt_api.core.settings import Settings
 from panelyt_api.ingest.client import DiagClient, _normalize_identifier, _pln_to_grosz
 from panelyt_api.ingest.types import DiagInstitution
@@ -187,6 +189,30 @@ class TestIngestionService:
                 await release_task
                 mock_run.assert_not_awaited()
 
+    async def test_ensure_fresh_data_blocking_busy_rechecks_and_runs(
+        self, ingestion_service
+    ):
+        lock = asyncio.Lock()
+        with patch.object(IngestionService, "_run_lock", lock), patch.object(
+            ingestion_service, "_lock_is_busy", return_value=True
+        ), patch.object(
+            ingestion_service, "_evaluate_freshness", new_callable=AsyncMock
+        ) as mock_evaluate, patch.object(
+            ingestion_service, "run", new_callable=AsyncMock
+        ) as mock_run, patch(
+            "panelyt_api.ingest.service.freshness_cache.mark_checked"
+        ) as mock_mark_checked:
+            mock_evaluate.side_effect = [(True, False), (True, False)]
+
+            await ingestion_service.ensure_fresh_data(2222, blocking=True)
+
+            mock_evaluate.assert_has_awaits([call(2222), call(2222)])
+            assert mock_mark_checked.call_args_list == [call(2222), call(2222)]
+            mock_run.assert_awaited_once_with(
+                reason="staleness_check",
+                institution_id=2222,
+            )
+
     @patch("panelyt_api.ingest.service.InstitutionService")
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
@@ -310,6 +336,50 @@ class TestIngestionService:
                 assert await asyncio.wait_for(first, timeout=0.1) is True
                 assert mock_run.await_count == 1
 
+    def test_lock_is_busy_true_with_active_waiters(self, ingestion_service) -> None:
+        class DummyWaiter:
+            def __init__(self, cancelled: bool) -> None:
+                self._cancelled = cancelled
+
+            def cancelled(self) -> bool:
+                return self._cancelled
+
+        class DummyLock:
+            def __init__(self) -> None:
+                self._waiters = [DummyWaiter(False)]
+
+            def locked(self) -> bool:
+                return False
+
+        with patch.object(IngestionService, "_run_lock", DummyLock()):
+            assert ingestion_service._lock_is_busy() is True
+
+    def test_lock_is_busy_false_with_cancelled_waiters(self, ingestion_service) -> None:
+        class DummyWaiter:
+            def __init__(self, cancelled: bool) -> None:
+                self._cancelled = cancelled
+
+            def cancelled(self) -> bool:
+                return self._cancelled
+
+        class DummyLock:
+            def __init__(self) -> None:
+                self._waiters = [DummyWaiter(True)]
+
+            def locked(self) -> bool:
+                return False
+
+        with patch.object(IngestionService, "_run_lock", DummyLock()):
+            assert ingestion_service._lock_is_busy() is False
+
+    def test_lock_is_busy_false_without_waiters_attribute(self, ingestion_service) -> None:
+        class DummyLock:
+            def locked(self) -> bool:
+                return False
+
+        with patch.object(IngestionService, "_run_lock", DummyLock()):
+            assert ingestion_service._lock_is_busy() is False
+
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
     async def test_run_successful_ingestion(
@@ -371,6 +441,172 @@ class TestIngestionService:
             mock_repo.prune_snapshots.assert_called_once()
             mock_repo.prune_missing_offers.assert_awaited_once_with(1135, ["1"])
             mock_repo.finalize_run_log.assert_called_with(1, status="completed")
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_run_writes_raw_snapshot_payload(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        fixed_now = datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC)
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        lab_result = DiagIngestionResult(
+            fetched_at=fixed_now,
+            items=[],
+            raw_payload={"sample": "payload"},
+        )
+
+        with patch.object(
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
+        ) as mock_fetch, patch.object(
+            ingestion_service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ) as mock_alerts:
+            mock_fetch.return_value = [lab_result]
+
+            await ingestion_service.run(reason="test-raw-snapshot")
+
+        mock_repo.write_raw_snapshot.assert_awaited_once_with(
+            source=f"{DIAG_CODE}:catalog",
+            payload={
+                "source": DIAG_CODE,
+                "institution_id": 1135,
+                "fetched_at": fixed_now.isoformat(),
+                "payload": {"sample": "payload"},
+            },
+        )
+        mock_alerts.assert_awaited_once_with(mock_repo)
+
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_run_dedupes_external_ids_before_prune(
+        self, mock_repo_class, mock_get_session, ingestion_service
+    ):
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo.upsert_catalog.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        sample_biomarker = RawDiagBiomarker(
+            external_id="alt",
+            name="ALT",
+            elab_code="ALT",
+            slug="alt",
+        )
+        items = [
+            RawDiagItem(
+                external_id=" 1 ",
+                kind="single",
+                name="ALT Test",
+                slug="alt-test",
+                price_now_grosz=1000,
+                price_min30_grosz=900,
+                currency="PLN",
+                is_available=True,
+                biomarkers=[sample_biomarker],
+                sale_price_grosz=None,
+                regular_price_grosz=1000,
+            ),
+            RawDiagItem(
+                external_id="1",
+                kind="single",
+                name="ALT Test",
+                slug="alt-test",
+                price_now_grosz=1000,
+                price_min30_grosz=900,
+                currency="PLN",
+                is_available=True,
+                biomarkers=[sample_biomarker],
+                sale_price_grosz=None,
+                regular_price_grosz=1000,
+            ),
+            RawDiagItem(
+                external_id="2",
+                kind="single",
+                name="ALT Test",
+                slug="alt-test",
+                price_now_grosz=1000,
+                price_min30_grosz=900,
+                currency="PLN",
+                is_available=True,
+                biomarkers=[sample_biomarker],
+                sale_price_grosz=None,
+                regular_price_grosz=1000,
+            ),
+        ]
+        lab_result = DiagIngestionResult(
+            fetched_at=datetime.now(UTC),
+            items=items,
+            raw_payload=None,
+        )
+
+        with patch.object(
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
+        ) as mock_fetch, patch.object(
+            ingestion_service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ):
+            mock_fetch.return_value = [lab_result]
+
+            await ingestion_service.run(reason="test-dedupe")
+
+        mock_repo.prune_missing_offers.assert_awaited_once_with(1135, ["1", "2"])
+
+    @patch("panelyt_api.ingest.service.metrics.increment")
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_run_reports_completed_status_metric(
+        self, mock_repo_class, mock_get_session, mock_metrics_increment, ingestion_service
+    ):
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.create_run_log.return_value = 1
+        mock_repo.finalize_run_log.return_value = None
+        mock_repo.prune_snapshots.return_value = None
+        mock_repo.prune_orphan_biomarkers.return_value = None
+        mock_repo.write_raw_snapshot.return_value = None
+        mock_repo.upsert_catalog.return_value = None
+        mock_repo_class.return_value = mock_repo
+
+        lab_result = DiagIngestionResult(
+            fetched_at=datetime.now(UTC),
+            items=[],
+            raw_payload=None,
+        )
+
+        with patch.object(
+            ingestion_service, "_fetch_catalog", new_callable=AsyncMock
+        ) as mock_fetch, patch.object(
+            ingestion_service, "_dispatch_price_alerts", new_callable=AsyncMock
+        ):
+            mock_fetch.return_value = [lab_result]
+
+            await ingestion_service.run(reason="test-metrics")
+
+        mock_metrics_increment.assert_called_once_with(
+            "ingestion.run",
+            status="completed",
+            scheduled="False",
+        )
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
@@ -606,6 +842,119 @@ class TestIngestionService:
 
         result = await ingestion_service._should_skip_scheduled_run({1135})
         assert result is False
+
+    @patch("panelyt_api.ingest.service.InstitutionService")
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_evaluate_freshness_uses_institution_id(
+        self,
+        mock_repo_class,
+        mock_get_session,
+        mock_institution_service,
+        ingestion_service,
+        monkeypatch,
+    ):
+        fixed_now = datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC)
+
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return fixed_now
+
+        monkeypatch.setattr("panelyt_api.ingest.service.datetime", FixedDateTime)
+
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.latest_fetched_at.return_value = fixed_now
+        mock_repo.latest_snapshot_date.return_value = fixed_now.date()
+        mock_repo_class.return_value = mock_repo
+
+        service_instance = mock_institution_service.return_value
+        service_instance.ensure_institution = AsyncMock()
+
+        needs_snapshot, is_stale = await ingestion_service._evaluate_freshness(2222)
+
+        assert needs_snapshot is False
+        assert is_stale is False
+        mock_repo.latest_fetched_at.assert_awaited_once_with(2222)
+        mock_repo.latest_snapshot_date.assert_awaited_once_with(2222)
+
+    @patch("panelyt_api.ingest.service.InstitutionService")
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_evaluate_freshness_handles_naive_fetch_time(
+        self,
+        mock_repo_class,
+        mock_get_session,
+        mock_institution_service,
+        ingestion_service,
+        monkeypatch,
+    ):
+        fixed_now = datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC)
+
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return fixed_now
+
+        monkeypatch.setattr("panelyt_api.ingest.service.datetime", FixedDateTime)
+
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        mock_repo = AsyncMock()
+        mock_repo.latest_fetched_at.return_value = fixed_now.replace(tzinfo=None)
+        mock_repo.latest_snapshot_date.return_value = fixed_now.date()
+        mock_repo_class.return_value = mock_repo
+        mock_institution_service.return_value.ensure_institution = AsyncMock()
+
+        needs_snapshot, is_stale = await ingestion_service._evaluate_freshness(1135)
+
+        assert needs_snapshot is False
+        assert is_stale is False
+
+    @patch("panelyt_api.ingest.service.InstitutionService")
+    @patch("panelyt_api.ingest.service.get_session")
+    @patch("panelyt_api.ingest.service.CatalogRepository")
+    async def test_evaluate_freshness_stale_threshold_boundary(
+        self,
+        mock_repo_class,
+        mock_get_session,
+        mock_institution_service,
+        ingestion_service,
+        monkeypatch,
+    ):
+        fixed_now = datetime(2025, 1, 2, 12, 0, 0, tzinfo=UTC)
+
+        class FixedDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return fixed_now
+
+        monkeypatch.setattr("panelyt_api.ingest.service.datetime", FixedDateTime)
+
+        mock_session = AsyncMock()
+        mock_get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_get_session.return_value.__aexit__ = AsyncMock()
+
+        stale_threshold = fixed_now - timedelta(
+            hours=ingestion_service._settings.ingestion_staleness_threshold_hours
+        )
+
+        mock_repo = AsyncMock()
+        mock_repo.latest_fetched_at.return_value = stale_threshold
+        mock_repo.latest_snapshot_date.return_value = fixed_now.date()
+        mock_repo_class.return_value = mock_repo
+        mock_institution_service.return_value.ensure_institution = AsyncMock()
+
+        needs_snapshot, is_stale = await ingestion_service._evaluate_freshness(1135)
+
+        assert needs_snapshot is False
+        assert is_stale is False
 
     @patch("panelyt_api.ingest.service.get_session")
     @patch("panelyt_api.ingest.service.CatalogRepository")
@@ -855,10 +1204,16 @@ class TestDiagClient:
         assert result is not None
         assert result.external_id == "123"
         assert result.kind == "single"
+        assert result.name == "ALT Test"
+        assert result.slug == "alt-test"
         assert result.price_now_grosz == 800
         assert result.price_min30_grosz == 900
+        assert result.currency == "PLN"
+        assert result.is_available is True
         assert result.biomarkers[0].elab_code == "ALT"
         assert result.biomarkers[0].external_id == "123"
+        assert result.biomarkers[0].slug == "alt-test"
+        assert result.biomarkers[0].name == "ALT Test"
 
     async def test_parse_product_package(self, diag_client):
         entry = {
@@ -882,9 +1237,16 @@ class TestDiagClient:
         assert result is not None
         assert result.external_id == "456"
         assert result.kind == "package"
+        assert result.name == "Liver Panel"
+        assert result.slug == "liver-panel"
         assert result.price_now_grosz == 2000
+        assert result.price_min30_grosz == 2000
+        assert result.currency == "PLN"
+        assert result.is_available is True
         assert {b.elab_code for b in result.biomarkers} == {"ALT", "AST"}
         assert {b.external_id for b in result.biomarkers} == {"1001", "1002"}
+        assert {b.slug for b in result.biomarkers} == {"alt", "ast"}
+        assert {b.name for b in result.biomarkers} == {"ALT", "AST"}
 
     def test_pln_to_grosz(self):
         assert _pln_to_grosz("12,34") == 1234
@@ -893,10 +1255,15 @@ class TestDiagClient:
     def test_normalize_identifier(self):
         assert _normalize_identifier("Białko całkowite") == "białko-całkowite"
 
-    async def test_parse_product_invalid_id(self, diag_client):
+    async def test_parse_product_invalid_id(self, diag_client, caplog):
         entry = {"id": "invalid", "name": "Test"}
+        caplog.set_level(logging.WARNING, logger="panelyt_api.ingest.client")
         result = diag_client._parse_product(entry)
         assert result is None
+        assert any(
+            "Skipping product without valid id" in record.message and "invalid" in record.message
+            for record in caplog.records
+        )
 
     async def test_parse_product_unavailable(self, diag_client):
         entry = {
@@ -910,6 +1277,56 @@ class TestDiagClient:
 
         assert result is not None
         assert result.is_available is False
+
+    async def test_extract_biomarkers_bloodtest_uses_slug_and_fallback(self, diag_client):
+        entry = {
+            "type": "bloodtest",
+            "id": None,
+            "slug": "entry-slug",
+            "name": "ALT",
+            "elabCode": "ALT",
+        }
+
+        biomarkers = diag_client._extract_biomarkers_from_item(
+            entry, fallback_slug="fallback-slug"
+        )
+
+        assert len(biomarkers) == 1
+        biomarker = biomarkers[0]
+        assert biomarker.slug == "entry-slug"
+        assert biomarker.name == "ALT"
+        assert biomarker.external_id == "entry-slug"
+        assert biomarker.metadata == {"source": "diag_solo"}
+
+    async def test_extract_biomarkers_uses_fallback_slug_when_missing(self, diag_client):
+        entry = {"type": "bloodtest", "id": None, "name": "ALT"}
+
+        biomarkers = diag_client._extract_biomarkers_from_item(
+            entry, fallback_slug="fallback-slug"
+        )
+
+        assert len(biomarkers) == 1
+        biomarker = biomarkers[0]
+        assert biomarker.slug == "fallback-slug"
+        assert biomarker.external_id == "fallback-slug"
+
+    async def test_extract_biomarkers_from_products(self, diag_client):
+        entry = {
+            "type": "package",
+            "products": [
+                {"id": "1001", "slug": "alt", "name": "ALT", "elabCode": "ALT"},
+                {"name": "Gamma"},
+                "not-a-dict",
+            ],
+        }
+
+        biomarkers = diag_client._extract_biomarkers_from_item(entry, fallback_slug=None)
+
+        assert len(biomarkers) == 2
+        assert {b.external_id for b in biomarkers} == {"1001", "gamma"}
+        assert {b.slug for b in biomarkers} == {"alt", None}
+        assert {b.name for b in biomarkers} == {"ALT", "Gamma"}
+        assert all(b.metadata == {"source": "diag_package"} for b in biomarkers)
 
     async def test_close(self, diag_client, mock_http_client):
         """Test client cleanup."""

@@ -15,6 +15,7 @@ pytest_plugins = ()
 from panelyt_api.utils.normalization import (
     create_normalized_lookup,
     create_slug_from_text,
+    expand_polish_diacritic_queries,
     normalize_search_query,
     normalize_slug,
     normalize_token,
@@ -97,12 +98,15 @@ class TestCreateSlugFromText:
         assert create_slug_from_text("-test-name-") == "test-name"
 
     def test_empty_input_raises(self):
-        with pytest.raises(ValueError, match="Slug cannot be blank"):
+        with pytest.raises(ValueError, match="^Slug cannot be blank after normalization$"):
             create_slug_from_text("")
 
     def test_only_special_chars_raises(self):
-        with pytest.raises(ValueError, match="Slug cannot be blank"):
+        with pytest.raises(ValueError, match="^Slug cannot be blank after normalization$"):
             create_slug_from_text("!!!")
+
+    def test_preserves_non_hyphen_characters(self):
+        assert create_slug_from_text("X-Test-X") == "x-test-x"
 
 
 class TestNormalizeUsername:
@@ -113,11 +117,11 @@ class TestNormalizeUsername:
         assert normalize_username("  test  ") == "test"
 
     def test_empty_raises(self):
-        with pytest.raises(ValueError, match="Username cannot be blank"):
+        with pytest.raises(ValueError, match="^Username cannot be blank$"):
             normalize_username("")
 
     def test_whitespace_only_raises(self):
-        with pytest.raises(ValueError, match="Username cannot be blank"):
+        with pytest.raises(ValueError, match="^Username cannot be blank$"):
             normalize_username("  ")
 
     def test_with_pattern(self):
@@ -128,10 +132,16 @@ class TestNormalizeUsername:
         assert normalize_username("user-123", pattern) == "user-123"
 
         # Invalid username
-        with pytest.raises(ValueError, match="3-64 characters"):
+        with pytest.raises(
+            ValueError,
+            match="^Username must be 3-64 characters of a-z, 0-9, underscores or hyphens$",
+        ):
             normalize_username("ab", pattern)  # Too short
 
-        with pytest.raises(ValueError, match="3-64 characters"):
+        with pytest.raises(
+            ValueError,
+            match="^Username must be 3-64 characters of a-z, 0-9, underscores or hyphens$",
+        ):
             normalize_username("user@test", pattern)  # Invalid character
 
 
@@ -156,6 +166,10 @@ class TestNormalizeTokensSet:
     def test_filters_none_values(self):
         # Note: None values in the list won't be strings, so they're filtered
         result = normalize_tokens_set(["TSH", None, "FT4"])
+        assert result == {"tsh", "ft4"}
+
+    def test_ignores_non_string_values(self):
+        result = normalize_tokens_set(["TSH", 123, "FT4"])
         assert result == {"tsh", "ft4"}
 
 
@@ -184,5 +198,45 @@ class TestCreateNormalizedLookup:
         result = create_normalized_lookup(mapping)
         assert result == {"123": "a", "456": "b"}
 
+    def test_non_string_values(self):
+        mapping = {"a": 123, "b": "456"}
+        result = create_normalized_lookup(mapping)
+        assert result == {"123": "a", "456": "b"}
+
     def test_empty_mapping(self):
         assert create_normalized_lookup({}) == {}
+
+
+class TestExpandPolishDiacriticQueries:
+    """Test the expand_polish_diacritic_queries function."""
+
+    def test_generates_full_and_single_variants(self):
+        variants = expand_polish_diacritic_queries("Ala")
+        assert "ala" in variants
+        assert "ąłą" in variants
+        assert "ąla" in variants
+        assert "ała" in variants
+        assert "alą" in variants
+        assert "" not in variants
+        assert all(isinstance(variant, str) and variant for variant in variants)
+        assert len(variants) == len(set(variants))
+
+    def test_generates_z_variants(self):
+        variants = expand_polish_diacritic_queries("Zaba")
+        assert "zaba" in variants
+        assert "żąbą" in variants
+        assert "źąbą" in variants
+        assert "żaba" in variants
+        assert "źaba" in variants
+
+    def test_no_variant_letters_returns_single_entry(self):
+        variants = expand_polish_diacritic_queries("Brr")
+        assert variants == ["brr"]
+
+    def test_handles_non_variant_prefix(self):
+        variants = expand_polish_diacritic_queries("Bala")
+        assert "bała" in variants
+
+    def test_skips_non_diacritic_chars(self):
+        variants = expand_polish_diacritic_queries("Aba")
+        assert "abą" in variants

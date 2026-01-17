@@ -6,7 +6,11 @@ import pytest
 from sqlalchemy import func, select
 
 from panelyt_api.db import models
-from panelyt_api.ingest.repository import CatalogRepository
+from panelyt_api.ingest.repository import (
+    CatalogRepository,
+    _resolve_diag_biomarker_slug,
+    _resolve_diag_item_slug,
+)
 from panelyt_api.utils.slugify import slugify_identifier_pl
 from panelyt_api.ingest.types import RawDiagBiomarker, RawDiagItem
 from tests.factories import make_institution
@@ -408,3 +412,51 @@ async def test_prune_missing_offers_noops_on_empty_list(db_session) -> None:
     )
     assert institution_item is not None
     assert institution_item.is_available is True
+
+
+def test_resolve_diag_item_slug_prefers_raw_slug_and_truncates() -> None:
+    raw_slug = "a" * 256
+    item = RawDiagItem(
+        external_id="diag-1",
+        kind="single",
+        name="ALT",
+        slug=raw_slug,
+        price_now_grosz=1000,
+        price_min30_grosz=900,
+        currency="PLN",
+        is_available=True,
+        biomarkers=[],
+        sale_price_grosz=None,
+        regular_price_grosz=1000,
+    )
+
+    resolved = _resolve_diag_item_slug(item, "diag-1")
+
+    assert resolved == "a" * 255
+
+
+def test_resolve_diag_biomarker_slug_prefers_raw_slug_and_truncates() -> None:
+    raw_slug = "b" * 256
+    biomarker = RawDiagBiomarker(
+        external_id="bio-1",
+        name="ALT",
+        elab_code="ALT1",
+        slug=raw_slug,
+    )
+
+    resolved = _resolve_diag_biomarker_slug(biomarker)
+
+    assert resolved == "b" * 255
+
+
+def test_resolve_diag_biomarker_slug_uses_name_before_code() -> None:
+    biomarker = RawDiagBiomarker(
+        external_id="bio-2",
+        name="ALT Panel",
+        elab_code="ALT2",
+        slug=None,
+    )
+
+    resolved = _resolve_diag_biomarker_slug(biomarker)
+
+    assert resolved == slugify_identifier_pl("ALT Panel")
