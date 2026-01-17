@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from collections.abc import AsyncIterator, Iterator
 from unittest.mock import AsyncMock
 
@@ -24,10 +23,11 @@ def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
 
 
 @pytest.fixture
-def test_settings() -> Settings:
+def test_settings(tmp_path) -> Settings:
     """Test settings with SQLite database."""
+    db_path = tmp_path / "test.db"
     settings = Settings(
-        DATABASE_URL="sqlite+aiosqlite:///test.db",
+        DATABASE_URL=f"sqlite+aiosqlite:///{db_path}",
         CORS_ORIGINS=["http://localhost:3000"],
         ADMIN_USERNAMES=["admin"],
     )
@@ -53,10 +53,6 @@ async def db_session(test_settings: Settings) -> AsyncIterator[AsyncSession]:
         yield session
 
     await engine.dispose()
-
-    # Clean up test database
-    if os.path.exists("test.db"):
-        os.remove("test.db")
 
 
 
