@@ -46,3 +46,11 @@ jobs:
 
       - name: Run just check
         run: just check
+
+      - name: Upload API coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: apps/api/coverage.xml
+          if-no-files-found: error
