@@ -27,6 +27,7 @@ UNLINK_SUCCESS = (
     "🔌 Chat disconnected.\n\n"
     "Re-run `/link <token>` any time to reconnect."
 )
+CONFIGURATION_ERROR = "⚠️ Bot configuration is missing. Please try again later."
 
 
 async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -71,7 +72,9 @@ async def handle_unlink(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if chat is None:
         return
 
-    client = _get_client(context)
+    client = await _get_client_or_reply(update, context)
+    if client is None:
+        return
     chat_id = str(chat.id)
     try:
         await client.unlink_chat(chat_id=chat_id)
@@ -98,7 +101,9 @@ async def _handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE, token
         )
         return
 
-    client = _get_client(context)
+    client = await _get_client_or_reply(update, context)
+    if client is None:
+        return
     payload: dict[str, Any] = {
         "username": user.username,
         "first_name": user.first_name,
@@ -133,6 +138,17 @@ def _get_client(context: ContextTypes.DEFAULT_TYPE) -> PanelytClient:
     if not isinstance(client, PanelytClient):
         raise RuntimeError("Panelyt client not initialised")
     return client
+
+
+async def _get_client_or_reply(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> PanelytClient | None:
+    try:
+        return _get_client(context)
+    except RuntimeError:
+        await _reply(update, context, CONFIGURATION_ERROR)
+        return None
 
 
 async def _reply(
