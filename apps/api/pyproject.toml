@@ -41,6 +41,7 @@ dev = [
   "respx>=0.21",
   "freezegun>=1.5",
   "hypothesis>=6.103",
+  "mutmut>=2.4",
   "ruff>=0.5",
   "mypy>=1.10",
   "types-cachetools",
@@ -76,6 +77,11 @@ plugins = []
 [[tool.mypy.overrides]]
 module = ["apscheduler.*"]
 ignore_missing_imports = true
+
+[tool.mutmut]
+paths_to_mutate = ["src/panelyt_api/utils", "src/panelyt_api/ingest"]
+tests_dir = ["tests"]
+mutate_only_covered_lines = true
 
 [tool.coverage.run]
 source = ["panelyt_api"]
