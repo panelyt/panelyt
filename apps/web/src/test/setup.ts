@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom'
 
+import { server } from "./msw";
+
 vi.mock('../i18n/navigation', async () => {
   const React = await import('react')
 
@@ -68,8 +70,11 @@ vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/'),
 }))
 
-// Mock fetch for tests
-global.fetch = vi.fn()
+process.env.NEXT_PUBLIC_API_URL = "http://localhost:8000";
+
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: "error" });
+});
 
 const jsdomCustomEvent = typeof window !== 'undefined' ? window.CustomEvent : undefined
 
@@ -92,6 +97,11 @@ syncCustomEvent()
 // Clean up after each test
 afterEach(async () => {
   vi.clearAllMocks()
+  server.resetHandlers();
   syncCustomEvent()
   await new Promise((resolve) => setTimeout(resolve, 0))
 })
+
+afterAll(() => {
+  server.close();
+});
