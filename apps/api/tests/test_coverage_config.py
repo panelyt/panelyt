@@ -61,3 +61,29 @@ def test_test_api_does_not_use_repo_root_db():
 
     command_text = " ".join(recipe_body)
     assert "sqlite+aiosqlite:///test.db" not in command_text
+
+
+def test_mutation_recipe_runs_mutmut():
+    repo_root = _find_repo_root(Path(__file__).resolve())
+    justfile_path = repo_root / "Justfile"
+    justfile_text = justfile_path.read_text(encoding="utf-8")
+
+    recipe_body = _extract_recipe_body(justfile_text, "mutation")
+    assert recipe_body, "Expected mutation recipe to have a command body."
+
+    command_text = " ".join(recipe_body)
+    assert "mutmut run" in command_text
+    assert "--max-children" in command_text
+
+
+def test_mutation_baseline_recipe_updates_baseline():
+    repo_root = _find_repo_root(Path(__file__).resolve())
+    justfile_path = repo_root / "Justfile"
+    justfile_text = justfile_path.read_text(encoding="utf-8")
+
+    recipe_body = _extract_recipe_body(justfile_text, "mutation-baseline")
+    assert recipe_body, "Expected mutation-baseline recipe to have a command body."
+
+    command_text = " ".join(recipe_body)
+    assert "mutation_report.py" in command_text
+    assert "--update-baseline" in command_text
