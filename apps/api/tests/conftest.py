@@ -9,9 +9,11 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.core.settings import Settings, get_settings
 from panelyt_api.db.base import Base
 from panelyt_api.main import create_app
+from panelyt_api.optimization.synthetic_packages import load_diag_synthetic_packages
 
 
 @pytest.fixture(scope="session")
@@ -20,6 +22,17 @@ def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
+
+
+@pytest.fixture(autouse=True)
+def clear_caches() -> None:
+    clear_all_caches()
+    load_diag_synthetic_packages.cache_clear()
+    get_settings.cache_clear()
+    yield
+    clear_all_caches()
+    load_diag_synthetic_packages.cache_clear()
+    get_settings.cache_clear()
 
 
 @pytest.fixture
