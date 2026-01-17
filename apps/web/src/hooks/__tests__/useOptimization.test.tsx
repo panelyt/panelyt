@@ -4,14 +4,10 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useAddonSuggestions, useOptimization } from "../useOptimization";
-import { postParsedJson } from "../../lib/http";
+import { HttpResponse, http, server } from "../../test/msw";
 
 vi.mock("../useInstitution", () => ({
   useInstitution: () => ({ institutionId: 2222, label: null, setInstitution: vi.fn() }),
-}));
-
-vi.mock("../../lib/http", () => ({
-  postParsedJson: vi.fn(),
 }));
 
 function createWrapper() {
@@ -26,28 +22,99 @@ function createWrapper() {
   };
 }
 
+const optimizeResponse = {
+  total_now: 12.34,
+  total_min30: 12.34,
+  currency: "PLN",
+  items: [
+    {
+      id: 1,
+      kind: "single",
+      name: "ALT",
+      slug: "alt",
+      price_now_grosz: 1234,
+      price_min30_grosz: 1234,
+      currency: "PLN",
+      biomarkers: ["ALT"],
+      url: "https://example.com/alt",
+      on_sale: false,
+      is_synthetic_package: false,
+    },
+  ],
+  explain: {},
+  uncovered: [],
+};
+
 describe("useOptimization", () => {
-  it("includes institution id in optimize query keys", async () => {
-    vi.mocked(postParsedJson).mockResolvedValue({ total_now: 0 } as unknown);
+  it("includes institution id in optimize query keys and request", async () => {
+    let lastUrl: string | null = null;
+    let lastBody: unknown = null;
+
+    server.use(
+      http.post("http://localhost:8000/optimize", async ({ request }) => {
+        lastUrl = request.url;
+        lastBody = await request.json();
+        return HttpResponse.json(optimizeResponse);
+      }),
+    );
 
     const { Wrapper, queryClient } = createWrapper();
-    renderHook(() => useOptimization(["ALT"]), { wrapper: Wrapper });
+    const { result } = renderHook(() => useOptimization(["ALT"]), { wrapper: Wrapper });
 
-    await waitFor(() => {
-      const keys = queryClient.getQueryCache().findAll().map((query) => query.queryKey);
-      expect(keys).toContainEqual(["optimize", "alt", 2222]);
-    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = queryClient.getQueryCache().findAll().map((query) => query.queryKey);
+    expect(keys).toContainEqual(["optimize", "alt", 2222]);
+    if (!lastUrl) {
+      throw new Error("Expected optimize request URL to be captured");
+    }
+    const parsedUrl = new URL(lastUrl);
+    expect(parsedUrl.searchParams.get("institution")).toBe("2222");
+    expect(lastBody).toEqual({ biomarkers: ["ALT"] });
   });
 
-  it("includes institution id in addon suggestion query keys", async () => {
-    vi.mocked(postParsedJson).mockResolvedValue({ addon_suggestions: [] } as unknown);
+  it("surfaces schema errors for invalid optimize payloads", async () => {
+    server.use(
+      http.post("http://localhost:8000/optimize", () => {
+        return HttpResponse.json({ total_now: 0 });
+      }),
+    );
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useOptimization(["ALT"]), { wrapper: Wrapper });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe("useAddonSuggestions", () => {
+  it("includes institution id and selected ids in addon request", async () => {
+    let lastUrl: string | null = null;
+    let lastBody: unknown = null;
+
+    server.use(
+      http.post("http://localhost:8000/optimize/addons", async ({ request }) => {
+        lastUrl = request.url;
+        lastBody = await request.json();
+        return HttpResponse.json({ addon_suggestions: [], labels: {} });
+      }),
+    );
 
     const { Wrapper, queryClient } = createWrapper();
-    renderHook(() => useAddonSuggestions(["ALT"], [1], true), { wrapper: Wrapper });
+    const { result } = renderHook(
+      () => useAddonSuggestions(["ALT"], [1, 2], true),
+      { wrapper: Wrapper },
+    );
 
-    await waitFor(() => {
-      const keys = queryClient.getQueryCache().findAll().map((query) => query.queryKey);
-      expect(keys).toContainEqual(["optimize-addons", "alt", "1", 2222]);
-    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = queryClient.getQueryCache().findAll().map((query) => query.queryKey);
+    expect(keys).toContainEqual(["optimize-addons", "alt", "1,2", 2222]);
+    if (!lastUrl) {
+      throw new Error("Expected addon request URL to be captured");
+    }
+    const parsedUrl = new URL(lastUrl);
+    expect(parsedUrl.searchParams.get("institution")).toBe("2222");
+    expect(lastBody).toEqual({ biomarkers: ["ALT"], selected_item_ids: [1, 2] });
   });
 });

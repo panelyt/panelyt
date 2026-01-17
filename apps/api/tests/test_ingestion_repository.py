@@ -9,6 +9,7 @@ from panelyt_api.db import models
 from panelyt_api.ingest.repository import CatalogRepository
 from panelyt_api.utils.slugify import slugify_identifier_pl
 from panelyt_api.ingest.types import RawDiagBiomarker, RawDiagItem
+from tests.factories import make_institution
 
 
 @pytest.mark.asyncio
@@ -18,7 +19,7 @@ async def test_upsert_catalog_upserts_items_biomarkers_links_and_snapshots(
     repo = CatalogRepository(db_session)
     await db_session.execute(
         models.Institution.__table__.insert().values(
-            {"id": 1135, "name": "Default / Lab office"}
+            make_institution(id=1135, name="Default / Lab office")
         )
     )
     fetched_at = datetime(2025, 1, 1, tzinfo=UTC)
@@ -152,7 +153,7 @@ async def test_upsert_catalog_reuses_existing_biomarker_on_elab_conflict(
     repo = CatalogRepository(db_session)
     await db_session.execute(
         models.Institution.__table__.insert().values(
-            {"id": 1135, "name": "Default / Lab office"}
+            make_institution(id=1135, name="Default / Lab office")
         )
     )
     existing = models.Biomarker(

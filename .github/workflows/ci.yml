@@ -4,7 +4,6 @@ on:
   push:
     branches-ignore:
       - master
-  pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -46,3 +45,71 @@ jobs:
 
       - name: Run just check
         run: just check
+
+      - name: Upload API coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: apps/api/coverage.xml
+          if-no-files-found: error
+
+  api-integration:
+    name: Run API integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: panelyt_integration
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Sync API dependencies
+        run: cd apps/api && UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache uv sync --extra dev
+
+      - name: Run API integration tests
+        env:
+          INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/panelyt_integration
+          INTEGRATION_DB_SCHEMA: panelyt_integration
+        run: cd apps/api && UV_PROJECT_ENVIRONMENT=.venv UV_CACHE_DIR=.uv-cache uv run --extra dev pytest -m integration
+
+  web-e2e:
+    name: Run web e2e tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+          run_install: false
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @panelyt/web exec playwright install --with-deps
+
+      - name: Run Playwright tests
+        run: pnpm --filter @panelyt/web test:e2e

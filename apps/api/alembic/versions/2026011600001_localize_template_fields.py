@@ -20,11 +20,11 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "biomarker_list_template",
-        sa.Column("name_en", sa.String(length=128), nullable=False),
+        sa.Column("name_en", sa.String(length=128), nullable=True),
     )
     op.add_column(
         "biomarker_list_template",
-        sa.Column("name_pl", sa.String(length=128), nullable=False),
+        sa.Column("name_pl", sa.String(length=128), nullable=True),
     )
     op.add_column(
         "biomarker_list_template",
@@ -34,20 +34,57 @@ def upgrade() -> None:
         "biomarker_list_template",
         sa.Column("description_pl", sa.String(length=512), nullable=True),
     )
-    op.drop_column("biomarker_list_template", "name")
-    op.drop_column("biomarker_list_template", "description")
+    op.execute(
+        sa.text(
+            """
+            UPDATE biomarker_list_template
+            SET name_en = name,
+                name_pl = name,
+                description_en = description,
+                description_pl = description
+            """
+        )
+    )
+    with op.batch_alter_table("biomarker_list_template") as batch_op:
+        batch_op.alter_column(
+            "name_en",
+            existing_type=sa.String(length=128),
+            nullable=False,
+        )
+        batch_op.alter_column(
+            "name_pl",
+            existing_type=sa.String(length=128),
+            nullable=False,
+        )
+        batch_op.drop_column("name")
+        batch_op.drop_column("description")
 
 
 def downgrade() -> None:
     op.add_column(
         "biomarker_list_template",
-        sa.Column("name", sa.String(length=128), nullable=False),
+        sa.Column("name", sa.String(length=128), nullable=True),
     )
     op.add_column(
         "biomarker_list_template",
         sa.Column("description", sa.String(length=512), nullable=True),
     )
-    op.drop_column("biomarker_list_template", "description_pl")
-    op.drop_column("biomarker_list_template", "description_en")
-    op.drop_column("biomarker_list_template", "name_pl")
-    op.drop_column("biomarker_list_template", "name_en")
+    op.execute(
+        sa.text(
+            """
+            UPDATE biomarker_list_template
+            SET name = name_en,
+                description = description_en
+            """
+        )
+    )
+    with op.batch_alter_table("biomarker_list_template") as batch_op:
+        batch_op.alter_column(
+            "name",
+            existing_type=sa.String(length=128),
+            nullable=False,
+        )
+        batch_op.drop_column("description_pl")
+        batch_op.drop_column("description_en")
+        batch_op.drop_column("name_pl")
+        batch_op.drop_column("name_en")

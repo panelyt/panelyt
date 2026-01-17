@@ -36,6 +36,12 @@ dev = [
   "pytest>=7.4",
   "pytest-asyncio>=0.23",
   "pytest-cov>=4.1",
+  "pytest-randomly>=3.15",
+  "schemathesis>=3.27",
+  "respx>=0.21",
+  "freezegun>=1.5",
+  "hypothesis>=6.103",
+  "mutmut>=2.4",
   "ruff>=0.5",
   "mypy>=1.10",
   "types-cachetools",
@@ -47,9 +53,11 @@ dev = [
 where = ["src"]
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-ra --randomly-seed=last --ignore=mutants"
 asyncio_mode = "auto"
 pythonpath = ["src"]
+markers = ["integration: tests that require PostgreSQL"]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
@@ -70,6 +78,13 @@ plugins = []
 [[tool.mypy.overrides]]
 module = ["apscheduler.*"]
 ignore_missing_imports = true
+
+[tool.mutmut]
+paths_to_mutate = ["src/panelyt_api/utils", "src/panelyt_api/ingest"]
+tests_dir = ["tests"]
+mutate_only_covered_lines = true
+pytest_add_cli_args = ["-o", "addopts="]
+also_copy = ["src", ".env", "data", "alembic"]
 
 [tool.coverage.run]
 source = ["panelyt_api"]

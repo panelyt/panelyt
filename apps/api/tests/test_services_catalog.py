@@ -3,12 +3,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from freezegun import freeze_time
 from sqlalchemy import insert, select
 
 from panelyt_api.core.cache import biomarker_batch_cache
 from panelyt_api.db import models
 from panelyt_api.services import catalog
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
+from tests.factories import make_biomarker, make_institution, make_item, make_price_snapshot
 
 
 class TestCatalogService:
@@ -24,92 +26,84 @@ class TestCatalogService:
 
     async def test_get_catalog_meta_with_data(self, db_session):
         """Test catalog meta with populated database."""
-        # Add test biomarkers
-        await db_session.execute(
-            insert(models.Biomarker).values([
-                {"name": "ALT", "elab_code": "ALT", "slug": "alt"},
-                {"name": "AST", "elab_code": "AST", "slug": "ast"},
-            ])
-        )
-
-        # Add test items
-        fetched_time = datetime.now(timezone.utc)
-        await db_session.execute(
-            insert(models.Institution).values(
-                {"id": DEFAULT_INSTITUTION_ID, "name": "Institution 1135"}
+        with freeze_time("2026-01-02 03:04:05", tz_offset=0):
+            # Add test biomarkers
+            await db_session.execute(
+                insert(models.Biomarker).values([
+                    make_biomarker(name="ALT", elab_code="ALT", slug="alt"),
+                    make_biomarker(name="AST", elab_code="AST", slug="ast"),
+                ])
             )
-        )
-        await db_session.execute(
-            insert(models.Item).values([
-                {
-                    "id": 1,
-                    "external_id": "item-1",
-                    "kind": "single",
-                    "name": "ALT Test",
-                    "slug": "alt-test",
-                    "price_now_grosz": 1000,
-                    "price_min30_grosz": 950,
-                    "currency": "PLN",
-                    "is_available": True,
-                    "fetched_at": fetched_time,
-                },
-                {
-                    "id": 2,
-                    "external_id": "item-2",
-                    "kind": "single",
-                    "name": "AST Test",
-                    "slug": "ast-test",
-                    "price_now_grosz": 1200,
-                    "price_min30_grosz": 1100,
-                    "currency": "PLN",
-                    "is_available": True,
-                    "fetched_at": fetched_time,
-                },
-            ])
-        )
 
-        # Add price snapshots
-        today = datetime.now(timezone.utc).date()
-        yesterday = today - timedelta(days=1)
+            # Add test items
+            fetched_time = datetime.now(timezone.utc)
+            await db_session.execute(
+                insert(models.Institution).values(
+                    make_institution(id=DEFAULT_INSTITUTION_ID, name="Institution 1135")
+                )
+            )
+            await db_session.execute(
+                insert(models.Item).values([
+                    make_item(
+                        id=1,
+                        external_id="item-1",
+                        name="ALT Test",
+                        slug="alt-test",
+                        price_now_grosz=1000,
+                        price_min30_grosz=950,
+                        fetched_at=fetched_time,
+                    ),
+                    make_item(
+                        id=2,
+                        external_id="item-2",
+                        name="AST Test",
+                        slug="ast-test",
+                        price_now_grosz=1200,
+                        price_min30_grosz=1100,
+                        fetched_at=fetched_time,
+                    ),
+                ])
+            )
 
-        await db_session.execute(
-            insert(models.PriceSnapshot).values([
-                {
-                    "institution_id": DEFAULT_INSTITUTION_ID,
-                    "item_id": 1,
-                    "snap_date": today,
-                    "price_now_grosz": 1000,
-                    "price_min30_grosz": 1000,
-                    "is_available": True,
-                },
-                {
-                    "institution_id": DEFAULT_INSTITUTION_ID,
-                    "item_id": 1,
-                    "snap_date": yesterday,
-                    "price_now_grosz": 1100,
-                    "price_min30_grosz": 1100,
-                    "is_available": True,
-                },
-                {
-                    "institution_id": DEFAULT_INSTITUTION_ID,
-                    "item_id": 2,
-                    "snap_date": today,
-                    "price_now_grosz": 1200,
-                    "price_min30_grosz": 1200,
-                    "is_available": True,
-                },
-            ])
-        )
+            # Add price snapshots
+            today = datetime.now(timezone.utc).date()
+            yesterday = today - timedelta(days=1)
 
-        await db_session.commit()
+            await db_session.execute(
+                insert(models.PriceSnapshot).values([
+                    make_price_snapshot(
+                        institution_id=DEFAULT_INSTITUTION_ID,
+                        item_id=1,
+                        snap_date=today,
+                        price_now_grosz=1000,
+                        price_min30_grosz=1000,
+                    ),
+                    make_price_snapshot(
+                        institution_id=DEFAULT_INSTITUTION_ID,
+                        item_id=1,
+                        snap_date=yesterday,
+                        price_now_grosz=1100,
+                        price_min30_grosz=1100,
+                    ),
+                    make_price_snapshot(
+                        institution_id=DEFAULT_INSTITUTION_ID,
+                        item_id=2,
+                        snap_date=today,
+                        price_now_grosz=1200,
+                        price_min30_grosz=1200,
+                    ),
+                ])
+            )
 
-        result = await catalog.get_catalog_meta(db_session)
+            await db_session.commit()
 
-        assert result.item_count == 2
-        assert result.biomarker_count == 2
-        assert result.latest_fetched_at == fetched_time.replace(tzinfo=None)
-        assert result.snapshot_days_covered == 2  # today and yesterday
-        assert result.percent_with_today_snapshot == 100.0  # 2/2 items
+            result = await catalog.get_catalog_meta(db_session)
+
+            assert result.item_count == 2
+            assert result.biomarker_count == 2
+            assert result.latest_fetched_at == fetched_time.replace(tzinfo=None)
+            assert result.snapshot_days_covered == 2  # today and yesterday
+            assert result.percent_with_today_snapshot == 100.0  # 2/2 items
 
     async def test_search_biomarkers_empty_query(self, db_session):
         """Test biomarker search with empty query."""

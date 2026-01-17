@@ -46,8 +46,8 @@ test target="all" args="":
   @case "{{target}}" in \
     api) just _test-api {{args}} ;; \
     web) just _test-web {{args}} ;; \
-    all|"") just _test-api {{args}} && just _test-web {{args}} ;; \
-    bot) echo "error: test target 'bot' is not supported" >&2; exit 2 ;; \
+    bot) just _test-bot {{args}} ;; \
+    all|"") just _test-api {{args}} && just _test-web {{args}} && just _test-bot {{args}} ;; \
     *) echo "error: unknown test target '{{target}}' (use api, web, bot, all)" >&2; exit 2 ;; \
   esac
 
@@ -78,7 +78,7 @@ check target="all":
   @case "{{target}}" in \
     api) just build && just test api && just lint api && just fmt api ;; \
     web) just build && just test web && just lint web ;; \
-    bot) just lint bot ;; \
+    bot) just test bot && just lint bot ;; \
     all|"") just build && just test all && just lint all && just fmt all ;; \
     *) echo "error: unknown check target '{{target}}' (use api, web, bot, all)" >&2; exit 2 ;; \
   esac
@@ -117,7 +117,24 @@ _fmt-api args="":
 
 # _test-api: run api tests (optional args supported)
 _test-api args="":
-  @cd apps/api && DATABASE_URL="sqlite+aiosqlite:///test.db" {{uv_env}} {{uv}} run --extra dev pytest {{args}}
+  @cd apps/api && {{uv_env}} {{uv}} run --extra dev pytest --cov=panelyt_api --cov-report=term-missing --cov-report=xml --cov-fail-under=70 {{args}}
+
+# mutation: run api mutation testing (max_children optional)
+mutation max_children="4":
+  @cd apps/api && max_children="{{max_children}}" && max_children="${max_children#max_children=}" && {{uv_env}} {{uv}} run --extra dev mutmut run --max-children="${max_children}"
+
+# mutation-baseline: update mutation baseline (max_children optional)
+mutation-baseline max_children="4":
+  @cd apps/api && test -d mutants
+  @cd apps/api && {{uv_env}} {{uv}} run --extra dev python scripts/mutation_report.py --output mutation-report.json --baseline mutation-baseline.json --update-baseline
+
+# e2e-web: run Playwright E2E tests (optional args supported)
+e2e-web args="":
+  @cd apps/web && {{pnpm}} --filter @panelyt/web test:e2e -- {{args}}
+
+# e2e-web-install: install Playwright browsers (no system deps)
+e2e-web-install:
+  @cd apps/web && {{pnpm}} --filter @panelyt/web exec playwright install
 
 # migrate: run api migrations
 migrate:
@@ -149,7 +166,11 @@ _typecheck-web:
 
 # _test-web: run web tests (optional args supported)
 _test-web args="":
-  @cd apps/web && {{pnpm}} --filter @panelyt/web test:run {{args}}
+  @cd apps/web && {{pnpm}} --filter @panelyt/web test:coverage {{args}}
+
+# _test-bot: run bot tests (optional args supported)
+_test-bot args="":
+  @cd apps/telegram-bot && {{uv_env}} {{uv}} run --extra dev pytest {{args}}
 
 # _lint-bot: lint bot code (optional args supported)
 _lint-bot args="":

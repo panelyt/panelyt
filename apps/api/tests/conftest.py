@@ -10,9 +10,14 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.core.settings import Settings, get_settings
 from panelyt_api.db.base import Base
+
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+
 from panelyt_api.main import create_app
+from panelyt_api.optimization.synthetic_packages import load_diag_synthetic_packages
 
 
 @pytest.fixture(scope="session")
@@ -23,11 +28,23 @@ def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
     loop.close()
 
 
+@pytest.fixture(autouse=True)
+def clear_caches() -> None:
+    clear_all_caches()
+    load_diag_synthetic_packages.cache_clear()
+    get_settings.cache_clear()
+    yield
+    clear_all_caches()
+    load_diag_synthetic_packages.cache_clear()
+    get_settings.cache_clear()
+
+
 @pytest.fixture
-def test_settings() -> Settings:
+def test_settings(tmp_path) -> Settings:
     """Test settings with SQLite database."""
+    db_path = tmp_path / "test.db"
     settings = Settings(
-        DATABASE_URL="sqlite+aiosqlite:///test.db",
+        DATABASE_URL=f"sqlite+aiosqlite:///{db_path}",
         CORS_ORIGINS=["http://localhost:3000"],
         ADMIN_USERNAMES=["admin"],
     )
@@ -53,10 +70,6 @@ async def db_session(test_settings: Settings) -> AsyncIterator[AsyncSession]:
         yield session
 
     await engine.dispose()
-
-    # Clean up test database
-    if os.path.exists("test.db"):
-        os.remove("test.db")
 
 
 

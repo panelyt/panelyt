@@ -1,0 +1,34 @@
+{
+  "data": [
+    {
+      "id": 1001,
+      "name": "Liver Panel",
+      "slug": "liver-panel",
+      "type": "package",
+      "prices": {
+        "sale": 24.0,
+        "regular": 30.0,
+        "minimal": 20.0,
+        "currency": "PLN",
+        "sellState": "available"
+      },
+      "products": [
+        {
+          "id": 501,
+          "slug": "alt",
+          "name": "ALT",
+          "elabCode": "ALT"
+        },
+        {
+          "id": 502,
+          "slug": "ast",
+          "name": "AST",
+          "elabCode": "AST"
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "last_page": 1
+  }
+}

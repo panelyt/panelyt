@@ -1,0 +1,3114 @@
+{
+  "components": {
+    "schemas": {
+      "AccountSettingsResponse": {
+        "properties": {
+          "preferred_institution_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Preferred institution (office) id for pricing",
+            "title": "Preferred Institution Id"
+          },
+          "telegram": {
+            "$ref": "#/components/schemas/TelegramLinkStatus"
+          }
+        },
+        "required": [
+          "telegram"
+        ],
+        "title": "AccountSettingsResponse",
+        "type": "object"
+      },
+      "AccountSettingsUpdateRequest": {
+        "properties": {
+          "preferred_institution_id": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Preferred institution (office) id for pricing",
+            "title": "Preferred Institution Id"
+          }
+        },
+        "title": "AccountSettingsUpdateRequest",
+        "type": "object"
+      },
+      "AddonBiomarker": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "display_name"
+        ],
+        "title": "AddonBiomarker",
+        "type": "object"
+      },
+      "AddonSuggestion": {
+        "properties": {
+          "adds": {
+            "items": {
+              "$ref": "#/components/schemas/AddonBiomarker"
+            },
+            "title": "Adds",
+            "type": "array"
+          },
+          "covers": {
+            "items": {
+              "$ref": "#/components/schemas/AddonBiomarker"
+            },
+            "title": "Covers",
+            "type": "array"
+          },
+          "estimated_total_now": {
+            "title": "Estimated Total Now",
+            "type": "number"
+          },
+          "estimated_total_now_grosz": {
+            "title": "Estimated Total Now Grosz",
+            "type": "integer"
+          },
+          "keeps": {
+            "items": {
+              "$ref": "#/components/schemas/AddonBiomarker"
+            },
+            "title": "Keeps",
+            "type": "array"
+          },
+          "package": {
+            "$ref": "#/components/schemas/ItemOut"
+          },
+          "removes": {
+            "items": {
+              "$ref": "#/components/schemas/AddonBiomarker"
+            },
+            "title": "Removes",
+            "type": "array"
+          },
+          "upgrade_cost": {
+            "title": "Upgrade Cost",
+            "type": "number"
+          },
+          "upgrade_cost_grosz": {
+            "title": "Upgrade Cost Grosz",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "package",
+          "upgrade_cost_grosz",
+          "upgrade_cost",
+          "estimated_total_now_grosz",
+          "estimated_total_now"
+        ],
+        "title": "AddonSuggestion",
+        "type": "object"
+      },
+      "AddonSuggestionsRequest": {
+        "description": "Request for computing addon suggestions separately from optimization.",
+        "properties": {
+          "biomarkers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Biomarkers",
+            "type": "array"
+          },
+          "selected_item_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Selected Item Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "biomarkers",
+          "selected_item_ids"
+        ],
+        "title": "AddonSuggestionsRequest",
+        "type": "object"
+      },
+      "AddonSuggestionsResponse": {
+        "description": "Response for the addon suggestions endpoint.",
+        "properties": {
+          "addon_suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/AddonSuggestion"
+            },
+            "title": "Addon Suggestions",
+            "type": "array"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          }
+        },
+        "title": "AddonSuggestionsResponse",
+        "type": "object"
+      },
+      "BiomarkerBatchRequest": {
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "codes"
+        ],
+        "title": "BiomarkerBatchRequest",
+        "type": "object"
+      },
+      "BiomarkerBatchResponse": {
+        "properties": {
+          "results": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/BiomarkerOut"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Results",
+            "type": "object"
+          }
+        },
+        "title": "BiomarkerBatchResponse",
+        "type": "object"
+      },
+      "BiomarkerListEntry": {
+        "properties": {
+          "biomarker": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BiomarkerReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "display_name",
+          "sort_order",
+          "biomarker",
+          "notes"
+        ],
+        "title": "BiomarkerListEntry",
+        "type": "object"
+      },
+      "BiomarkerListTemplateCollectionResponse": {
+        "properties": {
+          "templates": {
+            "items": {
+              "$ref": "#/components/schemas/BiomarkerListTemplateResponse"
+            },
+            "title": "Templates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "templates"
+        ],
+        "title": "BiomarkerListTemplateCollectionResponse",
+        "type": "object"
+      },
+      "BiomarkerListTemplateResponse": {
+        "properties": {
+          "biomarkers": {
+            "items": {
+              "$ref": "#/components/schemas/BiomarkerListEntry"
+            },
+            "title": "Biomarkers",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description En"
+          },
+          "description_pl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description Pl"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          },
+          "name_pl": {
+            "title": "Name Pl",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name_en",
+          "name_pl",
+          "description_en",
+          "description_pl",
+          "is_active",
+          "created_at",
+          "updated_at",
+          "biomarkers"
+        ],
+        "title": "BiomarkerListTemplateResponse",
+        "type": "object"
+      },
+      "BiomarkerListTemplateUpsert": {
+        "properties": {
+          "biomarkers": {
+            "items": {
+              "$ref": "#/components/schemas/BiomarkerTemplateEntryPayload"
+            },
+            "maxItems": 200,
+            "title": "Biomarkers",
+            "type": "array"
+          },
+          "description_en": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description En"
+          },
+          "description_pl": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description Pl"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name_en": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name En",
+            "type": "string"
+          },
+          "name_pl": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name Pl",
+            "type": "string"
+          },
+          "slug": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "name_en",
+          "name_pl"
+        ],
+        "title": "BiomarkerListTemplateUpsert",
+        "type": "object"
+      },
+      "BiomarkerOut": {
+        "properties": {
+          "elab_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elab Code"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price_now_grosz": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Now Grosz"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "BiomarkerOut",
+        "type": "object"
+      },
+      "BiomarkerReference": {
+        "properties": {
+          "elab_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elab Code"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "elab_code",
+          "slug"
+        ],
+        "title": "BiomarkerReference",
+        "type": "object"
+      },
+      "BiomarkerSearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BiomarkerOut"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "BiomarkerSearchResponse",
+        "type": "object"
+      },
+      "BiomarkerTemplateEntryPayload": {
+        "properties": {
+          "code": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "required": [
+          "code",
+          "display_name"
+        ],
+        "title": "BiomarkerTemplateEntryPayload",
+        "type": "object"
+      },
+      "CatalogBiomarkerResult": {
+        "properties": {
+          "elab_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elab Code"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price_now_grosz": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Now Grosz"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "type": {
+            "const": "biomarker",
+            "default": "biomarker",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "CatalogBiomarkerResult",
+        "type": "object"
+      },
+      "CatalogMeta": {
+        "properties": {
+          "biomarker_count": {
+            "title": "Biomarker Count",
+            "type": "integer"
+          },
+          "item_count": {
+            "title": "Item Count",
+            "type": "integer"
+          },
+          "latest_fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Fetched At"
+          },
+          "percent_with_today_snapshot": {
+            "title": "Percent With Today Snapshot",
+            "type": "number"
+          },
+          "snapshot_days_covered": {
+            "title": "Snapshot Days Covered",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "item_count",
+          "biomarker_count",
+          "latest_fetched_at",
+          "snapshot_days_covered",
+          "percent_with_today_snapshot"
+        ],
+        "title": "CatalogMeta",
+        "type": "object"
+      },
+      "CatalogSearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CatalogBiomarkerResult"
+                },
+                {
+                  "$ref": "#/components/schemas/CatalogTemplateResult"
+                }
+              ]
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "CatalogSearchResponse",
+        "type": "object"
+      },
+      "CatalogTemplateResult": {
+        "properties": {
+          "biomarker_count": {
+            "title": "Biomarker Count",
+            "type": "integer"
+          },
+          "description_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description En"
+          },
+          "description_pl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description Pl"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          },
+          "name_pl": {
+            "title": "Name Pl",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "type": {
+            "const": "template",
+            "default": "template",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name_en",
+          "name_pl",
+          "biomarker_count"
+        ],
+        "title": "CatalogTemplateResult",
+        "type": "object"
+      },
+      "Credentials": {
+        "properties": {
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Credentials",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InstitutionOut": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "city_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City Slug"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "InstitutionOut",
+        "type": "object"
+      },
+      "InstitutionSearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/InstitutionOut"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "title": "InstitutionSearchResponse",
+        "type": "object"
+      },
+      "ItemOut": {
+        "properties": {
+          "biomarkers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Biomarkers",
+            "type": "array"
+          },
+          "currency": {
+            "default": "PLN",
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_synthetic_package": {
+            "default": false,
+            "title": "Is Synthetic Package",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "on_sale": {
+            "title": "On Sale",
+            "type": "boolean"
+          },
+          "price_min30_grosz": {
+            "title": "Price Min30 Grosz",
+            "type": "integer"
+          },
+          "price_now_grosz": {
+            "title": "Price Now Grosz",
+            "type": "integer"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "slug",
+          "price_now_grosz",
+          "price_min30_grosz",
+          "biomarkers",
+          "url",
+          "on_sale"
+        ],
+        "title": "ItemOut",
+        "type": "object"
+      },
+      "OptimizeRequest": {
+        "properties": {
+          "biomarkers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Biomarkers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "biomarkers"
+        ],
+        "title": "OptimizeRequest",
+        "type": "object"
+      },
+      "OptimizeResponse": {
+        "properties": {
+          "addon_suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/AddonSuggestion"
+            },
+            "title": "Addon Suggestions",
+            "type": "array"
+          },
+          "bonus_biomarkers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Bonus Biomarkers",
+            "type": "array"
+          },
+          "bonus_total_now": {
+            "default": 0.0,
+            "title": "Bonus Total Now",
+            "type": "number"
+          },
+          "currency": {
+            "default": "PLN",
+            "title": "Currency",
+            "type": "string"
+          },
+          "explain": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Explain",
+            "type": "object"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "total_min30": {
+            "title": "Total Min30",
+            "type": "number"
+          },
+          "total_now": {
+            "title": "Total Now",
+            "type": "number"
+          },
+          "uncovered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Uncovered",
+            "type": "array"
+          }
+        },
+        "required": [
+          "total_now",
+          "total_min30",
+          "items",
+          "explain",
+          "uncovered"
+        ],
+        "title": "OptimizeResponse",
+        "type": "object"
+      },
+      "SavedListCollectionResponse": {
+        "properties": {
+          "lists": {
+            "items": {
+              "$ref": "#/components/schemas/SavedListResponse"
+            },
+            "title": "Lists",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lists"
+        ],
+        "title": "SavedListCollectionResponse",
+        "type": "object"
+      },
+      "SavedListEntryPayload": {
+        "properties": {
+          "code": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "SavedListEntryPayload",
+        "type": "object"
+      },
+      "SavedListEntryResponse": {
+        "properties": {
+          "biomarker_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Biomarker Id"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "display_name",
+          "sort_order",
+          "biomarker_id",
+          "created_at"
+        ],
+        "title": "SavedListEntryResponse",
+        "type": "object"
+      },
+      "SavedListNotificationRequest": {
+        "properties": {
+          "notify_on_price_drop": {
+            "title": "Notify On Price Drop",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "notify_on_price_drop"
+        ],
+        "title": "SavedListNotificationRequest",
+        "type": "object"
+      },
+      "SavedListNotificationResponse": {
+        "properties": {
+          "last_known_total_grosz": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Known Total Grosz"
+          },
+          "last_total_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Total Updated At"
+          },
+          "list_id": {
+            "title": "List Id",
+            "type": "string"
+          },
+          "notify_on_price_drop": {
+            "title": "Notify On Price Drop",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "list_id",
+          "notify_on_price_drop",
+          "last_known_total_grosz",
+          "last_total_updated_at"
+        ],
+        "title": "SavedListNotificationResponse",
+        "type": "object"
+      },
+      "SavedListNotificationsBulkResponse": {
+        "properties": {
+          "lists": {
+            "items": {
+              "$ref": "#/components/schemas/SavedListNotificationResponse"
+            },
+            "title": "Lists",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lists"
+        ],
+        "title": "SavedListNotificationsBulkResponse",
+        "type": "object"
+      },
+      "SavedListResponse": {
+        "properties": {
+          "biomarkers": {
+            "items": {
+              "$ref": "#/components/schemas/SavedListEntryResponse"
+            },
+            "title": "Biomarkers",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_known_total_grosz": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Known Total Grosz"
+          },
+          "last_notified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Notified At"
+          },
+          "last_notified_total_grosz": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Notified Total Grosz"
+          },
+          "last_total_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Total Updated At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notify_on_price_drop": {
+            "title": "Notify On Price Drop",
+            "type": "boolean"
+          },
+          "share_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Token"
+          },
+          "shared_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared At"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at",
+          "share_token",
+          "shared_at",
+          "notify_on_price_drop",
+          "last_known_total_grosz",
+          "last_total_updated_at",
+          "last_notified_total_grosz",
+          "last_notified_at",
+          "biomarkers"
+        ],
+        "title": "SavedListResponse",
+        "type": "object"
+      },
+      "SavedListShareRequest": {
+        "properties": {
+          "regenerate": {
+            "default": false,
+            "title": "Regenerate",
+            "type": "boolean"
+          }
+        },
+        "title": "SavedListShareRequest",
+        "type": "object"
+      },
+      "SavedListShareResponse": {
+        "properties": {
+          "list_id": {
+            "title": "List Id",
+            "type": "string"
+          },
+          "share_token": {
+            "title": "Share Token",
+            "type": "string"
+          },
+          "shared_at": {
+            "format": "date-time",
+            "title": "Shared At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "list_id",
+          "share_token",
+          "shared_at"
+        ],
+        "title": "SavedListShareResponse",
+        "type": "object"
+      },
+      "SavedListUpsert": {
+        "properties": {
+          "biomarkers": {
+            "items": {
+              "$ref": "#/components/schemas/SavedListEntryPayload"
+            },
+            "maxItems": 100,
+            "title": "Biomarkers",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SavedListUpsert",
+        "type": "object"
+      },
+      "SessionResponse": {
+        "properties": {
+          "is_admin": {
+            "default": false,
+            "description": "True when the user has admin privileges",
+            "title": "Is Admin",
+            "type": "boolean"
+          },
+          "registered": {
+            "default": false,
+            "description": "Whether the current user has credentials set",
+            "title": "Registered",
+            "type": "boolean"
+          },
+          "user_id": {
+            "description": "Identifier of the current user",
+            "title": "User Id",
+            "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Username if the user registered, otherwise null",
+            "title": "Username"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "SessionResponse",
+        "type": "object"
+      },
+      "TelegramLinkCompleteRequest": {
+        "properties": {
+          "chat_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Chat Id",
+            "type": "string"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "language_code": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Code"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "token": {
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Token",
+            "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "token",
+          "chat_id"
+        ],
+        "title": "TelegramLinkCompleteRequest",
+        "type": "object"
+      },
+      "TelegramLinkCompleteResponse": {
+        "properties": {
+          "linked_at": {
+            "format": "date-time",
+            "title": "Linked At",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "linked_at"
+        ],
+        "title": "TelegramLinkCompleteResponse",
+        "type": "object"
+      },
+      "TelegramLinkStatus": {
+        "properties": {
+          "bot_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Configured Telegram bot username",
+            "title": "Bot Username"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Linked Telegram chat identifier",
+            "title": "Chat Id"
+          },
+          "enabled": {
+            "description": "True when Telegram integration is configured",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "link_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pending link token for manual entry",
+            "title": "Link Token"
+          },
+          "link_token_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Expiry timestamp for the pending link token",
+            "title": "Link Token Expires At"
+          },
+          "link_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deep link URL to open the bot with the pending token",
+            "title": "Link Url"
+          },
+          "linked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Timestamp when Telegram chat was linked",
+            "title": "Linked At"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "TelegramLinkStatus",
+        "type": "object"
+      },
+      "TelegramLinkTokenResponse": {
+        "properties": {
+          "telegram": {
+            "$ref": "#/components/schemas/TelegramLinkStatus"
+          }
+        },
+        "required": [
+          "telegram"
+        ],
+        "title": "TelegramLinkTokenResponse",
+        "type": "object"
+      },
+      "TelegramManualLinkRequest": {
+        "properties": {
+          "chat_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Chat Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chat_id"
+        ],
+        "title": "TelegramManualLinkRequest",
+        "type": "object"
+      },
+      "TelegramUnlinkRequest": {
+        "properties": {
+          "chat_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Chat Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chat_id"
+        ],
+        "title": "TelegramUnlinkRequest",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Panelyt API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/account/settings": {
+      "get": {
+        "operationId": "get_account_settings_account_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Account Settings",
+        "tags": [
+          "account"
+        ]
+      },
+      "patch": {
+        "operationId": "update_account_settings_account_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountSettingsUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Account Settings",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/account/telegram/link-token": {
+      "post": {
+        "operationId": "create_link_token_account_telegram_link_token_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramLinkTokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Create Link Token",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/account/telegram/manual-link": {
+      "post": {
+        "operationId": "manual_link_telegram_chat_account_telegram_manual_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramManualLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramLinkTokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Manual Link Telegram Chat",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/account/telegram/unlink": {
+      "post": {
+        "operationId": "unlink_telegram_chat_account_telegram_unlink_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Unlink Telegram Chat",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/biomarker-lists/admin/templates": {
+      "get": {
+        "operationId": "admin_list_templates_biomarker_lists_admin_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BiomarkerListTemplateCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Admin List Templates",
+        "tags": [
+          "biomarker-lists-admin"
+        ]
+      },
+      "post": {
+        "operationId": "create_template_biomarker_lists_admin_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BiomarkerListTemplateUpsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BiomarkerListTemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Template",
+        "tags": [
+          "biomarker-lists-admin"
+        ]
+      }
+    },
+    "/biomarker-lists/admin/templates/{slug}": {
+      "delete": {
+        "operationId": "delete_template_biomarker_lists_admin_templates__slug__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Template",
+        "tags": [
+          "biomarker-lists-admin"
+        ]
+      },
+      "get": {
+        "operationId": "admin_get_template_biomarker_lists_admin_templates__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BiomarkerListTemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin Get Template",
+        "tags": [
+          "biomarker-lists-admin"
+        ]
+      },
+      "put": {
+        "operationId": "update_template_biomarker_lists_admin_templates__slug__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BiomarkerListTemplateUpsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BiomarkerListTemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Template",
+        "tags": [
+          "biomarker-lists-admin"
+        ]
+      }
+    },
+    "/biomarker-lists/shared/{share_token}": {
+      "get": {
+        "operationId": "get_shared_list_biomarker_lists_shared__share_token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_token",
+            "required": true,
+            "schema": {
+              "title": "Share Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Shared List",
+        "tags": [
+          "biomarker-lists"
+        ]
+      }
+    },
+    "/biomarker-lists/templates": {
+      "get": {
+        "operationId": "list_templates_biomarker_lists_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BiomarkerListTemplateCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Templates",
+        "tags": [
+          "biomarker-lists"
+        ]
+      }
+    },
+    "/biomarker-lists/templates/{slug}": {
+      "get": {
+        "operationId": "get_template_biomarker_lists_templates__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BiomarkerListTemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Template",
+        "tags": [
+          "biomarker-lists"
+        ]
+      }
+    },
+    "/catalog/biomarkers": {
+      "get": {
+        "operationId": "search_catalog_biomarkers_get",
+        "parameters": [
+          {
+            "description": "Search by biomarker name or ELAB code",
+            "in": "query",
+            "name": "query",
+            "required": true,
+            "schema": {
+              "description": "Search by biomarker name or ELAB code",
+              "minLength": 1,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Institution (office) id",
+            "in": "query",
+            "name": "institution",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Institution (office) id",
+              "title": "Institution"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BiomarkerSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/catalog/biomarkers/batch": {
+      "post": {
+        "operationId": "batch_biomarkers_catalog_biomarkers_batch_post",
+        "parameters": [
+          {
+            "description": "Institution (office) id",
+            "in": "query",
+            "name": "institution",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Institution (office) id",
+              "title": "Institution"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BiomarkerBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BiomarkerBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Batch Biomarkers",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/catalog/meta": {
+      "get": {
+        "operationId": "get_meta_catalog_meta_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogMeta"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Meta",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/catalog/search": {
+      "get": {
+        "operationId": "search_catalog_endpoint_catalog_search_get",
+        "parameters": [
+          {
+            "description": "Search biomarkers and curated templates",
+            "in": "query",
+            "name": "query",
+            "required": true,
+            "schema": {
+              "description": "Search biomarkers and curated templates",
+              "minLength": 1,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Institution (office) id",
+            "in": "query",
+            "name": "institution",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Institution (office) id",
+              "title": "Institution"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Catalog Endpoint",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health check for Docker",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "operationId": "healthcheck_healthz_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Healthcheck Healthz Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/institutions/search": {
+      "get": {
+        "operationId": "search_institutions_institutions_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Institutions",
+        "tags": [
+          "institutions"
+        ]
+      }
+    },
+    "/institutions/{institution_id}": {
+      "get": {
+        "operationId": "get_institution_institutions__institution_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "institution_id",
+            "required": true,
+            "schema": {
+              "title": "Institution Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstitutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Institution",
+        "tags": [
+          "institutions"
+        ]
+      }
+    },
+    "/lists": {
+      "get": {
+        "operationId": "list_saved_lists_lists_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedListCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Saved Lists",
+        "tags": [
+          "saved-lists"
+        ]
+      },
+      "post": {
+        "operationId": "create_saved_list_lists_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedListUpsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Saved List",
+        "tags": [
+          "saved-lists"
+        ]
+      }
+    },
+    "/lists/notifications": {
+      "post": {
+        "operationId": "update_saved_lists_notifications_bulk_lists_notifications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedListNotificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedListNotificationsBulkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Saved Lists Notifications Bulk",
+        "tags": [
+          "saved-lists"
+        ]
+      }
+    },
+    "/lists/{list_id}": {
+      "delete": {
+        "operationId": "delete_saved_list_lists__list_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Saved List",
+        "tags": [
+          "saved-lists"
+        ]
+      },
+      "put": {
+        "operationId": "update_saved_list_lists__list_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedListUpsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Saved List",
+        "tags": [
+          "saved-lists"
+        ]
+      }
+    },
+    "/lists/{list_id}/notifications": {
+      "post": {
+        "operationId": "update_saved_list_notifications_lists__list_id__notifications_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedListNotificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedListNotificationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Saved List Notifications",
+        "tags": [
+          "saved-lists"
+        ]
+      }
+    },
+    "/lists/{list_id}/share": {
+      "delete": {
+        "operationId": "unshare_saved_list_lists__list_id__share_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unshare Saved List",
+        "tags": [
+          "saved-lists"
+        ]
+      },
+      "post": {
+        "operationId": "share_saved_list_lists__list_id__share_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_id",
+            "required": true,
+            "schema": {
+              "title": "List Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedListShareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedListShareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Share Saved List",
+        "tags": [
+          "saved-lists"
+        ]
+      }
+    },
+    "/optimize": {
+      "post": {
+        "operationId": "optimize_optimize_post",
+        "parameters": [
+          {
+            "description": "Institution (office) id",
+            "in": "query",
+            "name": "institution",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Institution (office) id",
+              "title": "Institution"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptimizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptimizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Optimize",
+        "tags": [
+          "optimize"
+        ]
+      }
+    },
+    "/optimize/addons": {
+      "post": {
+        "description": "Compute addon suggestions for a given optimization solution.\n\nThis endpoint is called after /optimize to lazily load addon suggestions,\nimproving the initial response time of the optimization endpoint.",
+        "operationId": "optimize_addons_optimize_addons_post",
+        "parameters": [
+          {
+            "description": "Institution (office) id",
+            "in": "query",
+            "name": "institution",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Institution (office) id",
+              "title": "Institution"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddonSuggestionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddonSuggestionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Optimize Addons",
+        "tags": [
+          "optimize"
+        ]
+      }
+    },
+    "/telegram/link": {
+      "post": {
+        "operationId": "complete_link_telegram_link_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Telegram-Bot-Secret",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Telegram-Bot-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramLinkCompleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramLinkCompleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Link",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/telegram/unlink": {
+      "post": {
+        "operationId": "unlink_chat_telegram_unlink_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Telegram-Bot-Secret",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Telegram-Bot-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelegramUnlinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlink Chat",
+        "tags": [
+          "telegram"
+        ]
+      }
+    },
+    "/users/login": {
+      "post": {
+        "operationId": "login_user_users_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/users/logout": {
+      "post": {
+        "operationId": "logout_user_users_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/users/register": {
+      "post": {
+        "operationId": "register_user_users_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/users/session": {
+      "post": {
+        "operationId": "ensure_user_session_users_session_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ensure User Session",
+        "tags": [
+          "users"
+        ]
+      }
+    }
+  }
+}

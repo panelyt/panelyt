@@ -1,0 +1,13 @@
+{
+  "id": 1135,
+  "name": "Diag Warszawa",
+  "slug": "diag-warszawa",
+  "address": {
+    "fullAddress": "00-000 Warszawa, Testowa 1",
+    "city": {
+      "id": 1,
+      "name": "Warszawa",
+      "slug": "warszawa"
+    }
+  }
+}

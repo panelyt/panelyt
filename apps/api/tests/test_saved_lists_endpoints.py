@@ -10,6 +10,13 @@ from sqlalchemy import insert, update
 
 from panelyt_api.db import models
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
+from tests.factories import (
+    make_biomarker,
+    make_institution,
+    make_institution_item,
+    make_item,
+    make_item_biomarker,
+)
 
 
 def ensure_session(client: TestClient) -> str:
@@ -35,8 +42,8 @@ async def seed_biomarkers_with_items(session) -> None:
     await session.execute(
         insert(models.Biomarker).values(
             [
-                {"id": 1, "name": "ALT", "elab_code": "ALT", "slug": "alt"},
-                {"id": 2, "name": "AST", "elab_code": "AST", "slug": "ast"},
+                make_biomarker(id=1, name="ALT", elab_code="ALT", slug="alt"),
+                make_biomarker(id=2, name="AST", elab_code="AST", slug="ast"),
             ]
         )
     )
@@ -44,96 +51,74 @@ async def seed_biomarkers_with_items(session) -> None:
     await session.execute(
         insert(models.Institution).values(
             [
-                {"id": DEFAULT_INSTITUTION_ID, "name": "Institution 1135"},
-                {"id": secondary_institution_id, "name": "Institution 1136"},
+                make_institution(id=DEFAULT_INSTITUTION_ID, name="Institution 1135"),
+                make_institution(id=secondary_institution_id, name="Institution 1136"),
             ]
         )
     )
     await session.execute(
         insert(models.Item).values(
             [
-                {
-                    "id": 1,
-                    "external_id": "item-1",
-                    "kind": "single",
-                    "name": "ALT Test",
-                    "slug": "alt-test",
-                    "price_now_grosz": 1000,
-                    "price_min30_grosz": 1000,
-                    "currency": "PLN",
-                    "is_available": True,
-                    "fetched_at": now,
-                },
-                {
-                    "id": 2,
-                    "external_id": "item-2",
-                    "kind": "single",
-                    "name": "AST Test",
-                    "slug": "ast-test",
-                    "price_now_grosz": 1200,
-                    "price_min30_grosz": 1200,
-                    "currency": "PLN",
-                    "is_available": True,
-                    "fetched_at": now,
-                },
+                make_item(
+                    id=1,
+                    external_id="item-1",
+                    name="ALT Test",
+                    slug="alt-test",
+                    price_now_grosz=1000,
+                    price_min30_grosz=1000,
+                    fetched_at=now,
+                ),
+                make_item(
+                    id=2,
+                    external_id="item-2",
+                    name="AST Test",
+                    slug="ast-test",
+                    price_now_grosz=1200,
+                    price_min30_grosz=1200,
+                    fetched_at=now,
+                ),
             ]
         )
     )
     await session.execute(
         insert(models.InstitutionItem).values(
             [
-                {
-                    "institution_id": DEFAULT_INSTITUTION_ID,
-                    "item_id": 1,
-                    "is_available": True,
-                    "currency": "PLN",
-                    "price_now_grosz": 1000,
-                    "price_min30_grosz": 1000,
-                    "sale_price_grosz": None,
-                    "regular_price_grosz": None,
-                    "fetched_at": now,
-                },
-                {
-                    "institution_id": DEFAULT_INSTITUTION_ID,
-                    "item_id": 2,
-                    "is_available": True,
-                    "currency": "PLN",
-                    "price_now_grosz": 1200,
-                    "price_min30_grosz": 1200,
-                    "sale_price_grosz": None,
-                    "regular_price_grosz": None,
-                    "fetched_at": now,
-                },
-                {
-                    "institution_id": secondary_institution_id,
-                    "item_id": 1,
-                    "is_available": True,
-                    "currency": "PLN",
-                    "price_now_grosz": 1500,
-                    "price_min30_grosz": 1500,
-                    "sale_price_grosz": None,
-                    "regular_price_grosz": None,
-                    "fetched_at": now,
-                },
-                {
-                    "institution_id": secondary_institution_id,
-                    "item_id": 2,
-                    "is_available": True,
-                    "currency": "PLN",
-                    "price_now_grosz": 1900,
-                    "price_min30_grosz": 1900,
-                    "sale_price_grosz": None,
-                    "regular_price_grosz": None,
-                    "fetched_at": now,
-                },
+                make_institution_item(
+                    institution_id=DEFAULT_INSTITUTION_ID,
+                    item_id=1,
+                    price_now_grosz=1000,
+                    price_min30_grosz=1000,
+                    fetched_at=now,
+                ),
+                make_institution_item(
+                    institution_id=DEFAULT_INSTITUTION_ID,
+                    item_id=2,
+                    price_now_grosz=1200,
+                    price_min30_grosz=1200,
+                    fetched_at=now,
+                ),
+                make_institution_item(
+                    institution_id=secondary_institution_id,
+                    item_id=1,
+                    price_now_grosz=1500,
+                    price_min30_grosz=1500,
+                    fetched_at=now,
+                ),
+                make_institution_item(
+                    institution_id=secondary_institution_id,
+                    item_id=2,
+                    price_now_grosz=1900,
+                    price_min30_grosz=1900,
+                    fetched_at=now,
+                ),
             ]
         )
     )
     await session.execute(
         insert(models.ItemBiomarker).values(
             [
-                {"item_id": 1, "biomarker_id": 1},
-                {"item_id": 2, "biomarker_id": 2},
+                make_item_biomarker(item_id=1, biomarker_id=1),
+                make_item_biomarker(item_id=2, biomarker_id=2),
             ]
         )
     )

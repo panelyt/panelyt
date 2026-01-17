@@ -11,12 +11,19 @@ from sqlalchemy import insert, select, update
 from panelyt_api.core.cache import freshness_cache
 from panelyt_api.db import models
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
+from tests.factories import (
+    make_biomarker,
+    make_institution,
+    make_institution_item,
+    make_item,
+    make_item_biomarker,
+)
 
 
 async def insert_institution(session, institution_id: int = DEFAULT_INSTITUTION_ID) -> None:
     await session.execute(
         insert(models.Institution).values(
-            {"id": institution_id, "name": f"Institution {institution_id}"}
+            make_institution(id=institution_id, name=f"Institution {institution_id}")
         )
     )
 
@@ -27,19 +34,18 @@ async def insert_items_with_offers(
     institution_id: int = DEFAULT_INSTITUTION_ID,
 ) -> None:
     await session.execute(insert(models.Item).values(items))
-    now = datetime.now(timezone.utc)
     offers = [
-        {
-            "institution_id": institution_id,
-            "item_id": item["id"],
-            "is_available": item.get("is_available", True),
-            "currency": item.get("currency", "PLN"),
-            "price_now_grosz": item["price_now_grosz"],
-            "price_min30_grosz": item.get("price_min30_grosz", item["price_now_grosz"]),
-            "sale_price_grosz": item.get("sale_price_grosz"),
-            "regular_price_grosz": item.get("regular_price_grosz"),
-            "fetched_at": item.get("fetched_at", now),
-        }
+        make_institution_item(
+            institution_id=institution_id,
+            item_id=item["id"],
+            price_now_grosz=item["price_now_grosz"],
+            price_min30_grosz=item.get("price_min30_grosz"),
+            currency=item.get("currency", "PLN"),
+            is_available=item.get("is_available", True),
+            fetched_at=item.get("fetched_at"),
+            sale_price_grosz=item.get("sale_price_grosz"),
+            regular_price_grosz=item.get("regular_price_grosz"),
+        )
         for item in items
     ]
     await session.execute(insert(models.InstitutionItem).values(offers))
@@ -111,50 +117,40 @@ class TestCatalogEndpoints:
         if existing is None:
             await session.execute(
                 insert(models.Institution).values(
-                    {"id": institution_id, "name": f"Institution {institution_id}"}
+                    make_institution(id=institution_id, name=f"Institution {institution_id}")
                 )
             )
         await session.execute(
             insert(models.Item).values(
-                {
-                    "id": item_id,
-                    "external_id": f"item-{item_id}",
-                    "kind": "single",
-                    "name": f"Item {item_id}",
-                    "slug": f"item-{item_id}",
-                    "price_now_grosz": price,
-                    "price_min30_grosz": price,
-                    "currency": "PLN",
-                    "is_available": True,
-                    "fetched_at": now,
-                }
+                make_item(
+                    id=item_id,
+                    external_id=f"item-{item_id}",
+                    name=f"Item {item_id}",
+                    slug=f"item-{item_id}",
+                    price_now_grosz=price,
+                    price_min30_grosz=price,
+                    fetched_at=now,
+                )
             )
         )
         await session.execute(
             insert(models.ItemBiomarker).values(
-                {
-                    "item_id": item_id,
-                    "biomarker_id": biomarker_id,
-                }
+                make_item_biomarker(item_id=item_id, biomarker_id=biomarker_id)
             )
         )
         await session.execute(
             insert(models.InstitutionItem).values(
-                {
-                    "institution_id": institution_id,
-                    "item_id": item_id,
-                    "is_available": True,
-                    "currency": "PLN",
-                    "price_now_grosz": price,
-                    "price_min30_grosz": price,
-                    "sale_price_grosz": None,
-                    "regular_price_grosz": None,
-                    "fetched_at": now,
-                }
+                make_institution_item(
+                    institution_id=institution_id,
+                    item_id=item_id,
+                    price_now_grosz=price,
+                    price_min30_grosz=price,
+                    fetched_at=now,
+                )
             )
         )
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_get_catalog_meta(
         self,
         mock_ensure_fresh,
@@ -168,25 +164,22 @@ class TestCatalogEndpoints:
         # Add some test data
         await db_session.execute(
             insert(models.Biomarker).values([
-                {"name": "ALT", "elab_code": "ALT", "slug": "alt"},
-                {"name": "AST", "elab_code": "AST", "slug": "ast"},
+                make_biomarker(name="ALT", elab_code="ALT", slug="alt"),
+                make_biomarker(name="AST", elab_code="AST", slug="ast"),
             ])
         )
 
         await db_session.execute(
             insert(models.Item).values([
-                {
-                    "id": 1,
-                    "external_id": "item-1",
-                    "kind": "single",
-                    "name": "ALT Test",
-                    "slug": "alt-test",
-                    "price_now_grosz": 1000,
-                    "price_min30_grosz": 900,
-                    "currency": "PLN",
-                    "is_available": True,
-                    "fetched_at": datetime.now(timezone.utc),
-                },
+                make_item(
+                    id=1,
+                    external_id="item-1",
+                    name="ALT Test",
+                    slug="alt-test",
+                    price_now_grosz=1000,
+                    price_min30_grosz=900,
+                    fetched_at=datetime.now(timezone.utc),
+                ),
             ])
         )
         await db_session.commit()
@@ -219,9 +212,24 @@ class TestCatalogEndpoints:
         # Add test biomarkers
         await db_session.execute(
             insert(models.Biomarker).values([
-                {"id": 1, "name": "Alanine aminotransferase", "elab_code": "ALT", "slug": "alt"},
-                {"id": 2, "name": "Aspartate aminotransferase", "elab_code": "AST", "slug": "ast"},
-                {"id": 3, "name": "Total cholesterol", "elab_code": "CHOL", "slug": "cholesterol"},
+                make_biomarker(
+                    id=1,
+                    name="Alanine aminotransferase",
+                    elab_code="ALT",
+                    slug="alt",
+                ),
+                make_biomarker(
+                    id=2,
+                    name="Aspartate aminotransferase",
+                    elab_code="AST",
+                    slug="ast",
+                ),
+                make_biomarker(
+                    id=3,
+                    name="Total cholesterol",
+                    elab_code="CHOL",
+                    slug="cholesterol",
+                ),
             ])
         )
         await db_session.commit()
@@ -283,7 +291,7 @@ class TestCatalogEndpoints:
         assert data["results"]["AST"]["price_now_grosz"] == 1200
         assert data["results"]["MISSING"] is None
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_search_biomarkers_triggers_ingestion(
         self,
         mock_ensure_fresh,
@@ -486,7 +494,7 @@ class TestCatalogEndpoints:
         assert template_entry["slug"] == "cholesterol-panel"
         assert template_entry["biomarker_count"] == 2
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_catalog_search_triggers_ingestion(
         self,
         mock_ensure_fresh,
@@ -504,7 +512,7 @@ class TestCatalogEndpoints:
 
 
 class TestOptimizeEndpoint:
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_empty_biomarkers(
         self,
         mock_ensure_fresh,
@@ -528,7 +536,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_unknown_biomarkers(
         self,
         mock_ensure_fresh,
@@ -549,7 +557,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_successful_optimization(
         self,
         mock_ensure_fresh,
@@ -641,7 +649,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_compare_returns_bundle(
         self,
         mock_ensure_fresh,
@@ -666,7 +674,7 @@ class TestOptimizeEndpoint:
         response = await async_client.post("/optimize", json={"biomarkers": "not a list"})
         assert response.status_code == 422
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_partial_coverage(
         self,
         mock_ensure_fresh,
@@ -725,7 +733,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_uses_institution_param(
         self,
         mock_ensure_fresh,
@@ -774,7 +782,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(2222, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_uses_preferred_institution_when_param_missing(
         self,
         mock_ensure_fresh,
