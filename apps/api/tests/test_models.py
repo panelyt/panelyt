@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
+from freezegun import freeze_time
 from sqlalchemy import insert, select
 from sqlalchemy.orm import selectinload
 
@@ -73,42 +74,43 @@ class TestDatabaseModels:
 
     async def test_item_model(self, db_session):
         """Test Item model creation."""
-        fetched_time = datetime.now(timezone.utc)
+        with freeze_time("2026-01-02 03:04:05", tz_offset=0):
+            fetched_time = datetime.now(timezone.utc)
 
-        await db_session.execute(
-            insert(models.Item).values({
-                "id": 123,
-                "external_id": "123",
-                "kind": "single",
-                "name": "ALT Test",
-                "slug": "alt-test",
-                "price_now_grosz": 1000,
-                "price_min30_grosz": 900,
-                "currency": "PLN",
-                "is_available": True,
-                "fetched_at": fetched_time,
-                "sale_price_grosz": 800,
-                "regular_price_grosz": 1000,
-            })
-        )
-        await db_session.commit()
+            await db_session.execute(
+                insert(models.Item).values({
+                    "id": 123,
+                    "external_id": "123",
+                    "kind": "single",
+                    "name": "ALT Test",
+                    "slug": "alt-test",
+                    "price_now_grosz": 1000,
+                    "price_min30_grosz": 900,
+                    "currency": "PLN",
+                    "is_available": True,
+                    "fetched_at": fetched_time,
+                    "sale_price_grosz": 800,
+                    "regular_price_grosz": 1000,
+                })
+            )
+            await db_session.commit()
 
-        result = await db_session.execute(
-            select(models.Item).where(models.Item.id == 123)
-        )
-        item = result.scalar_one()
+            result = await db_session.execute(
+                select(models.Item).where(models.Item.id == 123)
+            )
+            item = result.scalar_one()
 
-        assert item.id == 123
-        assert item.kind == "single"
-        assert item.name == "ALT Test"
-        assert item.slug == "alt-test"
-        assert item.price_now_grosz == 1000
-        assert item.price_min30_grosz == 900
-        assert item.currency == "PLN"
-        assert item.is_available is True
-        assert item.fetched_at == fetched_time.replace(tzinfo=None)
-        assert item.sale_price_grosz == 800
-        assert item.regular_price_grosz == 1000
+            assert item.id == 123
+            assert item.kind == "single"
+            assert item.name == "ALT Test"
+            assert item.slug == "alt-test"
+            assert item.price_now_grosz == 1000
+            assert item.price_min30_grosz == 900
+            assert item.currency == "PLN"
+            assert item.is_available is True
+            assert item.fetched_at == fetched_time.replace(tzinfo=None)
+            assert item.sale_price_grosz == 800
+            assert item.regular_price_grosz == 1000
 
     async def test_item_biomarker_relationship(self, db_session):
         """Test Item-Biomarker many-to-many relationship."""
@@ -468,27 +470,28 @@ class TestDatabaseModels:
 
     async def test_raw_snapshot_model(self, db_session):
         """Test RawSnapshot model."""
-        snapshot_time = datetime.now(timezone.utc)
-        raw_data = {"test": "data", "items": [1, 2, 3]}
+        with freeze_time("2026-01-02 03:04:05", tz_offset=0):
+            snapshot_time = datetime.now(timezone.utc)
+            raw_data = {"test": "data", "items": [1, 2, 3]}
 
-        await db_session.execute(
-            insert(models.RawSnapshot).values({
-                "source": "test-source",
-                "fetched_at": snapshot_time,
-                "payload": raw_data,
-            })
-        )
-        await db_session.commit()
+            await db_session.execute(
+                insert(models.RawSnapshot).values({
+                    "source": "test-source",
+                    "fetched_at": snapshot_time,
+                    "payload": raw_data,
+                })
+            )
+            await db_session.commit()
 
-        # Query snapshot
-        result = await db_session.execute(
-            select(models.RawSnapshot).where(models.RawSnapshot.source == "test-source")
-        )
-        snapshot = result.scalar_one()
+            # Query snapshot
+            result = await db_session.execute(
+                select(models.RawSnapshot).where(models.RawSnapshot.source == "test-source")
+            )
+            snapshot = result.scalar_one()
 
-        assert snapshot.source == "test-source"
-        assert snapshot.fetched_at == snapshot_time.replace(tzinfo=None)
-        assert snapshot.payload == raw_data
+            assert snapshot.source == "test-source"
+            assert snapshot.fetched_at == snapshot_time.replace(tzinfo=None)
+            assert snapshot.payload == raw_data
 
     async def test_model_constraints(self, db_session):
         """Test model constraints and validations."""

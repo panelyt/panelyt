@@ -37,6 +37,7 @@ dev = [
   "pytest-asyncio>=0.23",
   "pytest-cov>=4.1",
   "pytest-randomly>=3.15",
+  "freezegun>=1.5",
   "ruff>=0.5",
   "mypy>=1.10",
   "types-cachetools",
