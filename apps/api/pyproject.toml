@@ -82,6 +82,8 @@ ignore_missing_imports = true
 paths_to_mutate = ["src/panelyt_api/utils", "src/panelyt_api/ingest"]
 tests_dir = ["tests"]
 mutate_only_covered_lines = true
+pytest_add_cli_args = ["-o", "addopts="]
+also_copy = ["src", ".env", "data", "alembic"]
 
 [tool.coverage.run]
 source = ["panelyt_api"]

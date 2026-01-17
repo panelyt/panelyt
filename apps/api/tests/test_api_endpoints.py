@@ -154,7 +154,7 @@ class TestCatalogEndpoints:
             )
         )
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_get_catalog_meta(
         self,
         mock_ensure_fresh,
@@ -283,7 +283,7 @@ class TestCatalogEndpoints:
         assert data["results"]["AST"]["price_now_grosz"] == 1200
         assert data["results"]["MISSING"] is None
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_search_biomarkers_triggers_ingestion(
         self,
         mock_ensure_fresh,
@@ -486,7 +486,7 @@ class TestCatalogEndpoints:
         assert template_entry["slug"] == "cholesterol-panel"
         assert template_entry["biomarker_count"] == 2
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_catalog_search_triggers_ingestion(
         self,
         mock_ensure_fresh,
@@ -504,7 +504,7 @@ class TestCatalogEndpoints:
 
 
 class TestOptimizeEndpoint:
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_empty_biomarkers(
         self,
         mock_ensure_fresh,
@@ -528,7 +528,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_unknown_biomarkers(
         self,
         mock_ensure_fresh,
@@ -549,7 +549,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_successful_optimization(
         self,
         mock_ensure_fresh,
@@ -641,7 +641,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_compare_returns_bundle(
         self,
         mock_ensure_fresh,
@@ -666,7 +666,7 @@ class TestOptimizeEndpoint:
         response = await async_client.post("/optimize", json={"biomarkers": "not a list"})
         assert response.status_code == 422
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_partial_coverage(
         self,
         mock_ensure_fresh,
@@ -725,7 +725,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(DEFAULT_INSTITUTION_ID, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_uses_institution_param(
         self,
         mock_ensure_fresh,
@@ -774,7 +774,7 @@ class TestOptimizeEndpoint:
         activity_spy.assert_awaited_once()
         mock_ensure_fresh.assert_awaited_once_with(2222, blocking=True)
 
-    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data")
+    @patch("panelyt_api.ingest.service.IngestionService.ensure_fresh_data", new_callable=AsyncMock)
     async def test_optimize_uses_preferred_institution_when_param_missing(
         self,
         mock_ensure_fresh,

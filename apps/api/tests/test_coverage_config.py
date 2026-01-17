@@ -24,8 +24,15 @@ def _extract_recipe_body(justfile_text: str, recipe_name: str) -> list[str]:
     return body
 
 
+def _find_repo_root(start: Path) -> Path:
+    for candidate in (start, *start.parents):
+        if (candidate / "Justfile").exists():
+            return candidate
+    raise FileNotFoundError("Justfile not found in parent directories")
+
+
 def test_test_api_includes_coverage_flags():
-    repo_root = Path(__file__).resolve().parents[3]
+    repo_root = _find_repo_root(Path(__file__).resolve())
     justfile_path = repo_root / "Justfile"
     justfile_text = justfile_path.read_text(encoding="utf-8")
 
@@ -45,7 +52,7 @@ def test_test_api_includes_coverage_flags():
 
 
 def test_test_api_does_not_use_repo_root_db():
-    repo_root = Path(__file__).resolve().parents[3]
+    repo_root = _find_repo_root(Path(__file__).resolve())
     justfile_path = repo_root / "Justfile"
     justfile_text = justfile_path.read_text(encoding="utf-8")
 

@@ -25,6 +25,8 @@ dist/
 coverage.xml
 coverage/
 *.tsbuildinfo
+mutation-report.json
+mutants/
 
 # Editor
 .DS_Store
