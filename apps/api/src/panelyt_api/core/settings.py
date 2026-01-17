@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     cors_origins_raw: str | list[str] = Field(default_factory=list, alias="CORS_ORIGINS")
     timezone: str = Field(default="Europe/Warsaw", alias="TIMEZONE")
     ingestion_staleness_threshold_hours: int = Field(
-        default=3, alias="INGESTION_STALENESS_THRESHOLD_HOURS"
+        default=24, alias="INGESTION_STALENESS_THRESHOLD_HOURS"
     )
     ingestion_user_activity_window_hours: int = Field(
         default=24, alias="INGESTION_USER_ACTIVITY_WINDOW_HOURS"
