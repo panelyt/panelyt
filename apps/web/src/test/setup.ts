@@ -90,7 +90,8 @@ const syncCustomEvent = () => {
 syncCustomEvent()
 
 // Clean up after each test
-afterEach(() => {
+afterEach(async () => {
   vi.clearAllMocks()
   syncCustomEvent()
+  await new Promise((resolve) => setTimeout(resolve, 0))
 })

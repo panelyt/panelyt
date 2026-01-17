@@ -149,7 +149,7 @@ _typecheck-web:
 
 # _test-web: run web tests (optional args supported)
 _test-web args="":
-  @cd apps/web && {{pnpm}} --filter @panelyt/web test:run {{args}}
+  @cd apps/web && {{pnpm}} --filter @panelyt/web test:coverage {{args}}
 
 # _lint-bot: lint bot code (optional args supported)
 _lint-bot args="":
