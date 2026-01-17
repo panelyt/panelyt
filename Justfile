@@ -128,6 +128,14 @@ mutation-baseline max_children="4":
   @cd apps/api && test -d mutants
   @cd apps/api && {{uv_env}} {{uv}} run --extra dev python scripts/mutation_report.py --output mutation-report.json --baseline mutation-baseline.json --update-baseline
 
+# e2e-web: run Playwright E2E tests (optional args supported)
+e2e-web args="":
+  @cd apps/web && {{pnpm}} --filter @panelyt/web test:e2e -- {{args}}
+
+# e2e-web-install: install Playwright browsers (no system deps)
+e2e-web-install:
+  @cd apps/web && {{pnpm}} --filter @panelyt/web exec playwright install
+
 # migrate: run api migrations
 migrate:
   @cd apps/api && {{uv_env}} {{uv}} run alembic upgrade head
