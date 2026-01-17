@@ -15,6 +15,7 @@ pytest_plugins = ()
 from panelyt_api.utils.normalization import (
     create_normalized_lookup,
     create_slug_from_text,
+    expand_polish_diacritic_queries,
     normalize_search_query,
     normalize_slug,
     normalize_token,
@@ -158,6 +159,10 @@ class TestNormalizeTokensSet:
         result = normalize_tokens_set(["TSH", None, "FT4"])
         assert result == {"tsh", "ft4"}
 
+    def test_ignores_non_string_values(self):
+        result = normalize_tokens_set(["TSH", 123, "FT4"])
+        assert result == {"tsh", "ft4"}
+
 
 class TestCreateNormalizedLookup:
     """Test the create_normalized_lookup function."""
@@ -184,5 +189,31 @@ class TestCreateNormalizedLookup:
         result = create_normalized_lookup(mapping)
         assert result == {"123": "a", "456": "b"}
 
+    def test_non_string_values(self):
+        mapping = {"a": 123, "b": "456"}
+        result = create_normalized_lookup(mapping)
+        assert result == {"123": "a", "456": "b"}
+
     def test_empty_mapping(self):
         assert create_normalized_lookup({}) == {}
+
+
+class TestExpandPolishDiacriticQueries:
+    """Test the expand_polish_diacritic_queries function."""
+
+    def test_generates_full_and_single_variants(self):
+        variants = expand_polish_diacritic_queries("Ala")
+        assert "ala" in variants
+        assert "ąłą" in variants
+        assert "ała" in variants
+        assert "" not in variants
+        assert len(variants) == len(set(variants))
+
+    def test_generates_z_variants(self):
+        variants = expand_polish_diacritic_queries("Zaba")
+        assert "żaba" in variants
+        assert "źaba" in variants
+
+    def test_handles_non_variant_prefix(self):
+        variants = expand_polish_diacritic_queries("Bala")
+        assert "bała" in variants
