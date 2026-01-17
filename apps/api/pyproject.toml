@@ -53,10 +53,11 @@ dev = [
 where = ["src"]
 
 [tool.pytest.ini_options]
-addopts = "-ra --randomly-seed=last"
+addopts = "-ra --randomly-seed=last --ignore=mutants"
 asyncio_mode = "auto"
 pythonpath = ["src"]
 markers = ["integration: tests that require PostgreSQL"]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
