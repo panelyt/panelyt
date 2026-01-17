@@ -9,6 +9,7 @@ from sqlalchemy import insert
 
 from panelyt_api.db import models
 from panelyt_api.ingest.types import DiagInstitution
+from tests.factories import make_institution
 
 
 class TestInstitutionEndpoints:
@@ -110,12 +111,12 @@ class TestInstitutionEndpoints:
     async def test_get_institution_returns_record(self, async_client: AsyncClient, db_session):
         await db_session.execute(
             insert(models.Institution).values(
-                {
-                    "id": 1135,
-                    "name": "Office 1135",
-                    "city": "Krakow",
-                    "address": "Main 1",
-                }
+                make_institution(
+                    id=1135,
+                    name="Office 1135",
+                    city="Krakow",
+                    address="Main 1",
+                )
             )
         )
         await db_session.commit()
@@ -150,12 +151,7 @@ class TestInstitutionEndpoints:
     ):
         await db_session.execute(
             insert(models.Institution).values(
-                {
-                    "id": 213,
-                    "name": "Institution 213",
-                    "city": None,
-                    "address": None,
-                }
+                make_institution(id=213, name="Institution 213")
             )
         )
         await db_session.commit()

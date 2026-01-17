@@ -5,7 +5,9 @@ from datetime import UTC, datetime, date
 from tests.factories import (
     make_biomarker,
     make_institution,
+    make_institution_item,
     make_item,
+    make_item_biomarker,
     make_price_snapshot,
     make_raw_snapshot,
 )
@@ -40,4 +42,10 @@ def test_make_helpers_return_expected_keys() -> None:
     assert "name" in make_institution()
     assert "elab_code" in make_biomarker()
     assert "slug" in make_biomarker()
+    assert "institution_id" in make_institution_item(institution_id=1135, item_id=1)
+    assert "item_id" in make_institution_item(institution_id=1135, item_id=1)
+    assert make_item_biomarker(item_id=1, biomarker_id=2) == {
+        "item_id": 1,
+        "biomarker_id": 2,
+    }
     assert "payload" in make_raw_snapshot()
