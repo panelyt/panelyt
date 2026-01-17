@@ -1,0 +1,35 @@
+{
+  "data": [
+    {
+      "id": 2001,
+      "name": "ALT",
+      "slug": "alt",
+      "type": "bloodtest",
+      "elabCode": "ALT",
+      "prices": {
+        "sale": 12.0,
+        "regular": 12.0,
+        "minimal": 11.0,
+        "currency": "PLN",
+        "sellState": "available"
+      }
+    },
+    {
+      "id": 2002,
+      "name": "AST",
+      "slug": "ast",
+      "type": "bloodtest",
+      "elabCode": "AST",
+      "prices": {
+        "sale": 14.0,
+        "regular": 15.0,
+        "minimal": 13.0,
+        "currency": "PLN",
+        "sellState": "available"
+      }
+    }
+  ],
+  "meta": {
+    "last_page": 1
+  }
+}
