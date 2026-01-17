@@ -16,7 +16,7 @@ from panelyt_api.db import session as session_module
 
 
 def _integration_database_url() -> str | None:
-    return os.getenv("INTEGRATION_DATABASE_URL") or os.getenv("DATABASE_URL")
+    return os.getenv("INTEGRATION_DATABASE_URL")
 
 
 def _validate_schema_name(schema: str) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import AsyncIterator, Iterator
 from unittest.mock import AsyncMock
 
@@ -12,6 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.core.settings import Settings, get_settings
 from panelyt_api.db.base import Base
+
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+
 from panelyt_api.main import create_app
 from panelyt_api.optimization.synthetic_packages import load_diag_synthetic_packages
 
