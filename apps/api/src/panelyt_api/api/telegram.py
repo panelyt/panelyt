@@ -26,7 +26,11 @@ async def complete_link(
 ) -> TelegramLinkCompleteResponse:
     telegram_service = TelegramLinkService(db, settings=settings)
     try:
-        user = await telegram_service.attach_chat(payload.token, payload.chat_id)
+        user = await telegram_service.attach_chat(
+            payload.token,
+            payload.chat_id,
+            language_code=payload.language_code,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

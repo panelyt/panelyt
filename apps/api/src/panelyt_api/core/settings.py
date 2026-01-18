@@ -38,6 +38,7 @@ class Settings(BaseSettings):
         default=30,
         alias="TELEGRAM_LINK_TOKEN_TTL_MINUTES",
     )
+    web_base_url: str = Field(default="https://panelyt.pl", alias="WEB_BASE_URL")
 
     # Cache TTL settings (seconds)
     cache_catalog_meta_ttl: int = Field(default=300, alias="CACHE_CATALOG_META_TTL")
@@ -82,6 +83,11 @@ class Settings(BaseSettings):
         else:
             usernames = []
         return sorted({name.lower() for name in usernames})
+
+    @field_validator("web_base_url", mode="before")
+    @classmethod
+    def normalize_web_base_url(cls, value: str) -> str:
+        return str(value).rstrip("/")
 
     @property
     def cors_origins(self) -> list[str]:

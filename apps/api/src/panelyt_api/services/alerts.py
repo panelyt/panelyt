@@ -21,6 +21,20 @@ from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
 logger = logging.getLogger(__name__)
 
 _MIN_DROP_GROSZ = 100  # notify when the list gets at least 1 PLN cheaper
+_ALERT_COPY = {
+    "en": {
+        "new_total": "new total",
+        "was": "was",
+        "top_picks": "Top picks",
+        "view": "View in Panelyt →",
+    },
+    "pl": {
+        "new_total": "nowa suma",
+        "was": "było",
+        "top_picks": "Polecane",
+        "view": "Zobacz w Panelyt →",
+    },
+}
 
 
 def tg_html(text: str) -> str:
@@ -44,6 +58,7 @@ class AlertPayload:
     previous_total: int
     new_total: int
     items: Sequence[ItemOut]
+    language_code: str | None = None
 
 
 class TelegramPriceAlertService:
@@ -143,6 +158,7 @@ class TelegramPriceAlertService:
             previous_total=previous_total,
             new_total=total_grosz,
             items=response.items,
+            language_code=saved_list.user.language_code if saved_list.user else None,
         )
 
     async def _fetch_candidates(self) -> list[AlertCandidate]:
@@ -202,25 +218,61 @@ class TelegramPriceAlertService:
         response.raise_for_status()
 
     def _build_message(self, alert: AlertPayload) -> str:
-        drop_pln = self._format_price(alert.previous_total - alert.new_total)
+        drop_grosz = alert.previous_total - alert.new_total
+        drop_pln = self._format_price(drop_grosz)
         new_total = self._format_price(alert.new_total)
         previous_total = self._format_price(alert.previous_total)
         list_name = tg_html(alert.saved_list.name)
+        locale = self._resolve_locale(alert.language_code)
+        copy = _ALERT_COPY[locale]
+        list_url = self._build_lists_url(locale)
+        drop_pct = self._format_drop_pct(drop_grosz, alert.previous_total)
         lines = [
-            f"📉 <b>{list_name}</b> is cheaper!",
-            f"New total: <b>{new_total}</b> (was {previous_total}, drop {drop_pln}).",
+            f"📉 <b>{list_name}</b>",
+            "",
+            f"💰 <b>-{drop_pln}</b> (-{drop_pct}%)",
+            f"<pre>{new_total}  {copy['new_total']}\n{previous_total}  {copy['was']}</pre>",
         ]
         if alert.items:
-            lines.append("Top picks:")
+            lines.append("")
+            lines.append(f"{copy['top_picks']}:")
             for item in alert.items[:3]:
                 item_name = tg_html(item.name)
-                lines.append(f"• {item_name} — {self._format_price(item.price_now_grosz)}")
-        lines.append("Manage alerts from your Panelyt lists.")
+                lines.append(
+                    f"• {item_name} — {self._format_price(item.price_now_grosz)}"
+                )
+        lines.append("")
+        lines.append(f'<a href="{tg_attr(list_url)}">{copy["view"]}</a>')
         return "\n".join(lines)
 
     @staticmethod
     def _format_price(total_grosz: int) -> str:
         return f"{total_grosz / 100:.2f} PLN"
+
+    @staticmethod
+    def _format_drop_pct(drop_grosz: int, previous_total: int) -> str:
+        if previous_total <= 0:
+            return "0"
+        pct = (drop_grosz / previous_total) * 100
+        rounded = round(pct, 1)
+        if rounded.is_integer():
+            return f"{int(rounded)}"
+        return f"{rounded:.1f}"
+
+    @staticmethod
+    def _resolve_locale(language_code: str | None) -> str:
+        if not language_code:
+            return "en"
+        code = language_code.strip().lower()
+        if code.startswith("pl"):
+            return "pl"
+        return "en"
+
+    def _build_lists_url(self, locale: str) -> str:
+        base = self._settings.web_base_url.rstrip("/")
+        if locale == "en":
+            return f"{base}/en/lists"
+        return f"{base}/lists"
 
     @staticmethod
     def _biomarker_codes(saved_list: SavedList) -> list[str]:

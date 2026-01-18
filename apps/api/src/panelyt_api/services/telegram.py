@@ -51,7 +51,13 @@ class TelegramLinkService:
         user.telegram_linked_at = None
         await self._db.flush()
 
-    async def attach_chat(self, token: str, chat_id: str) -> UserAccount:
+    async def attach_chat(
+        self,
+        token: str,
+        chat_id: str,
+        *,
+        language_code: str | None = None,
+    ) -> UserAccount:
         filtered_token = token.strip()
         if not filtered_token:
             msg = "link token cannot be blank"
@@ -75,6 +81,9 @@ class TelegramLinkService:
         user.telegram_linked_at = datetime.now(UTC)
         user.telegram_link_token = None
         user.telegram_link_token_created_at = None
+        normalized_language = self._normalize_language_code(language_code)
+        if normalized_language is not None:
+            user.language_code = normalized_language
         await self._db.flush()
         return user
 
@@ -118,6 +127,13 @@ class TelegramLinkService:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
+
+    @staticmethod
+    def _normalize_language_code(language_code: str | None) -> str | None:
+        if language_code is None:
+            return None
+        cleaned = language_code.strip().lower()
+        return cleaned or None
 
 
 __all__ = ["TelegramLinkService", "TelegramLinkState"]

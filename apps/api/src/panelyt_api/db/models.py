@@ -281,6 +281,7 @@ class UserAccount(Base):
     telegram_linked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    language_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
     preferred_institution_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("institution.id", ondelete="SET NULL"),
