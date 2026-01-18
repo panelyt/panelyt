@@ -629,7 +629,9 @@ class OptimizationService:
         if len(context.resolved) < 2 or not chosen_items:
             return [], {}
 
-        selected_tokens = {entry.token for entry in context.resolved}
+        selected_tokens = self._expand_requested_tokens_raw(
+            [entry.token for entry in context.resolved]
+        )
         chosen_items_list = list(chosen_items)
         chosen_total_grosz = sum(item.price_now for item in chosen_items_list)
         chosen_by_id = {item.id: item for item in chosen_items_list}
@@ -1148,6 +1150,29 @@ class OptimizationService:
             else:
                 expanded.append(token)
         return normalize_tokens_set(expanded)
+
+    @staticmethod
+    def _expand_requested_tokens_raw(requested_tokens: Sequence[str]) -> set[str]:
+        if not requested_tokens:
+            return set()
+
+        synthetic_packages = load_diag_synthetic_packages()
+        if not synthetic_packages:
+            return set(requested_tokens)
+
+        panel_components = OptimizationService._panel_components_by_code(synthetic_packages)
+        if not panel_components:
+            return set(requested_tokens)
+
+        expanded: list[str] = []
+        for token in requested_tokens:
+            normalized = normalize_token(token)
+            components = panel_components.get(normalized or "")
+            if components:
+                expanded.extend(components)
+            else:
+                expanded.append(token)
+        return set(expanded)
 
     async def _augment_labels_for_tokens(
         self,
