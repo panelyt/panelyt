@@ -48,7 +48,20 @@ async def test_price_alert_sent_on_drop(db_session, test_settings) -> None:
     url, payload = client.requests[0]
     assert url == "https://api.telegram.org/bottoken/sendMessage"
     assert payload["chat_id"] == "12345"
-    assert "New total" in str(payload["text"])
+    assert payload["disable_web_page_preview"] is True
+    assert payload["text"] == "\n".join(
+        [
+            "📉 <b>Liver panel</b>",
+            "",
+            "💰 <b>-15.00 PLN</b> (-33.3%)",
+            "<pre>30.00 PLN  new total\n45.00 PLN  was</pre>",
+            "",
+            "Top picks:",
+            "• ALT Test — 30.00 PLN",
+            "",
+            '<a href="https://panelyt.pl/en/lists">View in Panelyt →</a>',
+        ]
+    )
 
     saved_list = await db_session.scalar(
         select(models.SavedList).where(models.SavedList.id == saved_list_id)
@@ -254,8 +267,34 @@ async def test_alert_message_escapes_item_name(db_session, test_settings) -> Non
 
     message = service._build_message(alert)
 
-    assert "&lt;a href=" in message
-    assert "<a href=" not in message
+    assert "Item &lt;a href=" in message
+    assert "Item <a href=" not in message
+
+
+@pytest.mark.asyncio
+async def test_price_alert_uses_polish_locale(db_session, test_settings) -> None:
+    test_settings.telegram_bot_token = "token"
+
+    biomarker_id = await _create_biomarker(db_session, "ALT")
+    user_id = await _create_user(db_session, telegram_chat_id="789", language_code="pl")
+    await _create_saved_list(
+        db_session,
+        user_id=user_id,
+        biomarker_code="ALT",
+        previous_total=4500,
+    )
+    await _create_item_with_biomarker(db_session, biomarker_id=biomarker_id, item_id=1, price=3000)
+    await db_session.commit()
+
+    client = StubTelegramClient()
+    service = TelegramPriceAlertService(db_session, settings=test_settings, http_client=client)
+    await service.run()
+
+    assert len(client.requests) == 1
+    _, payload = client.requests[0]
+    assert "nowa suma" in str(payload["text"])
+    assert "Zobacz w Panelyt" in str(payload["text"])
+    assert "Polecane" in str(payload["text"])
 async def _create_biomarker(db_session, code: str) -> int:
     result = await db_session.execute(
         insert(models.Biomarker)
@@ -265,10 +304,16 @@ async def _create_biomarker(db_session, code: str) -> int:
     return int(result.scalar_one())
 
 
-async def _create_user(db_session, *, telegram_chat_id: str) -> str:
+async def _create_user(
+    db_session,
+    *,
+    telegram_chat_id: str,
+    language_code: str | None = None,
+) -> str:
     return await _create_user_with_institution(
         db_session,
         telegram_chat_id=telegram_chat_id,
+        language_code=language_code,
     )
 
 
@@ -277,6 +322,7 @@ async def _create_user_with_institution(
     *,
     telegram_chat_id: str,
     preferred_institution_id: int | None = None,
+    language_code: str | None = None,
 ) -> str:
     result = await db_session.execute(
         insert(models.UserAccount)
@@ -285,6 +331,7 @@ async def _create_user_with_institution(
             "telegram_chat_id": telegram_chat_id,
             "telegram_linked_at": datetime.now(UTC),
             "preferred_institution_id": preferred_institution_id,
+            "language_code": language_code,
         })
         .returning(models.UserAccount.id)
     )
