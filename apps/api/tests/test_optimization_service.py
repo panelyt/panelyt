@@ -1562,6 +1562,103 @@ class TestOptimizationService:
         assert suggestion.keeps == []
 
     @pytest.mark.asyncio
+    async def test_addon_suggestions_ignore_synthetic_panel_components(
+        self, service, db_session
+    ):
+        """Addon suggestions should not treat panel components as removable."""
+        await db_session.execute(delete(models.ItemBiomarker))
+        await db_session.execute(delete(models.Item))
+        await db_session.execute(delete(models.InstitutionItem))
+        await db_session.execute(delete(models.Institution))
+        await db_session.execute(delete(models.Biomarker))
+        await db_session.commit()
+        await insert_institution(db_session)
+
+        biomarkers = [
+            {"id": 14, "name": "Lipidogram", "elab_code": "14", "slug": "lipidogram"},
+            {"id": 15, "name": "Cholesterol", "elab_code": "15", "slug": "chol"},
+            {"id": 16, "name": "HDL", "elab_code": "16", "slug": "hdl"},
+            {"id": 17, "name": "LDL", "elab_code": "17", "slug": "ldl"},
+            {"id": 18, "name": "Triglycerides", "elab_code": "18", "slug": "tg"},
+            {"id": 1, "name": "Marker A", "elab_code": "A", "slug": "a"},
+            {"id": 2, "name": "Marker B", "elab_code": "B", "slug": "b"},
+            {"id": 3, "name": "Bonus X", "elab_code": "X", "slug": "x"},
+        ]
+        await db_session.execute(insert(models.Biomarker).values(biomarkers))
+
+        items = [
+            {
+                "id": 100,
+                "external_id": "package-base",
+                "kind": "package",
+                "name": "Package Base",
+                "slug": "package-base",
+                "price_now_grosz": 2000,
+                "price_min30_grosz": 2000,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 101,
+                "external_id": "panel-only",
+                "kind": "single",
+                "name": "Panel Only",
+                "slug": "panel-only",
+                "price_now_grosz": 800,
+                "price_min30_grosz": 800,
+                "currency": "PLN",
+                "is_available": True,
+            },
+            {
+                "id": 102,
+                "external_id": "package-addon",
+                "kind": "package",
+                "name": "Addon Package",
+                "slug": "addon-package",
+                "price_now_grosz": 1500,
+                "price_min30_grosz": 1500,
+                "currency": "PLN",
+                "is_available": True,
+            },
+        ]
+        await insert_items_with_offers(db_session, items)
+
+        await db_session.execute(
+            insert(models.ItemBiomarker).values(
+                [
+                    {"item_id": 100, "biomarker_id": 14},
+                    {"item_id": 100, "biomarker_id": 1},
+                    {"item_id": 100, "biomarker_id": 2},
+                    {"item_id": 101, "biomarker_id": 14},
+                    {"item_id": 102, "biomarker_id": 1},
+                    {"item_id": 102, "biomarker_id": 2},
+                    {"item_id": 102, "biomarker_id": 3},
+                ]
+            )
+        )
+        await db_session.commit()
+
+        result = await service.solve(
+            OptimizeRequest(biomarkers=["14", "A", "B"]),
+            DEFAULT_INSTITUTION_ID,
+        )
+
+        assert {item.id for item in result.items} == {100}
+        assert result.addon_suggestions == []
+
+        addon_request = AddonSuggestionsRequest(
+            biomarkers=["14", "A", "B"],
+            selected_item_ids=[item.id for item in result.items],
+        )
+        addon_result = await service.compute_addons(addon_request, DEFAULT_INSTITUTION_ID)
+
+        assert len(addon_result.addon_suggestions) == 1
+        suggestion = addon_result.addon_suggestions[0]
+        assert suggestion.package.name == "Addon Package"
+        assert {entry.code for entry in suggestion.adds} == {"X"}
+        assert suggestion.removes == []
+
+    @pytest.mark.asyncio
     async def test_solver_prefers_biomarker_names(self, service, db_session):
         """Returned payload should expose biomarker display names instead of slugs."""
         await db_session.execute(delete(models.ItemBiomarker))
