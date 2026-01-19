@@ -2,7 +2,9 @@
 
 import { useTranslations } from "next-intl";
 
+import { useAccountSettings } from "../hooks/useAccountSettings";
 import { useInstitutionHydrated } from "../hooks/useInstitutionHydrated";
+import { useUserSession } from "../hooks/useUserSession";
 import {
   DEFAULT_INSTITUTION_ID,
   useInstitutionStore,
@@ -16,8 +18,19 @@ export function OfficeSelectionBanner() {
   const hasSelectedInstitution = useInstitutionStore(
     (state) => state.hasSelectedInstitution,
   );
+  const sessionQuery = useUserSession();
+  const isLoggedIn = Boolean(sessionQuery.data);
+  const account = useAccountSettings(isLoggedIn);
+  const preferredInstitutionId =
+    account.settingsQuery.data?.preferred_institution_id ?? null;
+  const isAccountLoading =
+    isLoggedIn &&
+    (account.settingsQuery.isLoading || account.settingsQuery.isFetching);
 
   if (!isHydrated) return null;
+  if (sessionQuery.isLoading) return null;
+  if (isAccountLoading) return null;
+  if (preferredInstitutionId) return null;
   if (hasSelectedInstitution) return null;
   if (institutionId !== DEFAULT_INSTITUTION_ID) return null;
 
