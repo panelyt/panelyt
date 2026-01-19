@@ -1,10 +1,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OfficeSelector } from "../office-selector";
 
 vi.mock("../../hooks/useInstitution", () => ({
   useInstitution: vi.fn(),
+}));
+
+vi.mock("../../hooks/useInstitutionHydrated", () => ({
+  useInstitutionHydrated: vi.fn(),
 }));
 
 vi.mock("../../hooks/useInstitutionSearch", () => ({
@@ -40,10 +44,15 @@ vi.mock("next-intl", () => ({
 }));
 
 import { useInstitution } from "../../hooks/useInstitution";
+import { useInstitutionHydrated } from "../../hooks/useInstitutionHydrated";
 import { useInstitutionDetails } from "../../hooks/useInstitutionDetails";
 import { useInstitutionSearch } from "../../hooks/useInstitutionSearch";
 
 describe("OfficeSelector", () => {
+  beforeEach(() => {
+    vi.mocked(useInstitutionHydrated).mockReturnValue(true);
+  });
+
   it("uses the institution city when no label is stored", () => {
     const setInstitution = vi.fn();
     vi.mocked(useInstitution).mockReturnValue({
@@ -84,6 +93,36 @@ describe("OfficeSelector", () => {
     expect(
       screen.getByText("Current office: Pulawy, Main 1"),
     ).toBeInTheDocument();
+  });
+
+  it("does not show the institution id while details are loading", () => {
+    const setInstitution = vi.fn();
+    vi.mocked(useInstitution).mockReturnValue({
+      institutionId: 213,
+      label: null,
+      setInstitution,
+    });
+    vi.mocked(useInstitutionDetails).mockReturnValue(
+      {
+        data: null,
+        isLoading: true,
+      } as unknown as ReturnType<typeof useInstitutionDetails>,
+    );
+    vi.mocked(useInstitutionSearch).mockReturnValue(
+      {
+        data: {
+          results: [],
+        },
+        isFetching: false,
+      } as unknown as ReturnType<typeof useInstitutionSearch>,
+    );
+
+    render(<OfficeSelector />);
+
+    expect(
+      screen.getByRole("button", { name: "Office: ..." }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("#213")).not.toBeInTheDocument();
   });
 
   it("selects an institution from search results", () => {

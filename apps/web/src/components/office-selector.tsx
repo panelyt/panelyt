@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { useDebounce } from "../hooks/useDebounce";
 import { useInstitution } from "../hooks/useInstitution";
+import { useInstitutionHydrated } from "../hooks/useInstitutionHydrated";
 import { useInstitutionDetails } from "../hooks/useInstitutionDetails";
 import { useInstitutionSearch } from "../hooks/useInstitutionSearch";
 import { cn } from "../lib/cn";
@@ -78,7 +79,8 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const shouldLoadDetails = isOpen || !label;
+  const isHydrated = useInstitutionHydrated();
+  const shouldLoadDetails = isHydrated && (isOpen || !label);
   const institutionDetails = useInstitutionDetails(
     shouldLoadDetails ? institutionId : null,
   );
@@ -90,8 +92,7 @@ export function OfficeSelector({ className }: OfficeSelectorProps) {
     [searchQuery.data?.results],
   );
 
-  const currentLabel =
-    label ?? institutionDetails.data?.city ?? `#${institutionId}`;
+  const currentLabel = label ?? institutionDetails.data?.city ?? "...";
   const currentOfficeDetail = formatCurrentOfficeDetail(
     institutionDetails.data,
     currentLabel,
