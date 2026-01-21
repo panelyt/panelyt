@@ -18,9 +18,9 @@ from panelyt_api.core.diag import (
     DIAG_SINGLE_ITEM_URL_TEMPLATE,
 )
 from panelyt_api.db import models
+from panelyt_api.optimization.addons import AddonDependencies, compute_addon_suggestions
 from panelyt_api.optimization.candidates import prune_candidates
 from panelyt_api.optimization.context import (
-    AddonComputation,
     CandidateItem,
     OptimizationContext,
     ResolvedBiomarker,
@@ -40,8 +40,6 @@ from panelyt_api.optimization.synthetic_packages import (
 )
 from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import (
-    AddonBiomarker,
-    AddonSuggestion,
     AddonSuggestionsRequest,
     AddonSuggestionsResponse,
     OptimizeRequest,
@@ -59,8 +57,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CURRENCY = "PLN"
 PRICE_HISTORY_LOOKBACK_DAYS = 30
-ADDON_SUGGESTION_LIMIT = 2
-ADDON_CANDIDATE_POOL_SIZE = 10
 COVER_CACHE_MAXSIZE = 1000
 
 
@@ -194,8 +190,25 @@ class OptimizationService:
         # Build labels from resolved biomarkers
         existing_labels = self._token_display_map(context.resolved)
 
-        suggestions, suggestion_labels = await self._addon_suggestions(
-            context, chosen_items, existing_labels, institution_id
+        deps = AddonDependencies(
+            minimal_cover_subset=self._minimal_cover_subset,
+            expand_requested_tokens_raw=self._expand_requested_tokens_raw,
+            get_all_biomarkers_for_items=self._get_all_biomarkers_for_items,
+            expand_synthetic_panel_biomarkers=self._expand_synthetic_panel_biomarkers,
+            apply_synthetic_coverage_overrides=self._apply_synthetic_coverage_overrides,
+            augment_labels_for_tokens=self._augment_labels_for_tokens,
+            bonus_price_map=self._bonus_price_map,
+            token_display_map=self._token_display_map,
+            item_url=_item_url,
+        )
+
+        suggestions, suggestion_labels = await compute_addon_suggestions(
+            context,
+            chosen_items,
+            existing_labels,
+            institution_id,
+            deps,
+            currency=DEFAULT_CURRENCY,
         )
 
         return AddonSuggestionsResponse(
@@ -529,254 +542,6 @@ class OptimizationService:
                 "addon_suggestions": [],
             }
         )
-
-    async def _addon_suggestions(
-        self,
-        context: OptimizationContext,
-        chosen_items: Sequence[CandidateItem],
-        existing_labels: dict[str, str],
-        institution_id: int,
-    ) -> tuple[list[AddonSuggestion], dict[str, str]]:
-        if len(context.resolved) < 2 or not chosen_items:
-            return [], {}
-
-        selected_tokens = self._expand_requested_tokens_raw(
-            [entry.token for entry in context.resolved]
-        )
-        chosen_items_list = list(chosen_items)
-        chosen_total_grosz = sum(item.price_now for item in chosen_items_list)
-        chosen_by_id = {item.id: item for item in chosen_items_list}
-        baseline_coverage: set[str] = set()
-        for item in chosen_items_list:
-            baseline_coverage.update(
-                token for token in item.coverage if token in selected_tokens
-            )
-
-        chosen_ids = set(chosen_by_id.keys())
-
-        computations: list[AddonComputation] = []
-        for candidate in context.candidates:
-            if candidate.kind != "package" and not candidate.is_synthetic_package:
-                continue
-            if candidate.id in chosen_ids:
-                continue
-            covered_tokens = set(candidate.coverage) & selected_tokens
-            if len(covered_tokens) < 2:
-                continue
-            drop_cost, drop_ids = self._minimal_cover_subset(
-                covered_tokens, chosen_items_list
-            )
-            if math.isinf(drop_cost) or not drop_ids:
-                continue
-
-            remaining_coverage: set[str] = set()
-            for item in chosen_items_list:
-                if item.id in drop_ids:
-                    continue
-                remaining_coverage.update(
-                    token for token in item.coverage if token in selected_tokens
-                )
-
-            candidate_tokens = {
-                token for token in candidate.coverage if token in selected_tokens
-            }
-            covered_after = remaining_coverage | candidate_tokens
-            missing_tokens = baseline_coverage - covered_after
-
-            if missing_tokens:
-                replacement_candidates = [
-                    item
-                    for item in context.candidates
-                    if item.id not in drop_ids
-                    and item.id != candidate.id
-                    and item.coverage & missing_tokens
-                ]
-                readd_cost, _ = self._minimal_cover_subset(
-                    missing_tokens, replacement_candidates
-                )
-                if math.isinf(readd_cost):
-                    continue
-            else:
-                readd_cost = 0
-
-            estimated_total = (
-                chosen_total_grosz - drop_cost + candidate.price_now + readd_cost
-            )
-            computations.append(
-                AddonComputation(
-                    candidate=candidate,
-                    covered_tokens=covered_tokens,
-                    drop_cost_grosz=int(drop_cost),
-                    readd_cost_grosz=int(readd_cost),
-                    estimated_total_grosz=int(estimated_total),
-                    dropped_item_ids=drop_ids,
-                )
-            )
-
-        if not computations:
-            return [], {}
-
-        computations.sort(
-            key=lambda entry: (
-                entry.estimated_total_grosz - chosen_total_grosz,
-                entry.candidate.price_now,
-                entry.candidate.id,
-            )
-        )
-        pool_size = max(ADDON_SUGGESTION_LIMIT, ADDON_CANDIDATE_POOL_SIZE)
-        candidate_pool = computations[:pool_size]
-        package_ids = [entry.candidate.id for entry in candidate_pool]
-        if not package_ids:
-            return [], {}
-
-        lookup_ids = set(package_ids)
-        lookup_ids.update({item.id for item in chosen_items_list})
-        biomarkers_map, label_map = await self._get_all_biomarkers_for_items(list(lookup_ids))
-        self._expand_synthetic_panel_biomarkers(biomarkers_map)
-        self._apply_synthetic_coverage_overrides(
-            [*chosen_items_list, *(entry.candidate for entry in candidate_pool)],
-            biomarkers_map,
-        )
-        await self._augment_labels_for_tokens(
-            {token for tokens in biomarkers_map.values() for token in tokens},
-            label_map,
-        )
-        additional_labels: dict[str, str] = {}
-
-        resolved_labels = self._token_display_map(context.resolved)
-        combined_labels = {**resolved_labels, **existing_labels}
-
-        # Pre-compute all potential bonus tokens for batched price lookup
-        all_bonus_tokens: dict[str, str] = {}
-        for entry in candidate_pool:
-            item = entry.candidate
-            biomarkers = biomarkers_map.get(item.id, [])
-            for token in biomarkers:
-                if token not in selected_tokens:
-                    normalized = normalize_token(token)
-                    if normalized:
-                        all_bonus_tokens.setdefault(normalized, token)
-
-        bonus_price_map: dict[str, int] = {}
-        if all_bonus_tokens:
-            bonus_price_map = await self._bonus_price_map(all_bonus_tokens, institution_id)
-
-        bonus_current: set[str] = set()
-        for item_id in chosen_ids:
-            for token in biomarkers_map.get(item_id, []):
-                if token not in selected_tokens:
-                    bonus_current.add(token)
-
-        suggestions: list[AddonSuggestion] = []
-        for entry in candidate_pool:
-            item = entry.candidate
-            biomarkers = sorted(biomarkers_map.get(item.id, []))
-            remaining_ids = [
-                item_id for item_id in chosen_ids if item_id not in entry.dropped_item_ids
-            ]
-            bonus_remaining = {
-                token
-                for remaining_id in remaining_ids
-                for token in biomarkers_map.get(remaining_id, [])
-                if token not in selected_tokens
-            }
-            candidate_bonus_tokens = {
-                token for token in biomarkers if token not in selected_tokens
-            }
-            bonus_after = bonus_remaining | candidate_bonus_tokens
-            bonus_removed = bonus_current - bonus_after
-            bonus_kept = bonus_current & bonus_after
-            bonus_added = bonus_after - bonus_current
-
-            package_payload = ItemOut(
-                id=item.id,
-                kind=item.kind,
-                name=item.name,
-                slug=item.slug,
-                price_now_grosz=item.price_now,
-                price_min30_grosz=item.price_min30,
-                currency=DEFAULT_CURRENCY,
-                biomarkers=biomarkers,
-                url=_item_url(item),
-                on_sale=item.on_sale,
-                is_synthetic_package=item.is_synthetic_package,
-            )
-
-            def resolve_display(token: str) -> str:
-                for source in (
-                    label_map.get(token),
-                    combined_labels.get(token),
-                    context.token_to_original.get(token),
-                ):
-                    if source:
-                        return source
-                normalized = token.strip()
-                return normalized or token
-
-            covers = [
-                AddonBiomarker(code=token, display_name=resolve_display(token))
-                for token in sorted(entry.covered_tokens)
-            ]
-            adds = [
-                AddonBiomarker(code=token, display_name=resolve_display(token))
-                for token in sorted(bonus_added)
-            ]
-
-            if not adds:
-                continue
-            for token in biomarkers:
-                label = label_map.get(token)
-                if label:
-                    additional_labels.setdefault(token, label)
-
-            upgrade_cost_grosz = entry.estimated_total_grosz - chosen_total_grosz
-
-            removes = [
-                AddonBiomarker(code=token, display_name=resolve_display(token))
-                for token in sorted(bonus_removed)
-            ]
-            keeps = [
-                AddonBiomarker(code=token, display_name=resolve_display(token))
-                for token in sorted(bonus_kept)
-            ]
-
-            # Use batched prices instead of making individual DB queries
-            extra_tokens: list[str] = []
-            for addon_entry in adds:
-                normalized = normalize_token(addon_entry.code)
-                if normalized:
-                    extra_tokens.append(normalized)
-
-            if extra_tokens:
-                singles_total = 0
-                all_found = True
-                for normalized in extra_tokens:
-                    price = bonus_price_map.get(normalized)
-                    if price is None:
-                        all_found = False
-                        break
-                    singles_total += price
-
-                if all_found and singles_total and singles_total <= upgrade_cost_grosz:
-                    continue
-
-            suggestions.append(
-                AddonSuggestion(
-                    package=package_payload,
-                    upgrade_cost_grosz=int(upgrade_cost_grosz),
-                    upgrade_cost=round(upgrade_cost_grosz / 100, 2),
-                    estimated_total_now_grosz=entry.estimated_total_grosz,
-                    estimated_total_now=round(entry.estimated_total_grosz / 100, 2),
-                    covers=covers,
-                    adds=adds,
-                    removes=removes,
-                    keeps=keeps,
-                )
-            )
-            if len(suggestions) >= ADDON_SUGGESTION_LIMIT:
-                break
-
-        return suggestions, additional_labels
 
     def _minimal_cover_subset(
         self,
