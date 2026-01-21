@@ -6,21 +6,15 @@ import time
 from collections.abc import Iterable, Sequence
 
 from cachetools import LRUCache
-from ortools.sat.python import cp_model
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from panelyt_api.core import metrics
 from panelyt_api.core.cache import optimization_cache, optimization_context_cache
-from panelyt_api.core.diag import (
-    DIAG_PACKAGE_ITEM_URL_TEMPLATE,
-    DIAG_SINGLE_ITEM_URL_TEMPLATE,
-)
 from panelyt_api.optimization.addons import AddonDependencies, compute_addon_suggestions
 from panelyt_api.optimization.biomarkers import (
     apply_synthetic_coverage_overrides,
     augment_labels_for_tokens,
     bonus_price_map,
-    expand_requested_tokens,
     expand_requested_tokens_raw,
     expand_synthetic_panel_biomarkers,
     get_all_biomarkers_for_items,
@@ -34,18 +28,8 @@ from panelyt_api.optimization.context import (
     ResolvedBiomarker,
     SolverOutcome,
 )
-from panelyt_api.optimization.response_builder import (
-    ResponseDependencies,
-    build_response_payload,
-)
-from panelyt_api.optimization.solver import (
-    apply_coverage_constraints,
-    apply_objective,
-    build_coverage_map,
-    build_solver_model,
-    extract_selected_candidates,
-    solve_model,
-)
+from panelyt_api.optimization.item_url import item_url
+from panelyt_api.optimization.solver_runner import SolverRunner
 from panelyt_api.schemas.optimize import (
     AddonSuggestionsRequest,
     AddonSuggestionsResponse,
@@ -66,6 +50,7 @@ class OptimizationService:
         self.session = session
         self._resolver = BiomarkerResolver(session)
         self._candidate_collector = CandidateCollector(session)
+        self._solver_runner = SolverRunner(session, empty_response=self._empty_response)
         self._cover_cache: LRUCache[
             tuple[frozenset[str], frozenset[int]], tuple[float, frozenset[int]]
         ] = LRUCache(maxsize=COVER_CACHE_MAXSIZE)
@@ -207,7 +192,7 @@ class OptimizationService:
                 self.session, tokens, target_id
             ),
             token_display_map=token_display_map,
-            item_url=_item_url,
+            item_url=item_url,
         )
 
         suggestions, suggestion_labels = await compute_addon_suggestions(
@@ -252,68 +237,8 @@ class OptimizationService:
         biomarkers: Sequence[ResolvedBiomarker],
         institution_id: int,
     ) -> SolverOutcome:
-        coverage_map = build_coverage_map(candidates)
-        model, variables = build_solver_model(candidates)
-        uncovered = apply_coverage_constraints(
-            model, variables, coverage_map, biomarkers
-        )
-
-        if not variables:
-            response = self._empty_response(uncovered)
-            return SolverOutcome(
-                response=response,
-                chosen_items=[],
-                uncovered_tokens=set(uncovered),
-                total_now_grosz=0,
-                labels={},
-            )
-
-        apply_objective(model, candidates, variables)
-        status, solver = solve_model(model)
-
-        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            logger.warning("CP-SAT returned status %s", status)
-            fallback_uncovered = uncovered or [b.token for b in biomarkers]
-            response = self._empty_response(fallback_uncovered)
-            return SolverOutcome(
-                response=response,
-                chosen_items=[],
-                uncovered_tokens=set(fallback_uncovered),
-                total_now_grosz=0,
-                labels={},
-            )
-
-        chosen = extract_selected_candidates(solver, candidates, variables)
-        deps = ResponseDependencies(
-            expand_requested_tokens=expand_requested_tokens,
-            get_all_biomarkers_for_items=lambda item_ids: get_all_biomarkers_for_items(
-                self.session, item_ids
-            ),
-            expand_synthetic_panel_biomarkers=expand_synthetic_panel_biomarkers,
-            apply_synthetic_coverage_overrides=apply_synthetic_coverage_overrides,
-            augment_labels_for_tokens=lambda tokens, labels: augment_labels_for_tokens(
-                self.session, tokens, labels
-            ),
-            bonus_price_map=lambda tokens, target_id: bonus_price_map(
-                self.session, tokens, target_id
-            ),
-            item_url=_item_url,
-        )
-        response, labels = await build_response_payload(
-            chosen,
-            uncovered=uncovered,
-            requested_tokens=[biomarker.token for biomarker in biomarkers],
-            institution_id=institution_id,
-            deps=deps,
-            currency=DEFAULT_CURRENCY,
-        )
-        total_now_grosz = sum(item.price_now for item in chosen)
-        return SolverOutcome(
-            response=response,
-            chosen_items=list(chosen),
-            uncovered_tokens=set(uncovered),
-            total_now_grosz=int(total_now_grosz),
-            labels=labels,
+        return await self._solver_runner.run(
+            candidates, biomarkers, institution_id, currency=DEFAULT_CURRENCY
         )
 
     async def _finalize_response(
@@ -408,12 +333,3 @@ class OptimizationService:
             available.update(item.coverage)
         tokens = {b.token for b in biomarkers}
         return tokens - available
-
-def _item_url(item: CandidateItem) -> str:
-    template = (
-        DIAG_PACKAGE_ITEM_URL_TEMPLATE if item.kind == "package" else DIAG_SINGLE_ITEM_URL_TEMPLATE
-    )
-    try:
-        return template.format(slug=item.slug, external_id=item.external_id)
-    except Exception:  # pragma: no cover - fallback for malformed templates
-        return template

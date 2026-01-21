@@ -17,6 +17,7 @@ from panelyt_api.optimization.biomarkers import (
     expand_synthetic_panel_biomarkers,
     get_all_biomarkers_for_items,
 )
+from panelyt_api.optimization.item_url import item_url
 from panelyt_api.optimization.response_builder import (
     ResponseDependencies,
     build_response_payload,
@@ -25,7 +26,6 @@ from panelyt_api.optimization.service import (
     CandidateItem,
     OptimizationService,
     ResolvedBiomarker,
-    _item_url,
 )
 from panelyt_api.schemas.optimize import AddonSuggestionsRequest, OptimizeRequest
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
@@ -110,7 +110,7 @@ async def build_response(
         bonus_price_map=lambda tokens, target_id: bonus_price_map(
             service.session, tokens, target_id
         ),
-        item_url=_item_url,
+        item_url=item_url,
     )
     return await build_response_payload(
         candidates,
@@ -1911,7 +1911,7 @@ class TestOptimizationService:
             name="Test",
             slug="test-single",
         )
-        assert _item_url(single_item) == "https://diag.pl/sklep/badania/test-single"
+        assert item_url(single_item) == "https://diag.pl/sklep/badania/test-single"
 
         package_item = make_candidate(
             id=2,
@@ -1919,7 +1919,7 @@ class TestOptimizationService:
             name="Test Package",
             slug="test-package",
         )
-        assert _item_url(package_item) == "https://diag.pl/sklep/pakiety/test-package"
+        assert item_url(package_item) == "https://diag.pl/sklep/pakiety/test-package"
 
     @pytest.mark.asyncio
     async def test_solve_returns_empty_addon_suggestions(self, service, db_session):

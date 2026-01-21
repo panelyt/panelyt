@@ -1,5 +1,6 @@
 from panelyt_api.optimization.candidates import prune_candidates
-from panelyt_api.optimization.service import CandidateItem, _item_url
+from panelyt_api.optimization.item_url import item_url
+from panelyt_api.optimization.service import CandidateItem
 
 
 def test_prune_cheapest_single_only():
@@ -60,7 +61,7 @@ def test_item_url_builds_correct_path():
         regular_price=None,
         coverage={"ALT"},
     )
-    assert _item_url(candidate) == "https://diag.pl/sklep/pakiety/wellness"
+    assert item_url(candidate) == "https://diag.pl/sklep/pakiety/wellness"
 
     candidate.kind = "single"
-    assert _item_url(candidate) == "https://diag.pl/sklep/badania/wellness"
+    assert item_url(candidate) == "https://diag.pl/sklep/badania/wellness"
