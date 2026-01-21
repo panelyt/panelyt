@@ -8,11 +8,24 @@ from sqlalchemy import delete, insert
 
 from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.db import models
+from panelyt_api.optimization.candidates import prune_candidates
+from panelyt_api.optimization.biomarkers import (
+    apply_synthetic_coverage_overrides,
+    augment_labels_for_tokens,
+    bonus_price_map,
+    expand_requested_tokens,
+    expand_synthetic_panel_biomarkers,
+    get_all_biomarkers_for_items,
+)
+from panelyt_api.optimization.item_url import item_url
+from panelyt_api.optimization.response_builder import (
+    ResponseDependencies,
+    build_response_payload,
+)
 from panelyt_api.optimization.service import (
     CandidateItem,
     OptimizationService,
     ResolvedBiomarker,
-    _item_url,
 )
 from panelyt_api.schemas.optimize import AddonSuggestionsRequest, OptimizeRequest
 from panelyt_api.services.institutions import DEFAULT_INSTITUTION_ID
@@ -75,6 +88,38 @@ async def insert_items_with_offers(
     fetched_at = datetime.now(UTC)
     offers = [_offer_from_item(item, institution_id, fetched_at) for item in items]
     await db_session.execute(insert(models.InstitutionItem).values(offers))
+
+
+async def build_response(
+    service: OptimizationService,
+    candidates: list[CandidateItem],
+    uncovered: list[str],
+    requested_tokens: list[str],
+    institution_id: int,
+):
+    deps = ResponseDependencies(
+        expand_requested_tokens=expand_requested_tokens,
+        get_all_biomarkers_for_items=lambda item_ids: get_all_biomarkers_for_items(
+            service.session, item_ids
+        ),
+        expand_synthetic_panel_biomarkers=expand_synthetic_panel_biomarkers,
+        apply_synthetic_coverage_overrides=apply_synthetic_coverage_overrides,
+        augment_labels_for_tokens=lambda tokens, labels: augment_labels_for_tokens(
+            service.session, tokens, labels
+        ),
+        bonus_price_map=lambda tokens, target_id: bonus_price_map(
+            service.session, tokens, target_id
+        ),
+        item_url=item_url,
+    )
+    return await build_response_payload(
+        candidates,
+        uncovered=uncovered,
+        requested_tokens=requested_tokens,
+        institution_id=institution_id,
+        deps=deps,
+        currency="PLN",
+    )
 
 
 class TestOptimizationService:
@@ -459,7 +504,8 @@ class TestOptimizationService:
             coverage={"20", "21", "22", "23", "26"},
         )
 
-        response, labels = await service._build_response(
+        response, labels = await build_response(
+            service,
             [candidate],
             [],
             ["20", "21", "22", "23", "26"],
@@ -527,7 +573,8 @@ class TestOptimizationService:
             coverage={"20", "21", "22", "23", "26"},
         )
 
-        response, _labels = await service._build_response(
+        response, _labels = await build_response(
+            service,
             [candidate],
             [],
             ["19"],
@@ -609,7 +656,8 @@ class TestOptimizationService:
             coverage=set(),
         )
 
-        response, _labels = await service._build_response(
+        response, _labels = await build_response(
+            service,
             [candidate],
             [],
             ["20", "21", "22", "23", "26", "30", "31"],
@@ -629,7 +677,7 @@ class TestOptimizationService:
     def test_expand_synthetic_panel_biomarkers_replaces_panel_tokens(self, service):
         biomarkers_by_item = {1: ["19", "30"]}
 
-        service._expand_synthetic_panel_biomarkers(biomarkers_by_item)
+        expand_synthetic_panel_biomarkers(biomarkers_by_item)
 
         assert biomarkers_by_item[1] == ["20", "21", "22", "23", "26", "30"]
 
@@ -815,7 +863,7 @@ class TestOptimizationService:
             ),
         ]
 
-        pruned = service._prune_candidates(candidates)
+        pruned = prune_candidates(candidates)
         ids = {item.id for item in pruned}
         assert ids == {1, 2, 3}  # Both singles (cap 2) + package
 
@@ -851,7 +899,7 @@ class TestOptimizationService:
             ),
         ]
 
-        pruned = service._prune_candidates(candidates)
+        pruned = prune_candidates(candidates)
         ids = {item.id for item in pruned}
         assert ids == {1, 2}
 
@@ -878,7 +926,7 @@ class TestOptimizationService:
             ),
         ]
 
-        pruned = service._prune_candidates(candidates)
+        pruned = prune_candidates(candidates)
         ids = {item.id for item in pruned}
         assert ids == {2}  # Package dominates single test
 
@@ -923,7 +971,7 @@ class TestOptimizationService:
             ),
         ]
 
-        pruned = service._prune_candidates(candidates)
+        pruned = prune_candidates(candidates)
         ids = {item.id for item in pruned}
         assert ids == {11, 12}
 
@@ -1863,7 +1911,7 @@ class TestOptimizationService:
             name="Test",
             slug="test-single",
         )
-        assert _item_url(single_item) == "https://diag.pl/sklep/badania/test-single"
+        assert item_url(single_item) == "https://diag.pl/sklep/badania/test-single"
 
         package_item = make_candidate(
             id=2,
@@ -1871,7 +1919,7 @@ class TestOptimizationService:
             name="Test Package",
             slug="test-package",
         )
-        assert _item_url(package_item) == "https://diag.pl/sklep/pakiety/test-package"
+        assert item_url(package_item) == "https://diag.pl/sklep/pakiety/test-package"
 
     @pytest.mark.asyncio
     async def test_solve_returns_empty_addon_suggestions(self, service, db_session):

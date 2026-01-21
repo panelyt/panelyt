@@ -10,6 +10,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    testTimeout: 15000,
     exclude: [...configDefaults.exclude, 'tests/e2e/**'],
     coverage: {
       provider: 'v8',

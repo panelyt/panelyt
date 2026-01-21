@@ -1,13 +1,9 @@
-from panelyt_api.optimization.service import CandidateItem, OptimizationService, _item_url
-
-
-class DummySession:
-    async def execute(self, *_args, **_kwargs):  # pragma: no cover - replaced in tests
-        raise NotImplementedError
+from panelyt_api.optimization.candidates import prune_candidates
+from panelyt_api.optimization.item_url import item_url
+from panelyt_api.optimization.service import CandidateItem
 
 
 def test_prune_cheapest_single_only():
-    service = OptimizationService(DummySession())
     candidates = [
         CandidateItem(
             id=1,
@@ -47,7 +43,7 @@ def test_prune_cheapest_single_only():
         ),
     ]
 
-    pruned = service._prune_candidates(candidates)
+    pruned = prune_candidates(candidates)
     ids = {item.id for item in pruned}
     assert ids == {1, 2, 3}
 
@@ -65,7 +61,7 @@ def test_item_url_builds_correct_path():
         regular_price=None,
         coverage={"ALT"},
     )
-    assert _item_url(candidate) == "https://diag.pl/sklep/pakiety/wellness"
+    assert item_url(candidate) == "https://diag.pl/sklep/pakiety/wellness"
 
     candidate.kind = "single"
-    assert _item_url(candidate) == "https://diag.pl/sklep/badania/wellness"
+    assert item_url(candidate) == "https://diag.pl/sklep/badania/wellness"

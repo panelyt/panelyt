@@ -21,6 +21,39 @@ export interface SelectedBiomarker {
 const URL_PARAM_NAME = "biomarkers";
 const URL_UPDATE_DEBOUNCE_MS = 300;
 
+const normalizeCode = (code: string) => code.trim().toUpperCase();
+
+const normalizeCodes = (codes: string[]) =>
+  codes.map((code) => normalizeCode(code)).filter((code) => code.length > 0);
+
+const parseCodesParam = (value: string | null) =>
+  value ? normalizeCodes(value.split(",")) : [];
+
+const buildCodesKey = (codes: string[]) => normalizeCodes(codes).join(",");
+
+const buildSelectedNameMap = (selected: SelectedBiomarker[]) =>
+  new Map(selected.map((entry) => [normalizeCode(entry.code), entry.name]));
+
+const hasNameUpdates = (
+  previous: SelectedBiomarker[],
+  next: SelectedBiomarker[],
+) => {
+  const previousNames = buildSelectedNameMap(previous);
+  return next.some(
+    (biomarker) =>
+      previousNames.get(normalizeCode(biomarker.code)) !== biomarker.name,
+  );
+};
+
+const buildBiomarkersFromLookup = (
+  codes: string[],
+  nameMap: Record<string, string>,
+) =>
+  codes.map((code) => ({
+    code,
+    name: nameMap[code] || code,
+  }));
+
 /**
  * Looks up display names for biomarker codes.
  * Returns a map of code -> display name plus unresolved flag.
@@ -107,11 +140,7 @@ export function useUrlBiomarkerSync(
   // Debounce timer for URL updates
   const updateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedKey = useMemo(
-    () =>
-      selected
-        .map((entry) => entry.code.trim().toUpperCase())
-        .filter((code) => code.length > 0)
-        .join(","),
+    () => buildCodesKey(selected.map((entry) => entry.code)),
     [selected],
   );
   const selectedRef = useRef<SelectedBiomarker[]>(selected);
@@ -151,10 +180,7 @@ export function useUrlBiomarkerSync(
       return;
     }
 
-    const codes = biomarkersParam
-      .split(",")
-      .map((code) => code.trim().toUpperCase())
-      .filter((code) => code.length > 0);
+    const codes = parseCodesParam(biomarkersParam);
 
     if (codes.length === 0) {
       initialLoadDoneRef.current = true;
@@ -168,7 +194,7 @@ export function useUrlBiomarkerSync(
     const hasUnresolvedSelection = selectedMatchesUrl
       ? selectedRef.current.some(
           (entry) =>
-            entry.name.trim().toUpperCase() === entry.code.trim().toUpperCase(),
+            normalizeCode(entry.name) === normalizeCode(entry.code),
         )
       : false;
     if (selectedMatchesUrl && !hasUnresolvedSelection) {
@@ -184,15 +210,13 @@ export function useUrlBiomarkerSync(
     lastWrittenCodesRef.current = joinedCodes;
     loadedCodesRef.current = codes;
     loadedKeyRef.current = joinedCodes;
-    const selectedNames = new Map(
-      selectedRef.current.map((entry) => [entry.code.trim().toUpperCase(), entry.name]),
-    );
+    const selectedNames = buildSelectedNameMap(selectedRef.current);
     const pendingCodes = codes.filter((code) => {
       const selectedName = selectedNames.get(code);
       if (!selectedName) {
         return true;
       }
-      return selectedName.trim().toUpperCase() === code;
+      return normalizeCode(selectedName) === code;
     });
     const fallbackBiomarkers = codes.map((code) => ({
       code,
@@ -212,21 +236,11 @@ export function useUrlBiomarkerSync(
         if (cancelled) {
           return;
         }
-        const biomarkers = codes.map((code) => ({
-          code,
-          name: nameMap[code] || code,
-        }));
+        const biomarkers = buildBiomarkersFromLookup(codes, nameMap);
         unresolvedCodesRef.current = hasUnresolved ? new Set(codes) : new Set();
         lastLookupInstitutionRef.current = institutionId;
         const previous = lastLoadedRef.current ?? fallbackBiomarkers;
-        const previousNames = new Map(
-          previous.map((entry) => [entry.code.trim().toUpperCase(), entry.name]),
-        );
-        const hasUpdates = biomarkers.some(
-          (biomarker) =>
-            previousNames.get(biomarker.code.trim().toUpperCase()) !== biomarker.name,
-        );
-        if (hasUpdates) {
+        if (hasNameUpdates(previous, biomarkers)) {
           onLoadFromUrlRef.current(biomarkers);
           lastLoadedRef.current = biomarkers;
         }
@@ -275,10 +289,10 @@ export function useUrlBiomarkerSync(
           return;
         }
 
-        const biomarkers = loadedCodesRef.current.map((code) => ({
-          code,
-          name: nameMap[code] || code,
-        }));
+        const biomarkers = buildBiomarkersFromLookup(
+          loadedCodesRef.current,
+          nameMap,
+        );
 
         unresolvedCodesRef.current = hasUnresolved
           ? new Set(loadedCodesRef.current)
@@ -286,15 +300,7 @@ export function useUrlBiomarkerSync(
         lastLookupInstitutionRef.current = institutionId;
 
         const previous = lastLoadedRef.current ?? [];
-        const previousNames = new Map(
-          previous.map((entry) => [entry.code.trim().toUpperCase(), entry.name]),
-        );
-        const hasUpdates = biomarkers.some(
-          (biomarker) =>
-            previousNames.get(biomarker.code.trim().toUpperCase()) !== biomarker.name,
-        );
-
-        if (hasUpdates) {
+        if (hasNameUpdates(previous, biomarkers)) {
           onLoadFromUrlRef.current(biomarkers);
           lastLoadedRef.current = biomarkers;
         }

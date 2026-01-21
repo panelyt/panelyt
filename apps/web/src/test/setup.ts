@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom'
 
 import { server } from "./msw";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 vi.mock('../i18n/navigation', async () => {
   const React = await import('react')
@@ -71,6 +73,12 @@ vi.mock('next/navigation', () => ({
 }))
 
 process.env.NEXT_PUBLIC_API_URL = "http://localhost:8000";
+
+try {
+  mkdirSync(join(process.cwd(), "coverage", ".tmp"), { recursive: true });
+} catch {
+  // Ignore coverage temp directory creation failures in non-Node environments.
+}
 
 beforeAll(() => {
   server.listen({ onUnhandledRequest: "error" });
