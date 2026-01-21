@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime, timedelta
 
 from cachetools import LRUCache
@@ -19,6 +19,16 @@ from panelyt_api.core.diag import (
 )
 from panelyt_api.db import models
 from panelyt_api.optimization.addons import AddonDependencies, compute_addon_suggestions
+from panelyt_api.optimization.biomarkers import (
+    apply_synthetic_coverage_overrides,
+    augment_labels_for_tokens,
+    bonus_price_map,
+    expand_requested_tokens,
+    expand_requested_tokens_raw,
+    expand_synthetic_panel_biomarkers,
+    get_all_biomarkers_for_items,
+    token_display_map,
+)
 from panelyt_api.optimization.candidates import prune_candidates
 from panelyt_api.optimization.context import (
     CandidateItem,
@@ -49,11 +59,7 @@ from panelyt_api.schemas.optimize import (
     OptimizeResponse,
 )
 from panelyt_api.services.biomarker_resolver import BiomarkerResolver
-from panelyt_api.utils.normalization import (
-    create_normalized_lookup,
-    normalize_token,
-    normalize_tokens_set,
-)
+from panelyt_api.utils.normalization import create_normalized_lookup, normalize_token
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +109,7 @@ class OptimizationService:
                 combined_uncovered = self._combine_uncovered_tokens(
                     context.unresolved_inputs, outcome.uncovered_tokens
                 )
-                resolved_labels = self._token_display_map(context.resolved)
+                resolved_labels = token_display_map(context.resolved)
                 base_response = outcome.response.model_copy(
                     update={
                         "uncovered": combined_uncovered,
@@ -191,17 +197,23 @@ class OptimizationService:
             return AddonSuggestionsResponse()
 
         # Build labels from resolved biomarkers
-        existing_labels = self._token_display_map(context.resolved)
+        existing_labels = token_display_map(context.resolved)
 
         deps = AddonDependencies(
             minimal_cover_subset=self._minimal_cover_subset,
-            expand_requested_tokens_raw=self._expand_requested_tokens_raw,
-            get_all_biomarkers_for_items=self._get_all_biomarkers_for_items,
-            expand_synthetic_panel_biomarkers=self._expand_synthetic_panel_biomarkers,
-            apply_synthetic_coverage_overrides=self._apply_synthetic_coverage_overrides,
-            augment_labels_for_tokens=self._augment_labels_for_tokens,
-            bonus_price_map=self._bonus_price_map,
-            token_display_map=self._token_display_map,
+            expand_requested_tokens_raw=expand_requested_tokens_raw,
+            get_all_biomarkers_for_items=lambda item_ids: get_all_biomarkers_for_items(
+                self.session, item_ids
+            ),
+            expand_synthetic_panel_biomarkers=expand_synthetic_panel_biomarkers,
+            apply_synthetic_coverage_overrides=apply_synthetic_coverage_overrides,
+            augment_labels_for_tokens=lambda tokens, labels: augment_labels_for_tokens(
+                self.session, tokens, labels
+            ),
+            bonus_price_map=lambda tokens, target_id: bonus_price_map(
+                self.session, tokens, target_id
+            ),
+            token_display_map=token_display_map,
             item_url=_item_url,
         )
 
@@ -521,12 +533,18 @@ class OptimizationService:
 
         chosen = extract_selected_candidates(solver, candidates, variables)
         deps = ResponseDependencies(
-            expand_requested_tokens=self._expand_requested_tokens,
-            get_all_biomarkers_for_items=self._get_all_biomarkers_for_items,
-            expand_synthetic_panel_biomarkers=self._expand_synthetic_panel_biomarkers,
-            apply_synthetic_coverage_overrides=self._apply_synthetic_coverage_overrides,
-            augment_labels_for_tokens=self._augment_labels_for_tokens,
-            bonus_price_map=self._bonus_price_map,
+            expand_requested_tokens=expand_requested_tokens,
+            get_all_biomarkers_for_items=lambda item_ids: get_all_biomarkers_for_items(
+                self.session, item_ids
+            ),
+            expand_synthetic_panel_biomarkers=expand_synthetic_panel_biomarkers,
+            apply_synthetic_coverage_overrides=apply_synthetic_coverage_overrides,
+            augment_labels_for_tokens=lambda tokens, labels: augment_labels_for_tokens(
+                self.session, tokens, labels
+            ),
+            bonus_price_map=lambda tokens, target_id: bonus_price_map(
+                self.session, tokens, target_id
+            ),
             item_url=_item_url,
         )
         response, labels = await build_response_payload(
@@ -618,152 +636,6 @@ class OptimizationService:
         return list(dict.fromkeys(list(unresolved_inputs) + tokens))
 
     @staticmethod
-    def _token_display_map(
-        resolved: Sequence[ResolvedBiomarker],
-    ) -> dict[str, str]:
-        return {
-            biomarker.token: biomarker.display_name or biomarker.token
-            for biomarker in resolved
-        }
-
-    @staticmethod
-    def _apply_synthetic_coverage_overrides(
-        items: Sequence[CandidateItem],
-        biomarkers_by_item: dict[int, list[str]],
-    ) -> None:
-        for item in items:
-            if not item.is_synthetic_package:
-                continue
-            if not item.coverage:
-                continue
-            biomarkers_by_item[item.id] = sorted(item.coverage)
-
-    @staticmethod
-    def _expand_synthetic_panel_biomarkers(
-        biomarkers_by_item: dict[int, list[str]],
-    ) -> None:
-        synthetic_packages = load_diag_synthetic_packages()
-        if not synthetic_packages or not biomarkers_by_item:
-            return
-
-        panel_components = OptimizationService._panel_components_by_code(synthetic_packages)
-        if not panel_components:
-            return
-
-        for item_id, tokens in list(biomarkers_by_item.items()):
-            if not tokens:
-                continue
-            expanded: list[str] = []
-            seen = set()
-            for token in tokens:
-                normalized = normalize_token(token)
-                components = panel_components.get(normalized or "")
-                if components:
-                    for component in components:
-                        if component in seen:
-                            continue
-                        expanded.append(component)
-                        seen.add(component)
-                else:
-                    if token in seen:
-                        continue
-                    expanded.append(token)
-                    seen.add(token)
-            biomarkers_by_item[item_id] = expanded
-
-    @staticmethod
-    def _panel_components_by_code(
-        synthetic_packages: Sequence[SyntheticPackage],
-    ) -> dict[str, tuple[str, ...]]:
-        panel_components: dict[str, tuple[str, ...]] = {}
-        for mapping in synthetic_packages:
-            panel_code = mapping.panel_elab_code
-            if not panel_code or not mapping.component_elab_codes:
-                continue
-            normalized_panel = normalize_token(panel_code)
-            if not normalized_panel:
-                continue
-            panel_components[normalized_panel] = mapping.component_elab_codes
-        return panel_components
-
-    @staticmethod
-    def _expand_requested_tokens(requested_tokens: Sequence[str]) -> set[str]:
-        if not requested_tokens:
-            return set()
-
-        synthetic_packages = load_diag_synthetic_packages()
-        if not synthetic_packages:
-            return normalize_tokens_set(list(requested_tokens))
-
-        panel_components = OptimizationService._panel_components_by_code(synthetic_packages)
-        if not panel_components:
-            return normalize_tokens_set(list(requested_tokens))
-
-        expanded: list[str] = []
-        for token in requested_tokens:
-            normalized = normalize_token(token)
-            components = panel_components.get(normalized or "")
-            if components:
-                expanded.extend(components)
-            else:
-                expanded.append(token)
-        return normalize_tokens_set(expanded)
-
-    @staticmethod
-    def _expand_requested_tokens_raw(requested_tokens: Sequence[str]) -> set[str]:
-        if not requested_tokens:
-            return set()
-
-        synthetic_packages = load_diag_synthetic_packages()
-        if not synthetic_packages:
-            return set(requested_tokens)
-
-        panel_components = OptimizationService._panel_components_by_code(synthetic_packages)
-        if not panel_components:
-            return set(requested_tokens)
-
-        expanded: list[str] = []
-        for token in requested_tokens:
-            normalized = normalize_token(token)
-            components = panel_components.get(normalized or "")
-            if components:
-                expanded.extend(components)
-            else:
-                expanded.append(token)
-        return set(expanded)
-
-    async def _augment_labels_for_tokens(
-        self,
-        tokens: set[str],
-        labels: dict[str, str],
-    ) -> None:
-        missing = {token for token in tokens if token and token not in labels}
-        if not missing:
-            return
-        statement = (
-            select(
-                models.Biomarker.elab_code,
-                models.Biomarker.slug,
-                models.Biomarker.name,
-            )
-            .where(
-                or_(
-                    models.Biomarker.elab_code.in_(missing),
-                    models.Biomarker.slug.in_(missing),
-                    models.Biomarker.name.in_(missing),
-                )
-            )
-        )
-        rows = (await self.session.execute(statement)).all()
-        for elab_code, slug, name in rows:
-            display_name = (name or "").strip()
-            if not display_name:
-                continue
-            for candidate in (elab_code, slug, name):
-                if candidate and candidate in missing:
-                    labels.setdefault(candidate, display_name)
-
-    @staticmethod
     def _empty_response(uncovered: Sequence[str]) -> OptimizeResponse:
         return OptimizeResponse(
             total_now=0.0,
@@ -784,102 +656,6 @@ class OptimizationService:
             available.update(item.coverage)
         tokens = {b.token for b in biomarkers}
         return tokens - available
-
-    async def _get_all_biomarkers_for_items(
-        self, item_ids: list[int]
-    ) -> tuple[dict[int, list[str]], dict[str, str]]:
-        """Fetch biomarkers for items and provide display labels."""
-        if not item_ids:
-            return {}, {}
-
-        statement = (
-            select(
-                models.ItemBiomarker.item_id,
-                models.Biomarker.elab_code,
-                models.Biomarker.slug,
-                models.Biomarker.name,
-            )
-            .join(models.Biomarker, models.Biomarker.id == models.ItemBiomarker.biomarker_id)
-            .where(models.ItemBiomarker.item_id.in_(item_ids))
-        )
-
-        rows = (await self.session.execute(statement)).all()
-        result: dict[int, list[str]] = {}
-        labels: dict[str, str] = {}
-        for item_id, elab_code, slug, name in rows:
-            token = elab_code or slug or name
-            if not token:
-                continue
-            display_name = (name or "").strip()
-            if display_name:
-                labels.setdefault(token, display_name)
-            result.setdefault(item_id, []).append(token)
-
-        return result, labels
-
-    async def _bonus_price_map(
-        self, tokens: Mapping[str, str], institution_id: int
-    ) -> dict[str, int]:
-        """Return the best-known single-test price (in grosz) for each normalized token."""
-        if not tokens:
-            return {}
-
-        normalized_lookup = create_normalized_lookup(tokens)
-        raw_tokens = {value.strip() for value in tokens.values() if value.strip()}
-        if not raw_tokens or not normalized_lookup:
-            return {}
-
-        statement = (
-            select(
-                models.Biomarker.elab_code,
-                models.Biomarker.slug,
-                models.Biomarker.name,
-                func.min(models.InstitutionItem.price_now_grosz).label("min_price"),
-            )
-            .select_from(models.Biomarker)
-            .join(models.ItemBiomarker, models.ItemBiomarker.biomarker_id == models.Biomarker.id)
-            .join(models.Item, models.Item.id == models.ItemBiomarker.item_id)
-            .join(
-                models.InstitutionItem,
-                (models.InstitutionItem.item_id == models.Item.id)
-                & (models.InstitutionItem.institution_id == institution_id),
-            )
-            .where(models.Item.kind == "single")
-            .where(models.InstitutionItem.is_available.is_(True))
-            .where(models.InstitutionItem.price_now_grosz > 0)
-            .where(
-                or_(
-                    models.Biomarker.elab_code.in_(raw_tokens),
-                    models.Biomarker.slug.in_(raw_tokens),
-                    models.Biomarker.name.in_(raw_tokens),
-                )
-            )
-            .group_by(
-                models.Biomarker.id,
-                models.Biomarker.elab_code,
-                models.Biomarker.slug,
-                models.Biomarker.name,
-            )
-        )
-
-        rows = (await self.session.execute(statement)).all()
-        price_map: dict[str, int] = {}
-
-        for elab_code, slug, name, min_price in rows:
-            for candidate in (elab_code, slug, name):
-                if not candidate:
-                    continue
-                normalized = normalize_token(candidate)
-                key = normalized_lookup.get(normalized) if normalized else None
-                if key is None:
-                    continue
-                price_value = int(min_price or 0)
-                existing = price_map.get(key)
-                if existing is None or price_value < existing:
-                    price_map[key] = price_value
-                break
-
-        return price_map
 
 def _item_url(item: CandidateItem) -> str:
     template = (

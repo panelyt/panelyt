@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Awaitable, Callable
 
 from panelyt_api.optimization.context import CandidateItem
 from panelyt_api.schemas.common import ItemOut

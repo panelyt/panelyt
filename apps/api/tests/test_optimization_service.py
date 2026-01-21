@@ -9,6 +9,14 @@ from sqlalchemy import delete, insert
 from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.db import models
 from panelyt_api.optimization.candidates import prune_candidates
+from panelyt_api.optimization.biomarkers import (
+    apply_synthetic_coverage_overrides,
+    augment_labels_for_tokens,
+    bonus_price_map,
+    expand_requested_tokens,
+    expand_synthetic_panel_biomarkers,
+    get_all_biomarkers_for_items,
+)
 from panelyt_api.optimization.response_builder import (
     ResponseDependencies,
     build_response_payload,
@@ -90,12 +98,18 @@ async def build_response(
     institution_id: int,
 ):
     deps = ResponseDependencies(
-        expand_requested_tokens=service._expand_requested_tokens,
-        get_all_biomarkers_for_items=service._get_all_biomarkers_for_items,
-        expand_synthetic_panel_biomarkers=service._expand_synthetic_panel_biomarkers,
-        apply_synthetic_coverage_overrides=service._apply_synthetic_coverage_overrides,
-        augment_labels_for_tokens=service._augment_labels_for_tokens,
-        bonus_price_map=service._bonus_price_map,
+        expand_requested_tokens=expand_requested_tokens,
+        get_all_biomarkers_for_items=lambda item_ids: get_all_biomarkers_for_items(
+            service.session, item_ids
+        ),
+        expand_synthetic_panel_biomarkers=expand_synthetic_panel_biomarkers,
+        apply_synthetic_coverage_overrides=apply_synthetic_coverage_overrides,
+        augment_labels_for_tokens=lambda tokens, labels: augment_labels_for_tokens(
+            service.session, tokens, labels
+        ),
+        bonus_price_map=lambda tokens, target_id: bonus_price_map(
+            service.session, tokens, target_id
+        ),
         item_url=_item_url,
     )
     return await build_response_payload(
@@ -663,7 +677,7 @@ class TestOptimizationService:
     def test_expand_synthetic_panel_biomarkers_replaces_panel_tokens(self, service):
         biomarkers_by_item = {1: ["19", "30"]}
 
-        service._expand_synthetic_panel_biomarkers(biomarkers_by_item)
+        expand_synthetic_panel_biomarkers(biomarkers_by_item)
 
         assert biomarkers_by_item[1] == ["20", "21", "22", "23", "26", "30"]
 
