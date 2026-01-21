@@ -5,7 +5,6 @@ import math
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
-from typing import cast
 
 from cachetools import LRUCache
 from ortools.sat.python import cp_model
@@ -19,12 +18,21 @@ from panelyt_api.core.diag import (
     DIAG_SINGLE_ITEM_URL_TEMPLATE,
 )
 from panelyt_api.db import models
+from panelyt_api.optimization.candidates import prune_candidates
 from panelyt_api.optimization.context import (
     AddonComputation,
     CandidateItem,
     OptimizationContext,
     ResolvedBiomarker,
     SolverOutcome,
+)
+from panelyt_api.optimization.solver import (
+    apply_coverage_constraints,
+    apply_objective,
+    build_coverage_map,
+    build_solver_model,
+    extract_selected_candidates,
+    solve_model,
 )
 from panelyt_api.optimization.synthetic_packages import (
     SyntheticPackage,
@@ -50,11 +58,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_CURRENCY = "PLN"
-SOLVER_TIMEOUT_SECONDS = 5.0
-SOLVER_WORKERS = 8
 PRICE_HISTORY_LOOKBACK_DAYS = 30
-MAX_PACKAGE_VARIANTS_PER_COVERAGE = 2
-MAX_SINGLE_VARIANTS_PER_TOKEN = 2
 ADDON_SUGGESTION_LIMIT = 2
 ADDON_CANDIDATE_POOL_SIZE = 10
 COVER_CACHE_MAXSIZE = 1000
@@ -441,7 +445,7 @@ class OptimizationService:
         unresolved_inputs: list[str],
         candidates: list[CandidateItem],
     ) -> OptimizationContext | None:
-        pruned = self._prune_candidates(candidates)
+        pruned = prune_candidates(candidates)
         if not pruned:
             return None
         token_to_original = {entry.token: entry.original for entry in resolved}
@@ -462,108 +466,15 @@ class OptimizationService:
             return int(rolling_min)
         return int(current_price)
 
-    def _prune_candidates(self, candidates: Iterable[CandidateItem]) -> list[CandidateItem]:
-        items = list(candidates)
-        if not items:
-            return []
-
-        allowed_single_ids = self._select_single_variants(items)
-        filtered = [
-            item
-            for item in items
-            if not self._should_skip_single_candidate(item, allowed_single_ids)
-        ]
-        return self._remove_dominated_candidates(filtered)
-
-    @staticmethod
-    def _select_single_variants(items: Sequence[CandidateItem]) -> set[int]:
-        """Keep only the cheapest few singles per token."""
-        cheapest: dict[str, list[CandidateItem]] = {}
-        for item in items:
-            if item.kind != "single" or len(item.coverage) != 1:
-                continue
-            # coverage has exactly one token here
-            token = next(iter(item.coverage))
-            bucket = cheapest.setdefault(token, [])
-            bucket.append(item)
-
-        allowed: set[int] = set()
-        for bucket in cheapest.values():
-            bucket.sort(
-                key=lambda candidate: (
-                    candidate.price_now,
-                    candidate.price_min30,
-                    candidate.id,
-                )
-            )
-            for candidate in bucket[:MAX_SINGLE_VARIANTS_PER_TOKEN]:
-                allowed.add(candidate.id)
-        return allowed
-
-    @staticmethod
-    def _should_skip_single_candidate(
-        item: CandidateItem, allowed_single_ids: set[int]
-    ) -> bool:
-        if item.kind != "single" or len(item.coverage) != 1:
-            return False
-        return item.id not in allowed_single_ids
-
-    @staticmethod
-    def _remove_dominated_candidates(items: Sequence[CandidateItem]) -> list[CandidateItem]:
-        retained: dict[int, CandidateItem] = {}
-        seen_coverages: list[tuple[frozenset[str], int]] = []
-        package_variant_counts: dict[frozenset[str], int] = {}
-        single_variant_counts: dict[frozenset[str], int] = {}
-        ordered = sorted(
-            items,
-            key=lambda item: (
-                -len(item.coverage),
-                item.price_now,
-                item.price_min30,
-                item.id,
-            ),
-        )
-
-        for candidate in ordered:
-            coverage = frozenset(candidate.coverage)
-            dominated = any(
-                existing_coverage.issuperset(coverage)
-                and existing_price <= candidate.price_now
-                for existing_coverage, existing_price in seen_coverages
-            )
-            if dominated and candidate.kind == "single" and not candidate.is_synthetic_package:
-                equal_or_cheaper = any(
-                    existing_coverage == coverage and existing_price <= candidate.price_now
-                    for existing_coverage, existing_price in seen_coverages
-                )
-                if equal_or_cheaper:
-                    variants = single_variant_counts.get(coverage, 0)
-                    if variants < MAX_SINGLE_VARIANTS_PER_TOKEN:
-                        dominated = False
-            if dominated and (candidate.kind == "package" or candidate.is_synthetic_package):
-                variants = package_variant_counts.get(coverage, 0)
-                if variants < MAX_PACKAGE_VARIANTS_PER_COVERAGE:
-                    dominated = False
-            if dominated:
-                continue
-            retained[candidate.id] = candidate
-            seen_coverages.append((coverage, candidate.price_now))
-            if candidate.kind == "package" or candidate.is_synthetic_package:
-                package_variant_counts[coverage] = package_variant_counts.get(coverage, 0) + 1
-            if candidate.kind == "single" and not candidate.is_synthetic_package:
-                single_variant_counts[coverage] = single_variant_counts.get(coverage, 0) + 1
-
-        return [item for item in items if item.id in retained]
-
     async def _run_solver(
         self,
         candidates: Sequence[CandidateItem],
         biomarkers: Sequence[ResolvedBiomarker],
         institution_id: int,
     ) -> SolverOutcome:
-        coverage_map = self._build_coverage_map(candidates)
-        model, variables = self._build_solver_model(candidates)
-        uncovered = self._apply_coverage_constraints(
+        coverage_map = build_coverage_map(candidates)
+        model, variables = build_solver_model(candidates)
+        uncovered = apply_coverage_constraints(
             model, variables, coverage_map, biomarkers
         )
 
@@ -577,8 +488,8 @@ class OptimizationService:
                 labels={},
             )
 
-        self._apply_objective(model, candidates, variables)
-        status, solver = self._solve_model(model)
+        apply_objective(model, candidates, variables)
+        status, solver = solve_model(model)
 
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             logger.warning("CP-SAT returned status %s", status)
@@ -592,7 +503,7 @@ class OptimizationService:
                 labels={},
             )
 
-        chosen = self._extract_selected_candidates(solver, candidates, variables)
+        chosen = extract_selected_candidates(solver, candidates, variables)
         response, labels = await self._build_response(
             chosen,
             uncovered,
@@ -935,72 +846,6 @@ class OptimizationService:
             biomarker.token: biomarker.display_name or biomarker.token
             for biomarker in resolved
         }
-
-    @staticmethod
-    def _build_solver_model(
-        candidates: Sequence[CandidateItem],
-    ) -> tuple[cp_model.CpModel, dict[int, cp_model.IntVar]]:
-        model = cp_model.CpModel()
-        variables = {candidate.id: model.NewBoolVar(candidate.slug) for candidate in candidates}
-        return model, variables
-
-    @staticmethod
-    def _build_coverage_map(
-        candidates: Sequence[CandidateItem],
-    ) -> dict[str, list[int]]:
-        coverage: dict[str, list[int]] = {}
-        for item in candidates:
-            for token in item.coverage:
-                coverage.setdefault(token, []).append(item.id)
-        return coverage
-
-    @staticmethod
-    def _apply_coverage_constraints(
-        model: cp_model.CpModel,
-        variables: Mapping[int, cp_model.IntVar],
-        coverage_map: Mapping[str, Sequence[int]],
-        biomarkers: Sequence[ResolvedBiomarker],
-    ) -> list[str]:
-        uncovered: list[str] = []
-        for biomarker in biomarkers:
-            covering = coverage_map.get(biomarker.token)
-            if not covering:
-                uncovered.append(biomarker.token)
-                continue
-            model.Add(sum(variables[item_id] for item_id in covering) >= 1)
-        return uncovered
-
-    @staticmethod
-    def _apply_objective(
-        model: cp_model.CpModel,
-        candidates: Sequence[CandidateItem],
-        variables: Mapping[int, cp_model.IntVar],
-    ) -> None:
-        model.Minimize(
-            sum(candidate.price_now * variables[candidate.id] for candidate in candidates)
-        )
-
-    @staticmethod
-    def _solve_model(
-        model: cp_model.CpModel,
-    ) -> tuple[int, cp_model.CpSolver]:
-        solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = SOLVER_TIMEOUT_SECONDS
-        solver.parameters.num_search_workers = SOLVER_WORKERS
-        status = cast(int, solver.Solve(model))
-        return status, solver
-
-    @staticmethod
-    def _extract_selected_candidates(
-        solver: cp_model.CpSolver,
-        candidates: Sequence[CandidateItem],
-        variables: Mapping[int, cp_model.IntVar],
-    ) -> list[CandidateItem]:
-        return [
-            candidate
-            for candidate in candidates
-            if solver.Value(variables[candidate.id])
-        ]
 
     async def _build_response(
         self,

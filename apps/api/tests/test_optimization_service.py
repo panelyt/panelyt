@@ -8,6 +8,7 @@ from sqlalchemy import delete, insert
 
 from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.db import models
+from panelyt_api.optimization.candidates import prune_candidates
 from panelyt_api.optimization.service import (
     CandidateItem,
     OptimizationService,
@@ -815,7 +816,7 @@ class TestOptimizationService:
             ),
         ]
 
-        pruned = service._prune_candidates(candidates)
+        pruned = prune_candidates(candidates)
         ids = {item.id for item in pruned}
         assert ids == {1, 2, 3}  # Both singles (cap 2) + package
 
@@ -851,7 +852,7 @@ class TestOptimizationService:
             ),
         ]
 
-        pruned = service._prune_candidates(candidates)
+        pruned = prune_candidates(candidates)
         ids = {item.id for item in pruned}
         assert ids == {1, 2}
 
@@ -878,7 +879,7 @@ class TestOptimizationService:
             ),
         ]
 
-        pruned = service._prune_candidates(candidates)
+        pruned = prune_candidates(candidates)
         ids = {item.id for item in pruned}
         assert ids == {2}  # Package dominates single test
 
@@ -923,7 +924,7 @@ class TestOptimizationService:
             ),
         ]
 
-        pruned = service._prune_candidates(candidates)
+        pruned = prune_candidates(candidates)
         ids = {item.id for item in pruned}
         assert ids == {11, 12}
 
