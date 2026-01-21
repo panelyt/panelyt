@@ -9,6 +9,10 @@ from sqlalchemy import delete, insert
 from panelyt_api.core.cache import clear_all_caches
 from panelyt_api.db import models
 from panelyt_api.optimization.candidates import prune_candidates
+from panelyt_api.optimization.response_builder import (
+    ResponseDependencies,
+    build_response_payload,
+)
 from panelyt_api.optimization.service import (
     CandidateItem,
     OptimizationService,
@@ -76,6 +80,32 @@ async def insert_items_with_offers(
     fetched_at = datetime.now(UTC)
     offers = [_offer_from_item(item, institution_id, fetched_at) for item in items]
     await db_session.execute(insert(models.InstitutionItem).values(offers))
+
+
+async def build_response(
+    service: OptimizationService,
+    candidates: list[CandidateItem],
+    uncovered: list[str],
+    requested_tokens: list[str],
+    institution_id: int,
+):
+    deps = ResponseDependencies(
+        expand_requested_tokens=service._expand_requested_tokens,
+        get_all_biomarkers_for_items=service._get_all_biomarkers_for_items,
+        expand_synthetic_panel_biomarkers=service._expand_synthetic_panel_biomarkers,
+        apply_synthetic_coverage_overrides=service._apply_synthetic_coverage_overrides,
+        augment_labels_for_tokens=service._augment_labels_for_tokens,
+        bonus_price_map=service._bonus_price_map,
+        item_url=_item_url,
+    )
+    return await build_response_payload(
+        candidates,
+        uncovered=uncovered,
+        requested_tokens=requested_tokens,
+        institution_id=institution_id,
+        deps=deps,
+        currency="PLN",
+    )
 
 
 class TestOptimizationService:
@@ -460,7 +490,8 @@ class TestOptimizationService:
             coverage={"20", "21", "22", "23", "26"},
         )
 
-        response, labels = await service._build_response(
+        response, labels = await build_response(
+            service,
             [candidate],
             [],
             ["20", "21", "22", "23", "26"],
@@ -528,7 +559,8 @@ class TestOptimizationService:
             coverage={"20", "21", "22", "23", "26"},
         )
 
-        response, _labels = await service._build_response(
+        response, _labels = await build_response(
+            service,
             [candidate],
             [],
             ["19"],
@@ -610,7 +642,8 @@ class TestOptimizationService:
             coverage=set(),
         )
 
-        response, _labels = await service._build_response(
+        response, _labels = await build_response(
+            service,
             [candidate],
             [],
             ["20", "21", "22", "23", "26", "30", "31"],

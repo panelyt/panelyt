@@ -26,6 +26,10 @@ from panelyt_api.optimization.context import (
     ResolvedBiomarker,
     SolverOutcome,
 )
+from panelyt_api.optimization.response_builder import (
+    ResponseDependencies,
+    build_response_payload,
+)
 from panelyt_api.optimization.solver import (
     apply_coverage_constraints,
     apply_objective,
@@ -38,7 +42,6 @@ from panelyt_api.optimization.synthetic_packages import (
     SyntheticPackage,
     load_diag_synthetic_packages,
 )
-from panelyt_api.schemas.common import ItemOut
 from panelyt_api.schemas.optimize import (
     AddonSuggestionsRequest,
     AddonSuggestionsResponse,
@@ -517,11 +520,22 @@ class OptimizationService:
             )
 
         chosen = extract_selected_candidates(solver, candidates, variables)
-        response, labels = await self._build_response(
+        deps = ResponseDependencies(
+            expand_requested_tokens=self._expand_requested_tokens,
+            get_all_biomarkers_for_items=self._get_all_biomarkers_for_items,
+            expand_synthetic_panel_biomarkers=self._expand_synthetic_panel_biomarkers,
+            apply_synthetic_coverage_overrides=self._apply_synthetic_coverage_overrides,
+            augment_labels_for_tokens=self._augment_labels_for_tokens,
+            bonus_price_map=self._bonus_price_map,
+            item_url=_item_url,
+        )
+        response, labels = await build_response_payload(
             chosen,
-            uncovered,
-            [biomarker.token for biomarker in biomarkers],
-            institution_id,
+            uncovered=uncovered,
+            requested_tokens=[biomarker.token for biomarker in biomarkers],
+            institution_id=institution_id,
+            deps=deps,
+            currency=DEFAULT_CURRENCY,
         )
         total_now_grosz = sum(item.price_now for item in chosen)
         return SolverOutcome(
@@ -611,72 +625,6 @@ class OptimizationService:
             biomarker.token: biomarker.display_name or biomarker.token
             for biomarker in resolved
         }
-
-    async def _build_response(
-        self,
-        chosen: Sequence[CandidateItem],
-        uncovered: Sequence[str],
-        requested_tokens: Sequence[str],
-        institution_id: int,
-    ) -> tuple[OptimizeResponse, dict[str, str]]:
-        total_now = round(sum(item.price_now for item in chosen) / 100, 2)
-        total_min30 = round(sum(item.price_min30 for item in chosen) / 100, 2)
-        explain = self._build_explain_map(chosen)
-
-        chosen_item_ids = [item.id for item in chosen]
-        biomarkers_by_item, labels = await self._get_all_biomarkers_for_items(chosen_item_ids)
-        self._expand_synthetic_panel_biomarkers(biomarkers_by_item)
-        self._apply_synthetic_coverage_overrides(chosen, biomarkers_by_item)
-        await self._augment_labels_for_tokens(
-            {token for tokens in biomarkers_by_item.values() for token in tokens},
-            labels,
-        )
-
-        requested_normalized = self._expand_requested_tokens(requested_tokens)
-        bonus_tokens: dict[str, str] = {}
-        for item in chosen:
-            for token in biomarkers_by_item.get(item.id, []):
-                if not token:
-                    continue
-                normalized = normalize_token(token)
-                if not normalized or normalized in requested_normalized:
-                    continue
-                bonus_tokens.setdefault(normalized, token)
-
-        bonus_price_map = await self._bonus_price_map(bonus_tokens, institution_id)
-        bonus_total_grosz = sum(bonus_price_map.get(key, 0) for key in bonus_tokens.keys())
-        bonus_total_now = round(bonus_total_grosz / 100, 2) if bonus_total_grosz else 0.0
-        bonus_biomarkers = sorted({token for token in bonus_tokens.values() if token})
-
-        items_payload = [
-            ItemOut(
-                id=item.id,
-                kind=item.kind,
-                name=item.name,
-                slug=item.slug,
-                price_now_grosz=item.price_now,
-                price_min30_grosz=item.price_min30,
-                currency=DEFAULT_CURRENCY,
-                biomarkers=sorted(biomarkers_by_item.get(item.id, [])),
-                url=_item_url(item),
-                on_sale=item.on_sale,
-                is_synthetic_package=item.is_synthetic_package,
-            )
-            for item in chosen
-        ]
-
-        response = OptimizeResponse(
-            total_now=total_now,
-            total_min30=total_min30,
-            currency=DEFAULT_CURRENCY,
-            items=items_payload,
-            bonus_total_now=bonus_total_now,
-            bonus_biomarkers=bonus_biomarkers,
-            explain=explain,
-            uncovered=list(uncovered),
-            labels=labels,
-        )
-        return response, labels
 
     @staticmethod
     def _apply_synthetic_coverage_overrides(
@@ -814,16 +762,6 @@ class OptimizationService:
             for candidate in (elab_code, slug, name):
                 if candidate and candidate in missing:
                     labels.setdefault(candidate, display_name)
-
-    @staticmethod
-    def _build_explain_map(
-        chosen: Sequence[CandidateItem],
-    ) -> dict[str, list[str]]:
-        explain: dict[str, list[str]] = {}
-        for item in chosen:
-            for token in item.coverage:
-                explain.setdefault(token, []).append(item.name)
-        return explain
 
     @staticmethod
     def _empty_response(uncovered: Sequence[str]) -> OptimizeResponse:
