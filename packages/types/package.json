@@ -22,7 +22,7 @@
     "prepare": "pnpm build"
   },
   "dependencies": {
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "tsup": "^8.2.4",
